@@ -66,6 +66,7 @@ model Event {
   revisions           EventRevision[]   @relation("EventRevisions")
   publishedRevision   EventRevision?    @relation("CurrentPublishedRevision", fields: [publishedRevisionId], references: [id])
   registrationForm    RegistrationForm?
+  applications        Application[]
 
   @@index([organizerId, createdAt])
 }
@@ -164,16 +165,63 @@ model RegistrationFieldOption {
 }
 
 model EventRevision {
-  id              String   @id @default(cuid())
+  id              String        @id @default(cuid())
   eventId         String
-  event           Event    @relation("EventRevisions", fields: [eventId], references: [id])
-  currentForEvent Event?   @relation("CurrentPublishedRevision")
+  event           Event         @relation("EventRevisions", fields: [eventId], references: [id])
+  currentForEvent Event?        @relation("CurrentPublishedRevision")
   number          Int
   contentVersion  Int
   snapshot        Json
-  publishedAt     DateTime @db.Timestamptz(3)
-  createdAt       DateTime @default(now()) @db.Timestamptz(3)
+  publishedAt     DateTime      @db.Timestamptz(3)
+  createdAt       DateTime      @default(now()) @db.Timestamptz(3)
+  applications    Application[]
 
+  @@unique([eventId, id])
   @@unique([eventId, number])
   @@unique([eventId, contentVersion])
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Application {
+  id              String              @id @default(cuid())
+  eventId         String
+  eventRevisionId String
+  event           Event               @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  eventRevision   EventRevision       @relation(fields: [eventId, eventRevisionId], references: [eventId, id], onDelete: Restrict)
+  fullName        String
+  email           String
+  status          ApplicationStatus   @default(PENDING)
+  createdAt       DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime            @updatedAt @db.Timestamptz(3)
+  answers         ApplicationAnswer[]
+
+  @@unique([eventId, email])
+  @@index([eventId, status])
+  @@index([eventRevisionId])
+}
+
+model ApplicationAnswer {
+  id              String                    @id @default(cuid())
+  applicationId   String
+  application     Application               @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  // Historical identifiers refer only to the immutable revision snapshot.
+  fieldId         String
+  textValue       String?
+  booleanValue    Boolean?
+  selectedOptions ApplicationAnswerOption[]
+
+  @@unique([applicationId, fieldId])
+}
+
+model ApplicationAnswerOption {
+  answerId String
+  optionId String
+  answer   ApplicationAnswer @relation(fields: [answerId], references: [id], onDelete: Cascade)
+
+  @@id([answerId, optionId])
 }

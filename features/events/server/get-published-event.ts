@@ -7,11 +7,13 @@ import { prisma } from "@/lib/prisma";
 export const getPublishedEvent = cache(async (publicId: string) => {
   const event = await prisma.event.findUnique({
     where: { publicId },
-    select: { publishedRevision: { select: { snapshot: true } } },
+    select: { publishedRevision: { select: { id: true, snapshot: true } } },
   });
   const snapshot = eventSnapshotSchema.safeParse(
     event?.publishedRevision?.snapshot,
   );
 
-  return snapshot.success ? snapshot.data : null;
+  return snapshot.success && event?.publishedRevision
+    ? { snapshot: snapshot.data, eventRevisionId: event.publishedRevision.id }
+    : null;
 });

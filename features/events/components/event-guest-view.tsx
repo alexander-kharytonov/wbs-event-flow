@@ -1,4 +1,5 @@
 import { Alert, Divider, Paper, Stack, Typography } from "@mui/material";
+import type { ReactNode } from "react";
 import { formatEventTime } from "@/features/events/format-event-time";
 import { formatTimezone } from "@/features/events/format-timezone";
 import { registrationAvailability } from "@/features/events/registration-availability";
@@ -7,9 +8,11 @@ import type { EventSnapshot } from "@/features/events/schemas/event-snapshot";
 export function EventGuestView({
   snapshot,
   now,
+  children,
 }: {
   snapshot: EventSnapshot;
   now: Date;
+  children?: ReactNode;
 }) {
   const state = registrationAvailability(snapshot, now);
   const format = (instant: string) =>
@@ -51,7 +54,7 @@ export function EventGuestView({
               ? `Registration opens on ${format(snapshot.registrationOpensAt)}.`
               : state === "CLOSED"
                 ? "Registration is closed."
-                : "Registration is open. Online submission is not available yet."}
+                : "Registration is open."}
           </Alert>
           {snapshot.registrationOpensAt && (
             <Typography>
@@ -72,6 +75,7 @@ export function EventGuestView({
             </Typography>
           )}
         </Stack>
+        {children}
       </Stack>
     </Paper>
   );

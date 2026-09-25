@@ -39,6 +39,8 @@ const fieldSchema = z
 
     if (
       !validated.success ||
+      new Set(field.options.map((option) => option.id)).size !==
+        field.options.length ||
       (!isChoice(field.type) && field.options.length > 0)
     ) {
       ctx.addIssue({
@@ -72,6 +74,15 @@ export const eventSnapshotSchema = z
     registrationForm: z.strictObject({ fields: z.array(fieldSchema) }),
   })
   .superRefine((event, ctx) => {
+    const fieldIds = event.registrationForm.fields.map((field) => field.id);
+
+    if (new Set(fieldIds).size !== fieldIds.length) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Registration question IDs must be unique.",
+      });
+    }
+
     if (event.startsAt >= event.endsAt) {
       ctx.addIssue({ code: "custom", message: "End must be after start." });
     }
