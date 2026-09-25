@@ -47,3 +47,41 @@ a {
     color-scheme: dark;
   }
 }
+
+main {
+  width: min(100%, 36rem);
+  margin: 4rem auto;
+  padding: 1.5rem;
+}
+
+main,
+section,
+form,
+nav,
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+input,
+button {
+  font: inherit;
+  padding: 0.75rem;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: wait;
+}
+
+main a {
+  text-decoration: underline;
+}
+
+[role="alert"] {
+  color: light-dark(#a31515, #ffaaaa);
+}
