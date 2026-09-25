@@ -10,6 +10,7 @@ import {
   Typography,
 } from "@mui/material";
 import { notFound } from "next/navigation";
+import { EventNavigation } from "@/features/events/components/event-navigation";
 import { formatEventTime } from "@/features/events/format-event-time";
 import { formatTimezone } from "@/features/events/format-timezone";
 import { requireOrganizer } from "@/features/organizer/server/require-organizer";
@@ -66,6 +67,7 @@ export default async function EventPage({
           </Button>
         )}
       </Stack>
+      <EventNavigation eventId={id} active="overview" />
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, borderRadius: 2 }}>
         <Stack spacing={3}>
           <Stack component="section" spacing={2}>
