@@ -3,7 +3,9 @@
 import {
   Alert,
   Button,
+  Divider,
   Link,
+  Paper,
   Stack,
   TextField,
   Typography,
@@ -11,7 +13,13 @@ import {
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
 
-export function AuthForm({ mode }: { mode: "register" | "sign-in" }) {
+export function AuthForm({
+  mode,
+  notice,
+}: {
+  mode: "register" | "sign-in";
+  notice?: string;
+}) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
@@ -58,70 +66,111 @@ export function AuthForm({ mode }: { mode: "register" | "sign-in" }) {
     }
   }
 
-  if (sent) {
-    return (
-      <Stack spacing={2} component="section" aria-live="polite">
-        <Typography variant="h4" component="h1">
-          Check your email
-        </Typography>
-        <Alert severity="info">
-          If this email can be registered, we sent a verification link. Follow
-          the link within one hour. If you already have an account, sign in.
-        </Alert>
-        <Link href="/sign-in">Go to sign in</Link>
-      </Stack>
-    );
-  }
-
   return (
-    <Stack spacing={3}>
-      <Typography variant="h4" component="h1">
-        {registering ? "Organizer registration" : "Sign in"}
-      </Typography>
-      {registering && (
-        <Typography color="text.secondary">
-          Create your account and verify your email to get started as an
-          organizer.
-        </Typography>
-      )}
-      <Stack component="form" spacing={2} onSubmit={submit}>
-        {registering && (
-          <TextField
-            label="Name"
-            name="name"
-            autoComplete="name"
-            required
-            fullWidth
-          />
-        )}
-        <TextField
-          label="Email"
-          name="email"
-          type="email"
-          autoComplete="email"
-          required
-          fullWidth
-        />
-        <TextField
-          label="Password"
-          name="password"
-          type="password"
-          autoComplete={registering ? "new-password" : "current-password"}
-          slotProps={{ htmlInput: { minLength: 10, maxLength: 128 } }}
-          helperText={registering ? "Use 10–128 characters." : undefined}
-          required
-          fullWidth
-        />
-        {error && <Alert severity="error">{error}</Alert>}
-        <Button type="submit" variant="contained" disabled={pending}>
-          {pending ? "Please wait…" : registering ? "Register" : "Sign in"}
-        </Button>
-      </Stack>
-      <Link href={registering ? "/sign-in" : "/register"}>
-        {registering
-          ? "Already registered? Sign in"
-          : "Register as an organizer"}
+    <Stack
+      spacing={3}
+      sx={{ width: "100%", maxWidth: 480, mx: "auto", my: "auto" }}
+    >
+      <Link href="/" sx={{ alignSelf: "flex-start" }}>
+        Back to home
       </Link>
+      <Paper variant="outlined" sx={{ p: { xs: 3, sm: 4 }, borderRadius: 2 }}>
+        {sent ? (
+          <Stack spacing={3} component="section" aria-live="polite">
+            <Stack spacing={1}>
+              <Typography variant="h4" component="h1">
+                Check your email
+              </Typography>
+              <Typography color="text.secondary">
+                One more step to get started.
+              </Typography>
+            </Stack>
+            <Alert severity="info">
+              If this email can be registered, we sent a verification link.
+              Follow the link within one hour. If you already have an account,
+              sign in.
+            </Alert>
+            <Button href="/sign-in" variant="contained">
+              Go to sign in
+            </Button>
+          </Stack>
+        ) : (
+          <Stack spacing={3}>
+            <Stack spacing={1}>
+              <Typography variant="h4" component="h1">
+                {registering ? "Create your account" : "Welcome back"}
+              </Typography>
+              <Typography color="text.secondary">
+                {registering
+                  ? "Register as an organizer to start planning your events."
+                  : "Sign in to manage your events."}
+              </Typography>
+            </Stack>
+            {notice && <Alert severity="info">{notice}</Alert>}
+            <Stack
+              component="form"
+              spacing={2.5}
+              onSubmit={submit}
+              aria-busy={pending}
+            >
+              {registering && (
+                <TextField
+                  label="Name"
+                  name="name"
+                  autoComplete="name"
+                  required
+                  fullWidth
+                />
+              )}
+              <TextField
+                label="Email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                fullWidth
+              />
+              <TextField
+                label="Password"
+                name="password"
+                type="password"
+                autoComplete={registering ? "new-password" : "current-password"}
+                slotProps={{ htmlInput: { minLength: 10, maxLength: 128 } }}
+                helperText={registering ? "Use 10–128 characters." : undefined}
+                required
+                fullWidth
+              />
+              {error && <Alert severity="error">{error}</Alert>}
+              <Button type="submit" variant="contained" disabled={pending}>
+                {pending
+                  ? "Please wait…"
+                  : registering
+                    ? "Create account"
+                    : "Sign in"}
+              </Button>
+              {registering && (
+                <Typography variant="body2" color="text.secondary">
+                  We’ll send a verification link to your email before you can
+                  start.
+                </Typography>
+              )}
+            </Stack>
+            <Divider />
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ textAlign: "center" }}
+            >
+              {registering
+                ? "Already have an account? "
+                : "New to Event Flow? "}
+              <Link href={registering ? "/sign-in" : "/register"}>
+                {registering ? "Sign in" : "Register as an organizer"}
+              </Link>
+            </Typography>
+          </Stack>
+        )}
+      </Paper>
     </Stack>
   );
 }

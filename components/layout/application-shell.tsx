@@ -1,51 +1,24 @@
-import { Box, Container, Link, Stack, Typography } from "@mui/material";
-import { ThemeControl } from "@/components/ui/theme-control";
-import { SignOut } from "@/features/auth/components/sign-out";
-import { getSession } from "@/lib/session";
+import { Box, Container } from "@mui/material";
+import { ApplicationFooter } from "@/components/layout/application-footer";
+import { ApplicationHeader } from "@/components/layout/application-header";
 
-export async function ApplicationShell({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const session = await getSession();
-
+export function ApplicationShell({ children }: { children: React.ReactNode }) {
   return (
-    <>
-      <Box
-        component="header"
-        sx={{ borderBottom: 1, borderColor: "divider", py: 2 }}
+    <Box sx={{ minHeight: "100dvh", display: "flex", flexDirection: "column" }}>
+      <ApplicationHeader />
+      <Container
+        component="main"
+        maxWidth="md"
+        sx={{
+          py: { xs: 3, sm: 5 },
+          flex: "1 0 auto",
+          display: "flex",
+          flexDirection: "column",
+        }}
       >
-        <Container maxWidth="md">
-          <Stack
-            direction="row"
-            useFlexGap
-            sx={{ gap: 2, flexWrap: "wrap", alignItems: "center" }}
-          >
-            <Link
-              href={session ? "/dashboard" : "/"}
-              underline="none"
-              color="inherit"
-              variant="h6"
-              sx={{ mr: "auto" }}
-            >
-              Event Flow
-            </Link>
-            <ThemeControl />
-            {session && (
-              <>
-                <Typography sx={{ overflowWrap: "anywhere" }}>
-                  {session.user.name}
-                </Typography>
-                <SignOut />
-              </>
-            )}
-          </Stack>
-        </Container>
-      </Box>
-      <Container component="main" maxWidth="sm" sx={{ py: { xs: 4, sm: 8 } }}>
         {children}
       </Container>
-    </>
+      <ApplicationFooter />
+    </Box>
   );
 }
