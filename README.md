@@ -101,9 +101,7 @@ pnpm build
 ```
 
 The existing scaffold uses Google Fonts, so its build needs network access.
-The current Biome 2.5.14 check reports missing SVG titles in the five existing
-`public/*.svg` files, plus schema-version/deprecation notices for `biome.json`.
-These scaffold issues are outside the database foundation scope.
+Unused scaffold SVGs and CSS have been removed; the full lint baseline is clean.
 
 ## Local authentication
 
@@ -123,14 +121,16 @@ externally; its inbox is ephemeral when the container is removed.
 
 Open `/register`, enter name, email and a 10–128 character password, then follow
 the link delivered to Mailpit. Links expire after 3600 seconds. Verification
-creates a database session and redirects to `/`. Registration creates only a
-neutral authentication identity, with no organizer profile or role.
+creates a database session and redirects to `/onboarding/organizer`, which ensures
+one `OrganizerProfile` and redirects to `/dashboard`. The Better Auth user remains
+a neutral authentication identity, without a role discriminator.
 
 `/sign-in` rejects unverified accounts and sends a fresh verification email when
-valid credentials are supplied. After verification, sign in again or use **Sign
-out** on `/`. Sessions last 604800 seconds and refresh after 86400 seconds through
-Better Auth's endpoints; cookie session caching is disabled. The home page reads
-the current session server-side from the database.
+valid credentials are supplied. Successful sign-in opens `/dashboard`; an existing
+organizer keeps the same profile. **Sign out** is available in the shared header.
+Sessions last 604800 seconds and refresh after 86400 seconds through Better Auth's
+endpoints; cookie session caching is disabled. Server routes validate sessions
+against the database.
 
 `lib/mail.ts` sends text and minimal HTML via Nodemailer SMTP. Sending is awaited
 and SMTP failure is propagated as an error. A Better Auth before hook makes
@@ -141,5 +141,36 @@ results but does not equalize duplicate/new registration response timing.
 Auth request URLs are excluded from Next.js development request logs because
 verification links contain tokens.
 
-No password reset, organizer onboarding, business entities, roles, authorization,
-external mail provider, tests, or deployment configuration is included.
+## UI and color modes
+
+Material UI 9.4 provides the UI foundation, using the official
+`@mui/material-nextjs/v16-appRouter` cache provider for streamed SSR styles.
+The shared header offers **System**, **Light**, and **Dark** via MUI's
+`useColorScheme`. MUI stores the selection in browser localStorage (`mui-mode`);
+System follows changes to `prefers-color-scheme`.
+
+The centralized theme uses `colorSchemes` and CSS variables with a `data` selector.
+`InitColorSchemeScript` is the first body child and selects the scheme before
+hydration, preventing the initial wrong-theme flash without hiding content.
+Its `defaultMode="system"` matches the ThemeProvider. `CssBaseline` supplies global
+styles; no client effect computes the initial theme.
+
+## Organizer foundation
+
+`OrganizerProfile` is an Event Flow domain model, separate from Better Auth:
+`id`, unique `userId` (one-to-one with User), `createdAt`, and `updatedAt`.
+The `organizer_profile_foundation` migration adds only this table and relation.
+
+`/onboarding/organizer` is a server transition, with no form. It requires a
+current database-backed session and verified email, then inserts a profile with
+`skipDuplicates` backed by PostgreSQL's unique constraint. Repeat and concurrent
+requests preserve the existing profile and its timestamps.
+
+`/dashboard` independently validates the session and verified email, then reads
+the profile. Missing sessions redirect to `/sign-in`; unverified users return to
+sign-in with verification guidance. A verified user without a profile redirects
+to onboarding. The dashboard never creates profiles and displays an honest
+“My events” empty state without event data or inactive creation actions.
+
+No Event model, Create Event, teams, RBAC, subscriptions, password reset, external
+mail provider, tests, CI/CD, or deployment is included.

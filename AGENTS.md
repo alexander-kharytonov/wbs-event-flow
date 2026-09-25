@@ -16,4 +16,5 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Do not add demo data, seed data, mock application data, placeholder users, or fake business entities unless explicitly requested.
 - Do not implement functionality beyond the scope of the current task.
 - If the task requires an architectural or product decision that is not documented or explicitly requested, stop and report the decision that is needed instead of guessing.
+- Create directories and architectural layers only when current code requires them. Do not create empty structure for anticipated future features.
 - Do not add tests unless explicitly requested.

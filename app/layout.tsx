@@ -1,6 +1,10 @@
+import InitColorSchemeScript from "@mui/material/InitColorSchemeScript";
+import { AppRouterCacheProvider } from "@mui/material-nextjs/v16-appRouter";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { ApplicationShell } from "./application-shell";
+import { AppThemeProvider } from "./theme-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -19,8 +23,19 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
-      <body>{children}</body>
+    <html
+      lang="en"
+      className={`${geistSans.variable} ${geistMono.variable}`}
+      suppressHydrationWarning
+    >
+      <body>
+        <InitColorSchemeScript attribute="data" defaultMode="system" />
+        <AppRouterCacheProvider>
+          <AppThemeProvider>
+            <ApplicationShell>{children}</ApplicationShell>
+          </AppThemeProvider>
+        </AppRouterCacheProvider>
+      </body>
     </html>
   );
 }
