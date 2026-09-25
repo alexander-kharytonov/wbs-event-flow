@@ -1,6 +1,7 @@
-import { Chip, Link, Stack, Typography } from "@mui/material";
+import { Link, Stack, Typography } from "@mui/material";
 import { notFound } from "next/navigation";
 import { EventNavigation } from "@/features/events/components/event-navigation";
+import { PublicationControls } from "@/features/events/components/publication-controls";
 import { RegistrationFormBuilder } from "@/features/events/components/registration-form-builder";
 import { getRegistrationForm } from "@/features/events/server/registration-form";
 import { requireOrganizer } from "@/features/organizer/server/require-organizer";
@@ -31,11 +32,10 @@ export default async function RegistrationFormPage({
         >
           {event.title}
         </Typography>
-        <Chip
-          label={event.published ? "Published" : "Draft"}
-          size="small"
-          variant="outlined"
-          sx={{ alignSelf: "flex-start" }}
+        <PublicationControls
+          eventId={id}
+          contentVersion={event.contentVersion}
+          publishedRevision={event.publishedRevision}
         />
       </Stack>
       <EventNavigation eventId={id} active="registration-form" />
@@ -47,12 +47,7 @@ export default async function RegistrationFormPage({
           Manage the questions guests will see when registering.
         </Typography>
       </Stack>
-      <RegistrationFormBuilder
-        key={id}
-        eventId={id}
-        initialForm={event.form}
-        published={event.published}
-      />
+      <RegistrationFormBuilder key={id} eventId={id} initialForm={event.form} />
     </Stack>
   );
 }

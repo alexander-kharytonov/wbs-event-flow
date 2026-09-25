@@ -11,6 +11,7 @@ import {
 } from "@mui/material";
 import { notFound } from "next/navigation";
 import { EventNavigation } from "@/features/events/components/event-navigation";
+import { PublicationControls } from "@/features/events/components/publication-controls";
 import { formatEventTime } from "@/features/events/format-event-time";
 import { formatTimezone } from "@/features/events/format-timezone";
 import { requireOrganizer } from "@/features/organizer/server/require-organizer";
@@ -25,6 +26,9 @@ export default async function EventPage({
   const { id } = await params;
   const event = await prisma.event.findFirst({
     where: { id, organizerId: organizer.id },
+    include: {
+      publishedRevision: { select: { contentVersion: true, number: true } },
+    },
   });
 
   if (!event) {
@@ -49,14 +53,13 @@ export default async function EventPage({
           >
             {event.title}
           </Typography>
-          <Chip
-            label={event.publishedAt ? "Published" : "Draft"}
-            size="small"
-            variant="outlined"
-            sx={{ alignSelf: "flex-start" }}
+          <PublicationControls
+            eventId={id}
+            contentVersion={event.contentVersion}
+            publishedRevision={event.publishedRevision}
           />
         </Stack>
-        {!event.publishedAt && (
+        {
           <Button
             href={`/dashboard/events/${id}/edit`}
             variant="contained"
@@ -65,7 +68,7 @@ export default async function EventPage({
           >
             Edit event
           </Button>
-        )}
+        }
       </Stack>
       <EventNavigation eventId={id} active="overview" />
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, borderRadius: 2 }}>

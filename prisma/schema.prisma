@@ -60,7 +60,12 @@ model Event {
   createdAt            DateTime                @default(now()) @db.Timestamptz(3)
   updatedAt            DateTime                @updatedAt @db.Timestamptz(3)
 
-  registrationForm RegistrationForm?
+  publicId            String?           @unique
+  publishedRevisionId String?           @unique
+  contentVersion      Int               @default(1)
+  revisions           EventRevision[]   @relation("EventRevisions")
+  publishedRevision   EventRevision?    @relation("CurrentPublishedRevision", fields: [publishedRevisionId], references: [id])
+  registrationForm    RegistrationForm?
 
   @@index([organizerId, createdAt])
 }
@@ -156,4 +161,19 @@ model RegistrationFieldOption {
   updatedAt DateTime          @updatedAt @db.Timestamptz(3)
 
   @@unique([fieldId, position])
+}
+
+model EventRevision {
+  id              String   @id @default(cuid())
+  eventId         String
+  event           Event    @relation("EventRevisions", fields: [eventId], references: [id])
+  currentForEvent Event?   @relation("CurrentPublishedRevision")
+  number          Int
+  contentVersion  Int
+  snapshot        Json
+  publishedAt     DateTime @db.Timestamptz(3)
+  createdAt       DateTime @default(now()) @db.Timestamptz(3)
+
+  @@unique([eventId, number])
+  @@unique([eventId, contentVersion])
 }

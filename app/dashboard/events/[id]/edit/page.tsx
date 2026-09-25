@@ -14,7 +14,7 @@ export default async function EditEventPage({
   const organizer = await requireOrganizer();
   const { id } = await params;
   const event = await prisma.event.findFirst({
-    where: { id, organizerId: organizer.id, publishedAt: null },
+    where: { id, organizerId: organizer.id },
   });
 
   if (!event) {

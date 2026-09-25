@@ -40,11 +40,9 @@ type Command =
 export function RegistrationFormBuilder({
   eventId,
   initialForm,
-  published,
 }: {
   eventId: string;
   initialForm: BuilderForm;
-  published: boolean;
 }) {
   // Keep the displayed snapshot and token together, including while a dialog is open.
   const [form, setForm] = useState(initialForm);
@@ -57,7 +55,7 @@ export function RegistrationFormBuilder({
   const [notice, setNotice] = useState("");
   const [pending, startTransition] = useTransition();
   const reloadHref = `/dashboard/events/${eventId}/registration-form`;
-  const disabled = pending || published || Boolean(error?.conflict);
+  const disabled = pending || Boolean(error?.conflict);
 
   function mutate(command: Command) {
     setNotice("");
@@ -107,11 +105,6 @@ export function RegistrationFormBuilder({
 
   return (
     <Stack spacing={3} aria-busy={pending}>
-      {published && (
-        <Alert severity="info">
-          This event is published. Its registration form is read-only.
-        </Alert>
-      )}
       {error && !editor && (
         <Alert severity="error">
           {error.message}
@@ -160,7 +153,7 @@ export function RegistrationFormBuilder({
           <Typography variant="h6" component="h2">
             Questions
           </Typography>
-          {!published && (
+          {
             <Button
               startIcon={<Add />}
               variant="contained"
@@ -172,15 +165,14 @@ export function RegistrationFormBuilder({
             >
               Add question
             </Button>
-          )}
+          }
         </Stack>
         {form.fields.length === 0 && (
           <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
             <Typography variant="subtitle1">No custom questions yet</Typography>
             <Typography color="text.secondary" variant="body2">
-              {published
-                ? "This form only contains the required guest details."
-                : "Add questions to collect the information you need from your guests."}
+              Add questions to collect the information you need from your
+              guests.
             </Typography>
           </Paper>
         )}
@@ -231,7 +223,7 @@ export function RegistrationFormBuilder({
                   ))}
                 </Box>
               )}
-              {!published && (
+              {
                 <Stack
                   direction="row"
                   spacing={0.5}
@@ -273,7 +265,7 @@ export function RegistrationFormBuilder({
                     Delete
                   </Button>
                 </Stack>
-              )}
+              }
             </Stack>
           </Paper>
         ))}

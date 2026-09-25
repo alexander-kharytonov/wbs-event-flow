@@ -47,7 +47,8 @@ export async function getRegistrationForm(
         where: { id: eventId, organizerId },
         select: {
           title: true,
-          publishedAt: true,
+          contentVersion: true,
+          publishedRevision: { select: { contentVersion: true, number: true } },
           registrationForm: { select: formSelection },
         },
       });
@@ -58,7 +59,8 @@ export async function getRegistrationForm(
 
       return {
         title: event.title,
-        published: event.publishedAt !== null,
+        contentVersion: event.contentVersion,
+        publishedRevision: event.publishedRevision,
         form: serializeForm(event.registrationForm),
       };
     },
@@ -93,15 +95,13 @@ export async function mutateRegistrationForm(
 
   try {
     const form = await prisma.$transaction(async (tx) => {
-      // Lock the parent first so its ownership/publication cannot change during a write.
-      const events = await tx.$queryRaw<
-        { id: string; publishedAt: Date | null }[]
-      >`
-        SELECT "id", "publishedAt" FROM "Event"
+      // Lock the parent first, serializing form mutations with publication.
+      const events = await tx.$queryRaw<{ id: string; updatedAt: Date }[]>`
+        SELECT "id", "updatedAt" FROM "Event"
         WHERE "id" = ${command.eventId} AND "organizerId" = ${organizerId}
         FOR UPDATE`;
 
-      if (!events[0] || events[0].publishedAt !== null) {
+      if (!events[0]) {
         throw new FormMutationError(unavailable);
       }
 
@@ -175,7 +175,7 @@ export async function mutateRegistrationForm(
             data: { ...data, formId: current.id, position: ids.length },
           });
         } else {
-          // Options have no external references in this iteration: replace the full ordered list.
+          // Replace workspace options; published snapshots retain their original IDs.
           await tx.registrationFieldOption.deleteMany({
             where: { fieldId: command.fieldId },
           });
@@ -210,6 +210,14 @@ export async function mutateRegistrationForm(
           });
         }
       }
+
+      await tx.event.update({
+        where: { id: command.eventId },
+        data: {
+          contentVersion: { increment: 1 },
+          updatedAt: events[0].updatedAt,
+        },
+      });
 
       return serializeForm(
         await tx.registrationForm.findUniqueOrThrow({
