@@ -18,3 +18,14 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - If the task requires an architectural or product decision that is not documented or explicitly requested, stop and report the decision that is needed instead of guessing.
 - Create directories and architectural layers only when current code requires them. Do not create empty structure for anticipated future features.
 - Do not add tests unless explicitly requested.
+
+## Project structure
+
+- Keep `app/` focused on Next.js routing and route-local code.
+- Put shared reusable UI in `components/`; create specialized subdirectories only when current shared components require them.
+- Put feature-specific code in `features/<feature>/`, including feature forms.
+- Put shared React providers in `providers/`.
+- Put shared hooks in `hooks/` when shared hooks exist; keep feature-specific hooks with their feature.
+- Keep infrastructure integrations in `lib/`.
+- Do not create abstractions or directories beyond current feature needs unless explicitly requested.
+- Prefer `@/*` imports over deep relative imports.

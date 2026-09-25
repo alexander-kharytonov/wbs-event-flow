@@ -1,5 +1,5 @@
 import { Alert, Stack } from "@mui/material";
-import { AuthForm } from "../auth-form";
+import { AuthForm } from "@/features/auth/components/auth-form";
 
 export default async function SignInPage({
   searchParams,
