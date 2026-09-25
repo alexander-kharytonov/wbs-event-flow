@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { EventGuestView } from "@/features/events/components/event-guest-view";
+import { RegistrationApplicationForm } from "@/features/events/components/registration-application-form";
+import { registrationAvailability } from "@/features/events/registration-availability";
 import { getPublishedEvent } from "@/features/events/server/get-published-event";
 
 type Props = { params: Promise<{ publicId: string }> };
@@ -19,7 +21,7 @@ async function publishedSnapshot(params: Props["params"]) {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const snapshot = await publishedSnapshot(params);
+  const { snapshot } = await publishedSnapshot(params);
 
   return {
     title: `${snapshot.title} | Event Flow`,
@@ -34,7 +36,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function PublicEventPage({ params }: Props) {
-  const snapshot = await publishedSnapshot(params);
+  const { snapshot, eventRevisionId } = await publishedSnapshot(params);
+  const { publicId } = await params;
+  const now = new Date();
 
-  return <EventGuestView snapshot={snapshot} now={new Date()} />;
+  return (
+    <EventGuestView snapshot={snapshot} now={now}>
+      {snapshot.accountRequirement === "OPTIONAL" &&
+        registrationAvailability(snapshot, now) === "OPEN" && (
+          <RegistrationApplicationForm
+            publicId={publicId}
+            eventRevisionId={eventRevisionId}
+            fields={snapshot.registrationForm.fields}
+          />
+        )}
+    </EventGuestView>
+  );
 }

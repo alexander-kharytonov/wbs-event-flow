@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { EventGuestView } from "@/features/events/components/event-guest-view";
 import { EventNavigation } from "@/features/events/components/event-navigation";
 import { PublicationControls } from "@/features/events/components/publication-controls";
+import { RegistrationFormPreview } from "@/features/events/components/registration-form-preview";
 import {
   buildEventSnapshot,
   workspaceInclude,
@@ -52,7 +53,16 @@ export default async function PreviewPage({
         Registration is unavailable in preview.
       </Alert>
       {snapshot.success ? (
-        <EventGuestView snapshot={snapshot.data} now={new Date()} />
+        <EventGuestView snapshot={snapshot.data} now={new Date()}>
+          <Stack spacing={3}>
+            <Typography variant="h6" component="h2">
+              Registration form preview
+            </Typography>
+            <RegistrationFormPreview
+              fields={snapshot.data.registrationForm.fields}
+            />
+          </Stack>
+        </EventGuestView>
       ) : (
         <Alert severity="error">
           Check the event details and registration questions before previewing.

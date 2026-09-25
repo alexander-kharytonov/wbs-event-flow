@@ -52,9 +52,11 @@ export function RegistrationFormPreview({
           <FormControl
             key={field.id}
             required={field.required}
-            component="fieldset"
+            component={field.type === "CHECKBOX" ? "div" : "fieldset"}
           >
-            <FormLabel component="legend">{field.label}</FormLabel>
+            {field.type !== "CHECKBOX" && (
+              <FormLabel component="legend">{field.label}</FormLabel>
+            )}
             {field.description && (
               <Typography variant="body2" color="text.secondary">
                 {field.description}
