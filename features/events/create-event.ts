@@ -25,7 +25,12 @@ export async function createEvent(
 
   try {
     const event = await prisma.event.create({
-      data: { ...parsed.data, organizerId: organizer.id, publishedAt: null },
+      data: {
+        ...parsed.data,
+        organizerId: organizer.id,
+        publishedAt: null,
+        registrationForm: { create: {} },
+      },
       select: { id: true },
     });
     eventId = event.id;

@@ -60,6 +60,8 @@ model Event {
   createdAt            DateTime                @default(now()) @db.Timestamptz(3)
   updatedAt            DateTime                @updatedAt @db.Timestamptz(3)
 
+  registrationForm RegistrationForm?
+
   @@index([organizerId, createdAt])
 }
 
@@ -109,4 +111,49 @@ model Verification {
 
   @@index([identifier])
   @@map("verification")
+}
+
+enum RegistrationFieldType {
+  SHORT_TEXT
+  LONG_TEXT
+  SINGLE_CHOICE
+  MULTIPLE_CHOICE
+  CHECKBOX
+}
+
+model RegistrationForm {
+  id        String              @id @default(cuid())
+  eventId   String              @unique
+  event     Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdAt DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime            @updatedAt @db.Timestamptz(3)
+  fields    RegistrationField[]
+}
+
+model RegistrationField {
+  id          String                    @id @default(cuid())
+  formId      String
+  form        RegistrationForm          @relation(fields: [formId], references: [id], onDelete: Cascade)
+  type        RegistrationFieldType
+  label       String
+  description String?
+  required    Boolean                   @default(false)
+  position    Int
+  createdAt   DateTime                  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime                  @updatedAt @db.Timestamptz(3)
+  options     RegistrationFieldOption[]
+
+  @@unique([formId, position])
+}
+
+model RegistrationFieldOption {
+  id        String            @id @default(cuid())
+  fieldId   String
+  field     RegistrationField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  label     String
+  position  Int
+  createdAt DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime          @updatedAt @db.Timestamptz(3)
+
+  @@unique([fieldId, position])
 }

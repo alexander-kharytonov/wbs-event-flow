@@ -1,6 +1,6 @@
-import { Box, Container, Link, Stack, Typography } from "@mui/material";
+import { Box, Button, Container, Divider, Link, Stack } from "@mui/material";
 import { ThemeControl } from "@/components/ui/theme-control";
-import { SignOut } from "@/features/auth/components/sign-out";
+import { AccountMenu } from "@/features/auth/components/account-menu";
 import { getSession } from "@/lib/session";
 
 export async function ApplicationHeader() {
@@ -27,27 +27,15 @@ export async function ApplicationHeader() {
             Event Flow
           </Link>
           <ThemeControl />
-          {session && (
-            <Stack
-              direction="row"
-              spacing={1}
-              sx={{
-                alignItems: "center",
-                minWidth: 0,
-                maxWidth: "100%",
-                pl: 1,
-                borderLeft: 1,
-                borderColor: "divider",
-              }}
-            >
-              <Typography
-                variant="body2"
-                sx={{ overflowWrap: "anywhere", minWidth: 0 }}
-              >
-                {session.user.name}
-              </Typography>
-              <SignOut />
-            </Stack>
+          <Divider
+            orientation="vertical"
+            sx={{ minHeight: 28, my: 1, display: { xs: "none", sm: "block" } }}
+            flexItem
+          />
+          {session ? (
+            <AccountMenu name={session.user.name} />
+          ) : (
+            <Button href="/sign-in">Sign in</Button>
           )}
         </Stack>
       </Container>
