@@ -5,7 +5,7 @@ export function EventNavigation({
   active,
 }: {
   eventId: string;
-  active: "overview" | "registration-form";
+  active: "overview" | "registration-form" | "preview";
 }) {
   return (
     <Stack
@@ -13,7 +13,7 @@ export function EventNavigation({
       aria-label="Event sections"
       direction="row"
       spacing={1}
-      sx={{ borderBottom: 1, borderColor: "divider", pb: 1 }}
+      sx={{ borderBottom: 1, borderColor: "divider", pb: 1, flexWrap: "wrap" }}
     >
       <Button
         href={`/dashboard/events/${eventId}`}
@@ -28,6 +28,13 @@ export function EventNavigation({
         aria-current={active === "registration-form" ? "page" : undefined}
       >
         Registration form
+      </Button>
+      <Button
+        href={`/dashboard/events/${eventId}/preview`}
+        color={active === "preview" ? "primary" : "inherit"}
+        aria-current={active === "preview" ? "page" : undefined}
+      >
+        Preview
       </Button>
     </Stack>
   );

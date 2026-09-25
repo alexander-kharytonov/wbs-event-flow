@@ -12,6 +12,7 @@ import {
 } from "@mui/material";
 import { formatEventTime } from "@/features/events/format-event-time";
 import { formatTimezone } from "@/features/events/format-timezone";
+import { publicationState } from "@/features/events/publication-state";
 import { requireOrganizer } from "@/features/organizer/server/require-organizer";
 import { prisma } from "@/lib/prisma";
 
@@ -25,7 +26,8 @@ export default async function DashboardPage() {
       title: true,
       startsAt: true,
       timezone: true,
-      publishedAt: true,
+      contentVersion: true,
+      publishedRevision: { select: { contentVersion: true } },
     },
   });
 
@@ -100,7 +102,7 @@ export default async function DashboardPage() {
                 sx={{ height: "100%", alignItems: "flex-start" }}
               >
                 <Chip
-                  label={event.publishedAt ? "Published" : "Draft"}
+                  label={publicationState(event)}
                   size="small"
                   variant="outlined"
                 />

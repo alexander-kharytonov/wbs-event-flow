@@ -1,14 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { mutateRegistrationForm } from "@/features/events/server/registration-form";
+import { publishOwnedEvent } from "@/features/events/server/publish-event";
 import { requireOrganizer } from "@/features/organizer/server/require-organizer";
 
-export async function changeRegistrationForm(input: unknown) {
+export async function publishEvent(input: unknown) {
   const organizer = await requireOrganizer();
-  const result = await mutateRegistrationForm(organizer.id, input);
+  const result = await publishOwnedEvent(organizer.id, input);
 
-  if (result.form) {
+  if (result.success) {
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/events/[id]", "layout");
   }

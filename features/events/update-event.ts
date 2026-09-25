@@ -46,19 +46,23 @@ export async function updateEvent(
 
   try {
     const result = await prisma.event.updateMany({
-      where: { id, organizerId: organizer.id, publishedAt: null, updatedAt },
-      data: parsed.data,
+      where: { id, organizerId: organizer.id, updatedAt },
+      data: {
+        ...parsed.data,
+        contentVersion: { increment: 1 },
+        updatedAt: new Date(Math.max(Date.now(), updatedAt.getTime() + 1)),
+      },
     });
 
     if (result.count !== 1) {
       // This read only chooses a safe error; authorization and concurrency are
       // enforced together by the database write above.
-      const draft = await prisma.event.findFirst({
-        where: { id, organizerId: organizer.id, publishedAt: null },
+      const ownedEvent = await prisma.event.findFirst({
+        where: { id, organizerId: organizer.id },
         select: { id: true },
       });
 
-      if (!draft) {
+      if (!ownedEvent) {
         return { message: "This event is unavailable for editing." };
       }
 
@@ -75,5 +79,7 @@ export async function updateEvent(
   revalidatePath("/dashboard");
   revalidatePath(`/dashboard/events/${id}`);
   revalidatePath(`/dashboard/events/${id}/edit`);
+  revalidatePath(`/dashboard/events/${id}/preview`);
+  revalidatePath(`/dashboard/events/${id}/registration-form`);
   redirect(`/dashboard/events/${id}`);
 }
