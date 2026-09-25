@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { ensureOrganizerProfile } from "@/lib/organizer";
+import { ensureOrganizerProfile } from "@/features/organizer/server/ensure-organizer-profile";
 import { requireVerifiedUser } from "@/lib/session";
 
 export async function GET() {

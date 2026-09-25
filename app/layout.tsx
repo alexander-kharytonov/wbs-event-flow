@@ -3,8 +3,8 @@ import { AppRouterCacheProvider } from "@mui/material-nextjs/v16-appRouter";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { ApplicationShell } from "./application-shell";
-import { AppThemeProvider } from "./theme-provider";
+import { ApplicationShell } from "@/components/layout/application-shell";
+import { AppThemeProvider } from "@/providers/theme-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

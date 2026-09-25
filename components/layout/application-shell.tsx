@@ -1,7 +1,7 @@
 import { Box, Container, Link, Stack, Typography } from "@mui/material";
+import { ThemeControl } from "@/components/ui/theme-control";
+import { SignOut } from "@/features/auth/components/sign-out";
 import { getSession } from "@/lib/session";
-import { SignOut } from "./sign-out";
-import { ThemeControl } from "./theme-control";
 
 export async function ApplicationShell({
   children,

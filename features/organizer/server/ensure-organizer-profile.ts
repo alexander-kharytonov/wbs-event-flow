@@ -1,5 +1,5 @@
 import "server-only";
-import { prisma } from "./prisma";
+import { prisma } from "@/lib/prisma";
 
 export async function ensureOrganizerProfile(userId: string) {
   // PostgreSQL ON CONFLICT DO NOTHING and UNIQUE(userId) also cover concurrent
