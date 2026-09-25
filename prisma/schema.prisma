@@ -29,6 +29,38 @@ model OrganizerProfile {
   user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  events    Event[]
+}
+
+enum EventVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum EventAccountRequirement {
+  REQUIRED
+  OPTIONAL
+}
+
+model Event {
+  id                   String                  @id @default(cuid())
+  organizerId          String
+  organizer            OrganizerProfile        @relation(fields: [organizerId], references: [id])
+  title                String
+  description          String?
+  startsAt             DateTime                @db.Timestamptz(3)
+  endsAt               DateTime                @db.Timestamptz(3)
+  timezone             String
+  visibility           EventVisibility         @default(PRIVATE)
+  accountRequirement   EventAccountRequirement @default(OPTIONAL)
+  capacity             Int?
+  registrationOpensAt  DateTime?               @db.Timestamptz(3)
+  registrationClosesAt DateTime?               @db.Timestamptz(3)
+  publishedAt          DateTime?               @db.Timestamptz(3)
+  createdAt            DateTime                @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime                @updatedAt @db.Timestamptz(3)
+
+  @@index([organizerId, createdAt])
 }
 
 model Session {

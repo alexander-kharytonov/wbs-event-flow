@@ -12,7 +12,7 @@ pnpm install
 cp .env.example .env
 # Choose a local POSTGRES_PASSWORD before the first database start.
 # Set BETTER_AUTH_SECRET in .env using: openssl rand -base64 32
-pnpm db:up
+pnpm infra:up
 pnpm db:migrate
 pnpm db:generate
 pnpm db:check
@@ -45,17 +45,17 @@ By default, PostgreSQL contains the `event_flow_dev` database and listens only o
 must be free.
 
 The named `postgres_data` volume is mounted at `/var/lib/postgresql`, matching the
-PostgreSQL 18 image layout. `db:down` preserves the volume.
+PostgreSQL 18 image layout. `infra:down` preserves the volume.
 
-| Command | Purpose |
-| --- | --- |
-| `pnpm db:up` | Start PostgreSQL + Mailpit and wait for their healthchecks |
-| `pnpm db:down` | Stop/remove containers and network, retaining PostgreSQL data |
-| `pnpm db:status` | Show container status and health |
-| `pnpm db:generate` | Generate Prisma Client into `generated/prisma` |
-| `pnpm db:migrate` | Run local `prisma migrate dev` |
-| `pnpm db:studio` | Open Prisma Studio |
-| `pnpm db:check` | Verify a real PostgreSQL query through the application client |
+| Command             | Purpose                                                       |
+| ------------------- | ------------------------------------------------------------- |
+| `pnpm infra:up`     | Start PostgreSQL + Mailpit and wait for their healthchecks    |
+| `pnpm infra:down`   | Stop/remove containers and network, retaining PostgreSQL data |
+| `pnpm infra:status` | Show container status and health                              |
+| `pnpm db:generate`  | Generate Prisma Client into `generated/prisma`                |
+| `pnpm db:migrate`   | Run local `prisma migrate dev`                                |
+| `pnpm db:studio`    | Open Prisma Studio                                            |
+| `pnpm db:check`     | Verify a real PostgreSQL query through the application client |
 
 ## Prisma and environment
 
@@ -114,7 +114,7 @@ Unused scaffold SVGs and CSS have been removed; the full lint baseline is clean.
 - `SMTP_PORT`: `1025` for SMTP (also its published Compose port).
 - `SMTP_FROM`: sender address, e.g. `no-reply@event-flow.local`.
 
-`pnpm db:up` starts both services; the existing command names are retained.
+`pnpm infra:up` starts both services.
 Open Mailpit at http://localhost:8025. SMTP and inbox ports bind only to loopback
 with the example settings. Mailpit captures local email and does not deliver it
 externally; its inbox is ephemeral when the container is removed.
@@ -169,8 +169,27 @@ requests preserve the existing profile and its timestamps.
 `/dashboard` independently validates the session and verified email, then reads
 the profile. Missing sessions redirect to `/sign-in`; unverified users return to
 sign-in with verification guidance. A verified user without a profile redirects
-to onboarding. The dashboard never creates profiles and displays an honest
-“My events” empty state without event data or inactive creation actions.
+to onboarding. The dashboard never creates profiles and lists only events owned
+by the current OrganizerProfile, with a Create event action and an empty state.
 
-No Event model, Create Event, teams, RBAC, subscriptions, password reset, external
-mail provider, tests, CI/CD, or deployment is included.
+## Create Event
+
+`features/events/` contains the MUI form, Zod validation, Server Action, and local
+time formatter. `/dashboard/events/new` creates a draft and redirects to the
+read-only `/dashboard/events/[id]`. Both pages and the action use the same
+verified-session/organizer guard as the dashboard. Detail lookup includes the
+current organizer ID; missing and foreign events both use Next.js not-found.
+
+Apply `20260925111851_create_event_foundation` with `pnpm db:migrate`, then run
+`pnpm db:generate`. Restart an already running `pnpm dev` after regenerating the
+client: hot reload retains the cached Prisma instance, which does not acquire
+new model delegates. Event instants use PostgreSQL `timestamptz(3)` and retain a
+separate IANA timezone. The server converts local input with
+`@js-temporal/polyfill`, rejecting both nonexistent and ambiguous DST times.
+The browser supplies a searchable standard timezone list and an initial value;
+the server independently validates the zone. Display always uses the event zone.
+
+Creation sets `publishedAt = null`; visibility defaults to PRIVATE and account
+requirement to OPTIONAL. Registration dates are configuration only. Editing,
+publication, guest registration, teams, RBAC, subscriptions, password reset,
+external mail providers, tests, CI/CD, and deployment are not included.
