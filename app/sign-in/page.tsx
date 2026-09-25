@@ -1,4 +1,3 @@
-import { Alert, Stack } from "@mui/material";
 import { AuthForm } from "@/features/auth/components/auth-form";
 
 export default async function SignInPage({
@@ -7,14 +6,13 @@ export default async function SignInPage({
   const { verification, error } = await searchParams;
 
   return (
-    <Stack spacing={3}>
-      {(verification === "required" || error) && (
-        <Alert severity="info">
-          Verify your email before continuing. Sign in to request a new
-          verification link.
-        </Alert>
-      )}
-      <AuthForm mode="sign-in" />
-    </Stack>
+    <AuthForm
+      mode="sign-in"
+      notice={
+        verification === "required" || error
+          ? "Verify your email before continuing. Sign in to request a new verification link."
+          : undefined
+      }
+    />
   );
 }

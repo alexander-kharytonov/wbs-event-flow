@@ -2,31 +2,23 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import {
+  type EventFormState,
+  eventInputSchema,
+  eventValidationError,
+} from "@/features/events/event-input-schema";
 import { requireOrganizer } from "@/features/organizer/server/require-organizer";
 import { prisma } from "@/lib/prisma";
-import { createEventSchema } from "./create-event-schema";
-
-export type CreateEventState = {
-  errors?: Record<string, string[]>;
-  message?: string;
-};
 
 export async function createEvent(
-  _previous: CreateEventState,
+  _previous: EventFormState,
   formData: FormData,
-): Promise<CreateEventState> {
+): Promise<EventFormState> {
   const organizer = await requireOrganizer();
-  const parsed = createEventSchema.safeParse(Object.fromEntries(formData));
+  const parsed = eventInputSchema.safeParse(Object.fromEntries(formData));
 
   if (!parsed.success) {
-    const errors: Record<string, string[]> = {};
-
-    for (const issue of parsed.error.issues) {
-      const field = String(issue.path[0]);
-      errors[field] = [...(errors[field] ?? []), issue.message];
-    }
-
-    return { errors, message: "Please correct the highlighted fields." };
+    return eventValidationError(parsed.error);
   }
 
   let eventId: string;

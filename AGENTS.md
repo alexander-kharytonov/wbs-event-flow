@@ -29,3 +29,15 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Keep infrastructure integrations in `lib/`.
 - Do not create abstractions or directories beyond current feature needs unless explicitly requested.
 - Prefer `@/*` imports over deep relative imports.
+
+## UI and UX
+
+- Build user-facing interfaces as polished product UI, not as debug or scaffold UI.
+- Use clear visual hierarchy, spacing, grouping, and responsive layouts.
+- Prefer appropriate MUI components and icons over raw text-only layouts when they improve usability.
+- Design empty, loading, error, and populated states intentionally.
+- Keep related actions close to the content they affect.
+- Avoid oversized controls, excessive empty space, and visually dominant secondary controls.
+- Keep layouts usable on both desktop and mobile.
+- Reuse established visual patterns before introducing new ones.
+- Do not create a design system or abstractions unless current UI repetition requires them.

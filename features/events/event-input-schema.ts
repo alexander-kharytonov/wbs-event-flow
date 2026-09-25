@@ -22,7 +22,7 @@ function isIanaTimezone(value: string) {
   }
 }
 
-export const createEventSchema = z
+export const eventInputSchema = z
   .object({
     title: z
       .string()
@@ -129,3 +129,22 @@ export const createEventSchema = z
       registrationClosesAt,
     };
   });
+
+export type EventFormValues = z.input<typeof eventInputSchema>;
+
+export type EventFormState = {
+  errors?: Record<string, string[]>;
+  message?: string;
+  conflict?: boolean;
+};
+
+export function eventValidationError(error: z.ZodError): EventFormState {
+  const errors: Record<string, string[]> = {};
+
+  for (const issue of error.issues) {
+    const field = String(issue.path[0]);
+    errors[field] = [...(errors[field] ?? []), issue.message];
+  }
+
+  return { errors, message: "Please correct the highlighted fields." };
+}
