@@ -36,6 +36,7 @@ export default async function RegistrationFormPage({
           eventId={id}
           contentVersion={event.contentVersion}
           publishedRevision={event.publishedRevision}
+          publicId={event.publicId}
         />
       </Stack>
       <EventNavigation eventId={id} active="registration-form" />

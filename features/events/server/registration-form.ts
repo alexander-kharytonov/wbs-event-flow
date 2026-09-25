@@ -47,6 +47,7 @@ export async function getRegistrationForm(
         where: { id: eventId, organizerId },
         select: {
           title: true,
+          publicId: true,
           contentVersion: true,
           publishedRevision: { select: { contentVersion: true, number: true } },
           registrationForm: { select: formSelection },
@@ -59,6 +60,7 @@ export async function getRegistrationForm(
 
       return {
         title: event.title,
+        publicId: event.publicId,
         contentVersion: event.contentVersion,
         publishedRevision: event.publishedRevision,
         form: serializeForm(event.registrationForm),
