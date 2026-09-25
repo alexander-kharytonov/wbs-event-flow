@@ -3,7 +3,6 @@ import { AppRouterCacheProvider } from "@mui/material-nextjs/v16-appRouter";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { ApplicationShell } from "@/components/layout/application-shell";
 import { AppThemeProvider } from "@/providers/theme-provider";
 
 const geistSans = Geist({
@@ -31,9 +30,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body>
         <InitColorSchemeScript attribute="data" defaultMode="system" />
         <AppRouterCacheProvider>
-          <AppThemeProvider>
-            <ApplicationShell>{children}</ApplicationShell>
-          </AppThemeProvider>
+          <AppThemeProvider>{children}</AppThemeProvider>
         </AppRouterCacheProvider>
       </body>
     </html>

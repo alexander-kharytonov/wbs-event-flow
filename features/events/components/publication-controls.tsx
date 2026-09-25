@@ -10,11 +10,14 @@ export function PublicationControls({
   eventId,
   contentVersion,
   publishedRevision,
+  publicId,
 }: {
   eventId: string;
+  publicId: string | null;
   contentVersion: number;
   publishedRevision: { contentVersion: number; number?: number } | null;
 }) {
+  const [copyMessage, setCopyMessage] = useState("");
   const [result, setResult] = useState<PublishResult>({});
   const [pending, startTransition] = useTransition();
   const state = publicationState({ contentVersion, publishedRevision });
@@ -58,6 +61,38 @@ export function PublicationControls({
           </Button>
         )}
       </Stack>
+      {publicId && publishedRevision && (
+        <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>
+          <Button
+            href={`/e/${publicId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Open public page
+          </Button>
+          <Button
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(
+                  new URL(`/e/${publicId}`, window.location.origin).href,
+                );
+                setCopyMessage("Link copied.");
+              } catch {
+                setCopyMessage(
+                  "Couldn’t copy the link. Open the public page and copy its address.",
+                );
+              }
+            }}
+          >
+            Copy link
+          </Button>
+        </Stack>
+      )}
+      {copyMessage && (
+        <Typography role="status" variant="body2">
+          {copyMessage}
+        </Typography>
+      )}
       {result.message && (
         <Alert severity="error">
           {result.message}

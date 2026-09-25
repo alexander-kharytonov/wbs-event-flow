@@ -57,6 +57,7 @@ export default async function EventPage({
             eventId={id}
             contentVersion={event.contentVersion}
             publishedRevision={event.publishedRevision}
+            publicId={event.publicId}
           />
         </Stack>
         {

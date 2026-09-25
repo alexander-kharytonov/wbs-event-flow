@@ -1,21 +1,12 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
-import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
+import {
+  buildEventSnapshot,
+  workspaceInclude,
+} from "@/features/events/server/build-event-snapshot";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
-
-export const workspaceInclude = {
-  publishedRevision: { select: { contentVersion: true, number: true } },
-  registrationForm: {
-    include: {
-      fields: {
-        orderBy: { position: "asc" },
-        include: { options: { orderBy: { position: "asc" } } },
-      },
-    },
-  },
-} satisfies Prisma.EventInclude;
 
 const publishInput = z.strictObject({
   eventId: z.string().min(1),
@@ -74,29 +65,7 @@ export async function publishOwnedEvent(
         return { message: "The registration form is unavailable." };
       }
 
-      const snapshot = eventSnapshotSchema.safeParse({
-        schemaVersion: 1,
-        title: event.title,
-        description: event.description,
-        startsAt: event.startsAt.toISOString(),
-        endsAt: event.endsAt.toISOString(),
-        timezone: event.timezone,
-        visibility: event.visibility,
-        accountRequirement: event.accountRequirement,
-        capacity: event.capacity,
-        registrationOpensAt: event.registrationOpensAt?.toISOString() ?? null,
-        registrationClosesAt: event.registrationClosesAt?.toISOString() ?? null,
-        registrationForm: {
-          fields: event.registrationForm.fields.map((field) => ({
-            id: field.id,
-            type: field.type,
-            label: field.label,
-            description: field.description,
-            required: field.required,
-            options: field.options.map(({ id, label }) => ({ id, label })),
-          })),
-        },
-      });
+      const snapshot = buildEventSnapshot(event);
 
       if (!snapshot.success) {
         return {
