@@ -1,6 +1,13 @@
 "use client";
 
-import Link from "next/link";
+import {
+  Alert,
+  Button,
+  Link,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
 
@@ -20,7 +27,7 @@ export function AuthForm({ mode }: { mode: "register" | "sign-in" }) {
       const credentials = {
         email: String(form.get("email")),
         password: String(form.get("password")),
-        callbackURL: "/",
+        callbackURL: "/onboarding/organizer",
       };
       const result = registering
         ? await authClient.signUp.email({
@@ -42,7 +49,7 @@ export function AuthForm({ mode }: { mode: "register" | "sign-in" }) {
       if (registering) {
         setSent(true);
       } else {
-        window.location.assign("/");
+        window.location.assign("/dashboard");
       }
     } catch {
       setError("Unable to connect. Please try again.");
@@ -53,63 +60,68 @@ export function AuthForm({ mode }: { mode: "register" | "sign-in" }) {
 
   if (sent) {
     return (
-      <section aria-live="polite">
-        <h1>Check your email</h1>
-        <p>
-          If registration can proceed, a verification email has been sent.
-          Follow the link within one hour to verify your email and sign in.
-        </p>
-        <p>
-          This creates your sign-in account only. Organizer setup is not
-          available yet.
-        </p>
+      <Stack spacing={2} component="section" aria-live="polite">
+        <Typography variant="h4" component="h1">
+          Check your email
+        </Typography>
+        <Alert severity="info">
+          If this email can be registered, we sent a verification link. Follow
+          the link within one hour. If you already have an account, sign in.
+        </Alert>
         <Link href="/sign-in">Go to sign in</Link>
-      </section>
+      </Stack>
     );
   }
 
   return (
-    <>
-      <h1>{registering ? "Organizer registration" : "Sign in"}</h1>
+    <Stack spacing={3}>
+      <Typography variant="h4" component="h1">
+        {registering ? "Organizer registration" : "Sign in"}
+      </Typography>
       {registering && (
-        <p>
-          Create your sign-in account. Organizer setup will be a separate step.
-        </p>
+        <Typography color="text.secondary">
+          Create your account and verify your email to get started as an
+          organizer.
+        </Typography>
       )}
-      <form onSubmit={submit}>
+      <Stack component="form" spacing={2} onSubmit={submit}>
         {registering && (
-          <label>
-            Name
-            <input name="name" autoComplete="name" required />
-          </label>
-        )}
-        <label>
-          Email
-          <input name="email" type="email" autoComplete="email" required />
-        </label>
-        <label>
-          Password
-          <input
-            name="password"
-            type="password"
-            autoComplete={registering ? "new-password" : "current-password"}
-            minLength={10}
-            maxLength={128}
+          <TextField
+            label="Name"
+            name="name"
+            autoComplete="name"
             required
-            aria-describedby={registering ? "password-policy" : undefined}
+            fullWidth
           />
-        </label>
-        {registering && <p id="password-policy">Use 10–128 characters.</p>}
-        {error && <p role="alert">{error}</p>}
-        <button type="submit" disabled={pending}>
+        )}
+        <TextField
+          label="Email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          required
+          fullWidth
+        />
+        <TextField
+          label="Password"
+          name="password"
+          type="password"
+          autoComplete={registering ? "new-password" : "current-password"}
+          slotProps={{ htmlInput: { minLength: 10, maxLength: 128 } }}
+          helperText={registering ? "Use 10–128 characters." : undefined}
+          required
+          fullWidth
+        />
+        {error && <Alert severity="error">{error}</Alert>}
+        <Button type="submit" variant="contained" disabled={pending}>
           {pending ? "Please wait…" : registering ? "Register" : "Sign in"}
-        </button>
-      </form>
+        </Button>
+      </Stack>
       <Link href={registering ? "/sign-in" : "/register"}>
         {registering
           ? "Already registered? Sign in"
           : "Register as an organizer"}
       </Link>
-    </>
+    </Stack>
   );
 }

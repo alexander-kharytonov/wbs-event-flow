@@ -1,35 +1,33 @@
-import { headers } from "next/headers";
-import Link from "next/link";
-import { auth } from "@/lib/auth";
-import { SignOut } from "./sign-out";
+import { Alert, Button, Link, Stack, Typography } from "@mui/material";
+import { getSession } from "@/lib/session";
 
 export default async function Home({ searchParams }: PageProps<"/">) {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getSession();
   const { error } = await searchParams;
 
   return (
-    <main>
-      <h1>Event Flow</h1>
+    <Stack spacing={3}>
+      <Typography variant="h3" component="h1">
+        Event Flow
+      </Typography>
       {error && (
-        <p role="alert">
+        <Alert severity="error">
           The verification link is invalid or expired. Sign in to request a new
           verification email.
-        </p>
+        </Alert>
       )}
       {session ? (
-        <>
-          <p>
-            Signed in as {session.user.name} ({session.user.email}).
-          </p>
-          <p>Email verified. Organizer setup is not available yet.</p>
-          <SignOut />
-        </>
+        <Button href="/dashboard" variant="contained">
+          Go to dashboard
+        </Button>
       ) : (
-        <nav>
-          <Link href="/register">Register as an organizer</Link>
+        <Stack component="nav" spacing={2}>
+          <Button href="/register" variant="contained">
+            Register as an organizer
+          </Button>
           <Link href="/sign-in">Sign in</Link>
-        </nav>
+        </Stack>
       )}
-    </main>
+    </Stack>
   );
 }

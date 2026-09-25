@@ -1,5 +1,6 @@
 "use client";
 
+import { Alert, Button, Stack } from "@mui/material";
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
 
@@ -29,11 +30,11 @@ export function SignOut() {
   }
 
   return (
-    <div>
-      <button type="button" onClick={signOut} disabled={pending}>
+    <Stack spacing={1}>
+      <Button type="button" onClick={signOut} disabled={pending}>
         {pending ? "Signing out…" : "Sign out"}
-      </button>
-      {error && <p role="alert">{error}</p>}
-    </div>
+      </Button>
+      {error && <Alert severity="error">{error}</Alert>}
+    </Stack>
   );
 }
