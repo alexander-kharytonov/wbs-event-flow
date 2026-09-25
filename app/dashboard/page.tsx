@@ -11,6 +11,7 @@ import {
   Typography,
 } from "@mui/material";
 import { formatEventTime } from "@/features/events/format-event-time";
+import { formatTimezone } from "@/features/events/format-timezone";
 import { requireOrganizer } from "@/features/organizer/server/require-organizer";
 import { prisma } from "@/lib/prisma";
 
@@ -120,7 +121,7 @@ export default async function DashboardPage() {
                     color="text.secondary"
                     sx={{ overflowWrap: "anywhere" }}
                   >
-                    {event.timezone}
+                    {formatTimezone(event.timezone)}
                   </Typography>
                 </Stack>
                 <Button

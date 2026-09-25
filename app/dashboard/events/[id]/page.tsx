@@ -11,6 +11,7 @@ import {
 } from "@mui/material";
 import { notFound } from "next/navigation";
 import { formatEventTime } from "@/features/events/format-event-time";
+import { formatTimezone } from "@/features/events/format-timezone";
 import { requireOrganizer } from "@/features/organizer/server/require-organizer";
 import { prisma } from "@/lib/prisma";
 
@@ -103,7 +104,7 @@ export default async function EventPage({
               color="text.secondary"
               sx={{ overflowWrap: "anywhere" }}
             >
-              All times in {event.timezone}
+              All times in {formatTimezone(event.timezone)}
             </Typography>
           </Stack>
           <Divider />

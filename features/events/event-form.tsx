@@ -17,6 +17,8 @@ import type {
   EventFormValues,
 } from "@/features/events/event-input-schema";
 
+import { formatTimezone } from "@/features/events/format-timezone";
+
 const emptyValues: EventFormValues = {
   title: "",
   description: "",
@@ -147,17 +149,28 @@ export function EventForm({
               slotProps={{ inputLabel: { shrink: true } }}
             />
           </Box>
+          <input type="hidden" name="timezone" value={values.timezone} />
           <Autocomplete
             freeSolo
             options={timezones}
-            inputValue={values.timezone}
+            getOptionLabel={formatTimezone}
+            filterOptions={(options, { inputValue }) => {
+              const query = formatTimezone(inputValue).toLowerCase();
+
+              return options.filter((timezone) =>
+                formatTimezone(timezone).toLowerCase().includes(query),
+              );
+            }}
+            inputValue={formatTimezone(values.timezone)}
             onInputChange={(_, timezone) =>
-              setValues((current) => ({ ...current, timezone }))
+              setValues((current) => ({
+                ...current,
+                timezone: timezone.replaceAll(" ", "_"),
+              }))
             }
             renderInput={(params) => (
               <TextField
                 {...params}
-                name="timezone"
                 label="Timezone"
                 required
                 error={Boolean(state.errors?.timezone)}
