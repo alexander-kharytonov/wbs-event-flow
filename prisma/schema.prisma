@@ -18,6 +18,7 @@ model User {
   sessions         Session[]
   accounts         Account[]
   organizerProfile OrganizerProfile?
+  applications     Application[]
 
   @@unique([email])
   @@map("user")
@@ -191,6 +192,8 @@ model Application {
   id              String              @id @default(cuid())
   eventId         String
   eventRevisionId String
+  userId          String?
+  user            User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
   event           Event               @relation(fields: [eventId], references: [id], onDelete: Restrict)
   eventRevision   EventRevision       @relation(fields: [eventId, eventRevisionId], references: [eventId, id], onDelete: Restrict)
   fullName        String
@@ -202,6 +205,7 @@ model Application {
   answers         ApplicationAnswer[]
 
   @@unique([eventId, email])
+  @@unique([eventId, userId])
   @@index([eventId, status])
   @@index([eventRevisionId])
 }

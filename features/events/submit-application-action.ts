@@ -1,8 +1,7 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import type { ApplicationFormState } from "@/features/events/application-input";
-import { submitAnonymousApplication } from "@/features/events/server/submit-application";
+import { submitEventApplication } from "@/features/events/server/submit-application";
 
 export async function submitApplication(
   publicId: string,
@@ -32,17 +31,11 @@ export async function submitApplication(
     return { message: "Enter your full name and email." };
   }
 
-  const result = await submitAnonymousApplication({
+  return submitEventApplication({
     publicId,
     eventRevisionId,
     fullName: formData.get("fullName"),
     email: formData.get("email"),
     answers: Object.fromEntries(answers),
   });
-
-  if (!result.success) {
-    return { message: result.message, errors: result.errors };
-  }
-
-  redirect(`/e/${encodeURIComponent(publicId)}/submitted`);
 }

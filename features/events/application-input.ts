@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { EventSnapshot } from "@/features/events/schemas/event-snapshot";
 
 export type ApplicationFormState = {
+  success?: true;
   message?: string;
   errors?: Record<string, string>;
 };

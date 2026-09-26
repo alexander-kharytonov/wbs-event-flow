@@ -13,18 +13,27 @@ import {
 import { useState } from "react";
 import { useNotifications } from "@/hooks/use-notifications";
 import { authClient } from "@/lib/auth-client";
+import { safeReturnPath } from "@/lib/safe-return-path";
 
 export function AuthForm({
   mode,
   notice,
+  returnTo,
 }: {
   mode: "register" | "sign-in";
   notice?: string;
+  returnTo?: string;
 }) {
   const [pending, setPending] = useState(false);
   const notifications = useNotifications();
   const [sent, setSent] = useState(false);
   const registering = mode === "register";
+  const safeReturnTo = safeReturnPath(returnTo);
+  const authQuery = safeReturnTo
+    ? `?${new URLSearchParams({ returnTo: safeReturnTo })}`
+    : "";
+  const signInHref = `/sign-in${authQuery}`;
+  const registerHref = `/register${authQuery}`;
 
   async function submit(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -36,7 +45,7 @@ export function AuthForm({
       const credentials = {
         email: String(form.get("email")),
         password: String(form.get("password")),
-        callbackURL: "/onboarding/organizer",
+        callbackURL: safeReturnTo ?? "/onboarding/organizer",
       };
       const result = registering
         ? await authClient.signUp.email({
@@ -58,8 +67,6 @@ export function AuthForm({
 
       if (registering) {
         setSent(true);
-      } else {
-        window.location.assign("/dashboard");
       }
     } catch {
       notifications.show("Unable to connect. Please try again.", {
@@ -95,7 +102,7 @@ export function AuthForm({
               Follow the link within one hour. If you already have an account,
               sign in.
             </Alert>
-            <Button href="/sign-in" variant="contained">
+            <Button href={signInHref} variant="contained">
               Go to sign in
             </Button>
           </Stack>
@@ -107,8 +114,12 @@ export function AuthForm({
               </Typography>
               <Typography color="text.secondary">
                 {registering
-                  ? "Register as an organizer to start planning your events."
-                  : "Sign in to manage your events."}
+                  ? safeReturnTo
+                    ? "Create your Event Flow account to continue."
+                    : "Register as an organizer to start planning your events."
+                  : safeReturnTo
+                    ? "Sign in to continue to your event."
+                    : "Sign in to manage your events."}
               </Typography>
             </Stack>
             {notice && <Alert severity="info">{notice}</Alert>}
@@ -168,8 +179,12 @@ export function AuthForm({
               {registering
                 ? "Already have an account? "
                 : "New to Event Flow? "}
-              <Link href={registering ? "/sign-in" : "/register"}>
-                {registering ? "Sign in" : "Register as an organizer"}
+              <Link href={registering ? signInHref : registerHref}>
+                {registering
+                  ? "Sign in"
+                  : safeReturnTo
+                    ? "Create account"
+                    : "Register as an organizer"}
               </Link>
             </Typography>
           </Stack>
