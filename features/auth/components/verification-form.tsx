@@ -12,6 +12,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import {
   rememberVerificationEmail,
+  startVerificationCooldown,
   verificationCallbackURL,
   verificationCooldownKey,
   verificationEmailKey,
@@ -31,6 +32,7 @@ export function VerificationForm({
   const [email, setEmail] = useState("");
   const [pending, setPending] = useState(false);
   const [remaining, setRemaining] = useState(0);
+  const [cooldownLoaded, setCooldownLoaded] = useState(false);
   const [feedback, setFeedback] = useState<{
     severity: "info" | "error";
     message: string;
@@ -54,26 +56,21 @@ export function VerificationForm({
         Math.max(0, Math.ceil((retryAt.current - Date.now()) / 1000)),
       );
     tick();
+    setCooldownLoaded(true);
     const timer = window.setInterval(tick, 1000);
 
     return () => window.clearInterval(timer);
   }, []);
 
   function startCooldown() {
-    retryAt.current = Date.now() + 60_000;
+    retryAt.current = startVerificationCooldown();
     setRemaining(60);
-
-    try {
-      sessionStorage.setItem(verificationCooldownKey, String(retryAt.current));
-    } catch {
-      // Server-side limits still apply when browser storage is unavailable.
-    }
   }
 
   async function resend(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (inFlight.current || Date.now() < retryAt.current) {
+    if (!cooldownLoaded || inFlight.current || Date.now() < retryAt.current) {
       return;
     }
 
@@ -137,14 +134,15 @@ export function VerificationForm({
               Verify your email
             </Typography>
             <Typography color="text.secondary">
-              Open the verification link in your email to continue. If you can’t
-              find it, check your spam folder or request a new link below.
+              Open the link in your latest verification email to continue. If
+              you can’t find it, check your spam folder or request a new link
+              below.
             </Typography>
           </Stack>
           {invalidLink && !feedback && (
             <Alert severity="warning">
-              This verification link is invalid or expired. Request a new one
-              below.
+              This verification link is invalid, expired, or already used. Open
+              the latest verification email or request a new one below.
             </Alert>
           )}
           {deliveryFailed && !feedback && (
@@ -176,7 +174,7 @@ export function VerificationForm({
             <Button
               type="submit"
               variant="contained"
-              disabled={pending || remaining > 0}
+              disabled={!cooldownLoaded || pending || remaining > 0}
             >
               {pending
                 ? "Sending…"

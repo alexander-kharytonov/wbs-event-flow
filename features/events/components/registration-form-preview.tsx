@@ -7,10 +7,8 @@ import {
   FormGroup,
   FormHelperText,
   FormLabel,
-  Radio,
   Stack,
   TextField,
-  Typography,
 } from "@mui/material";
 import type { EventSnapshot } from "@/features/events/schemas/event-snapshot";
 
@@ -50,48 +48,62 @@ export function RegistrationFormPreview({
           );
         }
 
+        if (field.type === "SINGLE_CHOICE") {
+          return (
+            <TextField
+              key={field.id}
+              label={field.label}
+              select
+              required={field.required}
+              value=""
+              disabled
+              helperText={field.description}
+              fullWidth
+              slotProps={{
+                select: { native: true },
+                inputLabel: { shrink: true },
+              }}
+            >
+              <option value="">
+                {field.required ? "Choose an option" : "No selection"}
+              </option>
+              {field.options.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </TextField>
+          );
+        }
+
         return (
           <FormControl
             key={field.id}
-            required={field.required}
             component={field.type === "CHECKBOX" ? "div" : "fieldset"}
+            required={field.required}
           >
             {field.type !== "CHECKBOX" && (
               <FormLabel component="legend">{field.label}</FormLabel>
             )}
-            {field.type !== "CHECKBOX" && field.description && (
-              <Typography variant="body2" color="text.secondary">
-                {field.description}
-              </Typography>
-            )}
-            {field.type === "CHECKBOX" ? (
-              <>
-                <FormGroup aria-describedby={`${field.id}-help`}>
-                  <FormControlLabel
-                    control={<Checkbox disabled required={field.required} />}
-                    label={field.label}
-                  />
-                </FormGroup>
-                <FormHelperText id={`${field.id}-help`}>
-                  {field.description ??
-                    (field.required ? "Required" : "Optional")}
-                </FormHelperText>
-              </>
-            ) : (
-              field.options.map((option) => (
+            <FormGroup aria-describedby={`${field.id}-help`}>
+              {field.type === "CHECKBOX" ? (
                 <FormControlLabel
-                  key={option.id}
-                  control={
-                    field.type === "SINGLE_CHOICE" ? (
-                      <Radio disabled />
-                    ) : (
-                      <Checkbox disabled />
-                    )
-                  }
-                  label={option.label}
+                  label={field.label}
+                  control={<Checkbox disabled required={field.required} />}
                 />
-              ))
-            )}
+              ) : (
+                field.options.map((option) => (
+                  <FormControlLabel
+                    key={option.id}
+                    label={option.label}
+                    control={<Checkbox disabled />}
+                  />
+                ))
+              )}
+            </FormGroup>
+            <FormHelperText id={`${field.id}-help`}>
+              {field.description ?? (field.required ? "Required" : "Optional")}
+            </FormHelperText>
           </FormControl>
         );
       })}

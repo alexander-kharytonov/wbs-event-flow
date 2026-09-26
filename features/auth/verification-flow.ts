@@ -3,6 +3,18 @@ import { safeReturnPath } from "@/lib/safe-return-path";
 export const verificationEmailKey = "event-flow:verification-email";
 export const verificationCooldownKey = "event-flow:verification-cooldown";
 
+export function startVerificationCooldown() {
+  const retryAt = Date.now() + 60_000;
+
+  try {
+    sessionStorage.setItem(verificationCooldownKey, String(retryAt));
+  } catch {
+    // Server-side limits still apply when browser storage is unavailable.
+  }
+
+  return retryAt;
+}
+
 export function verificationPath(returnTo?: string) {
   const destination = safeReturnPath(returnTo);
 

@@ -2,9 +2,13 @@ import "server-only";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { createAuthMiddleware } from "better-auth/api";
+import {
+  consumeVerificationToken,
+  sendLatestVerificationEmail,
+} from "./email-verification";
 import { getServerEnv } from "./env";
-import { sendMail } from "./mail";
 import { prisma } from "./prisma";
+import { safeReturnPath } from "./safe-return-path";
 
 const env = getServerEnv();
 
@@ -20,6 +24,30 @@ export const auth = betterAuth({
   },
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path === "/verify-email") {
+        const token = await consumeVerificationToken(ctx.query?.token);
+
+        if (!token) {
+          const query = new URLSearchParams({ error: "INVALID_TOKEN" });
+          const callback = safeReturnPath(ctx.query?.callbackURL);
+          const returnTo = callback
+            ? safeReturnPath(
+                new URL(callback, env.BETTER_AUTH_URL).searchParams.get(
+                  "returnTo",
+                ),
+              )
+            : undefined;
+
+          if (returnTo) {
+            query.set("returnTo", returnTo);
+          }
+
+          throw ctx.redirect(`/verify-email?${query}`);
+        }
+
+        return { context: { query: { ...ctx.query, token } } };
+      }
+
       if (
         ![
           "/sign-up/email",
@@ -54,19 +82,8 @@ export const auth = betterAuth({
     sendOnSignIn: false,
     expiresIn: 3600,
     autoSignInAfterVerification: true,
-    async sendVerificationEmail({ user, url }) {
-      const htmlURL = url
-        .replaceAll("&", "&amp;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;");
-      // Await SMTP acceptance so a delivery failure cannot appear successful.
-      await sendMail({
-        to: user.email,
-        subject: "Verify your email — Event Flow",
-        text: `Verify your email: ${url}\nThis link expires in one hour.`,
-        html: `<p><a href="${htmlURL}">Verify your email</a></p><p>This link expires in one hour.</p>`,
-      });
+    async sendVerificationEmail({ user, url, token }) {
+      await sendLatestVerificationEmail(user, url, token);
     },
   },
   session: {

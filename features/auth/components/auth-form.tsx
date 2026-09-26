@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import {
   rememberVerificationEmail,
+  startVerificationCooldown,
   verificationCallbackURL,
   verificationPath,
 } from "@/features/auth/verification-flow";
@@ -94,7 +95,9 @@ export function AuthForm({
         }
 
         notifications.show(
-          "Unable to complete the request. Check your details and try again.",
+          !registering && result.error.code === "INVALID_EMAIL_OR_PASSWORD"
+            ? "Invalid email or password. Please try again."
+            : "Unable to complete the request. Please try again.",
           {
             severity: "error",
             key: "authentication",
@@ -105,6 +108,7 @@ export function AuthForm({
       }
 
       if (registering) {
+        startVerificationCooldown();
         showVerification(credentials.email);
       }
     } catch {

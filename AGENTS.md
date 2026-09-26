@@ -19,6 +19,12 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Create directories and architectural layers only when current code requires them. Do not create empty structure for anticipated future features.
 - Do not add tests unless explicitly requested.
 
+## Product and domain documentation
+
+- Before changing product behavior, domain rules, persistence, authorization, publication, registration, applications, or lifecycle semantics, read the relevant sections of `PRODUCT.md` and `DOMAIN.md`.
+- Local CSS changes or implementation-only refactors do not require reading both documents in full.
+- When a task intentionally changes a documented invariant, update the corresponding documentation in the same task. If a task unexpectedly conflicts with `DOMAIN.md`, report the conflict instead of silently violating the invariant.
+
 ## Project structure
 
 - Keep `app/` focused on Next.js routing and route-local code.
