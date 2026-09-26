@@ -66,10 +66,11 @@ model Event {
   publishedRevisionId String?           @unique
   contentVersion      Int               @default(1)
   revisions           EventRevision[]   @relation("EventRevisions")
-  publishedRevision   EventRevision?    @relation("CurrentPublishedRevision", fields: [publishedRevisionId], references: [id])
+  publishedRevision   EventRevision?    @relation("CurrentPublishedRevision", fields: [id, publishedRevisionId], references: [eventId, id], onDelete: Restrict, onUpdate: Restrict)
   registrationForm    RegistrationForm?
   applications        Application[]
 
+  @@unique([id, publishedRevisionId])
   @@index([organizerId, createdAt])
 }
 

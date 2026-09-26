@@ -1,10 +1,12 @@
 import { z } from "zod";
-import {
-  isChoice,
-  registrationFieldSchema,
-} from "@/features/events/schemas/registration-form";
 
-const fieldSchema = z
+// Frozen serialized v1 contract. Do not derive these rules from current authoring.
+const snapshotV1OptionSchema = z.strictObject({
+  id: z.string().min(1),
+  label: z.string().trim().min(1).max(200),
+});
+
+const snapshotV1FieldSchema = z
   .strictObject({
     id: z.string().min(1),
     type: z.enum([
@@ -17,31 +19,22 @@ const fieldSchema = z
     label: z.string().trim().min(1).max(200),
     description: z.string().max(500).nullable(),
     required: z.boolean(),
-    options: z.array(
-      z.strictObject({
-        id: z.string().min(1),
-        label: z.string().trim().min(1).max(200),
-      }),
-    ),
+    options: z.array(snapshotV1OptionSchema),
   })
   .superRefine((field, ctx) => {
-    // Validate the editable field rules without snapshot-only identifiers.
-    const input = {
-      label: field.label,
-      type: field.type,
-      required: field.required,
-      description: field.description ?? "",
-      ...(isChoice(field.type)
-        ? { options: field.options.map(({ label }) => ({ label })) }
-        : {}),
-    };
-    const validated = registrationFieldSchema.safeParse(input);
+    const choice =
+      field.type === "SINGLE_CHOICE" || field.type === "MULTIPLE_CHOICE";
+    const optionIds = field.options.map((option) => option.id);
+    const optionLabels = field.options.map((option) =>
+      option.label.toLowerCase(),
+    );
 
     if (
-      !validated.success ||
-      new Set(field.options.map((option) => option.id)).size !==
-        field.options.length ||
-      (!isChoice(field.type) && field.options.length > 0)
+      new Set(optionIds).size !== optionIds.length ||
+      (choice &&
+        (field.options.length < 2 ||
+          new Set(optionLabels).size !== optionLabels.length)) ||
+      (!choice && field.options.length > 0)
     ) {
       ctx.addIssue({
         code: "custom",
@@ -71,7 +64,9 @@ export const eventSnapshotSchema = z
     capacity: z.number().int().min(1).max(2147483647).nullable(),
     registrationOpensAt: z.iso.datetime({ precision: 3 }).nullable(),
     registrationClosesAt: z.iso.datetime({ precision: 3 }).nullable(),
-    registrationForm: z.strictObject({ fields: z.array(fieldSchema) }),
+    registrationForm: z.strictObject({
+      fields: z.array(snapshotV1FieldSchema),
+    }),
   })
   .superRefine((event, ctx) => {
     const fieldIds = event.registrationForm.fields.map((field) => field.id);
@@ -98,24 +93,5 @@ export const eventSnapshotSchema = z
       });
     }
   });
-
-// Apply new authoring rules to workspace previews/publication, without making
-// existing immutable snapshots unreadable. Submission enforces the end cutoff.
-export const eventPublicationSnapshotSchema = eventSnapshotSchema.superRefine(
-  (event, ctx) => {
-    for (const field of [
-      "registrationOpensAt",
-      "registrationClosesAt",
-    ] as const) {
-      if (event[field] && Date.parse(event[field]) > Date.parse(event.endsAt)) {
-        ctx.addIssue({
-          code: "custom",
-          path: [field],
-          message: "Registration must not extend beyond the event end.",
-        });
-      }
-    }
-  },
-);
 
 export type EventSnapshot = z.infer<typeof eventSnapshotSchema>;

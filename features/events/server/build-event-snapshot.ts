@@ -1,5 +1,5 @@
 import "server-only";
-import { eventPublicationSnapshotSchema } from "@/features/events/schemas/event-snapshot";
+import { eventPublicationSnapshotSchema } from "@/features/events/schemas/event-publication-snapshot";
 import type { Prisma } from "@/generated/prisma/client";
 
 export const workspaceInclude = {

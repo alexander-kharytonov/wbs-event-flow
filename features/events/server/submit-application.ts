@@ -25,9 +25,10 @@ const duplicateApplicationConstraint = z.object({
   }),
 });
 
-// Dates always come from the current publication, never from the submitted form.
-function registrationError(
+// Admission policy comes from the current publication read under the Event lock.
+function admissionError(
   currentSnapshot: unknown,
+  hasVerifiedUser: boolean,
 ): ApplicationFormState | null {
   const current = eventSnapshotSchema.safeParse(currentSnapshot);
 
@@ -43,6 +44,12 @@ function registrationError(
         availability === "CLOSED"
           ? "Registration is closed."
           : "Registration has not opened yet.",
+    };
+  }
+
+  if (current.data.accountRequirement === "REQUIRED" && !hasVerifiedUser) {
+    return {
+      message: "Sign in with a verified email to register for this event.",
     };
   }
 
@@ -79,7 +86,6 @@ export async function submitEventApplication(
         event: {
           select: {
             organizer: { select: { userId: true } },
-            publishedRevision: { select: { snapshot: true } },
           },
         },
       },
@@ -90,25 +96,11 @@ export async function submitEventApplication(
       return { message: "This registration form is unavailable." };
     }
 
-    const unavailable = registrationError(
-      revision.event.publishedRevision?.snapshot,
-    );
-
-    if (unavailable) {
-      return unavailable;
-    }
-
     const session = await getSession();
     const user = session?.user.emailVerified ? session.user : null;
 
     if (session?.user.id === revision.event.organizer.userId) {
       return { message: "You cannot apply to attend your own event." };
-    }
-
-    if (snapshot.data.accountRequirement === "REQUIRED" && !user) {
-      return {
-        message: "Sign in with a verified email to register for this event.",
-      };
     }
 
     const applicant = applicationInputSchema.safeParse({
@@ -162,8 +154,9 @@ export async function submitEventApplication(
               publishedRevision: { select: { id: true, snapshot: true } },
             },
           });
-          const unavailable = registrationError(
+          const unavailable = admissionError(
             currentEvent?.publishedRevision?.snapshot,
+            user !== null,
           );
 
           if (unavailable) {
@@ -196,15 +189,16 @@ export async function submitEventApplication(
             };
           }
 
-          const finalAvailability = registrationError(
+          const finalAdmissionError = admissionError(
             currentEvent?.publishedRevision?.snapshot,
+            user !== null,
           );
 
-          if (finalAvailability) {
-            return finalAvailability;
+          if (finalAdmissionError) {
+            return finalAdmissionError;
           }
 
-          // Recheck the current window immediately before the atomic write.
+          // Recheck current admission policy immediately before the atomic write.
           await tx.application.create({
             data: {
               eventId: revision.eventId,
