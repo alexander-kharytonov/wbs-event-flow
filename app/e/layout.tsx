@@ -1,6 +1,6 @@
-import { Box, Container, Link, Stack } from "@mui/material";
+import { Box, Container } from "@mui/material";
 import { ApplicationFooter } from "@/components/layout/application-footer";
-import { ThemeControl } from "@/components/ui/theme-control";
+import { ApplicationHeader } from "@/components/layout/application-header";
 
 export default function PublicLayout({
   children,
@@ -9,22 +9,7 @@ export default function PublicLayout({
 }) {
   return (
     <Box sx={{ minHeight: "100dvh", display: "flex", flexDirection: "column" }}>
-      <Box
-        component="header"
-        sx={{ borderBottom: 1, borderColor: "divider", py: 1.5 }}
-      >
-        <Container maxWidth="md">
-          <Stack
-            direction="row"
-            sx={{ alignItems: "center", justifyContent: "space-between" }}
-          >
-            <Link href="/" underline="none" color="inherit" variant="h6">
-              Event Flow
-            </Link>
-            <ThemeControl />
-          </Stack>
-        </Container>
-      </Box>
+      <ApplicationHeader />
       <Container
         component="main"
         maxWidth="md"

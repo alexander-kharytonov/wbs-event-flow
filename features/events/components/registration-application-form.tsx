@@ -2,6 +2,7 @@
 
 import {
   Alert,
+  AlertTitle,
   Button,
   Checkbox,
   FormControl,
@@ -13,6 +14,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { useRouter } from "next/navigation";
 import { useActionState, useState } from "react";
 import type { ApplicationFormState } from "@/features/events/application-input";
 import type { EventSnapshot } from "@/features/events/schemas/event-snapshot";
@@ -23,12 +25,19 @@ export function RegistrationApplicationForm({
   publicId,
   eventRevisionId,
   fields,
+  applicant,
+  initialValues = {},
 }: {
+  applicant?: { name: string; email: string };
+  initialValues?: Record<string, string[]>;
   publicId: string;
   eventRevisionId: string;
   fields: EventSnapshot["registrationForm"]["fields"];
 }) {
   const notifications = useNotifications();
+  const router = useRouter();
+  // Keep entered values on errors; discard them only after server success.
+  const [values, setValues] = useState<Record<string, string[]>>(initialValues);
   const [state, action, pending] = useActionState(
     async (previous: ApplicationFormState, formData: FormData) => {
       notifications.close("registration-submission");
@@ -39,7 +48,13 @@ export function RegistrationApplicationForm({
         formData,
       );
 
-      if (next.message && !next.errors) {
+      if (next.success) {
+        setValues({});
+
+        if (applicant) {
+          router.refresh();
+        }
+      } else if (next.message && !next.errors) {
         notifications.show(next.message, {
           severity: "error",
           key: "registration-submission",
@@ -50,10 +65,17 @@ export function RegistrationApplicationForm({
     },
     {},
   );
-  // Keep entered values on validation errors, including unchecked/empty answers.
-  const [values, setValues] = useState<Record<string, string[]>>({});
   const update = (name: string, value: string[]) =>
     setValues((previous) => ({ ...previous, [name]: value }));
+
+  if (state.success) {
+    return (
+      <Alert severity="success" role="status">
+        <AlertTitle>Registration received</AlertTitle>
+        Thank you! Your application has been submitted for organizer review.
+      </Alert>
+    );
+  }
 
   return (
     <Stack
@@ -80,7 +102,7 @@ export function RegistrationApplicationForm({
         autoComplete="name"
         required
         fullWidth
-        value={values.fullName?.[0] ?? ""}
+        value={values.fullName?.[0] ?? applicant?.name ?? ""}
         onChange={(event) => update("fullName", [event.target.value])}
         error={!!state.errors?.fullName}
         helperText={state.errors?.fullName}
@@ -93,10 +115,14 @@ export function RegistrationApplicationForm({
         autoComplete="email"
         required
         fullWidth
-        value={values.email?.[0] ?? ""}
+        value={applicant?.email ?? values.email?.[0] ?? ""}
         onChange={(event) => update("email", [event.target.value])}
         error={!!state.errors?.email}
-        helperText={state.errors?.email}
+        helperText={
+          state.errors?.email ??
+          (applicant ? "Using your verified account email." : undefined)
+        }
+        slotProps={{ input: { readOnly: !!applicant } }}
       />
       {fields.map((field) => {
         const name = `answer:${field.id}`;

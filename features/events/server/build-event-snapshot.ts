@@ -1,5 +1,5 @@
 import "server-only";
-import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
+import { eventPublicationSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 import type { Prisma } from "@/generated/prisma/client";
 
 export const workspaceInclude = {
@@ -19,7 +19,7 @@ type EventWorkspace = Prisma.EventGetPayload<{
 }>;
 
 export function buildEventSnapshot(event: EventWorkspace) {
-  return eventSnapshotSchema.safeParse({
+  return eventPublicationSnapshotSchema.safeParse({
     schemaVersion: 1,
     title: event.title,
     description: event.description,

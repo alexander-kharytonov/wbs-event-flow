@@ -12,6 +12,12 @@ export const auth = betterAuth({
   baseURL: env.BETTER_AUTH_URL,
   secret: env.BETTER_AUTH_SECRET,
   database: prismaAdapter(prisma, { provider: "postgresql" }),
+  rateLimit: {
+    enabled: true,
+    customRules: {
+      "/send-verification-email": { window: 60, max: 1 },
+    },
+  },
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
       if (
@@ -45,7 +51,7 @@ export const auth = betterAuth({
   },
   emailVerification: {
     sendOnSignUp: true,
-    sendOnSignIn: true,
+    sendOnSignIn: false,
     expiresIn: 3600,
     autoSignInAfterVerification: true,
     async sendVerificationEmail({ user, url }) {

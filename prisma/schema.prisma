@@ -1,6 +1,7 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider        = "prisma-client"
+  output          = "../generated/prisma"
+  previewFeatures = ["partialIndexes"]
 }
 
 datasource db {
@@ -18,6 +19,7 @@ model User {
   sessions         Session[]
   accounts         Account[]
   organizerProfile OrganizerProfile?
+  applications     Application[]
 
   @@unique([email])
   @@map("user")
@@ -185,12 +187,15 @@ enum ApplicationStatus {
   PENDING
   APPROVED
   REJECTED
+  WITHDRAWN
 }
 
 model Application {
   id              String              @id @default(cuid())
   eventId         String
   eventRevisionId String
+  userId          String?
+  user            User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
   event           Event               @relation(fields: [eventId], references: [id], onDelete: Restrict)
   eventRevision   EventRevision       @relation(fields: [eventId, eventRevisionId], references: [eventId, id], onDelete: Restrict)
   fullName        String
@@ -199,9 +204,12 @@ model Application {
   createdAt       DateTime            @default(now()) @db.Timestamptz(3)
   updatedAt       DateTime            @updatedAt @db.Timestamptz(3)
   reviewedAt      DateTime?           @db.Timestamptz(3)
+  withdrawnAt     DateTime?           @db.Timestamptz(3)
   answers         ApplicationAnswer[]
 
-  @@unique([eventId, email])
+  @@unique([eventId, email], where: raw("(status = ANY (ARRAY['PENDING'::\"ApplicationStatus\", 'APPROVED'::\"ApplicationStatus\", 'REJECTED'::\"ApplicationStatus\"]))"))
+  @@unique([eventId, userId], where: raw("(status = ANY (ARRAY['PENDING'::\"ApplicationStatus\", 'APPROVED'::\"ApplicationStatus\", 'REJECTED'::\"ApplicationStatus\"]))"))
+  @@index([eventId, userId, createdAt])
   @@index([eventId, status])
   @@index([eventRevisionId])
 }

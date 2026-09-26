@@ -1,10 +1,17 @@
 import { Box, Button, Container, Divider, Link, Stack } from "@mui/material";
 import { ThemeControl } from "@/components/ui/theme-control";
 import { AccountMenu } from "@/features/auth/components/account-menu";
+import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 
 export async function ApplicationHeader() {
   const session = await getSession();
+  const organizer = session
+    ? await prisma.organizerProfile.findUnique({
+        where: { userId: session.user.id },
+        select: { id: true },
+      })
+    : null;
 
   return (
     <Box
@@ -17,15 +24,18 @@ export async function ApplicationHeader() {
           useFlexGap
           sx={{ gap: 1, flexWrap: "wrap", alignItems: "center" }}
         >
-          <Link
-            href={session ? "/dashboard" : "/"}
-            underline="none"
-            color="inherit"
-            variant="h6"
-            sx={{ mr: "auto" }}
-          >
+          <Link href="/" underline="none" color="inherit" variant="h6">
             Event Flow
           </Link>
+          <Stack
+            direction="row"
+            useFlexGap
+            sx={{ mx: "auto", flexWrap: "wrap", alignItems: "center" }}
+          >
+            <Button href="/e" color="inherit">
+              Public events
+            </Button>
+          </Stack>
           <ThemeControl />
           <Divider
             orientation="vertical"
@@ -33,7 +43,10 @@ export async function ApplicationHeader() {
             flexItem
           />
           {session ? (
-            <AccountMenu name={session.user.name} />
+            <AccountMenu
+              name={session.user.name}
+              organizerProfileId={organizer?.id}
+            />
           ) : (
             <Button href="/sign-in">Sign in</Button>
           )}

@@ -1,4 +1,4 @@
-import { Alert, Typography } from "@mui/material";
+import { Alert, LinearProgress, Stack, Typography } from "@mui/material";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 
 export function ApplicationCapacity({
@@ -13,8 +13,8 @@ export function ApplicationCapacity({
   if (!parsed.success) {
     return (
       <Alert severity="warning">
-        Published capacity is unavailable. Applications cannot be approved until
-        a valid event revision is published.
+        The event's capacity is unavailable. Applications cannot be approved
+        until a valid event revision is published.
       </Alert>
     );
   }
@@ -24,21 +24,36 @@ export function ApplicationCapacity({
   if (capacity !== null && approved >= capacity) {
     return (
       <Alert severity="warning">
-        {approved} approved · Published capacity: {capacity}.
+        {approved} of {capacity} places filled · 0 available.
         {approved > capacity
-          ? " The event is over capacity. Existing approvals are kept."
+          ? ` The event is ${approved - capacity} over capacity. Existing approvals are kept.`
           : " All places are filled."}
         {
-          " Further approvals are blocked while published capacity is reached. Pending applications remain pending."
+          " Further approvals are blocked until a place becomes available. Pending applications remain pending."
         }
       </Alert>
     );
   }
 
   return (
-    <Typography variant="body2" color="text.secondary">
-      {approved} approved · Published capacity:{" "}
-      {capacity === null ? "Unlimited" : capacity}
-    </Typography>
+    <Stack spacing={1} sx={{ maxWidth: 480 }}>
+      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+        {capacity === null
+          ? `${approved} approved · Unlimited capacity`
+          : `${approved} of ${capacity} places filled · ${capacity - approved} available`}
+      </Typography>
+      {capacity !== null && (
+        <LinearProgress
+          variant="determinate"
+          value={(approved / capacity) * 100}
+          aria-label="Filled places"
+          aria-valuetext={`${approved} of ${capacity} places filled`}
+          sx={{ height: 6, borderRadius: 1 }}
+        />
+      )}
+      <Typography variant="caption" color="text.secondary">
+        Only approved applications occupy places.
+      </Typography>
+    </Stack>
   );
 }

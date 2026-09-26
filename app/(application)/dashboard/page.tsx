@@ -16,20 +16,37 @@ import { publicationState } from "@/features/events/publication-state";
 import { requireOrganizer } from "@/features/organizer/server/require-organizer";
 import { prisma } from "@/lib/prisma";
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: PageProps<"/dashboard">) {
   const organizer = await requireOrganizer();
+  const { visibility } = await searchParams;
+  const filter =
+    visibility === "PUBLIC" || visibility === "PRIVATE" ? visibility : "ALL";
   const events = await prisma.event.findMany({
     where: { organizerId: organizer.id },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     select: {
       id: true,
       title: true,
+      visibility: true,
       startsAt: true,
       timezone: true,
       contentVersion: true,
       publishedRevision: { select: { contentVersion: true } },
     },
   });
+
+  const counts = { ALL: events.length, PUBLIC: 0, PRIVATE: 0 };
+
+  for (const event of events) {
+    counts[event.visibility] += 1;
+  }
+
+  const visibleEvents = events.filter(
+    (event) => filter === "ALL" || event.visibility === filter,
+  );
+  const labels = { ALL: "All", PUBLIC: "Public", PRIVATE: "Private" };
 
   return (
     <Stack spacing={4}>
@@ -53,7 +70,27 @@ export default async function DashboardPage() {
           Create event
         </Button>
       </Stack>
-      {events.length === 0 ? (
+      <Stack
+        component="nav"
+        aria-label="Filter events"
+        direction="row"
+        sx={{ flexWrap: "wrap", gap: 1 }}
+      >
+        {(["ALL", "PUBLIC", "PRIVATE"] as const).map((value) => (
+          <Button
+            key={value}
+            href={`/dashboard${value === "ALL" ? "" : `?visibility=${value}`}`}
+            variant={filter === value ? "contained" : "text"}
+            color={filter === value ? "primary" : "inherit"}
+            aria-current={filter === value ? "page" : undefined}
+            aria-label={`${labels[value]} (${counts[value]})`}
+            sx={{ px: 1.5 }}
+          >
+            {`${labels[value]} (${counts[value]})`}
+          </Button>
+        ))}
+      </Stack>
+      {visibleEvents.length === 0 ? (
         <Paper
           variant="outlined"
           sx={{ p: { xs: 3, sm: 6 }, borderRadius: 2, textAlign: "center" }}
@@ -61,10 +98,14 @@ export default async function DashboardPage() {
           <Stack spacing={2} sx={{ alignItems: "center" }}>
             <EventOutlined sx={{ fontSize: 40, color: "text.secondary" }} />
             <Typography variant="h6" component="h2">
-              Your first event starts here
+              {filter === "ALL"
+                ? "Your first event starts here"
+                : `No ${labels[filter].toLowerCase()} events`}
             </Typography>
             <Typography color="text.secondary">
-              Create a draft to set the schedule and registration details.
+              {filter === "ALL"
+                ? "Create a draft to set the schedule and registration details."
+                : `Your ${labels[filter].toLowerCase()} events will appear here.`}
             </Typography>
             <Button
               href="/dashboard/events/new"
@@ -90,7 +131,7 @@ export default async function DashboardPage() {
             },
           }}
         >
-          {events.map((event) => (
+          {visibleEvents.map((event) => (
             <Paper
               component="li"
               variant="outlined"
@@ -101,11 +142,20 @@ export default async function DashboardPage() {
                 spacing={2}
                 sx={{ height: "100%", alignItems: "flex-start" }}
               >
-                <Chip
-                  label={publicationState(event)}
-                  size="small"
-                  variant="outlined"
-                />
+                <Stack direction="row" sx={{ gap: 1, flexWrap: "wrap" }}>
+                  {filter === "ALL" && (
+                    <Chip
+                      label={labels[event.visibility]}
+                      size="small"
+                      variant="outlined"
+                    />
+                  )}
+                  <Chip
+                    label={publicationState(event)}
+                    size="small"
+                    variant="outlined"
+                  />
+                </Stack>
                 <Link
                   href={`/dashboard/events/${event.id}`}
                   variant="h6"

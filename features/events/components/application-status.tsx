@@ -5,6 +5,7 @@ export const applicationStatusLabels = {
   PENDING: "Pending",
   APPROVED: "Approved",
   REJECTED: "Rejected",
+  WITHDRAWN: "Withdrawn",
 };
 
 export function ApplicationStatus({ status }: { status: Status }) {
@@ -17,7 +18,9 @@ export function ApplicationStatus({ status }: { status: Status }) {
           ? "success"
           : status === "REJECTED"
             ? "error"
-            : "warning"
+            : status === "WITHDRAWN"
+              ? "default"
+              : "warning"
       }
       variant="outlined"
     />

@@ -71,6 +71,7 @@ export async function getOwnedApplication(
           status: true,
           createdAt: true,
           reviewedAt: true,
+          withdrawnAt: true,
           eventRevisionId: true,
         },
       });

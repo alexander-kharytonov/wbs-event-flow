@@ -29,7 +29,10 @@ export default async function ApplicationsPage({
   }
 
   const filter =
-    status === "PENDING" || status === "APPROVED" || status === "REJECTED"
+    status === "PENDING" ||
+    status === "APPROVED" ||
+    status === "REJECTED" ||
+    status === "WITHDRAWN"
       ? status
       : "ALL";
   const counts = {
@@ -37,6 +40,7 @@ export default async function ApplicationsPage({
     PENDING: 0,
     APPROVED: 0,
     REJECTED: 0,
+    WITHDRAWN: 0,
   };
 
   for (const application of event.applications) {
@@ -67,19 +71,21 @@ export default async function ApplicationsPage({
         direction="row"
         sx={{ flexWrap: "wrap", gap: 1 }}
       >
-        {(["ALL", "PENDING", "APPROVED", "REJECTED"] as const).map((value) => (
-          <Button
-            key={value}
-            href={`/dashboard/events/${id}/applications${value === "ALL" ? "" : `?status=${value}`}`}
-            variant={filter === value ? "contained" : "text"}
-            color={filter === value ? "primary" : "inherit"}
-            aria-current={filter === value ? "page" : undefined}
-            aria-label={`${value === "ALL" ? "All" : applicationStatusLabels[value]} (${counts[value]})`}
-            sx={{ px: 1.5 }}
-          >
-            {`${value === "ALL" ? "All" : applicationStatusLabels[value]} (${counts[value]})`}
-          </Button>
-        ))}
+        {(["ALL", "PENDING", "APPROVED", "REJECTED", "WITHDRAWN"] as const).map(
+          (value) => (
+            <Button
+              key={value}
+              href={`/dashboard/events/${id}/applications${value === "ALL" ? "" : `?status=${value}`}`}
+              variant={filter === value ? "contained" : "text"}
+              color={filter === value ? "primary" : "inherit"}
+              aria-current={filter === value ? "page" : undefined}
+              aria-label={`${value === "ALL" ? "All" : applicationStatusLabels[value]} (${counts[value]})`}
+              sx={{ px: 1.5 }}
+            >
+              {`${value === "ALL" ? "All" : applicationStatusLabels[value]} (${counts[value]})`}
+            </Button>
+          ),
+        )}
       </Stack>
       {applications.length === 0 ? (
         <Paper variant="outlined" sx={{ p: 4, textAlign: "center" }}>
