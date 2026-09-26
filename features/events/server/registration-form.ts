@@ -47,6 +47,7 @@ export async function getRegistrationForm(
         where: { id: eventId, organizerId },
         select: {
           title: true,
+          _count: { select: { applications: true } },
           publicId: true,
           contentVersion: true,
           publishedRevision: { select: { contentVersion: true, number: true } },
@@ -60,6 +61,7 @@ export async function getRegistrationForm(
 
       return {
         title: event.title,
+        applicationCount: event._count.applications,
         publicId: event.publicId,
         contentVersion: event.contentVersion,
         publishedRevision: event.publishedRevision,
