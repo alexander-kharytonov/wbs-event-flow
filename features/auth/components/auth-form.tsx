@@ -10,7 +10,13 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
+import {
+  rememberVerificationEmail,
+  verificationCallbackURL,
+  verificationPath,
+} from "@/features/auth/verification-flow";
 import { useNotifications } from "@/hooks/use-notifications";
 import { authClient } from "@/lib/auth-client";
 import { safeReturnPath } from "@/lib/safe-return-path";
@@ -25,8 +31,10 @@ export function AuthForm({
   returnTo?: string;
 }) {
   const [pending, setPending] = useState(false);
+  const [email, setEmail] = useState("");
+  const router = useRouter();
+  const requestInFlight = useRef(false);
   const notifications = useNotifications();
-  const [sent, setSent] = useState(false);
   const registering = mode === "register";
   const safeReturnTo = safeReturnPath(returnTo);
   const authQuery = safeReturnTo
@@ -34,9 +42,26 @@ export function AuthForm({
     : "";
   const signInHref = `/sign-in${authQuery}`;
   const registerHref = `/register${authQuery}`;
+  const callbackURL = safeReturnTo ?? "/account";
+
+  function showVerification(address: string, deliveryFailed = false) {
+    rememberVerificationEmail(address);
+    const path = verificationPath(safeReturnTo);
+    router.push(
+      deliveryFailed
+        ? `${path}${path.includes("?") ? "&" : "?"}delivery=failed`
+        : path,
+    );
+  }
 
   async function submit(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (requestInFlight.current) {
+      return;
+    }
+
+    requestInFlight.current = true;
     const form = new FormData(event.currentTarget);
     setPending(true);
     notifications.close("authentication");
@@ -45,35 +70,54 @@ export function AuthForm({
       const credentials = {
         email: String(form.get("email")),
         password: String(form.get("password")),
-        callbackURL: safeReturnTo ?? "/onboarding/organizer",
+        callbackURL,
       };
       const result = registering
         ? await authClient.signUp.email({
             ...credentials,
+            callbackURL: verificationCallbackURL(safeReturnTo),
             name: String(form.get("name")),
           })
         : await authClient.signIn.email(credentials);
 
       if (result.error) {
+        if (result.error.code === "EMAIL_NOT_VERIFIED") {
+          showVerification(credentials.email);
+
+          return;
+        }
+
+        if (registering && result.error.status >= 500) {
+          showVerification(credentials.email, true);
+
+          return;
+        }
+
         notifications.show(
-          result.error.code === "EMAIL_NOT_VERIFIED"
-            ? "Verify your email before signing in. Check your inbox for a verification link."
-            : "Unable to complete the request. Check your details and try again. If registration previously failed, try signing in to receive a new verification email.",
-          { severity: "error", key: "authentication" },
+          "Unable to complete the request. Check your details and try again.",
+          {
+            severity: "error",
+            key: "authentication",
+          },
         );
 
         return;
       }
 
       if (registering) {
-        setSent(true);
+        showVerification(credentials.email);
       }
     } catch {
-      notifications.show("Unable to connect. Please try again.", {
-        severity: "error",
-        key: "authentication",
-      });
+      if (registering) {
+        showVerification(String(form.get("email")), true);
+      } else {
+        notifications.show("Unable to connect. Please try again.", {
+          severity: "error",
+          key: "authentication",
+        });
+      }
     } finally {
+      requestInFlight.current = false;
       setPending(false);
     }
   }
@@ -87,108 +131,83 @@ export function AuthForm({
         Back to home
       </Link>
       <Paper variant="outlined" sx={{ p: { xs: 3, sm: 4 }, borderRadius: 2 }}>
-        {sent ? (
-          <Stack spacing={3} component="section" aria-live="polite">
-            <Stack spacing={1}>
-              <Typography variant="h4" component="h1">
-                Check your email
-              </Typography>
-              <Typography color="text.secondary">
-                One more step to get started.
-              </Typography>
-            </Stack>
-            <Alert severity="info">
-              If this email can be registered, we sent a verification link.
-              Follow the link within one hour. If you already have an account,
-              sign in.
-            </Alert>
-            <Button href={signInHref} variant="contained">
-              Go to sign in
-            </Button>
-          </Stack>
-        ) : (
-          <Stack spacing={3}>
-            <Stack spacing={1}>
-              <Typography variant="h4" component="h1">
-                {registering ? "Create your account" : "Welcome back"}
-              </Typography>
-              <Typography color="text.secondary">
-                {registering
-                  ? safeReturnTo
-                    ? "Create your Event Flow account to continue."
-                    : "Register as an organizer to start planning your events."
-                  : safeReturnTo
-                    ? "Sign in to continue to your event."
-                    : "Sign in to manage your events."}
-              </Typography>
-            </Stack>
-            {notice && <Alert severity="info">{notice}</Alert>}
-            <Stack
-              component="form"
-              spacing={2.5}
-              onSubmit={submit}
-              aria-busy={pending}
-            >
-              {registering && (
-                <TextField
-                  label="Name"
-                  name="name"
-                  autoComplete="name"
-                  required
-                  fullWidth
-                />
-              )}
-              <TextField
-                label="Email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                fullWidth
-              />
-              <TextField
-                label="Password"
-                name="password"
-                type="password"
-                autoComplete={registering ? "new-password" : "current-password"}
-                slotProps={{ htmlInput: { minLength: 10, maxLength: 128 } }}
-                helperText={registering ? "Use 10–128 characters." : undefined}
-                required
-                fullWidth
-              />
-              <Button type="submit" variant="contained" disabled={pending}>
-                {pending
-                  ? "Please wait…"
-                  : registering
-                    ? "Create account"
-                    : "Sign in"}
-              </Button>
-              {registering && (
-                <Typography variant="body2" color="text.secondary">
-                  We’ll send a verification link to your email before you can
-                  start.
-                </Typography>
-              )}
-            </Stack>
-            <Divider />
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ textAlign: "center" }}
-            >
+        <Stack spacing={3}>
+          <Stack spacing={1}>
+            <Typography variant="h4" component="h1">
+              {registering ? "Create your account" : "Welcome back"}
+            </Typography>
+            <Typography color="text.secondary">
               {registering
-                ? "Already have an account? "
-                : "New to Event Flow? "}
-              <Link href={registering ? signInHref : registerHref}>
-                {registering
-                  ? "Sign in"
-                  : safeReturnTo
-                    ? "Create account"
-                    : "Register as an organizer"}
-              </Link>
+                ? safeReturnTo
+                  ? "Create your Event Flow account to continue."
+                  : "Create your Event Flow account."
+                : safeReturnTo
+                  ? "Sign in to continue to your event."
+                  : "Sign in to your Event Flow account."}
             </Typography>
           </Stack>
-        )}
+          {notice && <Alert severity="info">{notice}</Alert>}
+          <Stack
+            component="form"
+            spacing={2.5}
+            onSubmit={submit}
+            aria-busy={pending}
+          >
+            {registering && (
+              <TextField
+                label="Name"
+                name="name"
+                autoComplete="name"
+                required
+                fullWidth
+              />
+            )}
+            <TextField
+              label="Email"
+              name="email"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              autoComplete="email"
+              required
+              fullWidth
+            />
+            <TextField
+              label="Password"
+              name="password"
+              type="password"
+              autoComplete={registering ? "new-password" : "current-password"}
+              slotProps={{ htmlInput: { minLength: 10, maxLength: 128 } }}
+              helperText={registering ? "Use 10–128 characters." : undefined}
+              required
+              fullWidth
+            />
+            <Button type="submit" variant="contained" disabled={pending}>
+              {pending
+                ? "Please wait…"
+                : registering
+                  ? "Create account"
+                  : "Sign in"}
+            </Button>
+            {registering && (
+              <Typography variant="body2" color="text.secondary">
+                We’ll send a verification link to your email before you can
+                start.
+              </Typography>
+            )}
+          </Stack>
+          <Divider />
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ textAlign: "center" }}
+          >
+            {registering ? "Already have an account? " : "New to Event Flow? "}
+            <Link href={registering ? signInHref : registerHref}>
+              {registering ? "Sign in" : "Create account"}
+            </Link>
+          </Typography>
+        </Stack>
       </Paper>
     </Stack>
   );

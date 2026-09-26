@@ -14,6 +14,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { useRouter } from "next/navigation";
 import { useActionState, useState } from "react";
 import type { ApplicationFormState } from "@/features/events/application-input";
 import type { EventSnapshot } from "@/features/events/schemas/event-snapshot";
@@ -25,15 +26,18 @@ export function RegistrationApplicationForm({
   eventRevisionId,
   fields,
   applicant,
+  initialValues = {},
 }: {
   applicant?: { name: string; email: string };
+  initialValues?: Record<string, string[]>;
   publicId: string;
   eventRevisionId: string;
   fields: EventSnapshot["registrationForm"]["fields"];
 }) {
   const notifications = useNotifications();
+  const router = useRouter();
   // Keep entered values on errors; discard them only after server success.
-  const [values, setValues] = useState<Record<string, string[]>>({});
+  const [values, setValues] = useState<Record<string, string[]>>(initialValues);
   const [state, action, pending] = useActionState(
     async (previous: ApplicationFormState, formData: FormData) => {
       notifications.close("registration-submission");
@@ -46,6 +50,10 @@ export function RegistrationApplicationForm({
 
       if (next.success) {
         setValues({});
+
+        if (applicant) {
+          router.refresh();
+        }
       } else if (next.message && !next.errors) {
         notifications.show(next.message, {
           severity: "error",

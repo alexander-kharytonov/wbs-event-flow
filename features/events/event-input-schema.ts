@@ -120,6 +120,19 @@ export const eventInputSchema = z
       });
     }
 
+    for (const [field, value] of [
+      ["registrationOpensAt", registrationOpensAt],
+      ["registrationClosesAt", registrationClosesAt],
+    ] as const) {
+      if (value && value > endsAt) {
+        ctx.addIssue({
+          code: "custom",
+          path: [field],
+          message: "Registration must not extend beyond the event end.",
+        });
+      }
+    }
+
     return {
       ...input,
       description: input.description || null,

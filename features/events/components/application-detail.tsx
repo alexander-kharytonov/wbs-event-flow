@@ -80,6 +80,13 @@ export async function ApplicationDetail({
               ({event.timezone})
             </Typography>
           )}
+          {application.withdrawnAt && (
+            <Typography variant="body2" color="text.secondary">
+              Withdrawn{" "}
+              {formatEventTime(application.withdrawnAt, event.timezone)} (
+              {event.timezone})
+            </Typography>
+          )}
           <Divider />
           <ApplicationCapacity
             snapshot={event.publishedRevision?.snapshot}

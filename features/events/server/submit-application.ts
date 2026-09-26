@@ -25,6 +25,30 @@ const duplicateApplicationConstraint = z.object({
   }),
 });
 
+// Dates always come from the current publication, never from the submitted form.
+function registrationError(
+  currentSnapshot: unknown,
+): ApplicationFormState | null {
+  const current = eventSnapshotSchema.safeParse(currentSnapshot);
+
+  if (!current.success) {
+    return { message: "This registration form is unavailable." };
+  }
+
+  const availability = registrationAvailability(current.data, new Date());
+
+  if (availability !== "OPEN") {
+    return {
+      message:
+        availability === "CLOSED"
+          ? "Registration is closed."
+          : "Registration has not opened yet.",
+    };
+  }
+
+  return null;
+}
+
 export async function submitEventApplication(
   input: unknown,
 ): Promise<ApplicationFormState> {
@@ -49,7 +73,16 @@ export async function submitEventApplication(
     // to still be current: an already opened form keeps its historical meaning.
     const revision = await prisma.eventRevision.findFirst({
       where: { id: eventRevisionId, event: { publicId } },
-      select: { eventId: true, snapshot: true },
+      select: {
+        eventId: true,
+        snapshot: true,
+        event: {
+          select: {
+            organizer: { select: { userId: true } },
+            publishedRevision: { select: { snapshot: true } },
+          },
+        },
+      },
     });
     const snapshot = eventSnapshotSchema.safeParse(revision?.snapshot);
 
@@ -57,19 +90,20 @@ export async function submitEventApplication(
       return { message: "This registration form is unavailable." };
     }
 
-    const availability = registrationAvailability(snapshot.data, new Date());
+    const unavailable = registrationError(
+      revision.event.publishedRevision?.snapshot,
+    );
 
-    if (availability !== "OPEN") {
-      return {
-        message:
-          availability === "CLOSED"
-            ? "Registration is closed."
-            : "Registration has not opened yet.",
-      };
+    if (unavailable) {
+      return unavailable;
     }
 
     const session = await getSession();
     const user = session?.user.emailVerified ? session.user : null;
+
+    if (session?.user.id === revision.event.organizer.userId) {
+      return { message: "You cannot apply to attend your own event." };
+    }
 
     if (snapshot.data.accountRequirement === "REQUIRED" && !user) {
       return {
@@ -113,18 +147,80 @@ export async function submitEventApplication(
     }
 
     try {
-      // One nested write atomically persists the complete answer aggregate.
-      await prisma.application.create({
-        data: {
-          eventId: revision.eventId,
-          eventRevisionId,
-          userId: user?.id ?? null,
-          fullName,
-          email,
-          answers: { create: Object.values(normalized.data) },
+      return await prisma.$transaction(
+        async (tx) => {
+          // Publication locks this same row. Keep its pointer stable until the
+          // application is saved, and read it again after acquiring the lock.
+          await tx.$queryRaw`
+            SELECT "id" FROM "Event"
+            WHERE "id" = ${revision.eventId} AND "publicId" = ${publicId}
+            FOR UPDATE`;
+          const currentEvent = await tx.event.findUnique({
+            where: { id: revision.eventId, publicId },
+            select: {
+              organizer: { select: { userId: true } },
+              publishedRevision: { select: { id: true, snapshot: true } },
+            },
+          });
+          const unavailable = registrationError(
+            currentEvent?.publishedRevision?.snapshot,
+          );
+
+          if (unavailable) {
+            return unavailable;
+          }
+
+          if (session && session.user.id === currentEvent?.organizer.userId) {
+            return { message: "You cannot apply to attend your own event." };
+          }
+
+          // Reapplications must use today's form, not replay a withdrawn form.
+          const previousWithdrawal = user
+            ? await tx.application.findFirst({
+                where: {
+                  eventId: revision.eventId,
+                  userId: user.id,
+                  status: "WITHDRAWN",
+                },
+                select: { id: true },
+              })
+            : null;
+
+          if (
+            previousWithdrawal &&
+            currentEvent?.publishedRevision?.id !== eventRevisionId
+          ) {
+            return {
+              message:
+                "The registration form has changed. Reload the event and complete the current form.",
+            };
+          }
+
+          const finalAvailability = registrationError(
+            currentEvent?.publishedRevision?.snapshot,
+          );
+
+          if (finalAvailability) {
+            return finalAvailability;
+          }
+
+          // Recheck the current window immediately before the atomic write.
+          await tx.application.create({
+            data: {
+              eventId: revision.eventId,
+              eventRevisionId,
+              userId: user?.id ?? null,
+              fullName,
+              email,
+              answers: { create: Object.values(normalized.data) },
+            },
+            select: { id: true },
+          });
+
+          return { success: true };
         },
-        select: { id: true },
-      });
+        { isolationLevel: "ReadCommitted" },
+      );
     } catch (error) {
       if (
         !(

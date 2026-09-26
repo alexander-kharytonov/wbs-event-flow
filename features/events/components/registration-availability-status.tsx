@@ -1,7 +1,10 @@
 import { Chip, Stack, Typography } from "@mui/material";
 import { formatEventTime } from "@/features/events/format-event-time";
 import { formatTimezone } from "@/features/events/format-timezone";
-import { registrationAvailability } from "@/features/events/registration-availability";
+import {
+  registrationAvailability,
+  registrationDeadline,
+} from "@/features/events/registration-availability";
 import type { EventSnapshot } from "@/features/events/schemas/event-snapshot";
 
 export function RegistrationAvailabilityStatus({
@@ -10,7 +13,7 @@ export function RegistrationAvailabilityStatus({
 }: {
   snapshot: Pick<
     EventSnapshot,
-    "registrationOpensAt" | "registrationClosesAt" | "timezone"
+    "endsAt" | "registrationOpensAt" | "registrationClosesAt" | "timezone"
   >;
   now: Date;
 }) {
@@ -23,7 +26,7 @@ export function RegistrationAvailabilityStatus({
   const boundary =
     status === "NOT_OPEN_YET"
       ? snapshot.registrationOpensAt
-      : snapshot.registrationClosesAt;
+      : registrationDeadline(snapshot);
   const timing =
     status === "NOT_OPEN_YET"
       ? "Opens"

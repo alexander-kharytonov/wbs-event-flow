@@ -1,9 +1,13 @@
 "use client";
 
+import AccountCircleOutlined from "@mui/icons-material/AccountCircleOutlined";
+import DashboardOutlined from "@mui/icons-material/DashboardOutlined";
+import EventAvailableOutlined from "@mui/icons-material/EventAvailableOutlined";
 import Logout from "@mui/icons-material/Logout";
 import {
   Avatar,
   ButtonBase,
+  Divider,
   ListItemIcon,
   ListItemText,
   Menu,
@@ -14,7 +18,13 @@ import { useId, useState } from "react";
 import { useNotifications } from "@/hooks/use-notifications";
 import { authClient } from "@/lib/auth-client";
 
-export function AccountMenu({ name }: { name: string }) {
+export function AccountMenu({
+  name,
+  organizerProfileId,
+}: {
+  name: string;
+  organizerProfileId?: string;
+}) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [pending, setPending] = useState(false);
   const notifications = useNotifications();
@@ -132,6 +142,30 @@ export function AccountMenu({ name }: { name: string }) {
           },
         }}
       >
+        <MenuItem component="a" href="/account" onClick={() => setAnchor(null)}>
+          <ListItemIcon>
+            <AccountCircleOutlined fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>My account</ListItemText>
+        </MenuItem>
+        <Divider />
+        <MenuItem
+          component="a"
+          href={organizerProfileId ? "/dashboard" : "/onboarding/organizer"}
+          onClick={() => setAnchor(null)}
+        >
+          <ListItemIcon>
+            {organizerProfileId ? (
+              <DashboardOutlined fontSize="small" />
+            ) : (
+              <EventAvailableOutlined fontSize="small" />
+            )}
+          </ListItemIcon>
+          <ListItemText>
+            {organizerProfileId ? "Dashboard" : "Become an organizer"}
+          </ListItemText>
+        </MenuItem>
+        <Divider />
         <MenuItem onClick={signOut} disabled={pending}>
           <ListItemIcon>
             <Logout fontSize="small" />

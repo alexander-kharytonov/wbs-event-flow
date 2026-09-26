@@ -1,6 +1,7 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider        = "prisma-client"
+  output          = "../generated/prisma"
+  previewFeatures = ["partialIndexes"]
 }
 
 datasource db {
@@ -186,6 +187,7 @@ enum ApplicationStatus {
   PENDING
   APPROVED
   REJECTED
+  WITHDRAWN
 }
 
 model Application {
@@ -202,10 +204,12 @@ model Application {
   createdAt       DateTime            @default(now()) @db.Timestamptz(3)
   updatedAt       DateTime            @updatedAt @db.Timestamptz(3)
   reviewedAt      DateTime?           @db.Timestamptz(3)
+  withdrawnAt     DateTime?           @db.Timestamptz(3)
   answers         ApplicationAnswer[]
 
-  @@unique([eventId, email])
-  @@unique([eventId, userId])
+  @@unique([eventId, email], where: raw("(status = ANY (ARRAY['PENDING'::\"ApplicationStatus\", 'APPROVED'::\"ApplicationStatus\", 'REJECTED'::\"ApplicationStatus\"]))"))
+  @@unique([eventId, userId], where: raw("(status = ANY (ARRAY['PENDING'::\"ApplicationStatus\", 'APPROVED'::\"ApplicationStatus\", 'REJECTED'::\"ApplicationStatus\"]))"))
+  @@index([eventId, userId, createdAt])
   @@index([eventId, status])
   @@index([eventRevisionId])
 }

@@ -99,4 +99,23 @@ export const eventSnapshotSchema = z
     }
   });
 
+// Apply new authoring rules to workspace previews/publication, without making
+// existing immutable snapshots unreadable. Submission enforces the end cutoff.
+export const eventPublicationSnapshotSchema = eventSnapshotSchema.superRefine(
+  (event, ctx) => {
+    for (const field of [
+      "registrationOpensAt",
+      "registrationClosesAt",
+    ] as const) {
+      if (event[field] && Date.parse(event[field]) > Date.parse(event.endsAt)) {
+        ctx.addIssue({
+          code: "custom",
+          path: [field],
+          message: "Registration must not extend beyond the event end.",
+        });
+      }
+    }
+  },
+);
+
 export type EventSnapshot = z.infer<typeof eventSnapshotSchema>;

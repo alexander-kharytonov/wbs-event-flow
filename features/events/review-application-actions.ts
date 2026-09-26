@@ -14,6 +14,7 @@ async function review(input: unknown, decision: "APPROVED" | "REJECTED") {
     result.code === "CAPACITY_REACHED"
   ) {
     revalidatePath("/dashboard/events/[id]", "layout");
+    revalidatePath("/e/[publicId]", "page");
   }
 
   return result;

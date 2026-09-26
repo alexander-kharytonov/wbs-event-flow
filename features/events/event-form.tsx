@@ -232,13 +232,27 @@ export function EventForm({
               {...field("registrationOpensAt")}
               label="Registration opens"
               type="datetime-local"
-              slotProps={{ inputLabel: { shrink: true } }}
+              slotProps={{
+                inputLabel: { shrink: true },
+                htmlInput: { max: values.endsAt || undefined },
+              }}
+              helperText={
+                state.errors?.registrationOpensAt?.[0] ??
+                "Leave blank to allow registration immediately. Must be no later than the event end."
+              }
             />
             <TextField
               {...field("registrationClosesAt")}
               label="Registration closes"
               type="datetime-local"
-              slotProps={{ inputLabel: { shrink: true } }}
+              slotProps={{
+                inputLabel: { shrink: true },
+                htmlInput: { max: values.endsAt || undefined },
+              }}
+              helperText={
+                state.errors?.registrationClosesAt?.[0] ??
+                "Leave blank to close registration when the event ends. An earlier deadline is optional."
+              }
             />
           </Box>
         </Stack>

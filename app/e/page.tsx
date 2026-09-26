@@ -236,10 +236,12 @@ export default async function PublicEventsPage() {
                           {formatTimezone(snapshot.timezone)}
                         </Typography>
                       </Stack>
-                      <RegistrationAvailabilityStatus
-                        snapshot={snapshot}
-                        now={now}
-                      />
+                      {group.id !== "past-events" && (
+                        <RegistrationAvailabilityStatus
+                          snapshot={snapshot}
+                          now={now}
+                        />
+                      )}
                       <Button
                         href={`/e/${encodeURIComponent(publicId)}`}
                         size="small"
