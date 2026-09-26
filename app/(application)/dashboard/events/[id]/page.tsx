@@ -1,17 +1,6 @@
-import EditOutlined from "@mui/icons-material/EditOutlined";
-import {
-  Box,
-  Button,
-  Chip,
-  Divider,
-  Link,
-  Paper,
-  Stack,
-  Typography,
-} from "@mui/material";
+import { Box, Chip, Divider, Paper, Stack, Typography } from "@mui/material";
 import { notFound } from "next/navigation";
-import { EventNavigation } from "@/features/events/components/event-navigation";
-import { PublicationControls } from "@/features/events/components/publication-controls";
+import { EventHeader } from "@/features/events/components/event-header";
 import { formatEventTime } from "@/features/events/format-event-time";
 import { formatTimezone } from "@/features/events/format-timezone";
 import { requireOrganizer } from "@/features/organizer/server/require-organizer";
@@ -27,6 +16,7 @@ export default async function EventPage({
   const event = await prisma.event.findFirst({
     where: { id, organizerId: organizer.id },
     include: {
+      _count: { select: { applications: true } },
       publishedRevision: { select: { contentVersion: true, number: true } },
     },
   });
@@ -37,41 +27,12 @@ export default async function EventPage({
 
   return (
     <Stack spacing={3}>
-      <Link href="/dashboard" sx={{ alignSelf: "flex-start" }}>
-        My events
-      </Link>
-      <Stack
-        direction={{ xs: "column", sm: "row" }}
-        spacing={2}
-        sx={{ justifyContent: "space-between", alignItems: { sm: "center" } }}
-      >
-        <Stack spacing={1.5} sx={{ minWidth: 0 }}>
-          <Typography
-            variant="h4"
-            component="h1"
-            sx={{ overflowWrap: "anywhere" }}
-          >
-            {event.title}
-          </Typography>
-          <PublicationControls
-            eventId={id}
-            contentVersion={event.contentVersion}
-            publishedRevision={event.publishedRevision}
-            publicId={event.publicId}
-          />
-        </Stack>
-        {
-          <Button
-            href={`/dashboard/events/${id}/edit`}
-            variant="contained"
-            startIcon={<EditOutlined />}
-            sx={{ flexShrink: 0, alignSelf: "flex-start" }}
-          >
-            Edit event
-          </Button>
-        }
-      </Stack>
-      <EventNavigation eventId={id} active="overview" />
+      <EventHeader
+        eventId={id}
+        event={event}
+        active="overview"
+        applicationCount={event._count.applications}
+      />
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, borderRadius: 2 }}>
         <Stack spacing={3}>
           <Stack component="section" spacing={2}>

@@ -4,6 +4,8 @@ import {
   Checkbox,
   FormControl,
   FormControlLabel,
+  FormGroup,
+  FormHelperText,
   FormLabel,
   Radio,
   Stack,
@@ -57,16 +59,24 @@ export function RegistrationFormPreview({
             {field.type !== "CHECKBOX" && (
               <FormLabel component="legend">{field.label}</FormLabel>
             )}
-            {field.description && (
+            {field.type !== "CHECKBOX" && field.description && (
               <Typography variant="body2" color="text.secondary">
                 {field.description}
               </Typography>
             )}
             {field.type === "CHECKBOX" ? (
-              <FormControlLabel
-                control={<Checkbox disabled />}
-                label={field.label}
-              />
+              <>
+                <FormGroup aria-describedby={`${field.id}-help`}>
+                  <FormControlLabel
+                    control={<Checkbox disabled required={field.required} />}
+                    label={field.label}
+                  />
+                </FormGroup>
+                <FormHelperText id={`${field.id}-help`}>
+                  {field.description ??
+                    (field.required ? "Required" : "Optional")}
+                </FormHelperText>
+              </>
             ) : (
               field.options.map((option) => (
                 <FormControlLabel

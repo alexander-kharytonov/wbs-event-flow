@@ -2,23 +2,22 @@
 
 import Logout from "@mui/icons-material/Logout";
 import {
-  Alert,
   Avatar,
   ButtonBase,
   ListItemIcon,
   ListItemText,
   Menu,
   MenuItem,
-  Snackbar,
   Typography,
 } from "@mui/material";
 import { useId, useState } from "react";
+import { useNotifications } from "@/hooks/use-notifications";
 import { authClient } from "@/lib/auth-client";
 
 export function AccountMenu({ name }: { name: string }) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState("");
+  const notifications = useNotifications();
   const id = useId();
   const parts = name.trim().split(/\s+/u).filter(Boolean);
   const initials = [
@@ -36,20 +35,26 @@ export function AccountMenu({ name }: { name: string }) {
 
   async function signOut() {
     setPending(true);
-    setError("");
+    notifications.close("sign-out");
 
     try {
       const result = await authClient.signOut();
 
       if (result.error) {
-        setError("Could not sign out. Please try again.");
+        notifications.show("Could not sign out. Please try again.", {
+          severity: "error",
+          key: "sign-out",
+        });
 
         return;
       }
 
       window.location.assign("/");
     } catch {
-      setError("Could not sign out. Please try again.");
+      notifications.show("Could not sign out. Please try again.", {
+        severity: "error",
+        key: "sign-out",
+      });
     } finally {
       setPending(false);
     }
@@ -134,11 +139,6 @@ export function AccountMenu({ name }: { name: string }) {
           <ListItemText>{pending ? "Signing out…" : "Sign out"}</ListItemText>
         </MenuItem>
       </Menu>
-      <Snackbar open={Boolean(error)} onClose={() => setError("")}>
-        <Alert severity="error" onClose={() => setError("")}>
-          {error}
-        </Alert>
-      </Snackbar>
     </>
   );
 }

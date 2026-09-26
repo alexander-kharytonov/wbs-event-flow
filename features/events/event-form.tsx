@@ -16,8 +16,8 @@ import type {
   EventFormState,
   EventFormValues,
 } from "@/features/events/event-input-schema";
-
 import { formatTimezone } from "@/features/events/format-timezone";
+import { useNotifications } from "@/hooks/use-notifications";
 
 const emptyValues: EventFormValues = {
   title: "",
@@ -44,7 +44,23 @@ export function EventForm({
   ) => Promise<EventFormState>;
   edit?: { id: string; version: string };
 }) {
-  const [state, action, pending] = useActionState(serverAction, {});
+  const notifications = useNotifications();
+  const [state, action, pending] = useActionState(
+    async (previous: EventFormState, formData: FormData) => {
+      notifications.close("event-form");
+      const next = await serverAction(previous, formData);
+
+      if (next.message && !next.errors && !next.conflict) {
+        notifications.show(next.message, {
+          severity: "error",
+          key: "event-form",
+        });
+      }
+
+      return next;
+    },
+    {},
+  );
   const [values, setValues] = useState(initialValues);
   const [openedVersion] = useState(edit?.version);
   const [timezones, setTimezones] = useState<string[]>([]);
@@ -83,7 +99,7 @@ export function EventForm({
           <input type="hidden" name="version" value={openedVersion} />
         </>
       )}
-      {state.message && (
+      {state.message && (state.errors || state.conflict) && (
         <Alert severity="error" role="alert">
           {state.message}
           {state.conflict && edit && (

@@ -1,8 +1,7 @@
-import { Alert, Link, Stack, Typography } from "@mui/material";
+import { Alert, Stack, Typography } from "@mui/material";
 import { notFound } from "next/navigation";
 import { EventGuestView } from "@/features/events/components/event-guest-view";
-import { EventNavigation } from "@/features/events/components/event-navigation";
-import { PublicationControls } from "@/features/events/components/publication-controls";
+import { EventHeader } from "@/features/events/components/event-header";
 import { RegistrationFormPreview } from "@/features/events/components/registration-form-preview";
 import {
   buildEventSnapshot,
@@ -22,7 +21,10 @@ export default async function PreviewPage({
     (tx) =>
       tx.event.findFirst({
         where: { id, organizerId: organizer.id },
-        include: workspaceInclude,
+        include: {
+          ...workspaceInclude,
+          _count: { select: { applications: true } },
+        },
       }),
     { isolationLevel: "RepeatableRead" },
   );
@@ -35,19 +37,12 @@ export default async function PreviewPage({
 
   return (
     <Stack spacing={3}>
-      <Link href="/dashboard" sx={{ alignSelf: "flex-start" }}>
-        My events
-      </Link>
-      <Typography variant="h4" component="h2">
-        Event preview
-      </Typography>
-      <PublicationControls
+      <EventHeader
         eventId={id}
-        contentVersion={event.contentVersion}
-        publishedRevision={event.publishedRevision}
-        publicId={event.publicId}
+        event={event}
+        active="preview"
+        applicationCount={event._count.applications}
       />
-      <EventNavigation eventId={id} active="preview" />
       <Alert severity="info">
         Preview of your current workspace, including unpublished changes.
         Registration is unavailable in preview.

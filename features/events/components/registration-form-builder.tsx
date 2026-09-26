@@ -30,6 +30,7 @@ import {
   fieldTypeLabels,
   type RegistrationFieldInput,
 } from "@/features/events/schemas/registration-form";
+import { useNotifications } from "@/hooks/use-notifications";
 
 type Command =
   | { kind: "add"; field: RegistrationFieldInput }
@@ -52,13 +53,13 @@ export function RegistrationFormBuilder({
     message: string;
     conflict?: boolean;
   } | null>(null);
-  const [notice, setNotice] = useState("");
+  const notifications = useNotifications();
   const [pending, startTransition] = useTransition();
   const reloadHref = `/dashboard/events/${eventId}/registration-form`;
   const disabled = pending || Boolean(error?.conflict);
 
   function mutate(command: Command) {
-    setNotice("");
+    notifications.close(`registration-form:${eventId}`);
     setError(null);
     startTransition(async () => {
       try {
@@ -71,18 +72,30 @@ export function RegistrationFormBuilder({
         if (!result.form) {
           setError(result);
 
+          if (!result.conflict && !editor) {
+            notifications.show(result.message, {
+              severity: "error",
+              key: `registration-form:${eventId}`,
+            });
+          }
+
           return;
         }
 
         setForm(result.form);
         setEditor(null);
         setDeleting(null);
-        setNotice(
+        notifications.show(
           command.kind === "delete"
             ? "Question deleted."
             : command.kind === "reorder"
               ? "Question order saved."
               : "Question saved.",
+          {
+            severity: "success",
+            autoHideDuration: 4000,
+            key: `registration-form:${eventId}`,
+          },
         );
       } catch {
         setError({
@@ -105,7 +118,7 @@ export function RegistrationFormBuilder({
 
   return (
     <Stack spacing={3} aria-busy={pending}>
-      {error && !editor && (
+      {error?.conflict && !editor && !deleting && (
         <Alert severity="error">
           {error.message}
           {error.conflict && (
@@ -113,11 +126,6 @@ export function RegistrationFormBuilder({
               Reload latest version
             </Button>
           )}
-        </Alert>
-      )}
-      {notice && (
-        <Alert severity="success" role="status">
-          {notice}
         </Alert>
       )}
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, borderRadius: 2 }}>
@@ -314,7 +322,7 @@ export function RegistrationFormBuilder({
           <DialogContentText sx={{ overflowWrap: "anywhere" }}>
             “{deleting?.label}” and its options will be permanently removed.
           </DialogContentText>
-          {error && (
+          {error?.conflict && (
             <Alert severity="error" sx={{ mt: 2 }}>
               {error.message}
               {error.conflict && (

@@ -14,8 +14,10 @@ import {
   Typography,
 } from "@mui/material";
 import { useActionState, useState } from "react";
+import type { ApplicationFormState } from "@/features/events/application-input";
 import type { EventSnapshot } from "@/features/events/schemas/event-snapshot";
 import { submitApplication } from "@/features/events/submit-application-action";
+import { useNotifications } from "@/hooks/use-notifications";
 
 export function RegistrationApplicationForm({
   publicId,
@@ -26,8 +28,26 @@ export function RegistrationApplicationForm({
   eventRevisionId: string;
   fields: EventSnapshot["registrationForm"]["fields"];
 }) {
+  const notifications = useNotifications();
   const [state, action, pending] = useActionState(
-    submitApplication.bind(null, publicId, eventRevisionId),
+    async (previous: ApplicationFormState, formData: FormData) => {
+      notifications.close("registration-submission");
+      const next = await submitApplication(
+        publicId,
+        eventRevisionId,
+        previous,
+        formData,
+      );
+
+      if (next.message && !next.errors) {
+        notifications.show(next.message, {
+          severity: "error",
+          key: "registration-submission",
+        });
+      }
+
+      return next;
+    },
     {},
   );
   // Keep entered values on validation errors, including unchecked/empty answers.
@@ -49,7 +69,7 @@ export function RegistrationApplicationForm({
         Submit your details for organizer review. Required questions are marked
         with *.
       </Typography>
-      {state.message && (
+      {state.message && state.errors && (
         <Alert severity="error" role="alert">
           {state.message}
         </Alert>

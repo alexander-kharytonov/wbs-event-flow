@@ -11,6 +11,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useState } from "react";
+import { useNotifications } from "@/hooks/use-notifications";
 import { authClient } from "@/lib/auth-client";
 
 export function AuthForm({
@@ -21,7 +22,7 @@ export function AuthForm({
   notice?: string;
 }) {
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState("");
+  const notifications = useNotifications();
   const [sent, setSent] = useState(false);
   const registering = mode === "register";
 
@@ -29,7 +30,7 @@ export function AuthForm({
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     setPending(true);
-    setError("");
+    notifications.close("authentication");
 
     try {
       const credentials = {
@@ -45,10 +46,11 @@ export function AuthForm({
         : await authClient.signIn.email(credentials);
 
       if (result.error) {
-        setError(
+        notifications.show(
           result.error.code === "EMAIL_NOT_VERIFIED"
             ? "Verify your email before signing in. Check your inbox for a verification link."
             : "Unable to complete the request. Check your details and try again. If registration previously failed, try signing in to receive a new verification email.",
+          { severity: "error", key: "authentication" },
         );
 
         return;
@@ -60,7 +62,10 @@ export function AuthForm({
         window.location.assign("/dashboard");
       }
     } catch {
-      setError("Unable to connect. Please try again.");
+      notifications.show("Unable to connect. Please try again.", {
+        severity: "error",
+        key: "authentication",
+      });
     } finally {
       setPending(false);
     }
@@ -140,7 +145,6 @@ export function AuthForm({
                 required
                 fullWidth
               />
-              {error && <Alert severity="error">{error}</Alert>}
               <Button type="submit" variant="contained" disabled={pending}>
                 {pending
                   ? "Please wait…"

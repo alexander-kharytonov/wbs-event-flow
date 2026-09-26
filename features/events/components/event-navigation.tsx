@@ -1,11 +1,13 @@
-import { Button, Stack } from "@mui/material";
+import { Badge, Button, Stack } from "@mui/material";
 
 export function EventNavigation({
   eventId,
   active,
+  applicationCount,
 }: {
   eventId: string;
-  active: "overview" | "registration-form" | "preview";
+  applicationCount: number;
+  active: "overview" | "registration-form" | "preview" | "applications";
 }) {
   return (
     <Stack
@@ -35,6 +37,22 @@ export function EventNavigation({
         aria-current={active === "preview" ? "page" : undefined}
       >
         Preview
+      </Button>
+      <Button
+        href={`/dashboard/events/${eventId}/applications`}
+        color={active === "applications" ? "primary" : "inherit"}
+        aria-current={active === "applications" ? "page" : undefined}
+        aria-label={`Applications (${applicationCount})`}
+        sx={{ pr: 3 }}
+      >
+        <Badge
+          badgeContent={applicationCount}
+          color="primary"
+          showZero
+          sx={{ "& .MuiBadge-badge": { right: -12 } }}
+        >
+          Applications
+        </Badge>
       </Button>
     </Stack>
   );
