@@ -111,7 +111,7 @@ model Account {
 }
 
 model Verification {
-  id         String   @id @default(uuid(7)) @db.Uuid
+  id         String   @id @default(uuid(7))
   identifier String
   value      String
   expiresAt  DateTime

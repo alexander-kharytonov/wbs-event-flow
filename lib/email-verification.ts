@@ -5,8 +5,8 @@ import { prisma } from "./prisma";
 
 const verificationPrefix = "event-flow:email-verification:";
 
-function tokenIdentifier(token: string) {
-  return verificationPrefix + createHash("sha256").update(token).digest("hex");
+function tokenHash(token: string) {
+  return createHash("sha256").update(token).digest("hex");
 }
 
 export async function sendLatestVerificationEmail(
@@ -15,7 +15,7 @@ export async function sendLatestVerificationEmail(
   token: string,
 ) {
   // A nonce distinguishes even JWTs issued in the same second.
-  const deliveryToken = `${token}.${randomBytes(32).toString("base64url")}`;
+  const deliveryToken = `${token}.${user.id}.${randomBytes(32).toString("base64url")}`;
   const link = new URL(url);
   link.searchParams.set("token", deliveryToken);
   const htmlURL = link.href
@@ -35,16 +35,14 @@ export async function sendLatestVerificationEmail(
         return;
       }
 
-      const data = {
-        identifier: tokenIdentifier(deliveryToken),
-        value: "email-verification",
-        expiresAt: new Date(Date.now() + 3_600_000),
-      };
-      // Reuse the User UUID as this delivery slot's key: one current token per User.
-      await tx.verification.upsert({
-        where: { id: user.id },
-        create: { id: user.id, ...data },
-        update: data,
+      const identifier = verificationPrefix + user.id;
+      await tx.verification.deleteMany({ where: { identifier } });
+      await tx.verification.create({
+        data: {
+          identifier,
+          value: tokenHash(deliveryToken),
+          expiresAt: new Date(Date.now() + 3_600_000),
+        },
       });
       // SMTP failure rolls back the replacement, preserving the previous link.
       await sendMail({
@@ -59,18 +57,24 @@ export async function sendLatestVerificationEmail(
 }
 
 export async function consumeVerificationToken(token: unknown) {
-  if (typeof token !== "string" || token.split(".").length !== 4) {
+  if (typeof token !== "string") {
+    return null;
+  }
+
+  const parts = token.split(".");
+
+  if (parts.length !== 5 || !parts[3] || !parts[4]) {
     return null;
   }
 
   // One conditional write arbitrates resend, replay, and concurrent clicks.
   const consumed = await prisma.verification.deleteMany({
     where: {
-      value: "email-verification",
-      identifier: tokenIdentifier(token),
+      identifier: verificationPrefix + parts[3],
+      value: tokenHash(token),
       expiresAt: { gt: new Date() },
     },
   });
 
-  return consumed.count === 1 ? token.slice(0, token.lastIndexOf(".")) : null;
+  return consumed.count === 1 ? parts.slice(0, 3).join(".") : null;
 }

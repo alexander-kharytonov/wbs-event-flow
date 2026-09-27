@@ -9,11 +9,13 @@ invariant must update this document with its implementation.
 ## 1. Identity
 
 Email verification uses a single current, one-use delivery token per User in
-the existing Verification table (the User UUID is reused as the delivery row ID).
+the existing Verification table, addressed by the exact namespaced identifier
+`event-flow:email-verification:<userId>`, with an independent row ID.
 Only a SHA-256 digest of the delivery token is stored. A random nonce distinguishes
 deliveries even when Better Auth issues identical JWTs within one second.
-Delivery holds a User row lock and replaces the digest transactionally; SMTP
-failure rolls back the replacement. SMTP acceptance and database commit are not
+Delivery holds a User row lock and deletes/recreates this exact slot
+transactionally; SMTP failure rolls back the replacement.
+SMTP acceptance and database commit are not
 a distributed transaction: a commit failure after acceptance can leave the newly
 delivered link unusable, requiring resend.
 
@@ -371,10 +373,12 @@ Foreign-key actions:
 Domain timestamps use timestamptz(3) on Event, EventRevision, registration workspace,
 and Application. Auth tables and OrganizerProfile use timestamp(3) without time
 zone. Answers/options have no timestamp columns. Internal primary keys, foreign
-keys, and historical field/option references use PostgreSQL `uuid`. Prisma
-`uuid(7)` defaults generate UUIDv7; Better Auth delegates ID generation to Prisma.
-The email-verification delivery slot reuses its User UUID to enforce one current
-row per User. Provider `Account.accountId`/`providerId`, tokens,
+keys, and historical field/option references use PostgreSQL `uuid`, except for
+the Better Auth infrastructure table Verification. Its ID remains text-compatible
+to support Better Auth-owned identifiers; ordinary Prisma-created rows still get
+the `uuid(7)` default. All other internal entity IDs remain native PostgreSQL UUID
+with UUIDv7 generation. Our email-verification slot uses a namespaced identifier,
+not its row ID. Provider `Account.accountId`/`providerId`, tokens,
 and verification identifiers remain text. Snapshot v1 identifiers remain strings;
 new snapshots contain UUIDs without changing the frozen historical parser.
 Prisma manages internal generated IDs and updatedAt; these are not database-generated
