@@ -36,7 +36,7 @@ export function ApplicationCapacity({
   }
 
   return (
-    <Stack spacing={1} sx={{ maxWidth: 480 }}>
+    <Stack spacing={1}>
       <Typography variant="body2" sx={{ fontWeight: 600 }}>
         {capacity === null
           ? `${approved} approved · Unlimited capacity`
