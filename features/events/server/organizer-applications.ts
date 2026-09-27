@@ -1,10 +1,15 @@
 import "server-only";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 
 export async function getOwnedApplications(
   organizerId: string,
   eventId: string,
 ) {
+  if (!z.uuid().safeParse(eventId).success) {
+    return null;
+  }
+
   return prisma.$transaction(
     async (tx) => {
       const event = await tx.event.findFirst({
@@ -60,6 +65,13 @@ export async function getOwnedApplication(
   eventId: string,
   applicationId: string,
 ) {
+  if (
+    !z.uuid().safeParse(eventId).success ||
+    !z.uuid().safeParse(applicationId).success
+  ) {
+    return null;
+  }
+
   return prisma.$transaction(
     async (tx) => {
       const application = await tx.application.findFirst({

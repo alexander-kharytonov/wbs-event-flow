@@ -145,7 +145,7 @@ export async function submitEventApplication(
           // application is saved, and read it again after acquiring the lock.
           await tx.$queryRaw`
             SELECT "id" FROM "Event"
-            WHERE "id" = ${revision.eventId} AND "publicId" = ${publicId}
+            WHERE "id" = ${revision.eventId}::uuid AND "publicId" = ${publicId}::uuid
             FOR UPDATE`;
           const currentEvent = await tx.event.findUnique({
             where: { id: revision.eventId, publicId },

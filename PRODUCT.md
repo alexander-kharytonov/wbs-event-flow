@@ -40,7 +40,8 @@ Organizers can:
 and Upcoming, Happening now, and Past groups. An event is happening from its start
 inclusive until its end exclusive. Past events remain in the catalog.
 
-Published PUBLIC and PRIVATE events both have direct URLs. PRIVATE events are
+Published PUBLIC and PRIVATE events both have direct `/e/[publicId]` URLs with a
+stable UUIDv7 publicId assigned on first publication. PRIVATE events are
 excluded from discovery and marked noindex/nofollow; they are not password
 protected. Public event content and catalog entries show the published version,
 including its visibility, rather than unpublished organizer edits.
@@ -93,9 +94,20 @@ does not identify the physical person behind an anonymous submission.
 
 ## Account
 
-`/account` is the verified user's workspace, with Overview and Profile sections.
-Profile editing changes the user's name; email is displayed read-only. Overview
+`/account` is the verified user's workspace, with Overview, Registrations, and
+Profile sections.
+`/account/profile` lets users edit their name; email is displayed read-only. Overview
 links to public events and organizer activation or the existing organizer dashboard.
+
+`/account/registrations` shows linked Event registrations, one card per Event.
+The current non-withdrawn attempt supplies Pending, Approved, or Rejected status;
+otherwise the latest withdrawn attempt supplies Withdrawn. Linked PRIVATE events
+and historical owner applications are included. Anonymous email matches are not
+claimed. Cards show the current published title and schedule, including republished
+changes, never unpublished edits or the historical submitted version.
+Upcoming includes events that have not ended, ordered by start ascending; Past
+contains ended events, ordered by end descending. Ties use publicId. View event
+opens the existing public event withdrawal/reapplication flow.
 
 Registration leads to `/verify-email`. Only the latest successfully sent
 verification link is accepted; it is single-use and expires after one hour.
@@ -109,5 +121,5 @@ Sign out is available in the shared account menu.
 ## Current boundaries
 
 The product does not provide email changes or password reset, anonymous
-application claiming, a full applicant history screen, or ticket/QR check-in.
+application claiming, a full applicant attempt history/detail screen, or ticket/QR check-in.
 These boundaries describe current scope, not a delivery roadmap.

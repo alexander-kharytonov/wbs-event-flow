@@ -9,7 +9,7 @@ export async function lockEventForUpdate(
 ) {
   const rows = await tx.$queryRaw<{ id: string }[]>`
     SELECT "id" FROM "Event"
-    WHERE "id" = ${eventId} AND "organizerId" = ${organizerId}
+    WHERE "id" = ${eventId}::uuid AND "organizerId" = ${organizerId}::uuid
     FOR UPDATE`;
 
   return rows.length === 1;

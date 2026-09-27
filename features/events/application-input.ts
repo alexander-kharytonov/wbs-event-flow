@@ -8,8 +8,8 @@ export type ApplicationFormState = {
 };
 
 export const applicationInputSchema = z.strictObject({
-  publicId: z.string().min(1),
-  eventRevisionId: z.string().min(1),
+  publicId: z.uuid(),
+  eventRevisionId: z.uuid(),
   fullName: z.string().trim().min(1, "Enter your full name.").max(200),
   email: z
     .string()

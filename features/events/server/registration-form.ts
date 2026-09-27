@@ -1,4 +1,5 @@
 import "server-only";
+import { z } from "zod";
 import type {
   BuilderForm,
   RegistrationResult,
@@ -40,6 +41,10 @@ export async function getRegistrationForm(
   eventId: string,
   organizerId: string,
 ) {
+  if (!z.uuid().safeParse(eventId).success) {
+    return null;
+  }
+
   // Prisma loads relations with multiple queries; keep fields and version in one snapshot.
   return prisma.$transaction(
     async (tx) => {
@@ -102,7 +107,7 @@ export async function mutateRegistrationForm(
       // Lock the parent first, serializing form mutations with publication.
       const events = await tx.$queryRaw<{ id: string; updatedAt: Date }[]>`
         SELECT "id", "updatedAt" FROM "Event"
-        WHERE "id" = ${command.eventId} AND "organizerId" = ${organizerId}
+        WHERE "id" = ${command.eventId}::uuid AND "organizerId" = ${organizerId}::uuid
         FOR UPDATE`;
 
       if (!events[0]) {
@@ -111,7 +116,7 @@ export async function mutateRegistrationForm(
 
       const forms = await tx.$queryRaw<{ id: string; updatedAt: Date }[]>`
         SELECT "id", "updatedAt" FROM "RegistrationForm"
-        WHERE "eventId" = ${command.eventId} FOR UPDATE`;
+        WHERE "eventId" = ${command.eventId}::uuid FOR UPDATE`;
       const current = forms[0];
 
       if (!current) {

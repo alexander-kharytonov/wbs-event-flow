@@ -15,7 +15,7 @@ CREATE TYPE "ApplicationStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'WIT
 
 -- CreateTable
 CREATE TABLE "user" (
-    "id" TEXT NOT NULL,
+    "id" UUID NOT NULL,
     "name" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "emailVerified" BOOLEAN NOT NULL DEFAULT false,
@@ -28,8 +28,8 @@ CREATE TABLE "user" (
 
 -- CreateTable
 CREATE TABLE "OrganizerProfile" (
-    "id" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
+    "id" UUID NOT NULL,
+    "userId" UUID NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -38,8 +38,8 @@ CREATE TABLE "OrganizerProfile" (
 
 -- CreateTable
 CREATE TABLE "Event" (
-    "id" TEXT NOT NULL,
-    "organizerId" TEXT NOT NULL,
+    "id" UUID NOT NULL,
+    "organizerId" UUID NOT NULL,
     "title" TEXT NOT NULL,
     "description" TEXT,
     "startsAt" TIMESTAMPTZ(3) NOT NULL,
@@ -53,8 +53,8 @@ CREATE TABLE "Event" (
     "publishedAt" TIMESTAMPTZ(3),
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMPTZ(3) NOT NULL,
-    "publicId" TEXT,
-    "publishedRevisionId" TEXT,
+    "publicId" UUID,
+    "publishedRevisionId" UUID,
     "contentVersion" INTEGER NOT NULL DEFAULT 1,
 
     CONSTRAINT "Event_pkey" PRIMARY KEY ("id")
@@ -62,24 +62,24 @@ CREATE TABLE "Event" (
 
 -- CreateTable
 CREATE TABLE "session" (
-    "id" TEXT NOT NULL,
+    "id" UUID NOT NULL,
     "expiresAt" TIMESTAMP(3) NOT NULL,
     "token" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "ipAddress" TEXT,
     "userAgent" TEXT,
-    "userId" TEXT NOT NULL,
+    "userId" UUID NOT NULL,
 
     CONSTRAINT "session_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "account" (
-    "id" TEXT NOT NULL,
+    "id" UUID NOT NULL,
     "accountId" TEXT NOT NULL,
     "providerId" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
+    "userId" UUID NOT NULL,
     "accessToken" TEXT,
     "refreshToken" TEXT,
     "idToken" TEXT,
@@ -95,7 +95,7 @@ CREATE TABLE "account" (
 
 -- CreateTable
 CREATE TABLE "verification" (
-    "id" TEXT NOT NULL,
+    "id" UUID NOT NULL,
     "identifier" TEXT NOT NULL,
     "value" TEXT NOT NULL,
     "expiresAt" TIMESTAMP(3) NOT NULL,
@@ -107,8 +107,8 @@ CREATE TABLE "verification" (
 
 -- CreateTable
 CREATE TABLE "RegistrationForm" (
-    "id" TEXT NOT NULL,
-    "eventId" TEXT NOT NULL,
+    "id" UUID NOT NULL,
+    "eventId" UUID NOT NULL,
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMPTZ(3) NOT NULL,
 
@@ -117,8 +117,8 @@ CREATE TABLE "RegistrationForm" (
 
 -- CreateTable
 CREATE TABLE "RegistrationField" (
-    "id" TEXT NOT NULL,
-    "formId" TEXT NOT NULL,
+    "id" UUID NOT NULL,
+    "formId" UUID NOT NULL,
     "type" "RegistrationFieldType" NOT NULL,
     "label" TEXT NOT NULL,
     "description" TEXT,
@@ -132,8 +132,8 @@ CREATE TABLE "RegistrationField" (
 
 -- CreateTable
 CREATE TABLE "RegistrationFieldOption" (
-    "id" TEXT NOT NULL,
-    "fieldId" TEXT NOT NULL,
+    "id" UUID NOT NULL,
+    "fieldId" UUID NOT NULL,
     "label" TEXT NOT NULL,
     "position" INTEGER NOT NULL,
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -144,8 +144,8 @@ CREATE TABLE "RegistrationFieldOption" (
 
 -- CreateTable
 CREATE TABLE "EventRevision" (
-    "id" TEXT NOT NULL,
-    "eventId" TEXT NOT NULL,
+    "id" UUID NOT NULL,
+    "eventId" UUID NOT NULL,
     "number" INTEGER NOT NULL,
     "contentVersion" INTEGER NOT NULL,
     "snapshot" JSONB NOT NULL,
@@ -157,10 +157,10 @@ CREATE TABLE "EventRevision" (
 
 -- CreateTable
 CREATE TABLE "Application" (
-    "id" TEXT NOT NULL,
-    "eventId" TEXT NOT NULL,
-    "eventRevisionId" TEXT NOT NULL,
-    "userId" TEXT,
+    "id" UUID NOT NULL,
+    "eventId" UUID NOT NULL,
+    "eventRevisionId" UUID NOT NULL,
+    "userId" UUID,
     "fullName" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "status" "ApplicationStatus" NOT NULL DEFAULT 'PENDING',
@@ -174,9 +174,9 @@ CREATE TABLE "Application" (
 
 -- CreateTable
 CREATE TABLE "ApplicationAnswer" (
-    "id" TEXT NOT NULL,
-    "applicationId" TEXT NOT NULL,
-    "fieldId" TEXT NOT NULL,
+    "id" UUID NOT NULL,
+    "applicationId" UUID NOT NULL,
+    "fieldId" UUID NOT NULL,
     "textValue" TEXT,
     "booleanValue" BOOLEAN,
 
@@ -185,8 +185,8 @@ CREATE TABLE "ApplicationAnswer" (
 
 -- CreateTable
 CREATE TABLE "ApplicationAnswerOption" (
-    "answerId" TEXT NOT NULL,
-    "optionId" TEXT NOT NULL,
+    "answerId" UUID NOT NULL,
+    "optionId" UUID NOT NULL,
 
     CONSTRAINT "ApplicationAnswerOption_pkey" PRIMARY KEY ("answerId","optionId")
 );

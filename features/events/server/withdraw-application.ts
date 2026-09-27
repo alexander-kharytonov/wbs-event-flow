@@ -4,8 +4,8 @@ import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 import { prisma } from "@/lib/prisma";
 
 const withdrawalInput = z.strictObject({
-  publicId: z.string().min(1).max(200),
-  applicationId: z.string().min(1).max(200),
+  publicId: z.uuid(),
+  applicationId: z.uuid(),
 });
 
 export type WithdrawalResult = { success?: true; message?: string };
@@ -30,7 +30,7 @@ export async function withdrawOwnApplication(
       async (tx) => {
         // Serialize with publication, organizer review and submission.
         const events = await tx.$queryRaw<{ id: string }[]>`
-        SELECT "id" FROM "Event" WHERE "publicId" = ${publicId} FOR UPDATE`;
+        SELECT "id" FROM "Event" WHERE "publicId" = ${publicId}::uuid FOR UPDATE`;
         const eventId = events[0]?.id;
 
         if (!eventId) {

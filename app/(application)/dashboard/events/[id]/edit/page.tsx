@@ -1,5 +1,6 @@
 import { Link, Stack, Typography } from "@mui/material";
 import { notFound } from "next/navigation";
+import { z } from "zod";
 import { EventForm } from "@/features/events/event-form";
 import { eventFormValues } from "@/features/events/event-form-values";
 import { updateEvent } from "@/features/events/update-event";
@@ -13,6 +14,11 @@ export default async function EditEventPage({
 }) {
   const organizer = await requireOrganizer();
   const { id } = await params;
+
+  if (!z.uuid().safeParse(id).success) {
+    notFound();
+  }
+
   const event = await prisma.event.findFirst({
     where: { id, organizerId: organizer.id },
   });
