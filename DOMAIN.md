@@ -9,7 +9,7 @@ invariant must update this document with its implementation.
 ## 1. Identity
 
 Email verification uses a single current, one-use delivery token per User in
-the existing Verification table (`event-flow:email-verification:<userId>`).
+the existing Verification table (the User UUID is reused as the delivery row ID).
 Only a SHA-256 digest of the delivery token is stored. A random nonce distinguishes
 deliveries even when Better Auth issues identical JWTs within one second.
 Delivery holds a User row lock and replaces the digest transactionally; SMTP
@@ -64,7 +64,8 @@ builds a snapshot, creates a new EventRevision, and changes publishedRevisionId
 atomically. Publishing the already-current contentVersion succeeds without
 creating another revision. Older revisions are not rewritten by application code.
 
-The first publication assigns the stable publicId and first publishedAt.
+The first publication generates a separate UUIDv7 publicId via PostgreSQL
+`uuidv7()` and assigns the first publishedAt. publicId is stored as `uuid`.
 Republishing preserves them and the workspace updatedAt token. Revision numbers
 increase per Event. A never-published Event has a null current pointer: create
 Event first, create its revision second, set the pointer third. There is no
@@ -181,6 +182,21 @@ Organizer All/status counts count Application rows, not distinct applicants.
 Public Event selects the linked non-WITHDRAWN application first. If none exists,
 it may show the latest withdrawn attempt for reapplication; it is not a full
 history screen. Anonymous records are not selected by matching session email.
+
+### My Registrations read model
+
+The verified User workspace reads only `Application.userId = session.user.id`;
+anonymous applications are never claimed through matching email. The overview
+groups attempts by Event: the non-WITHDRAWN linked attempt is current (including
+blocking REJECTED), otherwise the latest WITHDRAWN by createdAt DESC, id DESC is
+selected. PRIVATE events and historical owner applications follow the same rules.
+Cards use only validated current published snapshots and publicId. Missing or
+invalid publication is omitted, without workspace fallback. Historical answers
+still belong to the submitted revision. Upcoming means endsAt > now (including
+ongoing events), sorted by startsAt ASC; Past means endsAt <= now, sorted by
+endsAt DESC. Both use publicId ASC as deterministic tie-breaker.
+
+Source: [attendee read model](features/events/server/get-my-registrations.ts).
 
 ## 9. Application lifecycle
 
@@ -354,8 +370,15 @@ Foreign-key actions:
 
 Domain timestamps use timestamptz(3) on Event, EventRevision, registration workspace,
 and Application. Auth tables and OrganizerProfile use timestamp(3) without time
-zone. Answers/options have no timestamp columns. Prisma manages cuid IDs and
-updatedAt; these are not database-generated defaults/triggers.
+zone. Answers/options have no timestamp columns. Internal primary keys, foreign
+keys, and historical field/option references use PostgreSQL `uuid`. Prisma
+`uuid(7)` defaults generate UUIDv7; Better Auth delegates ID generation to Prisma.
+The email-verification delivery slot reuses its User UUID to enforce one current
+row per User. Provider `Account.accountId`/`providerId`, tokens,
+and verification identifiers remain text. Snapshot v1 identifiers remain strings;
+new snapshots contain UUIDs without changing the frozen historical parser.
+Prisma manages internal generated IDs and updatedAt; these are not database-generated
+defaults/triggers. The publisher explicitly generates publicId in PostgreSQL.
 
 Server code, not DB CHECK constraints/triggers, enforces snapshot validity,
 immutability of published/submitted content, lifecycle transitions, capacity,

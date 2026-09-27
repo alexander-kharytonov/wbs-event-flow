@@ -1,5 +1,6 @@
 import { Box, Chip, Divider, Paper, Stack, Typography } from "@mui/material";
 import { notFound } from "next/navigation";
+import { z } from "zod";
 import { EventHeader } from "@/features/events/components/event-header";
 import { formatEventTime } from "@/features/events/format-event-time";
 import { formatTimezone } from "@/features/events/format-timezone";
@@ -13,6 +14,11 @@ export default async function EventPage({
 }) {
   const organizer = await requireOrganizer();
   const { id } = await params;
+
+  if (!z.uuid().safeParse(id).success) {
+    notFound();
+  }
+
   const event = await prisma.event.findFirst({
     where: { id, organizerId: organizer.id },
     include: {

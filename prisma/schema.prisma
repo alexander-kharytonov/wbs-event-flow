@@ -9,7 +9,7 @@ datasource db {
 }
 
 model User {
-  id               String            @id
+  id               String            @id @default(uuid(7)) @db.Uuid
   name             String
   email            String
   emailVerified    Boolean           @default(false)
@@ -26,8 +26,8 @@ model User {
 }
 
 model OrganizerProfile {
-  id        String   @id @default(cuid())
-  userId    String   @unique
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @unique @db.Uuid
   user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -45,8 +45,8 @@ enum EventAccountRequirement {
 }
 
 model Event {
-  id                   String                  @id @default(cuid())
-  organizerId          String
+  id                   String                  @id @default(uuid(7)) @db.Uuid
+  organizerId          String                  @db.Uuid
   organizer            OrganizerProfile        @relation(fields: [organizerId], references: [id])
   title                String
   description          String?
@@ -62,8 +62,8 @@ model Event {
   createdAt            DateTime                @default(now()) @db.Timestamptz(3)
   updatedAt            DateTime                @updatedAt @db.Timestamptz(3)
 
-  publicId            String?           @unique
-  publishedRevisionId String?           @unique
+  publicId            String?           @unique @db.Uuid
+  publishedRevisionId String?           @unique @db.Uuid
   contentVersion      Int               @default(1)
   revisions           EventRevision[]   @relation("EventRevisions")
   publishedRevision   EventRevision?    @relation("CurrentPublishedRevision", fields: [id, publishedRevisionId], references: [eventId, id], onDelete: Restrict, onUpdate: Restrict)
@@ -75,14 +75,14 @@ model Event {
 }
 
 model Session {
-  id        String   @id
+  id        String   @id @default(uuid(7)) @db.Uuid
   expiresAt DateTime
   token     String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   ipAddress String?
   userAgent String?
-  userId    String
+  userId    String   @db.Uuid
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([token])
@@ -91,10 +91,10 @@ model Session {
 }
 
 model Account {
-  id                    String    @id
+  id                    String    @id @default(uuid(7)) @db.Uuid
   accountId             String
   providerId            String
-  userId                String
+  userId                String    @db.Uuid
   user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   accessToken           String?
   refreshToken          String?
@@ -111,7 +111,7 @@ model Account {
 }
 
 model Verification {
-  id         String   @id
+  id         String   @id @default(uuid(7)) @db.Uuid
   identifier String
   value      String
   expiresAt  DateTime
@@ -131,8 +131,8 @@ enum RegistrationFieldType {
 }
 
 model RegistrationForm {
-  id        String              @id @default(cuid())
-  eventId   String              @unique
+  id        String              @id @default(uuid(7)) @db.Uuid
+  eventId   String              @unique @db.Uuid
   event     Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
   createdAt DateTime            @default(now()) @db.Timestamptz(3)
   updatedAt DateTime            @updatedAt @db.Timestamptz(3)
@@ -140,8 +140,8 @@ model RegistrationForm {
 }
 
 model RegistrationField {
-  id          String                    @id @default(cuid())
-  formId      String
+  id          String                    @id @default(uuid(7)) @db.Uuid
+  formId      String                    @db.Uuid
   form        RegistrationForm          @relation(fields: [formId], references: [id], onDelete: Cascade)
   type        RegistrationFieldType
   label       String
@@ -156,8 +156,8 @@ model RegistrationField {
 }
 
 model RegistrationFieldOption {
-  id        String            @id @default(cuid())
-  fieldId   String
+  id        String            @id @default(uuid(7)) @db.Uuid
+  fieldId   String            @db.Uuid
   field     RegistrationField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
   label     String
   position  Int
@@ -168,8 +168,8 @@ model RegistrationFieldOption {
 }
 
 model EventRevision {
-  id              String        @id @default(cuid())
-  eventId         String
+  id              String        @id @default(uuid(7)) @db.Uuid
+  eventId         String        @db.Uuid
   event           Event         @relation("EventRevisions", fields: [eventId], references: [id])
   currentForEvent Event?        @relation("CurrentPublishedRevision")
   number          Int
@@ -192,10 +192,10 @@ enum ApplicationStatus {
 }
 
 model Application {
-  id              String              @id @default(cuid())
-  eventId         String
-  eventRevisionId String
-  userId          String?
+  id              String              @id @default(uuid(7)) @db.Uuid
+  eventId         String              @db.Uuid
+  eventRevisionId String              @db.Uuid
+  userId          String?             @db.Uuid
   user            User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
   event           Event               @relation(fields: [eventId], references: [id], onDelete: Restrict)
   eventRevision   EventRevision       @relation(fields: [eventId, eventRevisionId], references: [eventId, id], onDelete: Restrict)
@@ -216,11 +216,11 @@ model Application {
 }
 
 model ApplicationAnswer {
-  id              String                    @id @default(cuid())
-  applicationId   String
+  id              String                    @id @default(uuid(7)) @db.Uuid
+  applicationId   String                    @db.Uuid
   application     Application               @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   // Historical identifiers refer only to the immutable revision snapshot.
-  fieldId         String
+  fieldId         String                    @db.Uuid
   textValue       String?
   booleanValue    Boolean?
   selectedOptions ApplicationAnswerOption[]
@@ -229,8 +229,8 @@ model ApplicationAnswer {
 }
 
 model ApplicationAnswerOption {
-  answerId String
-  optionId String
+  answerId String            @db.Uuid
+  optionId String            @db.Uuid
   answer   ApplicationAnswer @relation(fields: [answerId], references: [id], onDelete: Cascade)
 
   @@id([answerId, optionId])

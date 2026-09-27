@@ -68,7 +68,7 @@ export const registrationFieldSchema = z
   });
 
 const context = {
-  eventId: z.string().min(1),
+  eventId: z.uuid(),
   version: z.iso.datetime({ precision: 3 }),
 };
 
@@ -81,18 +81,18 @@ export const registrationMutationSchema = z.discriminatedUnion("kind", [
   z.strictObject({
     ...context,
     kind: z.literal("edit"),
-    fieldId: z.string().min(1),
+    fieldId: z.uuid(),
     field: registrationFieldSchema,
   }),
   z.strictObject({
     ...context,
     kind: z.literal("delete"),
-    fieldId: z.string().min(1),
+    fieldId: z.uuid(),
   }),
   z.strictObject({
     ...context,
     kind: z.literal("reorder"),
-    fieldIds: z.array(z.string().min(1)),
+    fieldIds: z.array(z.uuid()),
   }),
 ]);
 

@@ -1,10 +1,15 @@
 import "server-only";
 import { cache } from "react";
+import { z } from "zod";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 import { prisma } from "@/lib/prisma";
 
 // Request-scoped deduplication keeps metadata and content on the same revision.
 export const getPublishedEvent = cache(async (publicId: string) => {
+  if (!z.uuid().safeParse(publicId).success) {
+    return null;
+  }
+
   const event = await prisma.event.findUnique({
     where: { publicId },
     select: { publishedRevision: { select: { id: true, snapshot: true } } },

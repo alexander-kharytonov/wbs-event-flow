@@ -28,7 +28,7 @@ export async function sendLatestVerificationEmail(
     async (tx) => {
       // Serialize deliveries, including the first one, for this account.
       const users = await tx.$queryRaw<{ emailVerified: boolean }[]>`
-        SELECT "emailVerified" FROM "user" WHERE "id" = ${user.id} FOR UPDATE
+        SELECT "emailVerified" FROM "user" WHERE "id" = ${user.id}::uuid FOR UPDATE
       `;
 
       if (!users[0] || users[0].emailVerified) {
@@ -40,9 +40,10 @@ export async function sendLatestVerificationEmail(
         value: "email-verification",
         expiresAt: new Date(Date.now() + 3_600_000),
       };
+      // Reuse the User UUID as this delivery slot's key: one current token per User.
       await tx.verification.upsert({
-        where: { id: verificationPrefix + user.id },
-        create: { id: verificationPrefix + user.id, ...data },
+        where: { id: user.id },
+        create: { id: user.id, ...data },
         update: data,
       });
       // SMTP failure rolls back the replacement, preserving the previous link.
@@ -65,7 +66,7 @@ export async function consumeVerificationToken(token: unknown) {
   // One conditional write arbitrates resend, replay, and concurrent clicks.
   const consumed = await prisma.verification.deleteMany({
     where: {
-      id: { startsWith: verificationPrefix },
+      value: "email-verification",
       identifier: tokenIdentifier(token),
       expiresAt: { gt: new Date() },
     },

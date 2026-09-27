@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { z } from "zod";
 import {
   type EventFormState,
   eventInputSchema,
@@ -18,7 +19,11 @@ export async function updateEvent(
   const id = formData.get("eventId");
   const version = formData.get("version");
 
-  if (typeof id !== "string" || !id || typeof version !== "string") {
+  if (
+    typeof id !== "string" ||
+    !z.uuid().safeParse(id).success ||
+    typeof version !== "string"
+  ) {
     return {
       message: "We couldn’t save this event. Reload the page and try again.",
     };

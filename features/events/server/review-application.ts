@@ -5,8 +5,8 @@ import { lockEventForUpdate } from "@/features/events/server/lock-event-for-upda
 import { prisma } from "@/lib/prisma";
 
 const reviewInput = z.strictObject({
-  eventId: z.string().min(1).max(200),
-  applicationId: z.string().min(1).max(200),
+  eventId: z.uuid(),
+  applicationId: z.uuid(),
 });
 
 export type ReviewResult = {

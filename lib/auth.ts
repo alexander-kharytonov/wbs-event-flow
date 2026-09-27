@@ -16,6 +16,8 @@ export const auth = betterAuth({
   baseURL: env.BETTER_AUTH_URL,
   secret: env.BETTER_AUTH_SECRET,
   database: prismaAdapter(prisma, { provider: "postgresql" }),
+  // Prisma defaults generate UUIDv7 for all auth records.
+  advanced: { database: { generateId: false } },
   rateLimit: {
     enabled: true,
     customRules: {

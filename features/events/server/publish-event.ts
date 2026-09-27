@@ -1,5 +1,4 @@
 import "server-only";
-import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import {
   buildEventSnapshot,
@@ -10,7 +9,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 
 const publishInput = z.strictObject({
-  eventId: z.string().min(1),
+  eventId: z.uuid(),
   contentVersion: z.number().int().positive(),
 });
 
@@ -88,11 +87,15 @@ export async function publishOwnedEvent(
             publishedAt: now,
           },
         });
+        const publicId =
+          event.publicId ??
+          (await tx.$queryRaw<{ id: string }[]>`SELECT uuidv7()::text AS id`)[0]
+            .id;
         await tx.event.update({
           where: { id: eventId },
           data: {
             publishedRevisionId: revision.id,
-            publicId: event.publicId ?? randomBytes(24).toString("base64url"),
+            publicId,
             publishedAt: event.publishedAt ?? now,
             // Publication is not a workspace edit; preserve its concurrency token.
             updatedAt: event.updatedAt,

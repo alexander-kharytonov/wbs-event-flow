@@ -1,5 +1,6 @@
 import { Alert, Stack, Typography } from "@mui/material";
 import { notFound } from "next/navigation";
+import { z } from "zod";
 import { EventGuestView } from "@/features/events/components/event-guest-view";
 import { EventHeader } from "@/features/events/components/event-header";
 import { RegistrationFormPreview } from "@/features/events/components/registration-form-preview";
@@ -17,6 +18,11 @@ export default async function PreviewPage({
 }) {
   const organizer = await requireOrganizer();
   const { id } = await params;
+
+  if (!z.uuid().safeParse(id).success) {
+    notFound();
+  }
+
   const event = await prisma.$transaction(
     (tx) =>
       tx.event.findFirst({
