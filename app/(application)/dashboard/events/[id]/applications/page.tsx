@@ -3,6 +3,7 @@ import { Button, Paper, Stack, Typography } from "@mui/material";
 import { notFound } from "next/navigation";
 import { ApplicationCapacity } from "@/features/events/components/application-capacity";
 import { ApplicationDetailLink } from "@/features/events/components/application-detail-link";
+import { ApplicationRealtime } from "@/features/events/components/application-realtime";
 import {
   ApplicationStatus,
   applicationStatusLabels,
@@ -53,6 +54,9 @@ export default async function ApplicationsPage({
 
   return (
     <Stack spacing={3}>
+      <ApplicationRealtime
+        streamUrl={`/api/events/${id}/applications/stream`}
+      />
       <EventHeader
         eventId={id}
         event={event}

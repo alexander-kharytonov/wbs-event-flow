@@ -3,6 +3,7 @@ import { z } from "zod";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 import { lockEventForUpdate } from "@/features/events/server/lock-event-for-update";
 import { prisma } from "@/lib/prisma";
+import { notifyApplicationChanged } from "@/lib/realtime/application-notifications";
 
 const reviewInput = z.strictObject({
   eventId: z.uuid(),
@@ -46,7 +47,7 @@ export async function reviewOwnedApplication(
 
         const application = await tx.application.findFirst({
           where: { id: applicationId, eventId },
-          select: { status: true, updatedAt: true },
+          select: { status: true, updatedAt: true, userId: true },
         });
 
         if (!application) {
@@ -110,6 +111,11 @@ export async function reviewOwnedApplication(
             "Application transition did not affect exactly one row.",
           );
         }
+
+        await notifyApplicationChanged(tx, {
+          eventId,
+          userId: application.userId,
+        });
 
         return { success: true };
       },
