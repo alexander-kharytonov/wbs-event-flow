@@ -1,5 +1,6 @@
 import "server-only";
 import { createHash, randomBytes } from "node:crypto";
+import { renderEmailTemplate } from "@/lib/email-template";
 import { sendMail } from "./mail";
 import { prisma } from "./prisma";
 
@@ -18,11 +19,15 @@ export async function sendLatestVerificationEmail(
   const deliveryToken = `${token}.${user.id}.${randomBytes(32).toString("base64url")}`;
   const link = new URL(url);
   link.searchParams.set("token", deliveryToken);
-  const htmlURL = link.href
-    .replaceAll("&", "&amp;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
+  const message = renderEmailTemplate({
+    title: "Verify your email",
+    greeting: "Hello,",
+    introduction:
+      "Confirm your email address to finish setting up your Event Flow account.",
+    detailText:
+      "This link expires in one hour. Only the latest verification email can be used.",
+    action: { label: "Verify your email", url: link.href },
+  });
 
   await prisma.$transaction(
     async (tx) => {
@@ -48,8 +53,7 @@ export async function sendLatestVerificationEmail(
       await sendMail({
         to: user.email,
         subject: "Verify your email — Event Flow",
-        text: `Verify your email: ${link.href}\nThis link expires in one hour. Only the latest verification email can be used.`,
-        html: `<p><a href="${htmlURL}">Verify your email</a></p><p>This link expires in one hour. Only the latest verification email can be used.</p>`,
+        ...message,
       });
     },
     { timeout: 20_000 },

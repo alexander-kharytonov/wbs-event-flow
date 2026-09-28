@@ -120,6 +120,14 @@ Sign out is available in the shared account menu.
 
 ## Current boundaries
 
+Transactional email confirms each new application to its historical applicant
+email (including anonymous applicants) and notifies the organizer. Reapplication
+creates a new pair of notifications. Approval and rejection each notify the
+applicant; withdrawal does not send email. Received applications remain pending
+review. Rejection messages contain no rejection reason and may omit the Event
+link when it is unavailable. Email delivery retries automatically, with rare
+duplicate delivery possible after a crash. There are no notification preferences.
+
 Organizer Applications, My Registrations, and the verified user's personalized
 application state on Public Event update in realtime after application changes.
 Realtime is a progressive enhancement: pages still render authoritative server

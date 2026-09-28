@@ -235,3 +235,37 @@ model ApplicationAnswerOption {
 
   @@id([answerId, optionId])
 }
+
+enum EmailOutboxType {
+  APPLICATION_RECEIVED
+  NEW_APPLICATION
+  APPLICATION_APPROVED
+  APPLICATION_REJECTED
+}
+
+enum EmailOutboxStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+}
+
+model EmailOutbox {
+  id               String            @id @default(uuid(7)) @db.Uuid
+  type             EmailOutboxType
+  status           EmailOutboxStatus @default(PENDING)
+  deduplicationKey String            @unique
+  recipientEmail   String
+  payload          Json
+  attempts         Int               @default(0)
+  nextAttemptAt    DateTime?         @default(now()) @db.Timestamptz(3)
+  lockedAt         DateTime?         @db.Timestamptz(3)
+  lockedBy         String?
+  sentAt           DateTime?         @db.Timestamptz(3)
+  lastError        String?
+  createdAt        DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime          @updatedAt @db.Timestamptz(3)
+
+  @@index([status, nextAttemptAt, createdAt])
+  @@index([status, lockedAt])
+}

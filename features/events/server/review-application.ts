@@ -2,6 +2,11 @@ import "server-only";
 import { z } from "zod";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 import { lockEventForUpdate } from "@/features/events/server/lock-event-for-update";
+import {
+  emailEventSnapshot,
+  enqueueApplicationEmail,
+} from "@/lib/email-outbox/enqueue";
+import { rejectionEventTitle } from "@/lib/email-outbox/payload";
 import { prisma } from "@/lib/prisma";
 import { notifyApplicationChanged } from "@/lib/realtime/application-notifications";
 
@@ -47,7 +52,14 @@ export async function reviewOwnedApplication(
 
         const application = await tx.application.findFirst({
           where: { id: applicationId, eventId },
-          select: { status: true, updatedAt: true, userId: true },
+          select: {
+            status: true,
+            updatedAt: true,
+            userId: true,
+            email: true,
+            fullName: true,
+            eventRevision: { select: { snapshot: true } },
+          },
         });
 
         if (!application) {
@@ -61,15 +73,18 @@ export async function reviewOwnedApplication(
           };
         }
 
-        if (decision === "APPROVED") {
-          const event = await tx.event.findUniqueOrThrow({
-            where: { id: eventId },
-            select: { publishedRevision: { select: { snapshot: true } } },
-          });
-          const snapshot = eventSnapshotSchema.safeParse(
-            event.publishedRevision?.snapshot,
-          );
+        const event = await tx.event.findUniqueOrThrow({
+          where: { id: eventId },
+          select: {
+            publicId: true,
+            publishedRevision: { select: { snapshot: true } },
+          },
+        });
+        const snapshot = eventSnapshotSchema.safeParse(
+          event.publishedRevision?.snapshot,
+        );
 
+        if (decision === "APPROVED") {
           if (!snapshot.success) {
             return {
               code: "PUBLICATION_UNAVAILABLE",
@@ -110,6 +125,39 @@ export async function reviewOwnedApplication(
           throw new Error(
             "Application transition did not affect exactly one row.",
           );
+        }
+
+        if (decision === "REJECTED") {
+          const eventTitle = rejectionEventTitle(
+            application.eventRevision.snapshot,
+          );
+          await enqueueApplicationEmail(tx, {
+            applicationId,
+            type: "APPLICATION_REJECTED",
+            recipientEmail: application.email,
+            payload: {
+              schemaVersion: 1,
+              applicantName: application.fullName,
+              ...(eventTitle ? { eventTitle } : {}),
+              ...(event.publicId ? { publicId: event.publicId } : {}),
+            },
+          });
+        } else {
+          // Approval already requires a valid current published snapshot.
+          if (!snapshot.success || !event.publicId) {
+            throw new Error("Published event email snapshot unavailable.");
+          }
+
+          await enqueueApplicationEmail(tx, {
+            applicationId,
+            type: "APPLICATION_APPROVED",
+            recipientEmail: application.email,
+            payload: {
+              schemaVersion: 1,
+              applicantName: application.fullName,
+              event: emailEventSnapshot(snapshot.data, event.publicId),
+            },
+          });
         }
 
         await notifyApplicationChanged(tx, {

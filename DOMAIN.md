@@ -436,7 +436,66 @@ Sources: [emission](lib/realtime/application-notifications.ts),
 [broker](lib/realtime/application-broker.ts),
 [stream lifecycle](lib/realtime/sse-response.ts).
 
-## 18. Deliberate trade-offs
+## 18. Transactional application email
+
+Each committed new Application (including reapply) creates APPLICATION_RECEIVED
+for its historical Application.email and NEW_APPLICATION for the organizer's
+User.email. Actual PENDING -> APPROVED/REJECTED transitions create the matching
+applicant notification. Mutation, EmailOutbox rows, and wake-up NOTIFY share the
+same transaction. Duplicate/no-op/error paths create no delivery intent; rollback
+removes both mutation and outbox. Withdrawal creates no email.
+
+EmailOutbox has no Event/Application foreign keys. Its unique deduplicationKey is
+Application.id + purpose. Recipient and versioned schemaVersion=1 JSON payload
+are immutable delivery snapshots. They contain only the fields needed by that
+email, not answers, rendered HTML/subject, or an absolute hostname. Separate Zod
+contracts validate each type on creation and again before rendering. Received,
+organizer, and approval emails snapshot the current published event under the
+Event lock, never mutable workspace content. Render constructs absolute links
+from the server app origin.
+
+Rejection is deliberately independent of current publication/publicId. It uses
+the submitted EventRevision's historical title when readable and the Event's
+safe publicId when available. Otherwise it omits the title/link; the renderer
+supports no CTA. Damaged historical JSON must not add a Reject precondition.
+No rejection reason, workspace fallback, or new domain decision is introduced.
+
+A short ReadCommitted transaction claims up to five due rows using a single
+CTE SELECT FOR UPDATE SKIP LOCKED + UPDATE RETURNING. Due means PENDING with
+nextAttemptAt <= DB now, or PROCESSING with a five-minute expired lease. Claim
+sets lockedAt/lockedBy and increments attempts. Concurrent Node processes skip
+each other's locks. SMTP starts only after commit, in parallel within the bounded
+batch, with a 45-second socket-closing delivery deadline and shorter connection,
+greeting, and idle timeouts. No domain or claim transaction spans SMTP.
+
+Every success/retry/failure update predicates on id, PROCESSING, workerId, and
+the claimed attempts value. Zero affected rows means lost ownership and causes
+no further write. Attempts never reset. Failure after attempts 1/2/3/4 schedules
+1 minute / 5 minutes / 30 minutes / 2 hours; attempt 5 becomes terminal FAILED
+with nextAttemptAt null. An expired fifth claim also becomes FAILED under the
+claim row lock without a sixth send. Retry clears locks; success writes SENT and
+sentAt and clears due time, locks, and error. Errors are fixed bounded categories,
+never raw SMTP responses, addresses, payloads, or credentials. SENT/FAILED are
+excluded from automatic claims. An unacknowledged DB completion uses lease recovery.
+
+Delivery is at-least-once, subject to the five-attempt limit: SMTP acceptance and
+the SENT update are not atomic. Crash/lease recovery can duplicate a delivered
+email. Ownership protects database state, not exactly-once SMTP delivery.
+
+Next.js Node instrumentation starts a global/HMR-safe process singleton, with one
+dispatcher loop and a dedicated LISTEN connection on event_flow_email_outbox,
+separate from SSE. Startup, listener readiness/reconnect, and each 30-second sweep
+query the durable queue. NOTIFY only wakes that loop; lost notifications cannot
+lose intents. A running loop coalesces wake-ups. Disposal stops reconnect/timers,
+closes the listener, and awaits in-flight delivery. The dispatcher makes no domain
+decisions. Persistent Node runtimes remain required, as for realtime; there is
+no separate Docker worker, generic bus, Redis, or leader election.
+
+Sources: [creation](lib/email-outbox/enqueue.ts),
+[contracts](lib/email-outbox/payload.ts), [delivery](lib/email-outbox/delivery.ts),
+[dispatcher](lib/email-outbox/dispatcher.ts), [startup](instrumentation.ts).
+
+## 19. Deliberate trade-offs
 
 - EventRevision immutability is enforced by application code, not a DB trigger.
 - Anonymous identity is weaker than authenticated identity. Anonymous submissions
