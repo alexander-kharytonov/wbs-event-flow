@@ -2,10 +2,10 @@ import ArrowForward from "@mui/icons-material/ArrowForward";
 import EventOutlined from "@mui/icons-material/EventOutlined";
 import { Box, Button, Paper, Stack, Typography } from "@mui/material";
 import type { Metadata } from "next";
+import { DateTime } from "@/components/ui/date-time";
 import { AccountNavigation } from "@/features/auth/components/account-navigation";
+import { ApplicationRealtime } from "@/features/events/components/application-realtime";
 import { ApplicationStatus } from "@/features/events/components/application-status";
-import { formatEventTime } from "@/features/events/format-event-time";
-import { formatTimezone } from "@/features/events/format-timezone";
 import { getMyRegistrations } from "@/features/events/server/get-my-registrations";
 import { requireVerifiedUser } from "@/lib/session";
 
@@ -25,6 +25,7 @@ export default async function MyRegistrationsPage() {
 
   return (
     <Stack spacing={3}>
+      <ApplicationRealtime streamUrl="/api/account/registrations/stream" />
       <Typography variant="h4" component="h1">
         My registrations
       </Typography>
@@ -90,24 +91,13 @@ export default async function MyRegistrationsPage() {
                       <Typography variant="h6" component="h3">
                         {registration.title}
                       </Typography>
-                      <Stack spacing={0.5} sx={{ flexGrow: 1 }}>
-                        <Typography>
-                          {formatEventTime(
-                            new Date(registration.startsAt),
-                            registration.timezone,
-                          )}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Until{" "}
-                          {formatEventTime(
-                            new Date(registration.endsAt),
-                            registration.timezone,
-                          )}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {formatTimezone(registration.timezone)}
-                        </Typography>
-                      </Stack>
+                      <Box sx={{ flexGrow: 1 }}>
+                        <DateTime
+                          date={registration.startsAt}
+                          endDate={registration.endsAt}
+                          timezone={registration.timezone}
+                        />
+                      </Box>
                       <Button
                         href={`/e/${encodeURIComponent(registration.publicId)}`}
                         endIcon={<ArrowForward />}

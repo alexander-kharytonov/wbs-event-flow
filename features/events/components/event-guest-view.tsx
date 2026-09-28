@@ -1,7 +1,7 @@
 import { Alert, Divider, Paper, Stack, Typography } from "@mui/material";
 import type { ReactNode } from "react";
+import { DateTime } from "@/components/ui/date-time";
 import { formatEventTime } from "@/features/events/format-event-time";
-import { formatTimezone } from "@/features/events/format-timezone";
 import {
   registrationAvailability,
   registrationDeadline,
@@ -38,12 +38,11 @@ export function EventGuestView({
           >
             {snapshot.title}
           </Typography>
-          <Typography>
-            {format(snapshot.startsAt)} – {format(snapshot.endsAt)}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            All times in {formatTimezone(snapshot.timezone)}
-          </Typography>
+          <DateTime
+            date={snapshot.startsAt}
+            endDate={snapshot.endsAt}
+            timezone={snapshot.timezone}
+          />
         </Stack>
         {snapshot.description && (
           <Typography sx={{ whiteSpace: "pre-wrap" }}>

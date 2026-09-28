@@ -390,7 +390,53 @@ current admission policy, verified identity, owner restrictions, explicit organi
 activation, and PUBLIC catalog filtering. Capacity safety depends on the shared
 locking protocol; the DB does not impose an aggregate capacity constraint.
 
-## 17. Deliberate trade-offs
+## 17. Application realtime
+
+PostgreSQL and the existing server read models remain authoritative. SSE carries
+only `connected` and `invalidate` events with empty JSON objects, plus comment
+heartbeats; no application data, PII, or internal routing IDs reach the browser.
+The client coalesces signals and calls `router.refresh()` without maintaining a
+second application read model.
+
+Submit/reapply, approve/reject, and withdrawal emit `pg_notify` inside the same
+transaction after an actual write. Duplicate, no-op, and error paths do not emit.
+The internal envelope contains only type, Event ID, and nullable linked User ID.
+Anonymous submissions invalidate only organizer subscribers; linked changes also
+invalidate that User's subscribers. Event editing/publication does not emit.
+
+NOTIFY becomes visible only after successful commit; rollback delivers nothing.
+Transactional NOTIFY or commit failure may roll back the entire mutation: this
+is an accepted trade-off. After commit, listener/broker/SSE/browser failures do
+not change the committed domain state. LISTEN/NOTIFY is ephemeral with no replay,
+outbox, or durable event log. Initial LISTEN readiness and listener/browser
+reconnection produce `connected`, prompting authoritative refresh to resync.
+
+A lazy global singleton owns at most one dedicated LISTEN connection per Node
+process/runtime context, separate from the Prisma pool. Each instance fans out
+locally to authorized Event/User subscribers. Reconnect repeats LISTEN; the
+broker retains no missed notifications. Slow streams are closed rather than
+accumulating an unbounded queue.
+
+Organizer streams require a verified User, OrganizerProfile, and owned Event;
+malformed, foreign, and missing Event IDs share a neutral 404. Attendee routing
+uses only the verified authoritative session User ID. Every request rechecks
+authorization without refreshing the session. Stream lifetime is limited to
+the earlier of 60 seconds from the session check and session expiry. Native
+EventSource reconnect reauthorizes; an accepted revocation window of up to 60
+seconds replaces session polling. Streams are private/no-store and heartbeat
+approximately every 15 seconds. Abort, cancel, deadline, and failed writes remove
+the subscriber and timers.
+
+Deployment assumes persistent Node.js processes, session-preserving PostgreSQL
+connections for LISTEN, and HTTP streaming without proxy buffering. Short-lived
+serverless runtimes are not assumed to support this lifecycle. Broker dispose
+is available without installing process signal handlers.
+
+Sources: [emission](lib/realtime/application-notifications.ts),
+[broker](lib/realtime/application-broker.ts),
+[stream lifecycle](lib/realtime/sse-response.ts).
+
+## 18. Deliberate trade-offs
 
 - EventRevision immutability is enforced by application code, not a DB trigger.
 - Anonymous identity is weaker than authenticated identity. Anonymous submissions

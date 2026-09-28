@@ -1,9 +1,9 @@
 import { Box, Chip, Divider, Paper, Stack, Typography } from "@mui/material";
 import { notFound } from "next/navigation";
 import { z } from "zod";
+import { DateTime } from "@/components/ui/date-time";
 import { EventHeader } from "@/features/events/components/event-header";
 import { formatEventTime } from "@/features/events/format-event-time";
-import { formatTimezone } from "@/features/events/format-timezone";
 import { requireOrganizer } from "@/features/organizer/server/require-organizer";
 import { prisma } from "@/lib/prisma";
 
@@ -45,40 +45,11 @@ export default async function EventPage({
             <Typography variant="h6" component="h2">
               Schedule
             </Typography>
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: {
-                  xs: "minmax(0, 1fr)",
-                  sm: "repeat(2, minmax(0, 1fr))",
-                },
-                gap: 2,
-              }}
-            >
-              <Box>
-                <Typography variant="body2" color="text.secondary">
-                  Starts
-                </Typography>
-                <Typography>
-                  {formatEventTime(event.startsAt, event.timezone)}
-                </Typography>
-              </Box>
-              <Box>
-                <Typography variant="body2" color="text.secondary">
-                  Ends
-                </Typography>
-                <Typography>
-                  {formatEventTime(event.endsAt, event.timezone)}
-                </Typography>
-              </Box>
-            </Box>
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ overflowWrap: "anywhere" }}
-            >
-              All times in {formatTimezone(event.timezone)}
-            </Typography>
+            <DateTime
+              date={event.startsAt}
+              endDate={event.endsAt}
+              timezone={event.timezone}
+            />
           </Stack>
           <Divider />
           <Stack component="section" spacing={2}>

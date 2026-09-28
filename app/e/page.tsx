@@ -3,9 +3,8 @@ import EventOutlined from "@mui/icons-material/EventOutlined";
 import { Box, Button, Link, Paper, Stack, Typography } from "@mui/material";
 import type { Metadata } from "next";
 import { connection } from "next/server";
+import { DateTime } from "@/components/ui/date-time";
 import { RegistrationAvailabilityStatus } from "@/features/events/components/registration-availability-status";
-import { formatEventTime } from "@/features/events/format-event-time";
-import { formatTimezone } from "@/features/events/format-timezone";
 import { getPublicEvents } from "@/features/events/server/get-public-events";
 
 export const metadata: Metadata = {
@@ -115,28 +114,11 @@ export default async function PublicEventsPage() {
                 </Typography>
               )}
             </Stack>
-            <Stack spacing={0.5}>
-              <Typography sx={{ fontWeight: 500 }}>
-                {formatEventTime(
-                  new Date(featured.snapshot.startsAt),
-                  featured.snapshot.timezone,
-                )}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Until{" "}
-                {formatEventTime(
-                  new Date(featured.snapshot.endsAt),
-                  featured.snapshot.timezone,
-                )}
-              </Typography>
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                sx={{ overflowWrap: "anywhere" }}
-              >
-                {formatTimezone(featured.snapshot.timezone)}
-              </Typography>
-            </Stack>
+            <DateTime
+              date={featured.snapshot.startsAt}
+              endDate={featured.snapshot.endsAt}
+              timezone={featured.snapshot.timezone}
+            />
             <RegistrationAvailabilityStatus
               snapshot={featured.snapshot}
               now={now}
@@ -214,28 +196,13 @@ export default async function PublicEventsPage() {
                           {snapshot.title}
                         </Link>
                       </Typography>
-                      <Stack spacing={0.5} sx={{ flexGrow: 1 }}>
-                        <Typography>
-                          {formatEventTime(
-                            new Date(snapshot.startsAt),
-                            snapshot.timezone,
-                          )}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Until{" "}
-                          {formatEventTime(
-                            new Date(snapshot.endsAt),
-                            snapshot.timezone,
-                          )}
-                        </Typography>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{ overflowWrap: "anywhere" }}
-                        >
-                          {formatTimezone(snapshot.timezone)}
-                        </Typography>
-                      </Stack>
+                      <Box sx={{ flexGrow: 1 }}>
+                        <DateTime
+                          date={snapshot.startsAt}
+                          endDate={snapshot.endsAt}
+                          timezone={snapshot.timezone}
+                        />
+                      </Box>
                       {group.id !== "past-events" && (
                         <RegistrationAvailabilityStatus
                           snapshot={snapshot}

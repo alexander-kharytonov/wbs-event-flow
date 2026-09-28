@@ -120,6 +120,13 @@ Sign out is available in the shared account menu.
 
 ## Current boundaries
 
+Organizer Applications, My Registrations, and the verified user's personalized
+application state on Public Event update in realtime after application changes.
+Realtime is a progressive enhancement: pages still render authoritative server
+data, and a normal reload remains available if the connection is interrupted.
+Anonymous applicants do not receive a personal status stream. Catalog and Event
+editing/publication updates are outside this realtime scope.
+
 The product does not provide email changes or password reset, anonymous
 application claiming, a full applicant attempt history/detail screen, or ticket/QR check-in.
 These boundaries describe current scope, not a delivery roadmap.

@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 import { prisma } from "@/lib/prisma";
+import { notifyApplicationChanged } from "@/lib/realtime/application-notifications";
 
 const withdrawalInput = z.strictObject({
   publicId: z.uuid(),
@@ -88,6 +89,8 @@ export async function withdrawOwnApplication(
             updatedAt: application.updatedAt,
           },
         });
+
+        await notifyApplicationChanged(tx, { eventId, userId });
 
         return { success: true };
       },

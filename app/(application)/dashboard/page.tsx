@@ -10,8 +10,7 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
-import { formatEventTime } from "@/features/events/format-event-time";
-import { formatTimezone } from "@/features/events/format-timezone";
+import { DateTime } from "@/components/ui/date-time";
 import { publicationState } from "@/features/events/publication-state";
 import { requireOrganizer } from "@/features/organizer/server/require-organizer";
 import { prisma } from "@/lib/prisma";
@@ -31,6 +30,7 @@ export default async function DashboardPage({
       title: true,
       visibility: true,
       startsAt: true,
+      endsAt: true,
       timezone: true,
       contentVersion: true,
       publishedRevision: { select: { contentVersion: true } },
@@ -164,18 +164,13 @@ export default async function DashboardPage({
                 >
                   {event.title}
                 </Link>
-                <Stack spacing={0.5} sx={{ flexGrow: 1 }}>
-                  <Typography>
-                    {formatEventTime(event.startsAt, event.timezone)}
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ overflowWrap: "anywhere" }}
-                  >
-                    {formatTimezone(event.timezone)}
-                  </Typography>
-                </Stack>
+                <Box sx={{ flexGrow: 1 }}>
+                  <DateTime
+                    date={event.startsAt}
+                    endDate={event.endsAt}
+                    timezone={event.timezone}
+                  />
+                </Box>
                 <Button
                   href={`/dashboard/events/${event.id}`}
                   size="small"

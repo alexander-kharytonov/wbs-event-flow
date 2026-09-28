@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { applicationPrefill } from "@/features/events/application-prefill";
+import { ApplicationRealtime } from "@/features/events/components/application-realtime";
 import { applicationStatusLabels } from "@/features/events/components/application-status";
 import { EventGuestView } from "@/features/events/components/event-guest-view";
 import { RegistrationApplicationForm } from "@/features/events/components/registration-application-form";
@@ -107,6 +108,9 @@ export default async function PublicEventPage({ params }: Props) {
 
   return (
     <EventGuestView snapshot={snapshot} now={now} approved={approved}>
+      {user && (
+        <ApplicationRealtime streamUrl="/api/account/registrations/stream" />
+      )}
       {ownedEvent && (
         <Alert severity="info">
           <AlertTitle>This is your event</AlertTitle>

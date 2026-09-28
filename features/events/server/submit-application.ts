@@ -9,6 +9,7 @@ import { registrationAvailability } from "@/features/events/registration-availab
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { notifyApplicationChanged } from "@/lib/realtime/application-notifications";
 import { getSession } from "@/lib/session";
 
 // Prisma's PostgreSQL driver adapter reports the violated index in its cause.
@@ -209,6 +210,11 @@ export async function submitEventApplication(
               answers: { create: Object.values(normalized.data) },
             },
             select: { id: true },
+          });
+
+          await notifyApplicationChanged(tx, {
+            eventId: revision.eventId,
+            userId: user?.id ?? null,
           });
 
           return { success: true };
