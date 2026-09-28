@@ -45,7 +45,7 @@ export function DateTime({ date, endDate, timezone }: Props) {
           flexShrink: 0,
           border: 1,
           borderColor: "divider",
-          borderRadius: 1.5,
+          borderRadius: 1,
           overflow: "hidden",
           textAlign: "center",
           color: "primary.main",

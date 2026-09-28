@@ -52,7 +52,7 @@ export default async function PublicEventsPage() {
   ];
 
   return (
-    <Stack spacing={4}>
+    <Stack spacing={3}>
       <Stack spacing={1}>
         <Typography variant="h4" component="h1">
           Public events
@@ -67,8 +67,7 @@ export default async function PublicEventsPage() {
           aria-labelledby="featured-event-title"
           variant="outlined"
           sx={{
-            p: { xs: 3, sm: 5 },
-            borderRadius: 3,
+            p: { xs: 2, sm: 3 },
             borderColor: "primary.main",
             bgcolor: "action.hover",
           }}
@@ -135,7 +134,7 @@ export default async function PublicEventsPage() {
         </Paper>
       )}
       {events.length === 0 ? (
-        <Paper variant="outlined" sx={{ p: { xs: 3, sm: 5 }, borderRadius: 2 }}>
+        <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
           <Stack spacing={2} sx={{ alignItems: "center", textAlign: "center" }}>
             <EventOutlined sx={{ fontSize: 40, color: "text.secondary" }} />
             <Typography variant="h6" component="h2">
@@ -178,7 +177,7 @@ export default async function PublicEventsPage() {
                     key={publicId}
                     component="li"
                     variant="outlined"
-                    sx={{ p: 3, borderRadius: 2 }}
+                    sx={{ p: { xs: 2, sm: 3 } }}
                   >
                     <Stack
                       spacing={2}

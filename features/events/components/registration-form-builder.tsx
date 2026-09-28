@@ -128,7 +128,11 @@ export function RegistrationFormBuilder({
           )}
         </Alert>
       )}
-      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, borderRadius: 2 }}>
+      <Typography color="text.secondary">
+        Build the form your guests will complete. Questions save to your
+        workspace; publish the event to make changes available to guests.
+      </Typography>
+      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
         <Stack spacing={2}>
           <Box>
             <Typography variant="h6" component="h2">
@@ -176,7 +180,7 @@ export function RegistrationFormBuilder({
           }
         </Stack>
         {form.fields.length === 0 && (
-          <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
+          <Paper variant="outlined" sx={{ p: 3 }}>
             <Typography variant="subtitle1">No custom questions yet</Typography>
             <Typography color="text.secondary" variant="body2">
               Add questions to collect the information you need from your
@@ -185,11 +189,7 @@ export function RegistrationFormBuilder({
           </Paper>
         )}
         {form.fields.map((field, index) => (
-          <Paper
-            key={field.id}
-            variant="outlined"
-            sx={{ p: { xs: 2, sm: 3 }, borderRadius: 2 }}
-          >
+          <Paper key={field.id} variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
             <Stack spacing={1.5}>
               <Typography
                 variant="subtitle1"
@@ -320,7 +320,8 @@ export function RegistrationFormBuilder({
         <DialogTitle id="delete-dialog-title">Delete question?</DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ overflowWrap: "anywhere" }}>
-            “{deleting?.label}” and its options will be permanently removed.
+            “{deleting?.label}” will be removed from your workspace form.
+            Previously submitted answers will be preserved.
           </DialogContentText>
           {error?.conflict && (
             <Alert severity="error" sx={{ mt: 2 }}>

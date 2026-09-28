@@ -15,7 +15,7 @@ export default async function ProfilePage() {
         My profile
       </Typography>
       <AccountNavigation active="profile" />
-      <Paper variant="outlined" sx={{ p: { xs: 3, sm: 4 }, borderRadius: 2 }}>
+      <Paper variant="outlined" sx={{ p: { xs: 3, sm: 4 } }}>
         <ProfileForm name={user.name} email={user.email} />
       </Paper>
     </Stack>

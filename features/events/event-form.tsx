@@ -92,7 +92,13 @@ export function EventForm({
   }
 
   return (
-    <Stack component="form" action={action} spacing={3}>
+    <Stack
+      component="form"
+      action={action}
+      spacing={3}
+      aria-busy={pending}
+      sx={{ maxWidth: 820, width: "100%", mx: "auto" }}
+    >
       {edit && (
         <>
           <input type="hidden" name="eventId" value={edit.id} />
@@ -115,7 +121,7 @@ export function EventForm({
           )}
         </Alert>
       )}
-      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, borderRadius: 2 }}>
+      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
         <Stack spacing={3}>
           <Typography variant="h6" component="h2">
             Basic information
@@ -135,7 +141,7 @@ export function EventForm({
           />
         </Stack>
       </Paper>
-      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, borderRadius: 2 }}>
+      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
         <Stack spacing={3}>
           <Typography variant="h6" component="h2">
             Schedule
@@ -203,7 +209,7 @@ export function EventForm({
           </Typography>
         </Stack>
       </Paper>
-      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, borderRadius: 2 }}>
+      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
         <Stack spacing={3}>
           <Typography variant="h6" component="h2">
             Registration
@@ -257,42 +263,65 @@ export function EventForm({
           </Box>
         </Stack>
       </Paper>
-      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, borderRadius: 2 }}>
+      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
         <Stack spacing={3}>
           <Typography variant="h6" component="h2">
             Access
           </Typography>
-          <TextField {...field("visibility")} label="Visibility" select>
+          <TextField
+            {...field("visibility")}
+            label="Who can discover this event?"
+            select
+            helperText={
+              state.errors?.visibility?.[0] ??
+              (values.visibility === "PRIVATE"
+                ? "Only people with the event link can find it. The link is not password protected."
+                : "Your published event appears in Explore events.")
+            }
+          >
             <MenuItem value="PRIVATE">Private</MenuItem>
             <MenuItem value="PUBLIC">Public</MenuItem>
           </TextField>
           <TextField
             {...field("accountRequirement")}
-            label="Account requirement"
+            label="Do guests need an account?"
+            helperText={
+              state.errors?.accountRequirement?.[0] ??
+              "A required account must have a verified email before applying."
+            }
             select
           >
-            <MenuItem value="OPTIONAL">Optional</MenuItem>
-            <MenuItem value="REQUIRED">Required</MenuItem>
+            <MenuItem value="OPTIONAL">No — account optional</MenuItem>
+            <MenuItem value="REQUIRED">
+              Yes — verified account required
+            </MenuItem>
           </TextField>
         </Stack>
       </Paper>
-      <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-        <Button type="submit" variant="contained" disabled={pending}>
-          {pending
-            ? edit
-              ? "Saving…"
-              : "Creating…"
-            : edit
-              ? "Save changes"
-              : "Create event"}
-        </Button>
-        <Button
-          href={edit ? `/dashboard/events/${edit.id}` : "/dashboard"}
-          color="inherit"
-        >
-          {edit ? "Back to event" : "Back to my events"}
-        </Button>
-      </Stack>
+      <Paper variant="outlined" sx={{ p: 2 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {edit
+            ? "Changes are saved to your workspace. Publish them when you’re ready to update the public event."
+            : "Your event starts as an unpublished draft. You can review it before publishing."}
+        </Typography>
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+          <Button type="submit" variant="contained" disabled={pending}>
+            {pending
+              ? edit
+                ? "Saving…"
+                : "Creating…"
+              : edit
+                ? "Save changes"
+                : "Create event"}
+          </Button>
+          <Button
+            href={edit ? `/dashboard/events/${edit.id}` : "/dashboard"}
+            color="inherit"
+          >
+            {edit ? "Back to event" : "Back to my events"}
+          </Button>
+        </Stack>
+      </Paper>
     </Stack>
   );
 }

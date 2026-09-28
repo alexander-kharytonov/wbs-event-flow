@@ -1,8 +1,19 @@
 import InboxOutlined from "@mui/icons-material/InboxOutlined";
-import { Button, Paper, Stack, Typography } from "@mui/material";
+import {
+  Avatar,
+  Box,
+  Button,
+  List,
+  ListItem,
+  ListItemAvatar,
+  ListItemText,
+  Paper,
+  Stack,
+  Typography,
+} from "@mui/material";
 import { notFound } from "next/navigation";
 import { ApplicationCapacity } from "@/features/events/components/application-capacity";
-import { ApplicationDetailLink } from "@/features/events/components/application-detail-link";
+import { ApplicationListItemButton } from "@/features/events/components/application-list-item-button";
 import { ApplicationRealtime } from "@/features/events/components/application-realtime";
 import {
   ApplicationStatus,
@@ -106,48 +117,112 @@ export default async function ApplicationsPage({
           </Typography>
         </Paper>
       ) : (
-        <Stack spacing={1.5}>
-          {applications.map((application) => (
-            <Paper key={application.id} variant="outlined" sx={{ p: 2 }}>
-              <Stack
-                direction={{ xs: "column", sm: "row" }}
-                spacing={2}
-                sx={{
-                  justifyContent: "space-between",
-                  alignItems: { sm: "center" },
-                }}
-              >
-                <Stack
-                  spacing={0.5}
-                  sx={{ minWidth: 0, overflowWrap: "anywhere" }}
+        <Paper variant="outlined">
+          <List disablePadding aria-label="Event applications">
+            {applications.map((application, index) => {
+              const nameParts = application.fullName
+                .trim()
+                .split(/\s+/u)
+                .filter(Boolean);
+              const initials = [
+                nameParts[0],
+                ...(nameParts.length > 1
+                  ? [nameParts[nameParts.length - 1]]
+                  : []),
+              ]
+                .map((part) => Array.from(part ?? "")[0] ?? "")
+                .join("")
+                .toUpperCase();
+
+              return (
+                <ListItem
+                  key={application.id}
+                  disablePadding
+                  divider={index < applications.length - 1}
                 >
-                  <ApplicationDetailLink
+                  <ApplicationListItemButton
                     href={`/dashboard/events/${id}/applications/${application.id}`}
                     fullName={application.fullName}
-                  />
-                  <Typography variant="body2">{application.email}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Submitted{" "}
-                    {formatEventTime(application.createdAt, event.timezone)} (
-                    {event.timezone})
-                  </Typography>
-                </Stack>
-                <Stack
-                  direction="row"
-                  spacing={1.5}
-                  sx={{ alignItems: "center" }}
-                >
-                  <ApplicationStatus status={application.status} />
-                  <ApplicationDetailLink
-                    href={`/dashboard/events/${id}/applications/${application.id}`}
-                    fullName={application.fullName}
-                    button
-                  />
-                </Stack>
-              </Stack>
-            </Paper>
-          ))}
-        </Stack>
+                  >
+                    <ListItemAvatar sx={{ minWidth: 0, mt: 0.5 }}>
+                      <Avatar
+                        sx={{
+                          bgcolor: "action.selected",
+                          color: "primary.main",
+                          fontWeight: 600,
+                          fontSize: 14,
+                        }}
+                      >
+                        {initials}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <Box
+                      sx={{
+                        flex: 1,
+                        minWidth: 0,
+                        display: "flex",
+                        flexDirection: { xs: "column", md: "row" },
+                        gap: 2,
+                        alignItems: { md: "center" },
+                      }}
+                    >
+                      <ListItemText
+                        sx={{ m: 0, minWidth: 0, overflowWrap: "anywhere" }}
+                        primary={application.fullName}
+                        secondary={
+                          <>
+                            <Typography
+                              component="span"
+                              variant="body2"
+                              sx={{
+                                display: "block",
+                                color: "text.primary",
+                                mt: 0.25,
+                              }}
+                            >
+                              {application.email}
+                            </Typography>
+                            <Typography
+                              component="span"
+                              variant="caption"
+                              sx={{ display: "block", mt: 0.5 }}
+                            >
+                              Submitted{" "}
+                              {formatEventTime(
+                                application.createdAt,
+                                event.timezone,
+                              )}{" "}
+                              ({event.timezone})
+                            </Typography>
+                          </>
+                        }
+                        slotProps={{
+                          primary: {
+                            component: "div",
+                            sx: { fontWeight: 600 },
+                          },
+                          secondary: { component: "div" },
+                        }}
+                      />
+                      <Stack
+                        direction="row"
+                        useFlexGap
+                        spacing={1.5}
+                        sx={{
+                          alignItems: "center",
+                          flexWrap: "wrap",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <ApplicationStatus status={application.status} />
+                      </Stack>
+                    </Box>
+                  </ApplicationListItemButton>
+                </ListItem>
+              );
+            })}
+          </List>
+        </Paper>
       )}
     </Stack>
   );

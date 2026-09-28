@@ -48,7 +48,7 @@ export function ApplicationCapacity({
           value={(approved / capacity) * 100}
           aria-label="Filled places"
           aria-valuetext={`${approved} of ${capacity} places filled`}
-          sx={{ height: 6, borderRadius: 1 }}
+          sx={{ height: 10, borderRadius: 0.5 }}
         />
       )}
       <Typography variant="caption" color="text.secondary">

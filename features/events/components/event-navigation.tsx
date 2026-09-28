@@ -14,8 +14,19 @@ export function EventNavigation({
       component="nav"
       aria-label="Event sections"
       direction="row"
+      useFlexGap
       spacing={1}
-      sx={{ borderBottom: 1, borderColor: "divider", pb: 1, flexWrap: "wrap" }}
+      sx={{
+        borderBottom: 1,
+        borderColor: "divider",
+        pb: 1,
+        flexWrap: "wrap",
+        "& .MuiButton-root": { flexShrink: 0, whiteSpace: "nowrap" },
+        "& [aria-current=page]": {
+          bgcolor: "action.selected",
+          fontWeight: 700,
+        },
+      }}
     >
       <Button
         href={`/dashboard/events/${eventId}`}

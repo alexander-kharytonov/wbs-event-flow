@@ -127,7 +127,7 @@ export function VerificationForm({
       <Link href="/" sx={{ alignSelf: "flex-start" }}>
         Back to home
       </Link>
-      <Paper variant="outlined" sx={{ p: { xs: 3, sm: 4 }, borderRadius: 2 }}>
+      <Paper variant="outlined" sx={{ p: { xs: 3, sm: 4 } }}>
         <Stack spacing={3}>
           <Stack spacing={1}>
             <Typography variant="h4" component="h1">

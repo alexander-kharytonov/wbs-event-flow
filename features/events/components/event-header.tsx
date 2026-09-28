@@ -25,7 +25,7 @@ export function EventHeader({
   return (
     <Stack spacing={3}>
       <Link href="/dashboard" sx={{ alignSelf: "flex-start" }}>
-        My events
+        ← My events
       </Link>
       <Stack
         direction={{ xs: "column", sm: "row" }}
@@ -49,7 +49,7 @@ export function EventHeader({
         </Stack>
         <Button
           href={`/dashboard/events/${id}/edit`}
-          variant="contained"
+          variant="outlined"
           startIcon={<EditOutlined />}
           sx={{ flexShrink: 0, alignSelf: "flex-start" }}
         >

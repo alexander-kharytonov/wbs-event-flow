@@ -6,7 +6,7 @@ export default function LoadingRegistrationForm() {
       <Skeleton width={100} />
       <Skeleton variant="text" width="60%" height={48} />
       <Skeleton width={260} height={44} />
-      <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
+      <Paper variant="outlined" sx={{ p: 3 }}>
         <Stack spacing={2}>
           <Skeleton width={150} height={32} />
           <Skeleton height={32} />

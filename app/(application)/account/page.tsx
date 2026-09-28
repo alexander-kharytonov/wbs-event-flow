@@ -16,7 +16,7 @@ export default async function AccountPage() {
         My account
       </Typography>
       <AccountNavigation active="overview" />
-      <Paper variant="outlined" sx={{ p: { xs: 3, sm: 4 }, borderRadius: 2 }}>
+      <Paper variant="outlined" sx={{ p: { xs: 3, sm: 4 } }}>
         <Stack
           spacing={2}
           sx={{ alignItems: "flex-start", overflowWrap: "anywhere" }}
@@ -27,12 +27,18 @@ export default async function AccountPage() {
             </Typography>
             <Typography color="text.secondary">{user.email}</Typography>
           </Stack>
-          <Button href="/e" variant="outlined">
-            Browse public events
-          </Button>
+          <Typography color="text.secondary">
+            Keep track of your applications and get ready for your next event.
+          </Typography>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+            <Button href="/account/registrations" variant="contained">
+              View my registrations
+            </Button>
+            <Button href="/e">Explore events</Button>
+          </Stack>
         </Stack>
       </Paper>
-      <Paper variant="outlined" sx={{ p: { xs: 3, sm: 4 }, borderRadius: 2 }}>
+      <Paper variant="outlined" sx={{ p: { xs: 3, sm: 4 } }}>
         <Stack spacing={2} sx={{ alignItems: "flex-start" }}>
           <Stack spacing={1}>
             <Typography variant="h6" component="h2">
@@ -44,7 +50,7 @@ export default async function AccountPage() {
           </Stack>
           <Button
             href={organizer ? "/dashboard" : "/onboarding/organizer"}
-            variant="contained"
+            variant="outlined"
           >
             {organizer ? "Open organizer dashboard" : "Become an organizer"}
           </Button>

@@ -1,16 +1,11 @@
 import Add from "@mui/icons-material/Add";
 import ArrowForward from "@mui/icons-material/ArrowForward";
 import EventOutlined from "@mui/icons-material/EventOutlined";
-import {
-  Box,
-  Button,
-  Chip,
-  Link,
-  Paper,
-  Stack,
-  Typography,
-} from "@mui/material";
+import LinkOutlined from "@mui/icons-material/LinkOutlined";
+import PublicOutlined from "@mui/icons-material/PublicOutlined";
+import { Box, Button, Link, Paper, Stack, Typography } from "@mui/material";
 import { DateTime } from "@/components/ui/date-time";
+import { PublicationStatus } from "@/features/events/components/publication-status";
 import { publicationState } from "@/features/events/publication-state";
 import { requireOrganizer } from "@/features/organizer/server/require-organizer";
 import { prisma } from "@/lib/prisma";
@@ -49,7 +44,7 @@ export default async function DashboardPage({
   const labels = { ALL: "All", PUBLIC: "Public", PRIVATE: "Private" };
 
   return (
-    <Stack spacing={4}>
+    <Stack spacing={3}>
       <Stack
         direction={{ xs: "column", sm: "row" }}
         spacing={2}
@@ -59,7 +54,9 @@ export default async function DashboardPage({
           <Typography variant="h4" component="h1">
             My events
           </Typography>
-          <Typography color="text.secondary">Manage your events.</Typography>
+          <Typography color="text.secondary">
+            Shape the details, publish when ready, and welcome your guests.
+          </Typography>
         </Stack>
         <Button
           href="/dashboard/events/new"
@@ -93,7 +90,7 @@ export default async function DashboardPage({
       {visibleEvents.length === 0 ? (
         <Paper
           variant="outlined"
-          sx={{ p: { xs: 3, sm: 6 }, borderRadius: 2, textAlign: "center" }}
+          sx={{ p: { xs: 3, sm: 6 }, textAlign: "center" }}
         >
           <Stack spacing={2} sx={{ alignItems: "center" }}>
             <EventOutlined sx={{ fontSize: 40, color: "text.secondary" }} />
@@ -136,25 +133,37 @@ export default async function DashboardPage({
               component="li"
               variant="outlined"
               key={event.id}
-              sx={{ p: 3, borderRadius: 2 }}
+              sx={{ p: { xs: 2, sm: 3 } }}
             >
               <Stack
                 spacing={2}
                 sx={{ height: "100%", alignItems: "flex-start" }}
               >
-                <Stack direction="row" sx={{ gap: 1, flexWrap: "wrap" }}>
-                  {filter === "ALL" && (
-                    <Chip
-                      label={labels[event.visibility]}
-                      size="small"
-                      variant="outlined"
-                    />
-                  )}
-                  <Chip
-                    label={publicationState(event)}
-                    size="small"
-                    variant="outlined"
-                  />
+                <Stack
+                  direction="row"
+                  sx={{
+                    width: "100%",
+                    gap: 1.5,
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <Stack
+                    direction="row"
+                    spacing={0.75}
+                    sx={{ alignItems: "center", color: "text.secondary" }}
+                  >
+                    {event.visibility === "PUBLIC" ? (
+                      <PublicOutlined sx={{ fontSize: 16 }} />
+                    ) : (
+                      <LinkOutlined sx={{ fontSize: 16 }} />
+                    )}
+                    <Typography variant="body2">
+                      {labels[event.visibility]}
+                    </Typography>
+                  </Stack>
+                  <PublicationStatus state={publicationState(event)} />
                 </Stack>
                 <Link
                   href={`/dashboard/events/${event.id}`}

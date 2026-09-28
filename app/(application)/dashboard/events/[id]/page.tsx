@@ -39,7 +39,7 @@ export default async function EventPage({
         active="overview"
         applicationCount={event._count.applications}
       />
-      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, borderRadius: 2 }}>
+      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
         <Stack spacing={3}>
           <Stack component="section" spacing={2}>
             <Typography variant="h6" component="h2">

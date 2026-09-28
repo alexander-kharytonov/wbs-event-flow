@@ -4,8 +4,9 @@ import {
   Link as LinkIcon,
   OpenInNew as OpenInNewIcon,
 } from "@mui/icons-material";
-import { Alert, Button, Chip, Stack, Typography } from "@mui/material";
+import { Alert, Button, Stack, Typography } from "@mui/material";
 import { useState, useTransition } from "react";
+import { PublicationStatus } from "@/features/events/components/publication-status";
 import { publicationState } from "@/features/events/publication-state";
 import { publishEvent } from "@/features/events/publish-event-action";
 import type { PublishResult } from "@/features/events/server/publish-event";
@@ -31,10 +32,11 @@ export function PublicationControls({
     <Stack spacing={1.5} aria-busy={pending}>
       <Stack
         direction="row"
+        useFlexGap
         spacing={1.5}
-        sx={{ alignItems: "center", flexWrap: "wrap", gap: 1 }}
+        sx={{ alignItems: "center", flexWrap: "wrap" }}
       >
-        <Chip label={state} size="small" variant="outlined" />
+        <PublicationStatus state={state} />
         {publishedRevision?.number && (
           <Typography variant="body2" color="text.secondary">
             Revision {publishedRevision.number}
@@ -86,7 +88,12 @@ export function PublicationControls({
         )}
       </Stack>
       {publicId && publishedRevision && (
-        <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>
+        <Stack
+          direction="row"
+          useFlexGap
+          spacing={1.5}
+          sx={{ flexWrap: "wrap" }}
+        >
           <Button
             startIcon={<OpenInNewIcon />}
             href={`/e/${publicId}`}

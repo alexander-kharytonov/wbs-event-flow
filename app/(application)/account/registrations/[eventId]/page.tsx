@@ -140,7 +140,7 @@ export default async function RegistrationDetailPage({
           </Button>
         )}
       </Stack>
-      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, borderRadius: 2 }}>
+      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
         <Stack spacing={2}>
           <Stack
             direction="row"

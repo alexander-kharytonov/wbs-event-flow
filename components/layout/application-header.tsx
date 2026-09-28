@@ -1,4 +1,6 @@
-import { Box, Button, Container, Divider, Link, Stack } from "@mui/material";
+import { Box, Button, Container, Link, Stack } from "@mui/material";
+import { PrimaryNavigation } from "@/components/layout/primary-navigation";
+import { Logo } from "@/components/ui/logo";
 import { ThemeControl } from "@/components/ui/theme-control";
 import { AccountMenu } from "@/features/auth/components/account-menu";
 import { prisma } from "@/lib/prisma";
@@ -16,40 +18,53 @@ export async function ApplicationHeader() {
   return (
     <Box
       component="header"
-      sx={{ borderBottom: 1, borderColor: "divider", py: 1.5 }}
+      sx={{
+        borderBottom: 1,
+        borderColor: "divider",
+        bgcolor: "background.paper",
+      }}
     >
-      <Container maxWidth="md">
+      <Link href="#main-content" className="skip-link">
+        Skip to content
+      </Link>
+      <Container maxWidth="lg">
         <Stack
           direction="row"
-          useFlexGap
-          sx={{ gap: 1, flexWrap: "wrap", alignItems: "center" }}
+          sx={{
+            gap: { xs: 0.5, sm: 2 },
+            alignItems: "center",
+            minHeight: "calc(var(--application-header-height) - 1px)",
+          }}
         >
-          <Link href="/" underline="none" color="inherit" variant="h6">
-            Event Flow
-          </Link>
+          <Logo />
+          <Box
+            sx={{
+              order: { xs: -1, lg: 0 },
+              flexShrink: 0,
+              mr: { lg: "auto" },
+            }}
+          >
+            <PrimaryNavigation
+              signedIn={Boolean(session)}
+              organizer={Boolean(organizer)}
+            />
+          </Box>
           <Stack
             direction="row"
-            useFlexGap
-            sx={{ mx: "auto", flexWrap: "wrap", alignItems: "center" }}
+            sx={{ alignItems: "center", gap: 0.5, ml: { xs: "auto", lg: 0 } }}
           >
-            <Button href="/e" color="inherit">
-              Public events
-            </Button>
+            <ThemeControl />
+            {session ? (
+              <AccountMenu
+                name={session.user.name}
+                organizerProfileId={organizer?.id}
+              />
+            ) : (
+              <Button href="/sign-in" variant="outlined">
+                Sign in
+              </Button>
+            )}
           </Stack>
-          <ThemeControl />
-          <Divider
-            orientation="vertical"
-            sx={{ minHeight: 28, my: 1, display: { xs: "none", sm: "block" } }}
-            flexItem
-          />
-          {session ? (
-            <AccountMenu
-              name={session.user.name}
-              organizerProfileId={organizer?.id}
-            />
-          ) : (
-            <Button href="/sign-in">Sign in</Button>
-          )}
         </Stack>
       </Container>
     </Box>

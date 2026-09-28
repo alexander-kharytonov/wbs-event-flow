@@ -31,7 +31,7 @@ export default async function MyRegistrationsPage() {
       </Typography>
       <AccountNavigation active="registrations" />
       {upcoming.length === 0 && past.length === 0 ? (
-        <Paper variant="outlined" sx={{ p: { xs: 3, sm: 5 }, borderRadius: 2 }}>
+        <Paper variant="outlined" sx={{ p: { xs: 3, sm: 5 } }}>
           <Stack spacing={2} sx={{ alignItems: "center", textAlign: "center" }}>
             <EventOutlined sx={{ fontSize: 40, color: "text.secondary" }} />
             <Typography variant="h6" component="h2">
@@ -77,7 +77,7 @@ export default async function MyRegistrationsPage() {
                     key={registration.publicId}
                     component="li"
                     variant="outlined"
-                    sx={{ p: 3, borderRadius: 2 }}
+                    sx={{ p: 3 }}
                   >
                     <Stack
                       spacing={2}
