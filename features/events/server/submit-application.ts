@@ -8,6 +8,10 @@ import {
 import { registrationAvailability } from "@/features/events/registration-availability";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 import { Prisma } from "@/generated/prisma/client";
+import {
+  emailEventSnapshot,
+  enqueueApplicationEmail,
+} from "@/lib/email-outbox/enqueue";
 import { prisma } from "@/lib/prisma";
 import { notifyApplicationChanged } from "@/lib/realtime/application-notifications";
 import { getSession } from "@/lib/session";
@@ -151,7 +155,9 @@ export async function submitEventApplication(
           const currentEvent = await tx.event.findUnique({
             where: { id: revision.eventId, publicId },
             select: {
-              organizer: { select: { userId: true } },
+              organizer: {
+                select: { userId: true, user: { select: { email: true } } },
+              },
               publishedRevision: { select: { id: true, snapshot: true } },
             },
           });
@@ -162,6 +168,10 @@ export async function submitEventApplication(
 
           if (unavailable) {
             return unavailable;
+          }
+
+          if (!currentEvent) {
+            return { message: "This registration form is unavailable." };
           }
 
           if (session && session.user.id === currentEvent?.organizer.userId) {
@@ -200,7 +210,7 @@ export async function submitEventApplication(
           }
 
           // Recheck current admission policy immediately before the atomic write.
-          await tx.application.create({
+          const application = await tx.application.create({
             data: {
               eventId: revision.eventId,
               eventRevisionId,
@@ -210,6 +220,33 @@ export async function submitEventApplication(
               answers: { create: Object.values(normalized.data) },
             },
             select: { id: true },
+          });
+
+          const currentSnapshot = eventSnapshotSchema.parse(
+            currentEvent?.publishedRevision?.snapshot,
+          );
+          const emailEvent = emailEventSnapshot(currentSnapshot, publicId);
+          await enqueueApplicationEmail(tx, {
+            applicationId: application.id,
+            type: "APPLICATION_RECEIVED",
+            recipientEmail: email,
+            payload: {
+              schemaVersion: 1,
+              applicantName: fullName,
+              event: emailEvent,
+              linkedApplicant: user !== null,
+            },
+          });
+          await enqueueApplicationEmail(tx, {
+            applicationId: application.id,
+            type: "NEW_APPLICATION",
+            recipientEmail: currentEvent.organizer.user.email,
+            payload: {
+              schemaVersion: 1,
+              applicantName: fullName,
+              event: emailEvent,
+              eventId: revision.eventId,
+            },
           });
 
           await notifyApplicationChanged(tx, {
