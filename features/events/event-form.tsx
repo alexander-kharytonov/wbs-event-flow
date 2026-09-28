@@ -1,5 +1,6 @@
 "use client";
 
+import { Temporal } from "@js-temporal/polyfill";
 import {
   Alert,
   Autocomplete,
@@ -35,7 +36,9 @@ export function EventForm({
   initialValues = emptyValues,
   serverAction,
   edit,
+  startLocked = false,
 }: {
+  startLocked?: boolean;
   initialValues?: EventFormValues;
   serverAction: (
     previous: EventFormState,
@@ -173,7 +176,10 @@ export function EventForm({
               label="Start"
               type="datetime-local"
               required
-              slotProps={{ inputLabel: { shrink: true } }}
+              slotProps={{
+                inputLabel: { shrink: true },
+                input: { readOnly: startLocked },
+              }}
             />
             <TextField
               {...field("endsAt")}
@@ -199,12 +205,29 @@ export function EventForm({
               );
             }}
             inputValue={formatTimezone(values.timezone)}
-            onInputChange={(_, timezone) =>
-              setValues((current) => ({
-                ...current,
-                timezone: timezone.replaceAll(" ", "_"),
-              }))
-            }
+            onInputChange={(_, input) => {
+              const timezone = input.replaceAll(" ", "_");
+              setValues((current) => {
+                let startsAt = current.startsAt;
+
+                if (startLocked) {
+                  try {
+                    // The instant is immutable, but its local display follows the timezone.
+                    startsAt = Temporal.PlainDateTime.from(
+                      initialValues.startsAt,
+                    )
+                      .toZonedDateTime(initialValues.timezone)
+                      .withTimeZone(timezone)
+                      .toPlainDateTime()
+                      .toString({ smallestUnit: "minute" });
+                  } catch {
+                    // Incomplete timezone input is validated on submit.
+                  }
+                }
+
+                return { ...current, startsAt, timezone };
+              });
+            }}
             renderInput={(params) => (
               <TextField
                 {...params}

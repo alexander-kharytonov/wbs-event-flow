@@ -1,4 +1,13 @@
-import { Box, Button, Chip, Paper, Stack, Typography } from "@mui/material";
+import {
+  Alert,
+  AlertTitle,
+  Box,
+  Button,
+  Chip,
+  Paper,
+  Stack,
+  Typography,
+} from "@mui/material";
 import type { ReactNode } from "react";
 import { DateTime } from "@/components/ui/date-time";
 import { formatEventTime } from "@/features/events/format-event-time";
@@ -10,12 +19,16 @@ import type { EventSnapshot } from "@/features/events/schemas/event-snapshot";
 
 export function EventGuestView({
   snapshot,
+  cancelled = false,
+  cancellationReason,
   now,
   approved,
   children,
   notice,
   showApplicationLink = false,
 }: {
+  cancelled?: boolean;
+  cancellationReason?: string | null;
   snapshot: EventSnapshot;
   now: Date;
   approved?: number;
@@ -23,7 +36,7 @@ export function EventGuestView({
   notice?: ReactNode;
   showApplicationLink?: boolean;
 }) {
-  const state = registrationAvailability(snapshot, now);
+  const state = cancelled ? "CLOSED" : registrationAvailability(snapshot, now);
   const hasEnded = now.getTime() >= Date.parse(snapshot.endsAt);
   const format = (instant: string) =>
     formatEventTime(new Date(instant), snapshot.timezone);
@@ -36,7 +49,11 @@ export function EventGuestView({
           sx={{ pb: 3, borderBottom: 1, borderColor: "divider" }}
         >
           <Typography variant="overline" color="primary.main">
-            {hasEnded ? "Past event" : "Event details"}
+            {cancelled
+              ? "Event cancelled"
+              : hasEnded
+                ? "Past event"
+                : "Event details"}
           </Typography>
           <Typography
             variant="h3"
@@ -45,6 +62,12 @@ export function EventGuestView({
           >
             {snapshot.title}
           </Typography>
+          {cancelled && (
+            <Alert severity="error" sx={{ whiteSpace: "pre-wrap" }}>
+              <AlertTitle>Event cancelled</AlertTitle>
+              {cancellationReason}
+            </Alert>
+          )}
           <DateTime
             date={snapshot.startsAt}
             endDate={snapshot.endsAt}
@@ -121,20 +144,24 @@ export function EventGuestView({
                 <Chip
                   size="small"
                   label={
-                    hasEnded
-                      ? "Event ended"
-                      : state === "OPEN"
-                        ? "Open"
-                        : state === "NOT_OPEN_YET"
-                          ? "Not open yet"
-                          : "Closed"
+                    cancelled
+                      ? "Cancelled"
+                      : hasEnded
+                        ? "Event ended"
+                        : state === "OPEN"
+                          ? "Open"
+                          : state === "NOT_OPEN_YET"
+                            ? "Not open yet"
+                            : "Closed"
                   }
                   color={
-                    state === "OPEN"
-                      ? "success"
-                      : state === "NOT_OPEN_YET"
-                        ? "info"
-                        : "default"
+                    cancelled
+                      ? "error"
+                      : state === "OPEN"
+                        ? "success"
+                        : state === "NOT_OPEN_YET"
+                          ? "info"
+                          : "default"
                   }
                   variant="outlined"
                 />

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { z } from "zod";
 import { DateTime } from "@/components/ui/date-time";
 import { EventHeader } from "@/features/events/components/event-header";
+import { eventLifecycle } from "@/features/events/event-lifecycle";
 import { formatEventTime } from "@/features/events/format-event-time";
 import { requireOrganizer } from "@/features/organizer/server/require-organizer";
 import { prisma } from "@/lib/prisma";
@@ -22,7 +23,7 @@ export default async function EventPage({
   const event = await prisma.event.findFirst({
     where: { id, organizerId: organizer.id },
     include: {
-      _count: { select: { applications: true } },
+      _count: { select: { applications: true, revisions: true } },
       publishedRevision: { select: { contentVersion: true, number: true } },
     },
   });
@@ -31,11 +32,46 @@ export default async function EventPage({
     notFound();
   }
 
+  const lifecycle = eventLifecycle(event, new Date());
+  const actions: ("cancel" | "unpublish" | "archive" | "restore" | "delete")[] =
+    [];
+
+  if (event.archivedAt) {
+    actions.push("restore");
+  } else {
+    if (!event.cancelledAt && event.publishedRevisionId) {
+      actions.push("unpublish");
+    }
+
+    if (lifecycle === "Cancelled" || lifecycle === "Completed") {
+      actions.push("archive");
+    }
+
+    if (
+      !event.cancelledAt &&
+      lifecycle !== "Completed" &&
+      event._count.revisions > 0
+    ) {
+      actions.push("cancel");
+    }
+
+    if (
+      !event.cancelledAt &&
+      !event.publicId &&
+      !event.publishedAt &&
+      event._count.revisions === 0 &&
+      event._count.applications === 0
+    ) {
+      actions.push("delete");
+    }
+  }
+
   return (
     <Stack spacing={3}>
       <EventHeader
         eventId={id}
         event={event}
+        actions={actions}
         active="overview"
         applicationCount={event._count.applications}
       />

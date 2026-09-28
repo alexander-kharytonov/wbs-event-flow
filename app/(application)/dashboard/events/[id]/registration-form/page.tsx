@@ -1,7 +1,8 @@
-import { Stack } from "@mui/material";
+import { Alert, Button, Stack } from "@mui/material";
 import { notFound } from "next/navigation";
 import { EventHeader } from "@/features/events/components/event-header";
 import { RegistrationFormBuilder } from "@/features/events/components/registration-form-builder";
+import { workspaceReadOnly } from "@/features/events/event-lifecycle";
 import { getRegistrationForm } from "@/features/events/server/registration-form";
 import { requireOrganizer } from "@/features/organizer/server/require-organizer";
 
@@ -26,7 +27,25 @@ export default async function RegistrationFormPage({
         active="registration-form"
         applicationCount={event.applicationCount}
       />
-      <RegistrationFormBuilder key={id} eventId={id} initialForm={event.form} />
+      {workspaceReadOnly(event, new Date()) ? (
+        <Alert
+          severity="info"
+          sx={{ alignItems: "center", "& .MuiAlert-action": { py: 0 } }}
+          action={
+            <Button href={`/dashboard/events/${id}/preview`} size="small">
+              View form
+            </Button>
+          }
+        >
+          This registration form is read-only.
+        </Alert>
+      ) : (
+        <RegistrationFormBuilder
+          key={id}
+          eventId={id}
+          initialForm={event.form}
+        />
+      )}
     </Stack>
   );
 }

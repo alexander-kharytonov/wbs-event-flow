@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { applicationsFrozen } from "@/features/events/event-lifecycle";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 import { lockEventForUpdate } from "@/features/events/server/lock-event-for-update";
 import {
@@ -46,7 +47,16 @@ export async function reviewOwnedApplication(
   try {
     return await prisma.$transaction(
       async (tx) => {
-        if (!(await lockEventForUpdate(tx, eventId, organizerId))) {
+        const locked = await lockEventForUpdate(tx, {
+          id: eventId,
+          organizerId,
+        });
+
+        if (
+          !locked ||
+          locked.archivedAt ||
+          applicationsFrozen(locked, locked.decisionNow)
+        ) {
           return unavailable;
         }
 
@@ -110,7 +120,7 @@ export async function reviewOwnedApplication(
           }
         }
 
-        const reviewedAt = new Date();
+        const reviewedAt = locked.decisionNow;
         const updated = await tx.application.updateMany({
           where: { id: applicationId, eventId, status: "PENDING" },
           data: {

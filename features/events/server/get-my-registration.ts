@@ -52,6 +52,8 @@ export async function getMyRegistration(userId: string, eventId: string) {
       const event = await tx.event.findUniqueOrThrow({
         where: { id: eventId },
         select: {
+          cancelledAt: true,
+          cancellationReason: true,
           publicId: true,
           publishedRevision: { select: { snapshot: true } },
         },
@@ -115,6 +117,8 @@ export async function getMyRegistration(userId: string, eventId: string) {
   }
 
   return {
+    cancelledAt: currentApplication.event.cancelledAt,
+    cancellationReason: currentApplication.event.cancellationReason,
     context: currentPublication
       ? {
           title: currentPublication.title,

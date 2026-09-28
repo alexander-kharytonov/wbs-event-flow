@@ -4,6 +4,7 @@ import {
   applicationApprovedPayload,
   applicationReceivedPayload,
   applicationRejectedPayload,
+  eventCancelledPayload,
   newApplicationPayload,
 } from "@/lib/email-outbox/payload";
 import { renderEmailTemplate } from "@/lib/email-template";
@@ -20,7 +21,21 @@ export function renderOutboxEmail(type: EmailOutboxType, payload: unknown) {
   let eventUrl: string | undefined;
   let action: { label: string; url: string } | undefined;
 
-  if (type === "APPLICATION_REJECTED") {
+  if (type === "EVENT_CANCELLED") {
+    const data = eventCancelledPayload.parse(payload);
+    const formatter = new Intl.DateTimeFormat("en-GB", {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: data.event.timezone,
+    });
+    subject = "Event cancelled";
+    greeting = `Hello ${data.applicantName},`;
+    introduction = `The event you applied to has been cancelled. ${data.cancellationReason}`;
+    eventTitle = data.event.title;
+    schedule = `${formatter.format(new Date(data.event.startsAt))} – ${formatter.format(new Date(data.event.endsAt))} (${data.event.timezone})`;
+    eventUrl = data.publicId ? absoluteUrl(`/e/${data.publicId}`) : undefined;
+    action = eventUrl ? { label: "View event", url: eventUrl } : undefined;
+  } else if (type === "APPLICATION_REJECTED") {
     const data = applicationRejectedPayload.parse(payload);
     subject = "An update on your application";
     greeting = data.applicantName ? `Hello ${data.applicantName},` : "Hello,";

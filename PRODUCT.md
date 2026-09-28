@@ -104,7 +104,8 @@ The current non-withdrawn attempt supplies Pending, Approved, or Rejected status
 otherwise the latest withdrawn attempt supplies Withdrawn. Linked PRIVATE events
 and historical owner applications are included. Anonymous email matches are not
 claimed. Cards show the current published title and schedule, including republished
-changes, never unpublished edits or the historical submitted version.
+changes, never unpublished edits or the historical submitted version. Unpublished
+events retain an unavailable card linking to registration history.
 Upcoming includes events that have not ended, ordered by start ascending; Past
 contains ended events, ordered by end descending. Ties use publicId. View event
 opens the existing public event withdrawal/reapplication flow.
@@ -139,9 +140,44 @@ verified user's personalized application state on Public Event update in realtim
 after application changes.
 Realtime is a progressive enhancement: pages still render authoritative server
 data, and a normal reload remains available if the connection is interrupted.
-Anonymous applicants do not receive a personal status stream. Catalog and Event
-editing/publication updates are outside this realtime scope.
+Anonymous applicants do not receive a personal status stream. Cancellation also invalidates affected linked attendees through this stream.
+Catalog and other Event editing/publication updates are outside this realtime scope.
 
 The product does not provide email changes or password reset, anonymous
 application claiming or ticket/QR check-in.
 These boundaries describe current scope, not a delivery roadmap.
+
+## Event lifecycle
+
+Lifecycle (scheduled or irreversibly cancelled), publication (published or
+unpublished), visibility (PUBLIC/PRIVATE from the snapshot), and workspace
+(active or archived) are independent axes. Upcoming, Ongoing, and Completed are
+derived from persisted Event dates; cancellation takes precedence.
+
+First publication is Upcoming only. Historically published events can republish
+while Upcoming or Ongoing. Unpublish preserves the URL identity, all revisions,
+and applications, but removes public access. Publishing again creates a new
+revision even when content has not changed. Completed events cannot publish.
+
+Upcoming workspaces are editable. During an ongoing event, the start is immutable
+and a changed end must remain in the future. Completed, cancelled, and archived
+workspaces are read-only. Applications freeze on completion or cancellation;
+their statuses and historical answers are preserved.
+
+Owners can cancel a previously published Upcoming/Ongoing event with a required,
+trimmed reason of at most 2000 characters. Cancellation cannot be undone or edited.
+It preserves publication: a published cancelled page remains readable with the
+reason, but registration and application actions stop and the catalog excludes it.
+Pending/approved applicants, including anonymous applicants, receive cancellation
+email once per normalized address as a durable delivery intent. Delivery retains
+the existing at-least-once semantics. Linked affected attendees receive realtime
+invalidation. Registration cards/details show cancellation separately from status.
+
+Archive is available only for Completed/Cancelled events. It moves the read-only
+workspace to `/dashboard/archived` without changing publication, attendees, email, or attendee
+realtime. Restore returns it to active My events without making it editable.
+Hard Delete is limited to pristine drafts with no revisions, applications, public
+identity, first publication timestamp, or cancellation. No soft deletion exists.
+
+The archive has its own route and visibility filters. It offers no Create event
+action; new drafts are created from active My events.

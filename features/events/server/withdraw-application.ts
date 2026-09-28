@@ -1,6 +1,8 @@
 import "server-only";
 import { z } from "zod";
+import { applicationsFrozen } from "@/features/events/event-lifecycle";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
+import { lockEventForUpdate } from "@/features/events/server/lock-event-for-update";
 import { prisma } from "@/lib/prisma";
 import { notifyApplicationChanged } from "@/lib/realtime/application-notifications";
 
@@ -30,13 +32,13 @@ export async function withdrawOwnApplication(
     return await prisma.$transaction(
       async (tx) => {
         // Serialize with publication, organizer review and submission.
-        const events = await tx.$queryRaw<{ id: string }[]>`
-        SELECT "id" FROM "Event" WHERE "publicId" = ${publicId}::uuid FOR UPDATE`;
-        const eventId = events[0]?.id;
+        const locked = await lockEventForUpdate(tx, { publicId });
 
-        if (!eventId) {
+        if (!locked || applicationsFrozen(locked, locked.decisionNow)) {
           return unavailable;
         }
+
+        const eventId = locked.id;
 
         const application = await tx.application.findFirst({
           where: { id: applicationId, eventId, userId },
@@ -65,7 +67,7 @@ export async function withdrawOwnApplication(
         const snapshot = eventSnapshotSchema.safeParse(
           event.publishedRevision?.snapshot,
         );
-        const now = new Date();
+        const now = locked.decisionNow;
 
         if (
           !snapshot.success ||

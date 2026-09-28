@@ -1,4 +1,4 @@
-import { Box, Link, Paper, Stack, Typography } from "@mui/material";
+import { Alert, Box, Link, Paper, Stack, Typography } from "@mui/material";
 import { notFound } from "next/navigation";
 import { ApplicationCapacity } from "@/features/events/components/application-capacity";
 import { ApplicationDialog } from "@/features/events/components/application-dialog";
@@ -6,6 +6,7 @@ import { ApplicationReviewControls } from "@/features/events/components/applicat
 import { ApplicationStatus } from "@/features/events/components/application-status";
 import { EventHeader } from "@/features/events/components/event-header";
 import { SubmittedAnswers } from "@/features/events/components/submitted-answers";
+import { applicationsFrozen } from "@/features/events/event-lifecycle";
 import { formatEventTime } from "@/features/events/format-event-time";
 import { historicalAnswers } from "@/features/events/historical-answers";
 import { getOwnedApplication } from "@/features/events/server/organizer-applications";
@@ -132,27 +133,35 @@ export async function ApplicationDetail({
         </Stack>
         <SubmittedAnswers answers={answers} />
       </Stack>
-      {application.status === "PENDING" && (
-        <Paper
-          variant="outlined"
-          component="section"
-          sx={{ p: { xs: 2, sm: 3 } }}
-        >
-          <Stack spacing={2}>
-            <Typography variant="h6" component="h3">
-              Review application
-            </Typography>
-            <ApplicationCapacity
-              snapshot={event.publishedRevision?.snapshot}
-              approved={event._count.applications}
-            />
-            <ApplicationReviewControls
-              eventId={id}
-              applicationId={applicationId}
-            />
-          </Stack>
-        </Paper>
+      {applicationsFrozen(event, new Date()) && (
+        <Alert severity="info">
+          Application history is preserved. This event no longer accepts
+          application changes.
+        </Alert>
       )}
+      {application.status === "PENDING" &&
+        !event.archivedAt &&
+        !applicationsFrozen(event, new Date()) && (
+          <Paper
+            variant="outlined"
+            component="section"
+            sx={{ p: { xs: 2, sm: 3 } }}
+          >
+            <Stack spacing={2}>
+              <Typography variant="h6" component="h3">
+                Review application
+              </Typography>
+              <ApplicationCapacity
+                snapshot={event.publishedRevision?.snapshot}
+                approved={event._count.applications}
+              />
+              <ApplicationReviewControls
+                eventId={id}
+                applicationId={applicationId}
+              />
+            </Stack>
+          </Paper>
+        )}
     </Stack>
   );
 

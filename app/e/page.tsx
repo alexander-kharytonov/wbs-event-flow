@@ -1,6 +1,13 @@
 import ArrowForward from "@mui/icons-material/ArrowForward";
 import EventOutlined from "@mui/icons-material/EventOutlined";
-import { Box, Button, Link, Paper, Stack, Typography } from "@mui/material";
+import {
+  Box,
+  Button,
+  CardActionArea,
+  Paper,
+  Stack,
+  Typography,
+} from "@mui/material";
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import { DateTime } from "@/components/ui/date-time";
@@ -183,49 +190,44 @@ export default async function PublicEventsPage() {
                 }}
               >
                 {group.events.map(({ publicId, snapshot }) => (
-                  <Paper
-                    key={publicId}
-                    component="li"
-                    variant="outlined"
-                    sx={{ p: { xs: 2, sm: 3 } }}
-                  >
-                    <Stack
-                      spacing={2}
-                      sx={{ height: "100%", alignItems: "flex-start" }}
+                  <Paper key={publicId} component="li" variant="outlined">
+                    <CardActionArea
+                      href={`/e/${encodeURIComponent(publicId)}`}
+                      aria-labelledby={`event-title-${publicId}`}
+                      sx={{
+                        p: { xs: 2, sm: 3 },
+                        height: "100%",
+                        borderRadius: "inherit",
+                      }}
                     >
-                      <Typography
-                        variant="h6"
-                        component="h3"
-                        sx={{ overflowWrap: "anywhere" }}
+                      <Stack
+                        spacing={2}
+                        sx={{ height: "100%", alignItems: "flex-start" }}
                       >
-                        <Link
-                          href={`/e/${encodeURIComponent(publicId)}`}
-                          underline="hover"
+                        <Typography
+                          id={`event-title-${publicId}`}
+                          variant="h6"
+                          component="h3"
+                          color="primary.main"
+                          sx={{ overflowWrap: "anywhere" }}
                         >
                           {snapshot.title}
-                        </Link>
-                      </Typography>
-                      <Box sx={{ flexGrow: 1 }}>
-                        <DateTime
-                          date={snapshot.startsAt}
-                          endDate={snapshot.endsAt}
-                          timezone={snapshot.timezone}
-                        />
-                      </Box>
-                      {group.id !== "past-events" && (
-                        <RegistrationAvailabilityStatus
-                          snapshot={snapshot}
-                          now={now}
-                        />
-                      )}
-                      <Button
-                        href={`/e/${encodeURIComponent(publicId)}`}
-                        size="small"
-                        endIcon={<ArrowForward />}
-                      >
-                        View event
-                      </Button>
-                    </Stack>
+                        </Typography>
+                        <Box sx={{ flexGrow: 1 }}>
+                          <DateTime
+                            date={snapshot.startsAt}
+                            endDate={snapshot.endsAt}
+                            timezone={snapshot.timezone}
+                          />
+                        </Box>
+                        {group.id !== "past-events" && (
+                          <RegistrationAvailabilityStatus
+                            snapshot={snapshot}
+                            now={now}
+                          />
+                        )}
+                      </Stack>
+                    </CardActionArea>
                   </Paper>
                 ))}
               </Box>

@@ -5,8 +5,10 @@ import {
   applicationAnswersSchema,
   applicationInputSchema,
 } from "@/features/events/application-input";
+import { applicationsFrozen } from "@/features/events/event-lifecycle";
 import { registrationAvailability } from "@/features/events/registration-availability";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
+import { lockEventForUpdate } from "@/features/events/server/lock-event-for-update";
 import { Prisma } from "@/generated/prisma/client";
 import {
   emailEventSnapshot,
@@ -34,6 +36,7 @@ const duplicateApplicationConstraint = z.object({
 function admissionError(
   currentSnapshot: unknown,
   hasVerifiedUser: boolean,
+  decisionNow: Date,
 ): ApplicationFormState | null {
   const current = eventSnapshotSchema.safeParse(currentSnapshot);
 
@@ -41,7 +44,7 @@ function admissionError(
     return { message: "This registration form is unavailable." };
   }
 
-  const availability = registrationAvailability(current.data, new Date());
+  const availability = registrationAvailability(current.data, decisionNow);
 
   if (availability !== "OPEN") {
     return {
@@ -148,10 +151,18 @@ export async function submitEventApplication(
         async (tx) => {
           // Publication locks this same row. Keep its pointer stable until the
           // application is saved, and read it again after acquiring the lock.
-          await tx.$queryRaw`
-            SELECT "id" FROM "Event"
-            WHERE "id" = ${revision.eventId}::uuid AND "publicId" = ${publicId}::uuid
-            FOR UPDATE`;
+          const locked = await lockEventForUpdate(tx, { id: revision.eventId });
+
+          if (
+            !locked ||
+            locked.publicId !== publicId ||
+            applicationsFrozen(locked, locked.decisionNow)
+          ) {
+            return {
+              message: "This event is no longer accepting applications.",
+            };
+          }
+
           const currentEvent = await tx.event.findUnique({
             where: { id: revision.eventId, publicId },
             select: {
@@ -164,6 +175,7 @@ export async function submitEventApplication(
           const unavailable = admissionError(
             currentEvent?.publishedRevision?.snapshot,
             user !== null,
+            locked.decisionNow,
           );
 
           if (unavailable) {
@@ -203,6 +215,7 @@ export async function submitEventApplication(
           const finalAdmissionError = admissionError(
             currentEvent?.publishedRevision?.snapshot,
             user !== null,
+            locked.decisionNow,
           );
 
           if (finalAdmissionError) {

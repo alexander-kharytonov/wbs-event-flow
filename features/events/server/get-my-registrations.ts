@@ -14,6 +14,8 @@ export async function getMyRegistrations(userId: string) {
           status: true,
           event: {
             select: {
+              cancelledAt: true,
+              cancellationReason: true,
               publicId: true,
               publishedRevision: { select: { snapshot: true } },
             },
@@ -43,20 +45,18 @@ export async function getMyRegistrations(userId: string) {
         event.publishedRevision?.snapshot,
       );
 
-      if (!event.publicId || !parsed.success) {
-        return [];
-      }
-
-      const { title, startsAt, endsAt, timezone } = parsed.data;
+      const context = event.publicId && parsed.success ? parsed.data : null;
 
       return [
         {
           eventId,
-          publicId: event.publicId,
-          title,
-          startsAt,
-          endsAt,
-          timezone,
+          publicId: context ? event.publicId : null,
+          cancelledAt: event.cancelledAt,
+          cancellationReason: event.cancellationReason,
+          title: context?.title ?? "Event unavailable",
+          startsAt: context?.startsAt ?? null,
+          endsAt: context?.endsAt ?? null,
+          timezone: context?.timezone ?? null,
           status,
         },
       ];
@@ -64,21 +64,27 @@ export async function getMyRegistrations(userId: string) {
   );
   const now = Date.now();
   const upcoming = registrations.filter(
-    (registration) => Date.parse(registration.endsAt) > now,
+    (registration) =>
+      registration.endsAt !== null && Date.parse(registration.endsAt) > now,
   );
   const past = registrations.filter(
-    (registration) => Date.parse(registration.endsAt) <= now,
+    (registration) =>
+      registration.endsAt !== null && Date.parse(registration.endsAt) <= now,
   );
   upcoming.sort(
     (a, b) =>
-      Date.parse(a.startsAt) - Date.parse(b.startsAt) ||
-      a.publicId.localeCompare(b.publicId),
+      Date.parse(a.startsAt ?? "") - Date.parse(b.startsAt ?? "") ||
+      (a.publicId ?? a.eventId).localeCompare(b.publicId ?? b.eventId),
   );
   past.sort(
     (a, b) =>
-      Date.parse(b.endsAt) - Date.parse(a.endsAt) ||
-      a.publicId.localeCompare(b.publicId),
+      Date.parse(b.endsAt ?? "") - Date.parse(a.endsAt ?? "") ||
+      (a.publicId ?? a.eventId).localeCompare(b.publicId ?? b.eventId),
   );
 
-  return { upcoming, past };
+  return {
+    upcoming,
+    past,
+    unavailable: registrations.filter((registration) => !registration.endsAt),
+  };
 }

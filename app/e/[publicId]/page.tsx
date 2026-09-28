@@ -44,11 +44,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function PublicEventPage({ params }: Props) {
-  const { snapshot, eventRevisionId } = await publishedSnapshot(params);
+  const {
+    snapshot,
+    eventRevisionId,
+    cancelledAt,
+    cancellationReason,
+    lifecycleEndsAt,
+  } = await publishedSnapshot(params);
   const { publicId } = await params;
   const now = new Date();
   const approved =
-    snapshot.capacity !== null && now.getTime() < Date.parse(snapshot.endsAt)
+    !cancelledAt &&
+    snapshot.capacity !== null &&
+    now.getTime() < Date.parse(snapshot.endsAt)
       ? await prisma.application.count({
           where: { event: { publicId }, status: "APPROVED" },
         })
@@ -101,13 +109,16 @@ export default async function PublicEventPage({ params }: Props) {
         ),
       }
     : undefined;
-  const open = registrationAvailability(snapshot, now) === "OPEN";
+  const frozen = Boolean(cancelledAt || now >= lifecycleEndsAt);
+  const open = !frozen && registrationAvailability(snapshot, now) === "OPEN";
   const returnQuery = new URLSearchParams({
     returnTo: `/e/${encodeURIComponent(publicId)}`,
   }).toString();
 
   return (
     <EventGuestView
+      cancelled={Boolean(cancelledAt)}
+      cancellationReason={cancellationReason}
       snapshot={snapshot}
       now={now}
       approved={approved}
@@ -141,14 +152,17 @@ export default async function PublicEventPage({ params }: Props) {
               <AlertTitle>
                 Your application: {applicationStatusLabels[application.status]}
               </AlertTitle>
-              {application.status === "APPROVED"
-                ? "Your application has been approved."
-                : application.status === "REJECTED"
-                  ? "Your application has been declined."
-                  : "Your application has been received and is awaiting organizer review."}
+              {frozen
+                ? "Your application status is preserved as part of this event’s history."
+                : application.status === "APPROVED"
+                  ? "Your application has been approved."
+                  : application.status === "REJECTED"
+                    ? "Your application has been declined."
+                    : "Your application has been received and is awaiting organizer review."}
             </Alert>
           )}
-          {application &&
+          {!frozen &&
+            application &&
             (application.status === "PENDING" ||
               application.status === "APPROVED") &&
             now.getTime() < Date.parse(snapshot.endsAt) && (
@@ -157,7 +171,7 @@ export default async function PublicEventPage({ params }: Props) {
                 applicationId={application.id}
               />
             )}
-          {withdrawn && (
+          {withdrawn && !frozen && (
             <Alert severity="info">
               <AlertTitle>Your application: Withdrawn</AlertTitle>
               {open

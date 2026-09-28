@@ -75,9 +75,10 @@ impossible insert cycle.
 
 The composite FK `(Event.id, publishedRevisionId) -> EventRevision(eventId, id)`
 ensures that the current publication belongs to the same Event. Its DELETE and
-UPDATE actions are RESTRICT; it does not null or rewrite Event.id. The nullable
-pointer can be explicitly cleared at the storage level, but there is no product
-unpublish flow.
+UPDATE actions are RESTRICT; it does not null or rewrite Event.id. Unpublish explicitly clears the nullable pointer while preserving publicId,
+publishedAt, revisions, and Applications. Republish after Unpublish creates a new
+revision even for the same contentVersion. Only (eventId, number) is unique across
+publication attempts; (eventId, contentVersion) is no longer unique.
 
 Sources: [publisher](features/events/server/publish-event.ts),
 [public reader](features/events/server/get-published-event.ts).
@@ -137,7 +138,8 @@ otherwise                              => OPEN
 
 Closed is checked before opening. startsAt does not close registration; event end
 always does. UI computes at render time. Submit checks current published dates
-under the Event lock and immediately before insert, using server time.
+under the Event lock and immediately before insert, using one PostgreSQL
+decisionNow obtained after the lock. Persisted Event end/cancellation also guard admission.
 
 ## 7. Current policy vs historical form
 
@@ -193,7 +195,8 @@ groups attempts by Event: the non-WITHDRAWN linked attempt is current (including
 blocking REJECTED), otherwise the latest WITHDRAWN by createdAt DESC, id DESC is
 selected. PRIVATE events and historical owner applications follow the same rules.
 Cards use only validated current published snapshots and publicId. Missing or
-invalid publication is omitted, without workspace fallback. Historical answers
+invalid publication produces an unavailable card linking to registration history,
+without workspace fallback. Historical answers
 still belong to the submitted revision. Upcoming means endsAt > now (including
 ongoing events), sorted by startsAt ASC; Past means endsAt <= now, sorted by
 endsAt DESC. Both use publicId ASC as deterministic tie-breaker.
@@ -231,7 +234,8 @@ stateDiagram-v2
 
 REJECTED is terminal and blocks another attempt for the same email/userId.
 WITHDRAWN never transitions back to PENDING. Repeating withdrawal of an already
-WITHDRAWN own application returns success without changing it, including after end.
+WITHDRAWN own application returns success without changing it only while the
+Event lifecycle still permits application operations.
 Review accepts only PENDING, writes reviewedAt, and uses a conditional update.
 Withdrawal writes withdrawnAt and retains any previous reviewedAt.
 
@@ -284,7 +288,7 @@ Sources: [review](features/events/server/review-application.ts),
 
 The withdrawal action requires a verified User. The server finds the application
 by id + Event + that userId, permits PENDING/APPROVED, and requires now < the
-current published endsAt. It does not use the submitted revision's end or the
+current published endsAt and persisted Event endsAt, with no cancellation. It does not use the submitted revision's end or the
 registration close. REJECTED cannot be withdrawn. No payload/answers are deleted.
 
 Reapply uses Submit and inserts a new PENDING attempt. For a verified User with
@@ -340,7 +344,8 @@ Event is the serialization boundary for Publish, Submit, Approve, Reject, Withdr
 and Reapply through Submit. These mutations use **ReadCommitted + explicit Event
 FOR UPDATE**, not SERIALIZABLE. Publish/review share `lockEventForUpdate`;
 Submit/Withdraw lock the same row using their public context. Form editing locks
-Event before the form; Event updates obtain a write lock and use version conditions.
+Event before the form; Event updates explicitly lock Event, then check lifecycle
+and their existing optimistic version conditions.
 
 Review conditionally updates PENDING. Withdrawal conditionally updates own
 PENDING/APPROVED. Unique indexes remain the final concurrent-insert protection.
@@ -368,7 +373,7 @@ PostgreSQL enforces the following independently of UI/server guards:
 | At most one active attempt per event/email or non-null userId | Partial indexes from section 10 |
 | At most one answer per application/field | Unique `(applicationId, fieldId)` |
 | No duplicate selected option within an answer | Primary key `(answerId, optionId)` |
-| Unique publication identity/version | Event publicId and publishedRevisionId; EventRevision `(eventId, number)` and `(eventId, contentVersion)` |
+| Unique publication identity/version | Event publicId and publishedRevisionId; EventRevision `(eventId, number)` |
 | Unique form/order slots | RegistrationForm.eventId; field `(formId, position)`; option `(fieldId, position)` |
 
 Foreign-key actions:
@@ -521,3 +526,62 @@ Sources: [creation](lib/email-outbox/enqueue.ts),
 These are current boundaries, not a roadmap. The initial migration is a deliberate
 pre-production development baseline; replacing applied migration history is not
 a deployment strategy for a database containing persistent production data.
+
+
+## 20. Event lifecycle
+
+The axes remain independent: scheduled/cancelled lifecycle; published/unpublished
+current pointer; snapshot PUBLIC/PRIVATE visibility; active/archived workspace.
+There is no EventStatus enum or everPublished flag. Existence of EventRevision is
+the publication-history source of truth. Revisions remain immutable in application
+code and submitted Applications keep their original composite revision FK.
+
+All lifecycle-sensitive mutations lock the same Event row first, then obtain
+exactly one PostgreSQL clock_timestamp() as decisionNow. Decisions use OLD
+persisted Event startsAt/endsAt before mutation: Upcoming before start, Ongoing
+from start inclusive to end exclusive, Completed at/after end. Cancelled takes
+precedence. Browser time never authorizes mutations. Existing public schedule and
+visibility displays remain snapshot-based; persisted lifecycle guards are extra
+restrictions, not permission to bypass current publication policy.
+
+First Publish requires Upcoming; Republish requires Upcoming/Ongoing. Both refuse
+cancelled/archived events. Unpublish permits any temporal phase unless cancelled
+or archived. It clears only the current pointer; a subsequent permitted Publish
+creates max(revision.number)+1. Repeated Publish while the same version remains
+current is still a no-op after lifecycle validation.
+
+Content/form editing refuses Completed/Cancelled/Archived. An Ongoing edit cannot
+change startsAt and must retain endsAt > decisionNow. Optimistic edit/form version
+checks remain. Submit/Reapply/Approve/Reject/Withdraw refuse cancellation or
+persisted endsAt <= decisionNow before existing admission/status/capacity/identity
+checks. Statuses, reviewedAt, withdrawnAt, and answers freeze; cancellation does
+not transition Applications. Historical detail remains readable.
+
+Cancel requires prior revision history and Upcoming/Ongoing, and is irreversible.
+The owner supplies a trimmed 1–2000 character reason. A DB CHECK requires both
+cancellation columns null, or a non-null cancellation date and a non-null reason
+containing non-whitespace text. No mutation changes a saved cancellation reason.
+Within the Event-locked transaction, Cancel updates the domain fact, selects
+PENDING/APPROVED attempts, deduplicates normalized emails, validates frozen v1
+EVENT_CANCELLED payloads and bulk inserts outbox intents via createMany. A single
+outbox wake-up accompanies a nonempty batch. Each event/address has a unique
+cancellation deduplication key. Applicant context is selected deterministically
+from the newest affected attempt for that address. Current published context, or
+last publication when unpublished, supplies email title/schedule/timezone; only a
+valid current publication supplies a public CTA. Workspace content is not emailed.
+
+Distinct linked affected userIds receive transactional applications.changed
+notifications in one SQL statement with existing per-user payloads. Organizer
+invalidation uses the same channel. The browser SSE contract and endpoints do not
+change; no anonymous broadcast exists. Notification emission and durable outbox
+commit atomically with cancellation; browser delivery itself is not durable.
+Existing dispatcher/retry/at-least-once delivery semantics are unchanged.
+
+Archive is owner-only for Completed/Cancelled; Restore clears archivedAt. Both
+use the same lock/DB clock but never change public/attendee state or emit attendee
+notifications. Archived workspaces are read-only apart from Restore. Delete
+requires no revisions, no Applications, null publicId/publishedAt/cancelledAt,
+and an active workspace; existing form cascades remove owned draft structures.
+Delete and Publish serialize on Event; publication history permanently disqualifies
+hard deletion. Lifecycle, publication, and archive preserve the workspace edit
+token; content writes continue to advance it.

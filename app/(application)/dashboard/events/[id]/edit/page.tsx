@@ -1,8 +1,12 @@
-import { Link, Stack, Typography } from "@mui/material";
+import { Alert, Link, Stack, Typography } from "@mui/material";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import { EventForm } from "@/features/events/event-form";
 import { eventFormValues } from "@/features/events/event-form-values";
+import {
+  eventLifecycle,
+  workspaceReadOnly,
+} from "@/features/events/event-lifecycle";
 import { updateEvent } from "@/features/events/update-event";
 import { requireOrganizer } from "@/features/organizer/server/require-organizer";
 import { prisma } from "@/lib/prisma";
@@ -40,16 +44,23 @@ export default async function EditEventPage({
           {event.title}
         </Typography>
       </Stack>
-      <EventForm
-        initialValues={eventFormValues(event)}
-        serverAction={updateEvent}
-        edit={{
-          id: event.id,
-          version: Buffer.from(event.updatedAt.toISOString()).toString(
-            "base64url",
-          ),
-        }}
-      />
+      {workspaceReadOnly(event, new Date()) ? (
+        <Alert severity="info">
+          This event is read-only. Its information and history remain available.
+        </Alert>
+      ) : (
+        <EventForm
+          startLocked={eventLifecycle(event, new Date()) === "Ongoing"}
+          initialValues={eventFormValues(event)}
+          serverAction={updateEvent}
+          edit={{
+            id: event.id,
+            version: Buffer.from(event.updatedAt.toISOString()).toString(
+              "base64url",
+            ),
+          }}
+        />
+      )}
     </Stack>
   );
 }

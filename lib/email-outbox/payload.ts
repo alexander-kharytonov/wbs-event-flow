@@ -48,7 +48,16 @@ export const applicationRejectedPayload = z.strictObject({
   publicId: publicId.optional(),
 });
 
+export const eventCancelledPayload = z.strictObject({
+  schemaVersion: z.literal(1),
+  applicantName: z.string().min(1),
+  event: event.omit({ publicId: true }),
+  cancellationReason: z.string().trim().min(1).max(2000),
+  publicId: publicId.optional(),
+});
+
 export const emailPayloadSchemas = {
+  EVENT_CANCELLED: eventCancelledPayload,
   APPLICATION_RECEIVED: applicationReceivedPayload,
   NEW_APPLICATION: newApplicationPayload,
   APPLICATION_APPROVED: applicationApprovedPayload,

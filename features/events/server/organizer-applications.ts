@@ -15,6 +15,11 @@ export async function getOwnedApplications(
       const event = await tx.event.findFirst({
         where: { id: eventId, organizerId },
         select: {
+          startsAt: true,
+          endsAt: true,
+          cancelledAt: true,
+          cancellationReason: true,
+          archivedAt: true,
           title: true,
           timezone: true,
           publishedRevisionId: true,
@@ -48,6 +53,11 @@ export async function getOwnedApplications(
       });
 
       return {
+        startsAt: event.startsAt,
+        endsAt: event.endsAt,
+        cancelledAt: event.cancelledAt,
+        cancellationReason: event.cancellationReason,
+        archivedAt: event.archivedAt,
         title: event.title,
         contentVersion: event.contentVersion,
         publicId: event.publicId,
@@ -109,6 +119,11 @@ export async function getOwnedApplication(
       const event = await tx.event.findUniqueOrThrow({
         where: { id: eventId },
         select: {
+          startsAt: true,
+          endsAt: true,
+          cancelledAt: true,
+          cancellationReason: true,
+          archivedAt: true,
           title: true,
           _count: { select: { applications: true } },
           timezone: true,
@@ -133,6 +148,11 @@ export async function getOwnedApplication(
         answers,
         event: {
           applicationCount: event._count.applications,
+          startsAt: event.startsAt,
+          endsAt: event.endsAt,
+          cancelledAt: event.cancelledAt,
+          cancellationReason: event.cancellationReason,
+          archivedAt: event.archivedAt,
           title: event.title,
           contentVersion: event.contentVersion,
           publicId: event.publicId,

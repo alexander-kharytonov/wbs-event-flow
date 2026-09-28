@@ -1,16 +1,25 @@
 import "server-only";
-import type { Prisma } from "@/generated/prisma/client";
+import { type Event, Prisma } from "@/generated/prisma/client";
 
-// Publish and review serialize on the same owned Event row. Call before reads.
+// All lifecycle decisions read the old persisted state and one DB clock AFTER
+// the Event lock has been acquired. Never use input dates to unlock an operation.
 export async function lockEventForUpdate(
   tx: Prisma.TransactionClient,
-  eventId: string,
-  organizerId: string,
+  where: { id: string; organizerId?: string } | { publicId: string },
 ) {
-  const rows = await tx.$queryRaw<{ id: string }[]>`
-    SELECT "id" FROM "Event"
-    WHERE "id" = ${eventId}::uuid AND "organizerId" = ${organizerId}::uuid
-    FOR UPDATE`;
+  const predicate =
+    "id" in where
+      ? Prisma.sql`"id" = ${where.id}::uuid ${where.organizerId ? Prisma.sql`AND "organizerId" = ${where.organizerId}::uuid` : Prisma.empty}`
+      : Prisma.sql`"publicId" = ${where.publicId}::uuid`;
+  const rows = await tx.$queryRaw<Event[]>`
+    SELECT * FROM "Event" WHERE ${predicate} FOR UPDATE`;
 
-  return rows.length === 1;
+  if (!rows[0]) {
+    return null;
+  }
+
+  const [clock] = await tx.$queryRaw<{ decisionNow: Date }[]>`
+    SELECT clock_timestamp() AS "decisionNow"`;
+
+  return { ...rows[0], decisionNow: clock.decisionNow };
 }

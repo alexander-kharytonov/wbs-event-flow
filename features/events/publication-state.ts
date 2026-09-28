@@ -1,9 +1,10 @@
 export function publicationState(event: {
   contentVersion: number;
+  publicId?: string | null;
   publishedRevision: { contentVersion: number } | null;
 }) {
   if (!event.publishedRevision) {
-    return "Draft";
+    return event.publicId ? "Unpublished" : "Draft";
   }
 
   return event.contentVersion > event.publishedRevision.contentVersion

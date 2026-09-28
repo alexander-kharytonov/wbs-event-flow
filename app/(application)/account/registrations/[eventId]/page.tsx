@@ -7,6 +7,7 @@ import {
   Box,
   Button,
   Divider,
+  Link,
   Paper,
   Stack,
   Typography,
@@ -133,11 +134,6 @@ export default async function RegistrationDetailPage({
   return (
     <Stack spacing={3}>
       <ApplicationRealtime streamUrl="/api/account/registrations/stream" />
-      <PageHeader title="My registration" />
-      <AccountNavigation active="registrations" />
-      <Button href="/account/registrations" sx={{ alignSelf: "flex-start" }}>
-        All registrations
-      </Button>
       <Stack
         spacing={2}
         sx={{
@@ -147,9 +143,17 @@ export default async function RegistrationDetailPage({
           borderColor: "divider",
         }}
       >
-        <Typography variant="h5" component="h2">
+        <Link href="/account/registrations" sx={{ alignSelf: "flex-start" }}>
+          ← All registrations
+        </Link>
+        <Typography variant="h4" component="h2">
           {context?.title ?? "Event details unavailable"}
         </Typography>
+        {registration.cancelledAt && (
+          <Alert severity="error" sx={{ whiteSpace: "pre-wrap" }}>
+            Event cancelled. {registration.cancellationReason}
+          </Alert>
+        )}
         {context && (
           <DateTime
             date={context.startsAt}
