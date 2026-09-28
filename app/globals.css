@@ -1,4 +1,28 @@
+:root {
+  --application-header-height: 69px;
+}
+
 html,
 body {
   min-height: 100%;
+}
+
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 16px;
+  z-index: 1500;
+  padding: 12px 20px;
+  border-radius: 8px;
+  background: var(--mui-palette-background-paper);
+  color: var(--mui-palette-text-primary);
+  transform: translateY(-160%);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+main {
+  min-width: 0;
 }

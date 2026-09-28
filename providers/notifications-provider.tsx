@@ -103,6 +103,11 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
                     width: "100%",
                     maxWidth: 560,
                     overflowWrap: "anywhere",
+                    alignItems: "center",
+                    "& .MuiAlert-action": {
+                      alignItems: "center",
+                      paddingTop: 0,
+                    },
                   }}
                 >
                   {active.message}

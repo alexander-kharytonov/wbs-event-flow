@@ -82,7 +82,6 @@ export function AccountMenu({
         sx={{
           gap: 1.25,
           p: 0.5,
-          borderRadius: 2,
           maxWidth: "100%",
           "&.Mui-focusVisible": {
             outline: "2px solid",
@@ -96,7 +95,7 @@ export function AccountMenu({
           variant="body2"
           title={name}
           noWrap
-          sx={{ display: { xs: "none", sm: "inline" } }}
+          sx={{ display: { xs: "none", sm: "inline" }, maxWidth: 180 }}
         >
           {name}
         </Typography>
@@ -125,6 +124,8 @@ export function AccountMenu({
           paper: {
             sx: {
               mt: 1.5,
+              border: 1,
+              borderColor: "divider",
               minWidth: 180,
               overflow: "visible",
               "&::before": {
@@ -135,7 +136,10 @@ export function AccountMenu({
                 right: 18,
                 width: 10,
                 height: 10,
-                bgcolor: "background.paper",
+                bgcolor: "inherit",
+                borderTop: "1px solid",
+                borderLeft: "1px solid",
+                borderColor: "inherit",
                 transform: "translateY(-50%) rotate(45deg)",
               },
             },

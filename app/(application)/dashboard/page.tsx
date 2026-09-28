@@ -1,16 +1,13 @@
 import Add from "@mui/icons-material/Add";
 import ArrowForward from "@mui/icons-material/ArrowForward";
 import EventOutlined from "@mui/icons-material/EventOutlined";
-import {
-  Box,
-  Button,
-  Chip,
-  Link,
-  Paper,
-  Stack,
-  Typography,
-} from "@mui/material";
+import LinkOutlined from "@mui/icons-material/LinkOutlined";
+import PublicOutlined from "@mui/icons-material/PublicOutlined";
+import { Box, Button, Link, Paper, Stack, Typography } from "@mui/material";
 import { DateTime } from "@/components/ui/date-time";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { PublicationStatus } from "@/features/events/components/publication-status";
 import { publicationState } from "@/features/events/publication-state";
 import { requireOrganizer } from "@/features/organizer/server/require-organizer";
 import { prisma } from "@/lib/prisma";
@@ -49,27 +46,20 @@ export default async function DashboardPage({
   const labels = { ALL: "All", PUBLIC: "Public", PRIVATE: "Private" };
 
   return (
-    <Stack spacing={4}>
-      <Stack
-        direction={{ xs: "column", sm: "row" }}
-        spacing={2}
-        sx={{ justifyContent: "space-between", alignItems: { sm: "center" } }}
-      >
-        <Stack spacing={1}>
-          <Typography variant="h4" component="h1">
-            My events
-          </Typography>
-          <Typography color="text.secondary">Manage your events.</Typography>
-        </Stack>
-        <Button
-          href="/dashboard/events/new"
-          variant="contained"
-          startIcon={<Add />}
-          sx={{ alignSelf: "flex-start", flexShrink: 0 }}
-        >
-          Create event
-        </Button>
-      </Stack>
+    <Stack spacing={3}>
+      <PageHeader
+        title="My events"
+        description="Manage your events, registration forms, and applications."
+        actions={
+          <Button
+            href="/dashboard/events/new"
+            variant="contained"
+            startIcon={<Add />}
+          >
+            Create event
+          </Button>
+        }
+      />
       <Stack
         component="nav"
         aria-label="Filter events"
@@ -91,22 +81,19 @@ export default async function DashboardPage({
         ))}
       </Stack>
       {visibleEvents.length === 0 ? (
-        <Paper
-          variant="outlined"
-          sx={{ p: { xs: 3, sm: 6 }, borderRadius: 2, textAlign: "center" }}
-        >
-          <Stack spacing={2} sx={{ alignItems: "center" }}>
-            <EventOutlined sx={{ fontSize: 40, color: "text.secondary" }} />
-            <Typography variant="h6" component="h2">
-              {filter === "ALL"
-                ? "Your first event starts here"
-                : `No ${labels[filter].toLowerCase()} events`}
-            </Typography>
-            <Typography color="text.secondary">
-              {filter === "ALL"
-                ? "Create a draft to set the schedule and registration details."
-                : `Your ${labels[filter].toLowerCase()} events will appear here.`}
-            </Typography>
+        <EmptyState
+          icon={<EventOutlined />}
+          title={
+            filter === "ALL"
+              ? "Your first event starts here"
+              : `No ${labels[filter].toLowerCase()} events`
+          }
+          description={
+            filter === "ALL"
+              ? "Create a draft to set the schedule and registration details."
+              : `Your ${labels[filter].toLowerCase()} events will appear here.`
+          }
+          action={
             <Button
               href="/dashboard/events/new"
               variant="contained"
@@ -114,8 +101,8 @@ export default async function DashboardPage({
             >
               Create event
             </Button>
-          </Stack>
-        </Paper>
+          }
+        />
       ) : (
         <Box
           component="ul"
@@ -136,25 +123,37 @@ export default async function DashboardPage({
               component="li"
               variant="outlined"
               key={event.id}
-              sx={{ p: 3, borderRadius: 2 }}
+              sx={{ p: { xs: 2, sm: 3 } }}
             >
               <Stack
                 spacing={2}
                 sx={{ height: "100%", alignItems: "flex-start" }}
               >
-                <Stack direction="row" sx={{ gap: 1, flexWrap: "wrap" }}>
-                  {filter === "ALL" && (
-                    <Chip
-                      label={labels[event.visibility]}
-                      size="small"
-                      variant="outlined"
-                    />
-                  )}
-                  <Chip
-                    label={publicationState(event)}
-                    size="small"
-                    variant="outlined"
-                  />
+                <Stack
+                  direction="row"
+                  sx={{
+                    width: "100%",
+                    gap: 1.5,
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <Stack
+                    direction="row"
+                    spacing={0.75}
+                    sx={{ alignItems: "center", color: "text.secondary" }}
+                  >
+                    {event.visibility === "PUBLIC" ? (
+                      <PublicOutlined sx={{ fontSize: 16 }} />
+                    ) : (
+                      <LinkOutlined sx={{ fontSize: 16 }} />
+                    )}
+                    <Typography variant="body2">
+                      {labels[event.visibility]}
+                    </Typography>
+                  </Stack>
+                  <PublicationStatus state={publicationState(event)} />
                 </Stack>
                 <Link
                   href={`/dashboard/events/${event.id}`}

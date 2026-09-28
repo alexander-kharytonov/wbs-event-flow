@@ -1,3 +1,5 @@
+import ArrowForward from "@mui/icons-material/ArrowForward";
+import EventAvailableOutlined from "@mui/icons-material/EventAvailableOutlined";
 import { Alert, Box, Button, Paper, Stack, Typography } from "@mui/material";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
@@ -20,164 +22,146 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           <Button href="/verify-email">Request a new link</Button>
         </Alert>
       )}
-      <Paper variant="outlined" sx={{ p: { xs: 3, sm: 5 }, borderRadius: 2 }}>
-        <Stack spacing={3} sx={{ maxWidth: 640 }}>
-          <Typography variant="overline" color="text.secondary">
-            For event attendees
+      <Paper
+        variant="outlined"
+        sx={{
+          p: { xs: 3, sm: 5, md: 6 },
+          overflow: "hidden",
+          position: "relative",
+        }}
+      >
+        <Stack spacing={3} sx={{ maxWidth: 690, position: "relative" }}>
+          <Typography variant="overline" color="primary.main">
+            Make room for your next experience
           </Typography>
           <Typography
-            variant="h3"
             component="h1"
             sx={{
-              fontSize: { xs: "2.25rem", sm: "3rem" },
-              fontWeight: 600,
-              letterSpacing: "-0.03em",
+              fontSize: { xs: "2.6rem", sm: "3.25rem", md: "3.75rem" },
+              fontWeight: 650,
+              lineHeight: 1.08,
+              letterSpacing: "-0.055em",
             }}
           >
-            Find your next event.
+            Good things happen
+            <br />
+            when people meet.
           </Typography>
           <Typography
-            variant="h6"
-            component="p"
             color="text.secondary"
-            sx={{ fontWeight: 400 }}
+            sx={{ fontSize: { xs: "1rem", sm: "1.15rem" }, maxWidth: 530 }}
           >
-            Explore public events, find out what’s happening, and apply to
-            attend. Check event details and registration dates to plan your next
-            experience.
+            Discover events, apply to attend, and keep your plans together. Your
+            next experience starts here.
           </Typography>
-
           <Stack
-            component="nav"
-            aria-label="Get started"
             direction={{ xs: "column", sm: "row" }}
-            spacing={2}
-            sx={{ alignItems: { xs: "stretch", sm: "center" } }}
+            spacing={1.5}
+            sx={{ alignItems: { sm: "center" }, pt: 1 }}
           >
             <Button
               href="/e"
               variant="contained"
-              sx={{ alignSelf: "flex-start" }}
+              endIcon={<ArrowForward />}
+              size="large"
             >
-              Browse public events
+              Explore events
             </Button>
-            {session ? (
-              <Button href="/account" variant="outlined">
-                My account
-              </Button>
-            ) : (
-              <>
-                <Button href="/register" variant="contained">
-                  Create account
-                </Button>
-                <Typography>or</Typography>
-                <Button href="/sign-in" variant="outlined">
-                  Sign in
-                </Button>
-              </>
-            )}
-          </Stack>
-        </Stack>
-      </Paper>
-      <Paper variant="outlined" sx={{ p: { xs: 3, sm: 5 }, borderRadius: 2 }}>
-        <Stack spacing={3} sx={{ maxWidth: 640 }}>
-          <Typography variant="overline" color="text.secondary">
-            For event organizers
-          </Typography>
-          <Typography
-            variant="h3"
-            component="h2"
-            sx={{
-              fontSize: { xs: "2.25rem", sm: "3rem" },
-              fontWeight: 600,
-              letterSpacing: "-0.03em",
-            }}
-          >
-            Your next event starts here.
-          </Typography>
-          <Typography
-            variant="h6"
-            component="p"
-            color="text.secondary"
-            sx={{ fontWeight: 400 }}
-          >
-            Bring the details together with Event Flow. Create a draft, set your
-            schedule, and manage your event in one place.
-          </Typography>
-          {session ? (
             <Button
-              href={organizer ? "/dashboard" : "/onboarding/organizer"}
-              variant="contained"
-              sx={{ alignSelf: "flex-start" }}
+              href={session ? "/account/registrations" : "/register"}
+              size="large"
             >
-              {organizer ? "Dashboard" : "Become an organizer"}
+              {session ? "My registrations" : "Create an account"}
             </Button>
-          ) : (
-            <Stack
-              component="nav"
-              aria-label="Get started"
-              direction={{ xs: "column", sm: "row" }}
-              spacing={2}
-              sx={{ alignItems: { xs: "stretch", sm: "center" } }}
-            >
-              <Button href="/register" variant="contained">
-                Create account
-              </Button>
-              <Typography>or</Typography>
-              <Button href="/sign-in" variant="outlined">
-                Sign in
-              </Button>
-            </Stack>
-          )}
+          </Stack>
         </Stack>
       </Paper>
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: {
-            xs: "minmax(0, 1fr)",
-            sm: "repeat(3, minmax(0, 1fr))",
-          },
-          gap: 2,
+          gridTemplateColumns: { xs: "1fr", md: "1.15fr 1fr" },
+          gap: 3,
         }}
       >
-        {[
-          {
-            title: "Start with a draft",
-            description:
-              "Keep the details together and make changes as your plans take shape.",
-          },
-          {
-            title: "Set the schedule",
-            description:
-              "Choose event dates and times in the timezone that fits your event.",
-          },
-          {
-            title: "Define registration",
-            description:
-              "Set guest capacity, registration dates, and account requirements.",
-          },
-        ].map(({ title, description }) => (
-          <Paper
-            component="section"
-            key={title}
-            variant="outlined"
-            sx={{ p: 3, borderRadius: 2 }}
-          >
-            <Stack spacing={1}>
+        <Paper
+          component="section"
+          variant="outlined"
+          sx={{ p: { xs: 3, sm: 4 } }}
+        >
+          <Stack spacing={2}>
+            <EventAvailableOutlined
+              sx={{ color: "primary.main", fontSize: 32 }}
+            />
+            <Typography variant="h5" component="h2">
+              Bring people together.
+            </Typography>
+            <Typography color="text.secondary">
+              Create your event, build a registration form, and review
+              applications in one place. Start with a draft and publish when
+              you’re ready.
+            </Typography>
+            <Button
+              href={
+                session
+                  ? organizer
+                    ? "/dashboard"
+                    : "/onboarding/organizer"
+                  : "/register?returnTo=%2Fonboarding%2Forganizer"
+              }
+              variant="outlined"
+              color="primary"
+              endIcon={<ArrowForward />}
+              sx={{ alignSelf: "flex-start" }}
+            >
+              {organizer ? "Open organizer workspace" : "Start organizing"}
+            </Button>
+          </Stack>
+        </Paper>
+        <Stack
+          component="section"
+          aria-label="How to attend"
+          spacing={3}
+          sx={{ p: { xs: 2, sm: 4 } }}
+        >
+          {[
+            [
+              "01",
+              "Find something for you",
+              "Explore published events and check the schedule.",
+            ],
+            [
+              "02",
+              "Apply to attend",
+              "Complete the registration form for organizer review.",
+            ],
+            [
+              "03",
+              "Stay in the loop",
+              "Get your application updates by email.",
+            ],
+          ].map(([number, title, description]) => (
+            <Stack key={number} direction="row" spacing={2}>
               <Typography
-                variant="subtitle1"
-                component="h2"
-                sx={{ fontWeight: 600 }}
+                color="primary.main"
+                sx={{ fontSize: "0.8rem", fontWeight: 700, pt: 0.5 }}
               >
-                {title}
+                {number}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {description}
-              </Typography>
+              <Box>
+                <Typography
+                  component="h2"
+                  variant="subtitle1"
+                  sx={{ fontWeight: 600 }}
+                >
+                  {title}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {description}
+                </Typography>
+              </Box>
             </Stack>
-          </Paper>
-        ))}
+          ))}
+        </Stack>
       </Box>
     </Stack>
   );

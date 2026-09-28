@@ -1,5 +1,6 @@
-import { Paper, Stack, Typography } from "@mui/material";
+import { Paper, Stack } from "@mui/material";
 import type { Metadata } from "next";
+import { PageHeader } from "@/components/ui/page-header";
 import { AccountNavigation } from "@/features/auth/components/account-navigation";
 import { ProfileForm } from "@/features/auth/components/profile-form";
 import { requireVerifiedUser } from "@/lib/session";
@@ -11,11 +12,9 @@ export default async function ProfilePage() {
 
   return (
     <Stack spacing={3}>
-      <Typography variant="h4" component="h1">
-        My profile
-      </Typography>
+      <PageHeader title="My profile" />
       <AccountNavigation active="profile" />
-      <Paper variant="outlined" sx={{ p: { xs: 3, sm: 4 }, borderRadius: 2 }}>
+      <Paper variant="outlined" sx={{ p: { xs: 3, sm: 4 }, maxWidth: 640 }}>
         <ProfileForm name={user.name} email={user.email} />
       </Paper>
     </Stack>

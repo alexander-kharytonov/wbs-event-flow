@@ -6,7 +6,6 @@ export function NotFoundContent() {
       variant="outlined"
       sx={{
         p: { xs: 3, sm: 5 },
-        borderRadius: 2,
         maxWidth: 480,
         width: "100%",
         mx: "auto",

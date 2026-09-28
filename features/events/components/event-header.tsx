@@ -23,9 +23,9 @@ export function EventHeader({
   active: ComponentProps<typeof EventNavigation>["active"];
 }) {
   return (
-    <Stack spacing={3}>
+    <Stack spacing={2}>
       <Link href="/dashboard" sx={{ alignSelf: "flex-start" }}>
-        My events
+        ← My events
       </Link>
       <Stack
         direction={{ xs: "column", sm: "row" }}
@@ -49,7 +49,7 @@ export function EventHeader({
         </Stack>
         <Button
           href={`/dashboard/events/${id}/edit`}
-          variant="contained"
+          variant="text"
           startIcon={<EditOutlined />}
           sx={{ flexShrink: 0, alignSelf: "flex-start" }}
         >

@@ -3,6 +3,8 @@ import EventOutlined from "@mui/icons-material/EventOutlined";
 import { Box, Button, Paper, Stack, Typography } from "@mui/material";
 import type { Metadata } from "next";
 import { DateTime } from "@/components/ui/date-time";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { AccountNavigation } from "@/features/auth/components/account-navigation";
 import { ApplicationRealtime } from "@/features/events/components/application-realtime";
 import { ApplicationStatus } from "@/features/events/components/application-status";
@@ -26,25 +28,19 @@ export default async function MyRegistrationsPage() {
   return (
     <Stack spacing={3}>
       <ApplicationRealtime streamUrl="/api/account/registrations/stream" />
-      <Typography variant="h4" component="h1">
-        My registrations
-      </Typography>
+      <PageHeader title="My registrations" />
       <AccountNavigation active="registrations" />
       {upcoming.length === 0 && past.length === 0 ? (
-        <Paper variant="outlined" sx={{ p: { xs: 3, sm: 5 }, borderRadius: 2 }}>
-          <Stack spacing={2} sx={{ alignItems: "center", textAlign: "center" }}>
-            <EventOutlined sx={{ fontSize: 40, color: "text.secondary" }} />
-            <Typography variant="h6" component="h2">
-              No registrations yet
-            </Typography>
-            <Typography color="text.secondary">
-              Browse public events to find something to attend.
-            </Typography>
-            <Button href="/e" variant="outlined">
+        <EmptyState
+          icon={<EventOutlined />}
+          title="No registrations yet"
+          description="Browse public events to find something to attend."
+          action={
+            <Button href="/e" variant="contained">
               Browse events
             </Button>
-          </Stack>
-        </Paper>
+          }
+        />
       ) : (
         groups
           .filter((group) => group.registrations.length > 0)
@@ -77,7 +73,7 @@ export default async function MyRegistrationsPage() {
                     key={registration.publicId}
                     component="li"
                     variant="outlined"
-                    sx={{ p: 3, borderRadius: 2 }}
+                    sx={{ p: 3 }}
                   >
                     <Stack
                       spacing={2}
@@ -98,19 +94,20 @@ export default async function MyRegistrationsPage() {
                           timezone={registration.timezone}
                         />
                       </Box>
-                      <Button
-                        href={`/account/registrations/${registration.eventId}`}
-                        variant="outlined"
-                      >
-                        View registration
-                      </Button>
-                      <Button
-                        href={`/e/${encodeURIComponent(registration.publicId)}`}
-                        endIcon={<ArrowForward />}
-                        sx={{ px: 0 }}
-                      >
-                        View event
-                      </Button>
+                      <Stack direction="row" sx={{ gap: 1, flexWrap: "wrap" }}>
+                        <Button
+                          href={`/account/registrations/${registration.eventId}`}
+                          variant="outlined"
+                        >
+                          View registration
+                        </Button>
+                        <Button
+                          href={`/e/${encodeURIComponent(registration.publicId)}`}
+                          endIcon={<ArrowForward />}
+                        >
+                          View event
+                        </Button>
+                      </Stack>
                     </Stack>
                   </Paper>
                 ))}

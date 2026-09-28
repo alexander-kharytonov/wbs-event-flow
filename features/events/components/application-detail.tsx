@@ -1,10 +1,11 @@
-import { Alert, Divider, Link, Paper, Stack, Typography } from "@mui/material";
+import { Box, Link, Paper, Stack, Typography } from "@mui/material";
 import { notFound } from "next/navigation";
 import { ApplicationCapacity } from "@/features/events/components/application-capacity";
 import { ApplicationDialog } from "@/features/events/components/application-dialog";
 import { ApplicationReviewControls } from "@/features/events/components/application-review-controls";
 import { ApplicationStatus } from "@/features/events/components/application-status";
 import { EventHeader } from "@/features/events/components/event-header";
+import { SubmittedAnswers } from "@/features/events/components/submitted-answers";
 import { formatEventTime } from "@/features/events/format-event-time";
 import { historicalAnswers } from "@/features/events/historical-answers";
 import { getOwnedApplication } from "@/features/events/server/organizer-applications";
@@ -57,49 +58,68 @@ export async function ApplicationDetail({
           </Typography>
         </>
       )}
-      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
-        <Stack spacing={2} sx={{ overflowWrap: "anywhere" }}>
-          <Stack
-            direction="row"
-            spacing={2}
-            sx={{ alignItems: "center", flexWrap: "wrap", gap: 1 }}
-          >
+      <Stack spacing={2.5} sx={{ overflowWrap: "anywhere" }}>
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={1.5}
+          sx={{
+            justifyContent: "space-between",
+            alignItems: { xs: "flex-start", sm: "center" },
+          }}
+        >
+          <Box sx={{ minWidth: 0 }}>
             <Typography variant="h5" component="h3">
               {application.fullName}
             </Typography>
-            <ApplicationStatus status={application.status} />
-          </Stack>
-          <Typography>{application.email}</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Submitted {formatEventTime(application.createdAt, event.timezone)} (
-            {event.timezone})
-          </Typography>
-          {application.reviewedAt && (
-            <Typography variant="body2" color="text.secondary">
-              Reviewed {formatEventTime(application.reviewedAt, event.timezone)}{" "}
-              ({event.timezone})
+            <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+              {application.email}
             </Typography>
-          )}
-          {application.withdrawnAt && (
-            <Typography variant="body2" color="text.secondary">
-              Withdrawn{" "}
-              {formatEventTime(application.withdrawnAt, event.timezone)} (
-              {event.timezone})
-            </Typography>
-          )}
-          <Divider />
-          <ApplicationCapacity
-            snapshot={event.publishedRevision?.snapshot}
-            approved={event._count.applications}
-          />
-          {application.status === "PENDING" && (
-            <ApplicationReviewControls
-              eventId={id}
-              applicationId={applicationId}
-            />
-          )}
+          </Box>
+          <ApplicationStatus status={application.status} />
         </Stack>
-      </Paper>
+        <Box sx={{ bgcolor: "background.default", p: 2 }}>
+          <Box
+            component="dl"
+            sx={{
+              m: 0,
+              display: "grid",
+              gridTemplateColumns: {
+                xs: "1fr",
+                sm: "repeat(3, minmax(0, 1fr))",
+              },
+              gap: 2,
+              "& dt": {
+                typography: "caption",
+                color: "text.secondary",
+                mb: 0.5,
+              },
+              "& dd": { m: 0, typography: "body2" },
+            }}
+          >
+            {[
+              { label: "Submitted", date: application.createdAt },
+              { label: "Reviewed", date: application.reviewedAt },
+              { label: "Withdrawn", date: application.withdrawnAt },
+            ]
+              .filter(({ date }) => date !== null)
+              .map(({ label, date }) => (
+                <Box key={label}>
+                  <Typography component="dt">{label}</Typography>
+                  <Typography component="dd">
+                    {date && formatEventTime(date, event.timezone)}
+                  </Typography>
+                </Box>
+              ))}
+          </Box>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: "block", mt: 1.5 }}
+          >
+            All times in {event.timezone}
+          </Typography>
+        </Box>
+      </Stack>
       <Stack spacing={2}>
         <Stack spacing={0.5}>
           <Typography variant="h6" component="h3">
@@ -110,35 +130,29 @@ export async function ApplicationDetail({
             was submitted.
           </Typography>
         </Stack>
-        {answers === null ? (
-          <Alert severity="warning">Answer unavailable</Alert>
-        ) : answers.length === 0 ? (
-          <Typography color="text.secondary">
-            There were no additional questions on this registration form.
-          </Typography>
-        ) : (
-          answers.map((answer) => (
-            <Paper key={answer.fieldId} variant="outlined" sx={{ p: 2 }}>
-              <Stack spacing={1} sx={{ overflowWrap: "anywhere" }}>
-                <Typography variant="subtitle1" component="h4">
-                  {answer.label}
-                </Typography>
-                <Typography
-                  sx={{ whiteSpace: "pre-wrap" }}
-                  color={
-                    answer.value === "Answer unavailable" ||
-                    answer.value === "Not provided"
-                      ? "text.secondary"
-                      : "text.primary"
-                  }
-                >
-                  {answer.value}
-                </Typography>
-              </Stack>
-            </Paper>
-          ))
-        )}
+        <SubmittedAnswers answers={answers} />
       </Stack>
+      {application.status === "PENDING" && (
+        <Paper
+          variant="outlined"
+          component="section"
+          sx={{ p: { xs: 2, sm: 3 } }}
+        >
+          <Stack spacing={2}>
+            <Typography variant="h6" component="h3">
+              Review application
+            </Typography>
+            <ApplicationCapacity
+              snapshot={event.publishedRevision?.snapshot}
+              approved={event._count.applications}
+            />
+            <ApplicationReviewControls
+              eventId={id}
+              applicationId={applicationId}
+            />
+          </Stack>
+        </Paper>
+      )}
     </Stack>
   );
 

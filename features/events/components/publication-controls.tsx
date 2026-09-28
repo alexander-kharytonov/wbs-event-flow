@@ -4,8 +4,9 @@ import {
   Link as LinkIcon,
   OpenInNew as OpenInNewIcon,
 } from "@mui/icons-material";
-import { Alert, Button, Chip, Stack, Typography } from "@mui/material";
+import { Alert, Button, Stack, Typography } from "@mui/material";
 import { useState, useTransition } from "react";
+import { PublicationStatus } from "@/features/events/components/publication-status";
 import { publicationState } from "@/features/events/publication-state";
 import { publishEvent } from "@/features/events/publish-event-action";
 import type { PublishResult } from "@/features/events/server/publish-event";
@@ -28,13 +29,18 @@ export function PublicationControls({
   const state = publicationState({ contentVersion, publishedRevision });
 
   return (
-    <Stack spacing={1.5} aria-busy={pending}>
+    <Stack
+      direction={{ xs: "column", md: "row" }}
+      sx={{ gap: 1.5, flexWrap: "wrap", alignItems: { md: "center" } }}
+      aria-busy={pending}
+    >
       <Stack
         direction="row"
+        useFlexGap
         spacing={1.5}
-        sx={{ alignItems: "center", flexWrap: "wrap", gap: 1 }}
+        sx={{ alignItems: "center", flexWrap: "wrap" }}
       >
-        <Chip label={state} size="small" variant="outlined" />
+        <PublicationStatus state={state} />
         {publishedRevision?.number && (
           <Typography variant="body2" color="text.secondary">
             Revision {publishedRevision.number}
@@ -43,7 +49,7 @@ export function PublicationControls({
         {state !== "Published" && (
           <Button
             variant="contained"
-            color="success"
+            color="primary"
             disabled={pending || result.conflict}
             onClick={() => {
               notifications.close(`publish:${eventId}`);
@@ -86,8 +92,14 @@ export function PublicationControls({
         )}
       </Stack>
       {publicId && publishedRevision && (
-        <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>
+        <Stack
+          direction="row"
+          useFlexGap
+          spacing={1.5}
+          sx={{ flexWrap: "wrap" }}
+        >
           <Button
+            size="small"
             startIcon={<OpenInNewIcon />}
             href={`/e/${publicId}`}
             target="_blank"
@@ -96,7 +108,7 @@ export function PublicationControls({
             Open public page
           </Button>
           <Button
-            variant="outlined"
+            size="small"
             startIcon={<LinkIcon />}
             onClick={async () => {
               try {

@@ -131,56 +131,72 @@ export function RegistrationApplicationForm({
 
         if (field.type === "SHORT_TEXT" || field.type === "LONG_TEXT") {
           return (
-            <TextField
-              key={field.id}
-              name={name}
-              label={field.label}
-              required={field.required}
-              multiline={field.type === "LONG_TEXT"}
-              minRows={field.type === "LONG_TEXT" ? 3 : undefined}
-              value={selected[0] ?? ""}
-              onChange={(event) => update(name, [event.target.value])}
-              error={!!error}
-              helperText={error ?? field.description}
-              fullWidth
-              slotProps={{
-                htmlInput: {
-                  maxLength: field.type === "SHORT_TEXT" ? 500 : 5000,
-                },
-              }}
-            />
+            <Stack key={field.id} spacing={1}>
+              <FormLabel
+                htmlFor={`question-${field.id}`}
+                required={field.required}
+                sx={{ color: "text.primary", overflowWrap: "anywhere" }}
+              >
+                {field.label}
+              </FormLabel>
+              <TextField
+                id={`question-${field.id}`}
+                name={name}
+                required={field.required}
+                multiline={field.type === "LONG_TEXT"}
+                minRows={field.type === "LONG_TEXT" ? 3 : undefined}
+                value={selected[0] ?? ""}
+                onChange={(event) => update(name, [event.target.value])}
+                error={!!error}
+                helperText={error ?? field.description}
+                fullWidth
+                slotProps={{
+                  htmlInput: {
+                    maxLength: field.type === "SHORT_TEXT" ? 500 : 5000,
+                  },
+                }}
+              />
+            </Stack>
           );
         }
 
         if (field.type === "SINGLE_CHOICE") {
           return (
-            <TextField
-              key={field.id}
-              name={name}
-              label={field.label}
-              select
-              required={field.required}
-              value={selected[0] ?? ""}
-              onChange={(event) =>
-                update(name, event.target.value ? [event.target.value] : [])
-              }
-              error={!!error}
-              helperText={error ?? field.description}
-              fullWidth
-              slotProps={{
-                select: { native: true },
-                inputLabel: { shrink: true },
-              }}
-            >
-              <option value="">
-                {field.required ? "Choose an option" : "No selection"}
-              </option>
-              {field.options.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label}
+            <Stack key={field.id} spacing={1}>
+              <FormLabel
+                htmlFor={`question-${field.id}`}
+                required={field.required}
+                sx={{ color: "text.primary", overflowWrap: "anywhere" }}
+              >
+                {field.label}
+              </FormLabel>
+              <TextField
+                id={`question-${field.id}`}
+                name={name}
+                select
+                required={field.required}
+                value={selected[0] ?? ""}
+                onChange={(event) =>
+                  update(name, event.target.value ? [event.target.value] : [])
+                }
+                error={!!error}
+                helperText={error ?? field.description}
+                fullWidth
+                slotProps={{
+                  select: { native: true },
+                  inputLabel: { shrink: true },
+                }}
+              >
+                <option value="">
+                  {field.required ? "Choose an option" : "No selection"}
                 </option>
-              ))}
-            </TextField>
+                {field.options.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </TextField>
+            </Stack>
           );
         }
 

@@ -20,7 +20,6 @@ export default async function OrganizerOnboardingPage() {
       variant="outlined"
       sx={{
         p: { xs: 3, sm: 4 },
-        borderRadius: 2,
         maxWidth: 600,
         width: "100%",
         mx: "auto",

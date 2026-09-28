@@ -2,7 +2,7 @@ import { Paper, Stack, Typography } from "@mui/material";
 
 export default function PublicEventNotFound() {
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 3, sm: 5 }, borderRadius: 2 }}>
+    <Paper variant="outlined" sx={{ p: { xs: 3, sm: 5 } }}>
       <Stack spacing={1}>
         <Typography variant="h4" component="h1">
           Event unavailable

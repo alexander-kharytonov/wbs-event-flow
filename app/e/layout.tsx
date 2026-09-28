@@ -12,7 +12,9 @@ export default function PublicLayout({
       <ApplicationHeader />
       <Container
         component="main"
-        maxWidth="md"
+        id="main-content"
+        tabIndex={-1}
+        maxWidth="lg"
         sx={{ py: { xs: 3, sm: 5 }, flex: "1 0 auto" }}
       >
         {children}

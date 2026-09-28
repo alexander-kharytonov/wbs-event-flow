@@ -20,13 +20,25 @@ export function AccountNavigation({
       component="nav"
       aria-label="Account sections"
       direction="row"
-      sx={{ gap: 1, flexWrap: "wrap" }}
+      sx={{
+        gap: 1,
+        borderBottom: 1,
+        borderColor: "divider",
+        pb: 1,
+        overflowX: "auto",
+        "& .MuiButton-root": { flexShrink: 0 },
+        "& [aria-current=page]": {
+          bgcolor: "action.selected",
+          boxShadow: "inset 0 -2px var(--mui-palette-primary-main)",
+          fontWeight: 700,
+        },
+      }}
     >
       {sections.map(({ id, label, href }) => (
         <Button
           key={id}
           href={href}
-          variant={active === id ? "contained" : "text"}
+          variant="text"
           color={active === id ? "primary" : "inherit"}
           aria-current={active === id ? "page" : undefined}
           sx={{ px: 1.5 }}

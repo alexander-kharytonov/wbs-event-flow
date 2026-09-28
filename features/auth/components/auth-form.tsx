@@ -1,9 +1,13 @@
 "use client";
 
+import VisibilityOffOutlined from "@mui/icons-material/VisibilityOffOutlined";
+import VisibilityOutlined from "@mui/icons-material/VisibilityOutlined";
 import {
   Alert,
   Button,
   Divider,
+  IconButton,
+  InputAdornment,
   Link,
   Paper,
   Stack,
@@ -31,6 +35,7 @@ export function AuthForm({
   notice?: string;
   returnTo?: string;
 }) {
+  const [showPassword, setShowPassword] = useState(false);
   const [pending, setPending] = useState(false);
   const [email, setEmail] = useState("");
   const router = useRouter();
@@ -134,7 +139,7 @@ export function AuthForm({
       <Link href="/" sx={{ alignSelf: "flex-start" }}>
         Back to home
       </Link>
-      <Paper variant="outlined" sx={{ p: { xs: 3, sm: 4 }, borderRadius: 2 }}>
+      <Paper variant="outlined" sx={{ p: { xs: 3, sm: 4 } }}>
         <Stack spacing={3}>
           <Stack spacing={1}>
             <Typography variant="h4" component="h1">
@@ -179,14 +184,36 @@ export function AuthForm({
             <TextField
               label="Password"
               name="password"
-              type="password"
+              type={showPassword ? "text" : "password"}
               autoComplete={registering ? "new-password" : "current-password"}
-              slotProps={{ htmlInput: { minLength: 10, maxLength: 128 } }}
+              slotProps={{
+                htmlInput: { minLength: 10, maxLength: 128 },
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label={
+                          showPassword ? "Hide password" : "Show password"
+                        }
+                        aria-pressed={showPassword}
+                        onClick={() => setShowPassword((visible) => !visible)}
+                        edge="end"
+                      >
+                        {showPassword ? (
+                          <VisibilityOffOutlined />
+                        ) : (
+                          <VisibilityOutlined />
+                        )}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                },
+              }}
               helperText={registering ? "Use 10–128 characters." : undefined}
               required
               fullWidth
             />
-            <Button type="submit" variant="contained" disabled={pending}>
+            <Button type="submit" variant="contained" loading={pending}>
               {pending
                 ? "Please wait…"
                 : registering

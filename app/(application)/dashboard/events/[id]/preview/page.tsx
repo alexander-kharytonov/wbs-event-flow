@@ -56,9 +56,15 @@ export default async function PreviewPage({
       {snapshot.success ? (
         <EventGuestView snapshot={snapshot.data} now={new Date()}>
           <Stack spacing={3}>
-            <Typography variant="h6" component="h2">
-              Registration form preview
-            </Typography>
+            <Stack spacing={0.5}>
+              <Typography variant="h6" component="h2">
+                Registration form preview
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                This is the form guests will complete. Fields are read-only in
+                preview.
+              </Typography>
+            </Stack>
             <RegistrationFormPreview
               fields={snapshot.data.registrationForm.fields}
             />

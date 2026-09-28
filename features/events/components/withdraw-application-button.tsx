@@ -1,5 +1,6 @@
 "use client";
 
+import CancelOutlined from "@mui/icons-material/CancelOutlined";
 import {
   Button,
   Dialog,
@@ -56,7 +57,14 @@ export function WithdrawApplicationButton({
       <Button
         onClick={() => setOpen(true)}
         color="error"
-        sx={{ alignSelf: "flex-start" }}
+        variant="outlined"
+        startIcon={<CancelOutlined />}
+        sx={(theme) => ({
+          borderColor: "currentColor",
+          ...theme.applyStyles("dark", {
+            color: "error.light",
+          }),
+        })}
       >
         Withdraw application
       </Button>

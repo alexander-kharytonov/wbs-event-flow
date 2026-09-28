@@ -1,4 +1,4 @@
-import { Alert, Stack } from "@mui/material";
+import { Stack } from "@mui/material";
 import { notFound } from "next/navigation";
 import { EventHeader } from "@/features/events/components/event-header";
 import { RegistrationFormBuilder } from "@/features/events/components/registration-form-builder";
@@ -26,9 +26,6 @@ export default async function RegistrationFormPage({
         active="registration-form"
         applicationCount={event.applicationCount}
       />
-      <Alert severity="info">
-        Manage the questions guests will see when registering.
-      </Alert>
       <RegistrationFormBuilder key={id} eventId={id} initialForm={event.form} />
     </Stack>
   );

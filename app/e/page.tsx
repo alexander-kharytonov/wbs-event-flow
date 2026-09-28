@@ -4,6 +4,8 @@ import { Box, Button, Link, Paper, Stack, Typography } from "@mui/material";
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import { DateTime } from "@/components/ui/date-time";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { RegistrationAvailabilityStatus } from "@/features/events/components/registration-availability-status";
 import { getPublicEvents } from "@/features/events/server/get-public-events";
 
@@ -52,100 +54,107 @@ export default async function PublicEventsPage() {
   ];
 
   return (
-    <Stack spacing={4}>
-      <Stack spacing={1}>
-        <Typography variant="h4" component="h1">
-          Public events
-        </Typography>
-        <Typography color="text.secondary">
-          Explore events and discover your next experience.
-        </Typography>
-      </Stack>
+    <Stack spacing={3}>
+      <PageHeader
+        title="Public events"
+        description="Explore events and discover your next experience."
+      />
       {featured && (
         <Paper
           component="section"
           aria-labelledby="featured-event-title"
           variant="outlined"
           sx={{
-            p: { xs: 3, sm: 5 },
-            borderRadius: 3,
-            borderColor: "primary.main",
-            bgcolor: "action.hover",
+            p: { xs: 2, sm: 3 },
+            borderTop: 3,
+            borderTopColor: "primary.main",
           }}
         >
-          <Stack spacing={3}>
-            <Stack
-              direction="row"
-              spacing={1}
-              sx={{ alignItems: "center", color: "primary.main" }}
-            >
-              <EventOutlined fontSize="small" />
-              <Typography variant="overline" sx={{ fontWeight: 700 }}>
-                Up next
-              </Typography>
-            </Stack>
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", md: "minmax(0, 1fr) 320px" },
+              gap: 3,
+            }}
+          >
             <Stack spacing={2}>
-              <Typography
-                id="featured-event-title"
-                component="h2"
-                variant="h3"
-                sx={{
-                  fontSize: { xs: "2rem", sm: "2.75rem" },
-                  fontWeight: 600,
-                  overflowWrap: "anywhere",
-                }}
+              <Stack
+                direction="row"
+                spacing={1}
+                sx={{ alignItems: "center", color: "primary.main" }}
               >
-                {featured.snapshot.title}
-              </Typography>
-              {featured.snapshot.description && (
+                <EventOutlined fontSize="small" />
+                <Typography variant="overline" sx={{ fontWeight: 700 }}>
+                  Up next
+                </Typography>
+              </Stack>
+              <Stack spacing={2}>
                 <Typography
-                  color="text.secondary"
+                  id="featured-event-title"
+                  component="h2"
+                  variant="h3"
                   sx={{
-                    display: "-webkit-box",
-                    WebkitBoxOrient: "vertical",
-                    WebkitLineClamp: 3,
-                    overflow: "hidden",
+                    fontSize: { xs: "2rem", sm: "2rem" },
+                    fontWeight: 600,
                     overflowWrap: "anywhere",
-                    whiteSpace: "pre-line",
-                    maxWidth: 640,
                   }}
                 >
-                  {featured.snapshot.description}
+                  {featured.snapshot.title}
                 </Typography>
-              )}
+                {featured.snapshot.description && (
+                  <Typography
+                    color="text.secondary"
+                    sx={{
+                      display: "-webkit-box",
+                      WebkitBoxOrient: "vertical",
+                      WebkitLineClamp: 3,
+                      overflow: "hidden",
+                      overflowWrap: "anywhere",
+                      whiteSpace: "pre-line",
+                      maxWidth: 640,
+                    }}
+                  >
+                    {featured.snapshot.description}
+                  </Typography>
+                )}
+              </Stack>
             </Stack>
-            <DateTime
-              date={featured.snapshot.startsAt}
-              endDate={featured.snapshot.endsAt}
-              timezone={featured.snapshot.timezone}
-            />
-            <RegistrationAvailabilityStatus
-              snapshot={featured.snapshot}
-              now={now}
-            />
-            <Button
-              href={`/e/${encodeURIComponent(featured.publicId)}`}
-              variant="contained"
-              endIcon={<ArrowForward />}
-              sx={{ alignSelf: "flex-start" }}
+            <Stack
+              spacing={2}
+              sx={{
+                justifyContent: "center",
+                borderLeft: { md: 1 },
+                borderColor: { md: "divider" },
+                pl: { md: 3 },
+              }}
             >
-              View event
-            </Button>
-          </Stack>
+              <DateTime
+                date={featured.snapshot.startsAt}
+                endDate={featured.snapshot.endsAt}
+                timezone={featured.snapshot.timezone}
+              />
+              <RegistrationAvailabilityStatus
+                snapshot={featured.snapshot}
+                now={now}
+              />
+              <Button
+                href={`/e/${encodeURIComponent(featured.publicId)}`}
+                variant="contained"
+                endIcon={<ArrowForward />}
+                sx={{ alignSelf: "flex-start" }}
+              >
+                View event
+              </Button>
+            </Stack>
+          </Box>
         </Paper>
       )}
       {events.length === 0 ? (
-        <Paper variant="outlined" sx={{ p: { xs: 3, sm: 5 }, borderRadius: 2 }}>
-          <Stack spacing={2} sx={{ alignItems: "center", textAlign: "center" }}>
-            <EventOutlined sx={{ fontSize: 40, color: "text.secondary" }} />
-            <Typography variant="h6" component="h2">
-              No public events yet
-            </Typography>
-            <Typography color="text.secondary">
-              Check back soon for newly published events.
-            </Typography>
-          </Stack>
-        </Paper>
+        <EmptyState
+          icon={<EventOutlined />}
+          title="No public events yet"
+          description="Check back soon for newly published events."
+        />
       ) : (
         groups
           .filter((group) => group.events.length > 0)
@@ -178,7 +187,7 @@ export default async function PublicEventsPage() {
                     key={publicId}
                     component="li"
                     variant="outlined"
-                    sx={{ p: 3, borderRadius: 2 }}
+                    sx={{ p: { xs: 2, sm: 3 } }}
                   >
                     <Stack
                       spacing={2}
