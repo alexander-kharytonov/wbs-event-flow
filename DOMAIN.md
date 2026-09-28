@@ -198,7 +198,21 @@ still belong to the submitted revision. Upcoming means endsAt > now (including
 ongoing events), sorted by startsAt ASC; Past means endsAt <= now, sorted by
 endsAt DESC. Both use publicId ASC as deterministic tie-breaker.
 
-Source: [attendee read model](features/events/server/get-my-registrations.ts).
+Registration detail at `/account/registrations/[eventId]` reads all attempts with
+both `Application.userId = session.user.id` and the route Event ID. Malformed,
+missing, and foreign IDs reveal no applications. Current selection is unchanged;
+all other attempts appear newest-first by createdAt DESC, id DESC. Each attempt's
+identity and answers retain their submitted meaning through its own validated
+`EventRevision.snapshot`, using the shared historical answer interpreter. No
+mutable form or email ownership is involved. PRIVATE linked events are included.
+The page presents validated current published event content when available;
+otherwise it uses the current attempt's validated submitted revision, or an
+unavailable context if that snapshot is invalid. Neither path reads workspace
+content. View event is shown only for a safe current publication/publicId.
+The existing attendee SSE invalidation refreshes detail without new mutations.
+
+Sources: [attendee overview](features/events/server/get-my-registrations.ts),
+[attendee detail](features/events/server/get-my-registration.ts).
 
 ## 9. Application lifecycle
 

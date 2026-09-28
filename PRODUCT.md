@@ -109,6 +109,12 @@ Upcoming includes events that have not ended, ordered by start ascending; Past
 contains ended events, ordered by end descending. Ties use publicId. View event
 opens the existing public event withdrawal/reapplication flow.
 
+View registration opens `/account/registrations/[eventId]`, showing the current
+application and expandable previous attempts with submitted identity, lifecycle
+dates, and answers from each attempt's submitted form. If the current publication
+is unavailable, the detail remains readable using safe submitted event context,
+without unpublished workspace content or a View event action.
+
 Registration leads to `/verify-email`. Only the latest successfully sent
 verification link is accepted; it is single-use and expires after one hour.
 An email delivery failure preserves the previous link. Successful
@@ -128,13 +134,14 @@ review. Rejection messages contain no rejection reason and may omit the Event
 link when it is unavailable. Email delivery retries automatically, with rare
 duplicate delivery possible after a crash. There are no notification preferences.
 
-Organizer Applications, My Registrations, and the verified user's personalized
-application state on Public Event update in realtime after application changes.
+Organizer Applications, My Registrations (including registration detail), and the
+verified user's personalized application state on Public Event update in realtime
+after application changes.
 Realtime is a progressive enhancement: pages still render authoritative server
 data, and a normal reload remains available if the connection is interrupted.
 Anonymous applicants do not receive a personal status stream. Catalog and Event
 editing/publication updates are outside this realtime scope.
 
 The product does not provide email changes or password reset, anonymous
-application claiming, a full applicant attempt history/detail screen, or ticket/QR check-in.
+application claiming or ticket/QR check-in.
 These boundaries describe current scope, not a delivery roadmap.
