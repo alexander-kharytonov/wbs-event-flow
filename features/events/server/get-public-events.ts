@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 export async function getPublicEvents() {
   const events = await prisma.event.findMany({
     where: {
+      cancelledAt: null,
       publicId: { not: null },
       publishedRevision: {
         is: { snapshot: { path: ["visibility"], equals: "PUBLIC" } },

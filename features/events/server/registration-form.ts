@@ -1,10 +1,12 @@
 import "server-only";
 import { z } from "zod";
+import { workspaceReadOnly } from "@/features/events/event-lifecycle";
 import type {
   BuilderForm,
   RegistrationResult,
 } from "@/features/events/schemas/registration-form";
 import { registrationMutationSchema } from "@/features/events/schemas/registration-form";
+import { lockEventForUpdate } from "@/features/events/server/lock-event-for-update";
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 
@@ -51,6 +53,11 @@ export async function getRegistrationForm(
       const event = await tx.event.findFirst({
         where: { id: eventId, organizerId },
         select: {
+          startsAt: true,
+          endsAt: true,
+          cancelledAt: true,
+          cancellationReason: true,
+          archivedAt: true,
           title: true,
           _count: { select: { applications: true } },
           publicId: true,
@@ -65,6 +72,11 @@ export async function getRegistrationForm(
       }
 
       return {
+        startsAt: event.startsAt,
+        endsAt: event.endsAt,
+        cancelledAt: event.cancelledAt,
+        cancellationReason: event.cancellationReason,
+        archivedAt: event.archivedAt,
         title: event.title,
         applicationCount: event._count.applications,
         publicId: event.publicId,
@@ -105,13 +117,13 @@ export async function mutateRegistrationForm(
   try {
     const form = await prisma.$transaction(async (tx) => {
       // Lock the parent first, serializing form mutations with publication.
-      const events = await tx.$queryRaw<{ id: string; updatedAt: Date }[]>`
-        SELECT "id", "updatedAt" FROM "Event"
-        WHERE "id" = ${command.eventId}::uuid AND "organizerId" = ${organizerId}::uuid
-        FOR UPDATE`;
+      const locked = await lockEventForUpdate(tx, {
+        id: command.eventId,
+        organizerId,
+      });
 
-      if (!events[0]) {
-        throw new FormMutationError(unavailable);
+      if (!locked || workspaceReadOnly(locked, locked.decisionNow)) {
+        throw new FormMutationError("This event is read-only.");
       }
 
       const forms = await tx.$queryRaw<{ id: string; updatedAt: Date }[]>`
@@ -224,7 +236,7 @@ export async function mutateRegistrationForm(
         where: { id: command.eventId },
         data: {
           contentVersion: { increment: 1 },
-          updatedAt: events[0].updatedAt,
+          updatedAt: locked.updatedAt,
         },
       });
 

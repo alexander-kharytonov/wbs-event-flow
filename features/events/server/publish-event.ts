@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { eventLifecycle } from "@/features/events/event-lifecycle";
 import {
   buildEventSnapshot,
   workspaceInclude,
@@ -36,10 +37,31 @@ export async function publishOwnedEvent(
       async (tx) => {
         // All form writes lock Event first. Event edits acquire the same row lock.
         // Lock before loading relations, so every snapshot query sees one workspace.
-        const owned = await lockEventForUpdate(tx, eventId, organizerId);
+        const owned = await lockEventForUpdate(tx, {
+          id: eventId,
+          organizerId,
+        });
 
         if (!owned) {
           return { message: "This event is unavailable for publishing." };
+        }
+
+        const lifecycle = eventLifecycle(owned, owned.decisionNow);
+        const everPublished = await tx.eventRevision.findFirst({
+          where: { eventId },
+          select: { id: true },
+        });
+
+        if (
+          owned.archivedAt ||
+          lifecycle === "Cancelled" ||
+          lifecycle === "Completed" ||
+          (!everPublished && lifecycle !== "Upcoming")
+        ) {
+          return {
+            message:
+              "This event cannot be published in its current lifecycle state.",
+          };
         }
 
         const event = await tx.event.findUniqueOrThrow({
@@ -77,7 +99,7 @@ export async function publishOwnedEvent(
           orderBy: { number: "desc" },
           select: { number: true },
         });
-        const now = new Date();
+        const now = owned.decisionNow;
         const revision = await tx.eventRevision.create({
           data: {
             eventId,

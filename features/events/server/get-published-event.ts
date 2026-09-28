@@ -12,13 +12,24 @@ export const getPublishedEvent = cache(async (publicId: string) => {
 
   const event = await prisma.event.findUnique({
     where: { publicId },
-    select: { publishedRevision: { select: { id: true, snapshot: true } } },
+    select: {
+      cancelledAt: true,
+      cancellationReason: true,
+      endsAt: true,
+      publishedRevision: { select: { id: true, snapshot: true } },
+    },
   });
   const snapshot = eventSnapshotSchema.safeParse(
     event?.publishedRevision?.snapshot,
   );
 
   return snapshot.success && event?.publishedRevision
-    ? { snapshot: snapshot.data, eventRevisionId: event.publishedRevision.id }
+    ? {
+        snapshot: snapshot.data,
+        eventRevisionId: event.publishedRevision.id,
+        cancelledAt: event.cancelledAt,
+        cancellationReason: event.cancellationReason,
+        lifecycleEndsAt: event.endsAt,
+      }
     : null;
 });

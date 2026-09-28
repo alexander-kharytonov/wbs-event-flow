@@ -58,6 +58,9 @@ model Event {
   capacity             Int?
   registrationOpensAt  DateTime?               @db.Timestamptz(3)
   registrationClosesAt DateTime?               @db.Timestamptz(3)
+  cancelledAt          DateTime?               @db.Timestamptz(3)
+  cancellationReason   String?
+  archivedAt           DateTime?               @db.Timestamptz(3)
   publishedAt          DateTime?               @db.Timestamptz(3)
   createdAt            DateTime                @default(now()) @db.Timestamptz(3)
   updatedAt            DateTime                @updatedAt @db.Timestamptz(3)
@@ -181,7 +184,6 @@ model EventRevision {
 
   @@unique([eventId, id])
   @@unique([eventId, number])
-  @@unique([eventId, contentVersion])
 }
 
 enum ApplicationStatus {
@@ -237,6 +239,7 @@ model ApplicationAnswerOption {
 }
 
 enum EmailOutboxType {
+  EVENT_CANCELLED
   APPLICATION_RECEIVED
   NEW_APPLICATION
   APPLICATION_APPROVED

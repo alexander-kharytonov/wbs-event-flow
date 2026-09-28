@@ -1,6 +1,13 @@
-import ArrowForward from "@mui/icons-material/ArrowForward";
 import EventOutlined from "@mui/icons-material/EventOutlined";
-import { Box, Button, Paper, Stack, Typography } from "@mui/material";
+import {
+  Alert,
+  Box,
+  Button,
+  CardActionArea,
+  Paper,
+  Stack,
+  Typography,
+} from "@mui/material";
 import type { Metadata } from "next";
 import { DateTime } from "@/components/ui/date-time";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -15,7 +22,7 @@ export const metadata: Metadata = { title: "My registrations | Event Flow" };
 
 export default async function MyRegistrationsPage() {
   const user = await requireVerifiedUser();
-  const { upcoming, past } = await getMyRegistrations(user.id);
+  const { upcoming, past, unavailable } = await getMyRegistrations(user.id);
   const groups = [
     {
       id: "upcoming-registrations",
@@ -23,6 +30,11 @@ export default async function MyRegistrationsPage() {
       registrations: upcoming,
     },
     { id: "past-registrations", title: "Past", registrations: past },
+    {
+      id: "unavailable-registrations",
+      title: "Unavailable events",
+      registrations: unavailable,
+    },
   ];
 
   return (
@@ -30,7 +42,9 @@ export default async function MyRegistrationsPage() {
       <ApplicationRealtime streamUrl="/api/account/registrations/stream" />
       <PageHeader title="My registrations" />
       <AccountNavigation active="registrations" />
-      {upcoming.length === 0 && past.length === 0 ? (
+      {upcoming.length === 0 &&
+      past.length === 0 &&
+      unavailable.length === 0 ? (
         <EmptyState
           icon={<EventOutlined />}
           title="No registrations yet"
@@ -70,45 +84,52 @@ export default async function MyRegistrationsPage() {
               >
                 {group.registrations.map((registration) => (
                   <Paper
-                    key={registration.publicId}
+                    key={registration.eventId}
                     component="li"
                     variant="outlined"
-                    sx={{ p: 3 }}
                   >
-                    <Stack
-                      spacing={2}
-                      sx={{
-                        height: "100%",
-                        alignItems: "flex-start",
-                        overflowWrap: "anywhere",
-                      }}
+                    <CardActionArea
+                      href={`/account/registrations/${registration.eventId}`}
+                      aria-labelledby={`registration-title-${registration.eventId}`}
+                      sx={{ p: 3, height: "100%", borderRadius: "inherit" }}
                     >
-                      <ApplicationStatus status={registration.status} />
-                      <Typography variant="h6" component="h3">
-                        {registration.title}
-                      </Typography>
-                      <Box sx={{ flexGrow: 1 }}>
-                        <DateTime
-                          date={registration.startsAt}
-                          endDate={registration.endsAt}
-                          timezone={registration.timezone}
-                        />
-                      </Box>
-                      <Stack direction="row" sx={{ gap: 1, flexWrap: "wrap" }}>
-                        <Button
-                          href={`/account/registrations/${registration.eventId}`}
-                          variant="outlined"
+                      <Stack
+                        spacing={2}
+                        sx={{
+                          height: "100%",
+                          alignItems: "flex-start",
+                          overflowWrap: "anywhere",
+                        }}
+                      >
+                        <ApplicationStatus status={registration.status} />
+                        {registration.cancelledAt && (
+                          <Alert
+                            severity="error"
+                            sx={{ whiteSpace: "pre-wrap", width: "100%" }}
+                          >
+                            Event cancelled. {registration.cancellationReason}
+                          </Alert>
+                        )}
+                        <Typography
+                          id={`registration-title-${registration.eventId}`}
+                          variant="h6"
+                          component="h3"
                         >
-                          View registration
-                        </Button>
-                        <Button
-                          href={`/e/${encodeURIComponent(registration.publicId)}`}
-                          endIcon={<ArrowForward />}
-                        >
-                          View event
-                        </Button>
+                          {registration.title}
+                        </Typography>
+                        <Box sx={{ flexGrow: 1 }}>
+                          {registration.startsAt &&
+                            registration.endsAt &&
+                            registration.timezone && (
+                              <DateTime
+                                date={registration.startsAt}
+                                endDate={registration.endsAt}
+                                timezone={registration.timezone}
+                              />
+                            )}
+                        </Box>
                       </Stack>
-                    </Stack>
+                    </CardActionArea>
                   </Paper>
                 ))}
               </Box>

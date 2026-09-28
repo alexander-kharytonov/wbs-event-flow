@@ -8,6 +8,11 @@ import {
   eventInputSchema,
   eventValidationError,
 } from "@/features/events/event-input-schema";
+import {
+  eventLifecycle,
+  workspaceReadOnly,
+} from "@/features/events/event-lifecycle";
+import { lockEventForUpdate } from "@/features/events/server/lock-event-for-update";
 import { requireOrganizer } from "@/features/organizer/server/require-organizer";
 import { prisma } from "@/lib/prisma";
 
@@ -50,32 +55,65 @@ export async function updateEvent(
   }
 
   try {
-    const result = await prisma.event.updateMany({
-      where: { id, organizerId: organizer.id, updatedAt },
-      data: {
-        ...parsed.data,
-        contentVersion: { increment: 1 },
-        updatedAt: new Date(Math.max(Date.now(), updatedAt.getTime() + 1)),
+    const outcome = await prisma.$transaction(
+      async (tx): Promise<EventFormState | null> => {
+        const event = await lockEventForUpdate(tx, {
+          id,
+          organizerId: organizer.id,
+        });
+
+        if (!event) {
+          return { message: "This event is unavailable for editing." };
+        }
+
+        if (workspaceReadOnly(event, event.decisionNow)) {
+          return { message: "This event is read-only." };
+        }
+
+        if (event.updatedAt.getTime() !== updatedAt.getTime()) {
+          return {
+            conflict: true,
+            message:
+              "This event changed while you were editing it. Reload the latest version and try again.",
+          };
+        }
+
+        if (
+          eventLifecycle(event, event.decisionNow) === "Ongoing" &&
+          (parsed.data.startsAt.getTime() !== event.startsAt.getTime() ||
+            parsed.data.endsAt <= event.decisionNow)
+        ) {
+          return {
+            message:
+              "An ongoing event must keep its original start and end after the current time.",
+          };
+        }
+
+        const result = await tx.event.updateMany({
+          where: { id, organizerId: organizer.id, updatedAt },
+          data: {
+            ...parsed.data,
+            contentVersion: { increment: 1 },
+            updatedAt: new Date(
+              Math.max(event.decisionNow.getTime(), updatedAt.getTime() + 1),
+            ),
+          },
+        });
+
+        if (result.count !== 1) {
+          return {
+            conflict: true,
+            message: "This event changed. Reload and try again.",
+          };
+        }
+
+        return null;
       },
-    });
+      { isolationLevel: "ReadCommitted" },
+    );
 
-    if (result.count !== 1) {
-      // This read only chooses a safe error; authorization and concurrency are
-      // enforced together by the database write above.
-      const ownedEvent = await prisma.event.findFirst({
-        where: { id, organizerId: organizer.id },
-        select: { id: true },
-      });
-
-      if (!ownedEvent) {
-        return { message: "This event is unavailable for editing." };
-      }
-
-      return {
-        conflict: true,
-        message:
-          "This event changed while you were editing it. Reload the latest version and try again.",
-      };
+    if (outcome) {
+      return outcome;
     }
   } catch {
     return { message: "We couldn’t save your changes. Please try again." };
