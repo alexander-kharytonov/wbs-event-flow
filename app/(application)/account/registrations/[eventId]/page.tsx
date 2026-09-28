@@ -15,8 +15,6 @@ import {
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { DateTime } from "@/components/ui/date-time";
-import { PageHeader } from "@/components/ui/page-header";
-import { AccountNavigation } from "@/features/auth/components/account-navigation";
 import { ApplicationRealtime } from "@/features/events/components/application-realtime";
 import { ApplicationStatus } from "@/features/events/components/application-status";
 import { SubmittedAnswers } from "@/features/events/components/submitted-answers";
@@ -146,7 +144,7 @@ export default async function RegistrationDetailPage({
         <Link href="/account/registrations" sx={{ alignSelf: "flex-start" }}>
           ← All registrations
         </Link>
-        <Typography variant="h4" component="h2">
+        <Typography variant="h4" component="h1">
           {context?.title ?? "Event details unavailable"}
         </Typography>
         {registration.cancelledAt && (
