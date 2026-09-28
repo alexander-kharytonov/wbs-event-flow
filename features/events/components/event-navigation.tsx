@@ -23,7 +23,7 @@ export function EventNavigation({
         flexWrap: "wrap",
         "& .MuiButton-root": { flexShrink: 0, whiteSpace: "nowrap" },
         "& [aria-current=page]": {
-          bgcolor: "action.hover",
+          bgcolor: "action.selected",
           boxShadow: "inset 0 -2px var(--mui-palette-primary-main)",
           fontWeight: 700,
         },

@@ -7,22 +7,104 @@ const theme = createTheme({
   colorSchemes: {
     light: {
       palette: {
-        primary: { main: "#243caa", contrastText: "#ffffff" },
-        secondary: { main: "#7026a3", contrastText: "#ffffff" },
-        info: { main: "#007f9c", contrastText: "#ffffff" },
-        background: { default: "#f5f7fc", paper: "#ffffff" },
-        text: { primary: "#172044", secondary: "#596580" },
-        divider: "#dce1ee",
+        primary: {
+          main: "#a65300",
+          light: "#ffd166",
+          dark: "#7d3900",
+          contrastText: "#ffffff",
+        },
+        secondary: {
+          main: "#a7472f",
+          light: "#ef9b83",
+          dark: "#803321",
+          contrastText: "#ffffff",
+        },
+        info: {
+          main: "#176d80",
+          light: "#79bfcc",
+          dark: "#105364",
+          contrastText: "#ffffff",
+        },
+        success: {
+          main: "#26734d",
+          light: "#85c6a0",
+          dark: "#195337",
+          contrastText: "#ffffff",
+        },
+        warning: {
+          main: "#865b08",
+          light: "#e8bf63",
+          dark: "#664300",
+          contrastText: "#ffffff",
+        },
+        error: {
+          main: "#b52246",
+          light: "#ef8fa7",
+          dark: "#8e1735",
+          contrastText: "#ffffff",
+        },
+        background: { default: "#f8f7f4", paper: "#ffffff" },
+        text: { primary: "#29251f", secondary: "#6a6258", disabled: "#81796f" },
+        divider: "#e2ddd5",
+        action: {
+          active: "#6a6258",
+          hover: "rgba(166, 83, 0, 0.05)",
+          selected: "rgba(255, 193, 61, 0.18)",
+          focus: "rgba(166, 83, 0, 0.16)",
+          disabled: "#81796f",
+          disabledBackground: "#eeebe5",
+        },
       },
     },
     dark: {
       palette: {
-        primary: { main: "#a9baff", contrastText: "#111c4a" },
-        secondary: { main: "#d5a8f4", contrastText: "#301245" },
-        info: { main: "#6bd9ef", contrastText: "#082c36" },
-        background: { default: "#101426", paper: "#191f36" },
-        text: { primary: "#eef1ff", secondary: "#b2bdd6" },
-        divider: "#353f5b",
+        primary: {
+          main: "#b58aff",
+          light: "#d2b7ff",
+          dark: "#9e6be8",
+          contrastText: "#190d2c",
+        },
+        secondary: {
+          main: "#c4ef73",
+          light: "#def5af",
+          dark: "#9fc94f",
+          contrastText: "#19220c",
+        },
+        info: {
+          main: "#74c9df",
+          light: "#ade3ef",
+          dark: "#4dabc3",
+          contrastText: "#0b232b",
+        },
+        success: {
+          main: "#81d9a4",
+          light: "#b0e9c6",
+          dark: "#54b77c",
+          contrastText: "#10281b",
+        },
+        warning: {
+          main: "#e7bc67",
+          light: "#f3d9a2",
+          dark: "#c69a47",
+          contrastText: "#2c210c",
+        },
+        error: {
+          main: "#ff9caa",
+          light: "#ffc2cb",
+          dark: "#e0788c",
+          contrastText: "#350f1a",
+        },
+        background: { default: "#0d101c", paper: "#191b2e" },
+        text: { primary: "#f0eef8", secondary: "#b5b2ca", disabled: "#88859d" },
+        divider: "#35354c",
+        action: {
+          active: "#b5b2ca",
+          hover: "rgba(181, 138, 255, 0.07)",
+          selected: "rgba(181, 138, 255, 0.14)",
+          focus: "rgba(196, 239, 115, 0.16)",
+          disabled: "#88859d",
+          disabledBackground: "#292b3e",
+        },
       },
     },
   },
@@ -81,17 +163,55 @@ const theme = createTheme({
     },
     MuiOutlinedInput: {
       styleOverrides: {
-        root: { backgroundColor: "var(--mui-palette-background-paper)" },
+        root: {
+          backgroundColor: "var(--mui-palette-background-paper)",
+          "& .MuiOutlinedInput-notchedOutline": {
+            borderColor: "var(--mui-palette-text-disabled)",
+          },
+          "&:hover .MuiOutlinedInput-notchedOutline": {
+            borderColor: "var(--mui-palette-text-secondary)",
+          },
+          "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+            borderColor: "var(--mui-palette-primary-main)",
+          },
+          "&.Mui-error .MuiOutlinedInput-notchedOutline": {
+            borderColor: "var(--mui-palette-error-main)",
+          },
+          "&.Mui-disabled .MuiOutlinedInput-notchedOutline": {
+            borderColor: "var(--mui-palette-divider)",
+          },
+        },
       },
     },
     MuiMenu: {
       styleOverrides: {
-        paper: { marginTop: 8, minWidth: 200 },
+        paper: {
+          marginTop: 8,
+          minWidth: 200,
+          backgroundColor: "var(--mui-palette-background-paper)",
+          border: "1px solid var(--mui-palette-divider)",
+          boxShadow: "0 12px 36px rgb(0 0 0 / 16%)",
+        },
       },
     },
     MuiMenuItem: { styleOverrides: { root: { minHeight: 44 } } },
-    MuiCssBaseline: {
+    MuiSkeleton: {
       styleOverrides: {
+        root: { backgroundColor: "var(--mui-palette-action-selected)" },
+      },
+    },
+    MuiLinearProgress: {
+      styleOverrides: {
+        root: { backgroundColor: "var(--mui-palette-action-selected)" },
+        bar: ({ theme }) => ({
+          ...theme.applyStyles("dark", {
+            backgroundColor: "var(--mui-palette-secondary-main)",
+          }),
+        }),
+      },
+    },
+    MuiCssBaseline: {
+      styleOverrides: (theme) => ({
         "*:focus-visible": {
           outline: "3px solid var(--mui-palette-primary-main)",
           outlineOffset: 3,
@@ -101,7 +221,16 @@ const theme = createTheme({
           color: "var(--mui-palette-primary-contrastText)",
         },
         html: { scrollPaddingTop: 24 },
-      },
+        ...theme.applyStyles("dark", {
+          "*:focus-visible": {
+            outlineColor: "var(--mui-palette-secondary-main)",
+          },
+          ".MuiButtonBase-root.Mui-focusVisible": {
+            outline: "3px solid var(--mui-palette-secondary-main)",
+            outlineOffset: 3,
+          },
+        }),
+      }),
     },
   },
 });

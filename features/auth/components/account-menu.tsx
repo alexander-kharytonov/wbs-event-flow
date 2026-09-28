@@ -122,16 +122,10 @@ export function AccountMenu({
         slotProps={{
           list: { "aria-labelledby": `${id}-trigger` },
           paper: {
-            sx: (theme) => ({
+            sx: {
               mt: 1.5,
               border: 1,
               borderColor: "divider",
-              boxShadow: "0 12px 36px rgb(16 20 38 / 18%)",
-              ...theme.applyStyles("dark", {
-                bgcolor: "#26304b",
-                borderColor: "#526080",
-                boxShadow: "0 12px 36px rgb(0 0 0 / 40%)",
-              }),
               minWidth: 180,
               overflow: "visible",
               "&::before": {
@@ -148,7 +142,7 @@ export function AccountMenu({
                 borderColor: "inherit",
                 transform: "translateY(-50%) rotate(45deg)",
               },
-            }),
+            },
           },
         }}
       >

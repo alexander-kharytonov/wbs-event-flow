@@ -2,8 +2,8 @@
 
 import Check from "@mui/icons-material/Check";
 import DarkModeOutlined from "@mui/icons-material/DarkModeOutlined";
+import DesktopWindowsOutlined from "@mui/icons-material/DesktopWindowsOutlined";
 import LightModeOutlined from "@mui/icons-material/LightModeOutlined";
-import SettingsBrightnessOutlined from "@mui/icons-material/SettingsBrightnessOutlined";
 import {
   IconButton,
   ListItemIcon,
@@ -16,7 +16,7 @@ import { useColorScheme } from "@mui/material/styles";
 import { useId, useState } from "react";
 
 const choices = [
-  { value: "system", label: "System", icon: SettingsBrightnessOutlined },
+  { value: "system", label: "System", icon: DesktopWindowsOutlined },
   { value: "light", label: "Light", icon: LightModeOutlined },
   { value: "dark", label: "Dark", icon: DarkModeOutlined },
 ] as const;
@@ -25,18 +25,22 @@ export function ThemeControl() {
   const { mode, setMode } = useColorScheme();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const id = useId();
+  const activeChoice =
+    choices.find((choice) => choice.value === mode) ?? choices[0];
+  const ActiveIcon = activeChoice.icon;
+  const label = `Appearance: ${activeChoice.label}`;
 
   return (
     <>
-      <Tooltip title="Appearance">
+      <Tooltip title={label}>
         <IconButton
-          aria-label="Appearance"
+          aria-label={label}
           aria-haspopup="menu"
           aria-controls={anchor ? id : undefined}
           aria-expanded={Boolean(anchor)}
           onClick={(event) => setAnchor(event.currentTarget)}
         >
-          <SettingsBrightnessOutlined fontSize="small" />
+          <ActiveIcon fontSize="small" />
         </IconButton>
       </Tooltip>
       <Menu
