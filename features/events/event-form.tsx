@@ -180,7 +180,10 @@ export function EventForm({
               label="End"
               type="datetime-local"
               required
-              slotProps={{ inputLabel: { shrink: true } }}
+              slotProps={{
+                inputLabel: { shrink: true },
+                htmlInput: { min: values.startsAt || undefined },
+              }}
             />
           </Box>
           <input type="hidden" name="timezone" value={values.timezone} />

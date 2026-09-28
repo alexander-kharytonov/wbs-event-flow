@@ -154,6 +154,12 @@ export default async function ApplicationsPage({
                 .map((part) => Array.from(part ?? "")[0] ?? "")
                 .join("")
                 .toUpperCase();
+              let colorHash = 0;
+
+              for (const character of initials) {
+                colorHash =
+                  (colorHash * 31 + (character.codePointAt(0) ?? 0)) % 360;
+              }
 
               return (
                 <ListItem
@@ -168,8 +174,8 @@ export default async function ApplicationsPage({
                     <ListItemAvatar sx={{ minWidth: 0, mt: 0.5 }}>
                       <Avatar
                         sx={{
-                          bgcolor: "action.selected",
-                          color: "primary.main",
+                          bgcolor: `hsl(${colorHash}, 55%, 32%)`,
+                          color: "#fff",
                           fontWeight: 600,
                           fontSize: 14,
                         }}

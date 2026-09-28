@@ -61,9 +61,6 @@ export function EventGuestView({
             </Button>
           </Stack>
         </Stack>
-        <Stack spacing={2} sx={{ "&:empty": { display: "none" } }}>
-          {notice}
-        </Stack>
         <Box
           sx={{
             display: "grid",
@@ -104,7 +101,7 @@ export function EventGuestView({
             tabIndex={-1}
             sx={{ p: 3, order: { xs: -1, md: 0 } }}
           >
-            <Stack spacing={3}>
+            <Stack spacing={2}>
               <Stack
                 direction="row"
                 sx={{
@@ -226,6 +223,17 @@ export function EventGuestView({
                   state === "OPEN" &&
                   " All places are currently filled. You can still apply — a place may become available."}
               </Typography>
+              <Stack
+                spacing={2}
+                sx={{
+                  pt: 2,
+                  borderTop: 1,
+                  borderColor: "divider",
+                  "&:empty": { display: "none" },
+                }}
+              >
+                {notice}
+              </Stack>
             </Stack>
           </Paper>
         </Box>

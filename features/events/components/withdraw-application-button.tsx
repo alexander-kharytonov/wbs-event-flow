@@ -60,7 +60,6 @@ export function WithdrawApplicationButton({
         variant="outlined"
         startIcon={<CancelOutlined />}
         sx={(theme) => ({
-          alignSelf: "flex-end",
           borderColor: "currentColor",
           ...theme.applyStyles("dark", {
             color: "error.light",

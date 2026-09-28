@@ -8,49 +8,49 @@ const theme = createTheme({
     light: {
       palette: {
         primary: {
-          main: "#a65300",
-          light: "#ffd166",
-          dark: "#7d3900",
-          contrastText: "#ffffff",
+          main: "#b84900",
+          light: "#ffd85a",
+          dark: "#963900",
+          contrastText: "#fefefe",
         },
         secondary: {
           main: "#a7472f",
           light: "#ef9b83",
           dark: "#803321",
-          contrastText: "#ffffff",
+          contrastText: "#fefefe",
         },
         info: {
           main: "#176d80",
           light: "#79bfcc",
           dark: "#105364",
-          contrastText: "#ffffff",
+          contrastText: "#fefefe",
         },
         success: {
           main: "#26734d",
           light: "#85c6a0",
           dark: "#195337",
-          contrastText: "#ffffff",
+          contrastText: "#fefefe",
         },
         warning: {
           main: "#865b08",
           light: "#e8bf63",
           dark: "#664300",
-          contrastText: "#ffffff",
+          contrastText: "#fefefe",
         },
         error: {
           main: "#b52246",
           light: "#ef8fa7",
           dark: "#8e1735",
-          contrastText: "#ffffff",
+          contrastText: "#fefefe",
         },
-        background: { default: "#f8f7f4", paper: "#ffffff" },
+        background: { default: "#faf9f7", paper: "#fefefe" },
         text: { primary: "#29251f", secondary: "#6a6258", disabled: "#81796f" },
-        divider: "#e2ddd5",
+        divider: "#e5e1da",
         action: {
           active: "#6a6258",
-          hover: "rgba(166, 83, 0, 0.05)",
-          selected: "rgba(255, 193, 61, 0.18)",
-          focus: "rgba(166, 83, 0, 0.16)",
+          hover: "rgba(184, 73, 0, 0.05)",
+          selected: "rgba(255, 207, 64, 0.18)",
+          focus: "rgba(184, 73, 0, 0.16)",
           disabled: "#81796f",
           disabledBackground: "#eeebe5",
         },
@@ -203,9 +203,11 @@ const theme = createTheme({
     MuiLinearProgress: {
       styleOverrides: {
         root: { backgroundColor: "var(--mui-palette-action-selected)" },
-        bar: ({ theme }) => ({
+        bar: ({ theme, ownerState }) => ({
           ...theme.applyStyles("dark", {
-            backgroundColor: "var(--mui-palette-secondary-main)",
+            ...(ownerState.color === "primary" && {
+              backgroundColor: "var(--mui-palette-secondary-main)",
+            }),
           }),
         }),
       },
@@ -217,11 +219,15 @@ const theme = createTheme({
           outlineOffset: 3,
         },
         "::selection": {
-          background: "var(--mui-palette-primary-main)",
-          color: "var(--mui-palette-primary-contrastText)",
+          background: "var(--mui-palette-primary-light)",
+          color: "var(--mui-palette-text-primary)",
         },
         html: { scrollPaddingTop: 24 },
         ...theme.applyStyles("dark", {
+          "::selection": {
+            background: "var(--mui-palette-primary-main)",
+            color: "var(--mui-palette-primary-contrastText)",
+          },
           "*:focus-visible": {
             outlineColor: "var(--mui-palette-secondary-main)",
           },
