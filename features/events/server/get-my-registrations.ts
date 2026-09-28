@@ -38,7 +38,7 @@ export async function getMyRegistrations(userId: string) {
   }
 
   const registrations = [...currentByEvent.values()].flatMap(
-    ({ status, event }) => {
+    ({ eventId, status, event }) => {
       const parsed = eventSnapshotSchema.safeParse(
         event.publishedRevision?.snapshot,
       );
@@ -50,7 +50,15 @@ export async function getMyRegistrations(userId: string) {
       const { title, startsAt, endsAt, timezone } = parsed.data;
 
       return [
-        { publicId: event.publicId, title, startsAt, endsAt, timezone, status },
+        {
+          eventId,
+          publicId: event.publicId,
+          title,
+          startsAt,
+          endsAt,
+          timezone,
+          status,
+        },
       ];
     },
   );

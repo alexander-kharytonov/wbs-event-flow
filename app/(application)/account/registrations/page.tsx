@@ -99,6 +99,12 @@ export default async function MyRegistrationsPage() {
                         />
                       </Box>
                       <Button
+                        href={`/account/registrations/${registration.eventId}`}
+                        variant="outlined"
+                      >
+                        View registration
+                      </Button>
+                      <Button
                         href={`/e/${encodeURIComponent(registration.publicId)}`}
                         endIcon={<ArrowForward />}
                         sx={{ px: 0 }}
