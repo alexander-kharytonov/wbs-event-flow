@@ -25,26 +25,11 @@ export default async function Home({ searchParams }: PageProps<"/">) {
       <Paper
         variant="outlined"
         sx={{
-          p: { xs: 3, sm: 6, md: 8 },
+          p: { xs: 3, sm: 5, md: 6 },
           overflow: "hidden",
           position: "relative",
         }}
       >
-        <Box
-          aria-hidden="true"
-          sx={{
-            position: "absolute",
-            right: -100,
-            top: -120,
-            width: 420,
-            height: 420,
-            background:
-              "linear-gradient(145deg, var(--mui-palette-primary-main), var(--mui-palette-info-main) 48%, var(--mui-palette-secondary-main))",
-            opacity: 0.14,
-            borderRadius: "50%",
-            pointerEvents: "none",
-          }}
-        />
         <Stack spacing={3} sx={{ maxWidth: 690, position: "relative" }}>
           <Typography variant="overline" color="primary.main">
             Make room for your next experience
@@ -52,7 +37,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           <Typography
             component="h1"
             sx={{
-              fontSize: { xs: "2.6rem", sm: "3.8rem", md: "4.5rem" },
+              fontSize: { xs: "2.6rem", sm: "3.25rem", md: "3.75rem" },
               fontWeight: 650,
               lineHeight: 1.08,
               letterSpacing: "-0.055em",
@@ -105,7 +90,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         >
           <Stack spacing={2}>
             <EventAvailableOutlined
-              sx={{ color: "secondary.main", fontSize: 32 }}
+              sx={{ color: "primary.main", fontSize: 32 }}
             />
             <Typography variant="h5" component="h2">
               Bring people together.
@@ -124,7 +109,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                   : "/register?returnTo=%2Fonboarding%2Forganizer"
               }
               variant="outlined"
-              color="secondary"
+              color="primary"
               endIcon={<ArrowForward />}
               sx={{ alignSelf: "flex-start" }}
             >

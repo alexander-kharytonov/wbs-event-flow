@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { applicationPrefill } from "@/features/events/application-prefill";
+import { applicationStatusLabels } from "@/features/events/application-status-labels";
 import { ApplicationRealtime } from "@/features/events/components/application-realtime";
-import { applicationStatusLabels } from "@/features/events/components/application-status";
 import { EventGuestView } from "@/features/events/components/event-guest-view";
 import { RegistrationApplicationForm } from "@/features/events/components/registration-application-form";
 import { WithdrawApplicationButton } from "@/features/events/components/withdraw-application-button";
@@ -107,53 +107,67 @@ export default async function PublicEventPage({ params }: Props) {
   }).toString();
 
   return (
-    <EventGuestView snapshot={snapshot} now={now} approved={approved}>
-      {user && (
-        <ApplicationRealtime streamUrl="/api/account/registrations/stream" />
-      )}
-      {ownedEvent && (
-        <Alert severity="info">
-          <AlertTitle>This is your event</AlertTitle>
-          You cannot apply to attend your own event.
-        </Alert>
-      )}
-      {application && (
-        <Alert
-          severity={
-            application.status === "APPROVED"
-              ? "success"
-              : application.status === "REJECTED"
-                ? "error"
-                : "info"
-          }
-        >
-          <AlertTitle>
-            Your application: {applicationStatusLabels[application.status]}
-          </AlertTitle>
-          {application.status === "APPROVED"
-            ? "Your application has been approved."
-            : application.status === "REJECTED"
-              ? "Your application has been declined."
-              : "Your application has been received and is awaiting organizer review."}
-        </Alert>
-      )}
-      {application &&
-        (application.status === "PENDING" ||
-          application.status === "APPROVED") &&
-        now.getTime() < Date.parse(snapshot.endsAt) && (
-          <WithdrawApplicationButton
-            publicId={publicId}
-            applicationId={application.id}
-          />
-        )}
-      {withdrawn && (
-        <Alert severity="info">
-          <AlertTitle>Your application: Withdrawn</AlertTitle>
-          {open
-            ? "You can apply again below. Only answers to unchanged questions have been carried over. Your new application will need organizer review."
-            : "Your application has been withdrawn. You can apply again when registration is open."}
-        </Alert>
-      )}
+    <EventGuestView
+      snapshot={snapshot}
+      now={now}
+      approved={approved}
+      showApplicationLink={
+        !ownedEvent &&
+        !application &&
+        open &&
+        (snapshot.accountRequirement === "OPTIONAL" || Boolean(user))
+      }
+      notice={
+        <>
+          {user && (
+            <ApplicationRealtime streamUrl="/api/account/registrations/stream" />
+          )}
+          {ownedEvent && (
+            <Alert severity="info">
+              <AlertTitle>This is your event</AlertTitle>
+              You cannot apply to attend your own event.
+            </Alert>
+          )}
+          {application && (
+            <Alert
+              severity={
+                application.status === "APPROVED"
+                  ? "success"
+                  : application.status === "REJECTED"
+                    ? "error"
+                    : "info"
+              }
+            >
+              <AlertTitle>
+                Your application: {applicationStatusLabels[application.status]}
+              </AlertTitle>
+              {application.status === "APPROVED"
+                ? "Your application has been approved."
+                : application.status === "REJECTED"
+                  ? "Your application has been declined."
+                  : "Your application has been received and is awaiting organizer review."}
+            </Alert>
+          )}
+          {application &&
+            (application.status === "PENDING" ||
+              application.status === "APPROVED") &&
+            now.getTime() < Date.parse(snapshot.endsAt) && (
+              <WithdrawApplicationButton
+                publicId={publicId}
+                applicationId={application.id}
+              />
+            )}
+          {withdrawn && (
+            <Alert severity="info">
+              <AlertTitle>Your application: Withdrawn</AlertTitle>
+              {open
+                ? "You can apply again below. Only answers to unchanged questions have been carried over. Your new application will need organizer review."
+                : "Your application has been withdrawn. You can apply again when registration is open."}
+            </Alert>
+          )}
+        </>
+      }
+    >
       {!ownedEvent &&
         !application &&
         open &&

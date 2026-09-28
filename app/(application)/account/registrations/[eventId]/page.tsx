@@ -4,6 +4,7 @@ import {
   AccordionDetails,
   AccordionSummary,
   Alert,
+  Box,
   Button,
   Divider,
   Paper,
@@ -13,9 +14,11 @@ import {
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { DateTime } from "@/components/ui/date-time";
+import { PageHeader } from "@/components/ui/page-header";
 import { AccountNavigation } from "@/features/auth/components/account-navigation";
 import { ApplicationRealtime } from "@/features/events/components/application-realtime";
 import { ApplicationStatus } from "@/features/events/components/application-status";
+import { SubmittedAnswers } from "@/features/events/components/submitted-answers";
 import { formatEventTime } from "@/features/events/format-event-time";
 import { getMyRegistration } from "@/features/events/server/get-my-registration";
 import { requireVerifiedUser } from "@/lib/session";
@@ -30,22 +33,49 @@ function AttemptDates({ attempt }: { attempt: Attempt }) {
   const timezone = attempt.context?.timezone ?? "UTC";
 
   return (
-    <Stack spacing={0.5}>
-      <Typography variant="body2" color="text.secondary">
-        Submitted {formatEventTime(attempt.submittedAt, timezone)} ({timezone})
+    <Box sx={{ bgcolor: "background.default", p: 2, borderRadius: 1 }}>
+      <Box
+        component="dl"
+        sx={{
+          m: 0,
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", sm: "repeat(3, minmax(0, 1fr))" },
+          gap: 2,
+          "& dt": { typography: "caption", color: "text.secondary" },
+          "& dd": { m: 0, typography: "body2" },
+        }}
+      >
+        <Box>
+          <Typography component="dt">Submitted</Typography>
+          <Typography component="dd">
+            {formatEventTime(attempt.submittedAt, timezone)}
+          </Typography>
+        </Box>
+        {attempt.reviewedAt && (
+          <Box>
+            <Typography component="dt">Reviewed</Typography>
+            <Typography component="dd">
+              {formatEventTime(attempt.reviewedAt, timezone)}
+            </Typography>
+          </Box>
+        )}
+        {attempt.status === "WITHDRAWN" && attempt.withdrawnAt && (
+          <Box>
+            <Typography component="dt">Withdrawn</Typography>
+            <Typography component="dd">
+              {formatEventTime(attempt.withdrawnAt, timezone)}
+            </Typography>
+          </Box>
+        )}
+      </Box>
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        sx={{ display: "block", mt: 1 }}
+      >
+        All times in {timezone}
       </Typography>
-      {attempt.reviewedAt && (
-        <Typography variant="body2" color="text.secondary">
-          Reviewed {formatEventTime(attempt.reviewedAt, timezone)} ({timezone})
-        </Typography>
-      )}
-      {attempt.status === "WITHDRAWN" && attempt.withdrawnAt && (
-        <Typography variant="body2" color="text.secondary">
-          Withdrawn {formatEventTime(attempt.withdrawnAt, timezone)} ({timezone}
-          )
-        </Typography>
-      )}
-    </Stack>
+    </Box>
   );
 }
 
@@ -57,32 +87,30 @@ function AttemptAnswers({ attempt }: { attempt: Attempt }) {
           Submitted for {attempt.context.title}
         </Typography>
       )}
-      <Stack spacing={0.5}>
-        <Typography variant="subtitle2">Full name</Typography>
-        <Typography>{attempt.fullName}</Typography>
-      </Stack>
-      <Stack spacing={0.5}>
-        <Typography variant="subtitle2">Email</Typography>
-        <Typography>{attempt.email}</Typography>
-      </Stack>
-      <Divider />
-      <Typography variant="subtitle2">Submitted answers</Typography>
-      {attempt.answers === null ? (
-        <Alert severity="warning">Answer unavailable</Alert>
-      ) : attempt.answers.length === 0 ? (
-        <Typography color="text.secondary">
-          There were no additional questions on this registration form.
-        </Typography>
-      ) : (
-        attempt.answers.map((answer) => (
-          <Stack key={answer.fieldId} spacing={0.5}>
-            <Typography variant="subtitle2">{answer.label}</Typography>
-            <Typography sx={{ whiteSpace: "pre-wrap" }}>
-              {answer.value}
-            </Typography>
-          </Stack>
-        ))
-      )}
+      <Box
+        component="dl"
+        sx={{
+          m: 0,
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+          gap: 2,
+          "& dt": { typography: "body2", color: "text.secondary" },
+          "& dd": { m: 0, mt: 0.5 },
+        }}
+      >
+        <Box>
+          <Typography component="dt">Full name</Typography>
+          <Typography component="dd">{attempt.fullName}</Typography>
+        </Box>
+        <Box>
+          <Typography component="dt">Email</Typography>
+          <Typography component="dd">{attempt.email}</Typography>
+        </Box>
+      </Box>
+      <Typography variant="h6" component="h3">
+        Submitted answers
+      </Typography>
+      <SubmittedAnswers answers={attempt.answers} />
     </Stack>
   );
 }
@@ -105,14 +133,20 @@ export default async function RegistrationDetailPage({
   return (
     <Stack spacing={3}>
       <ApplicationRealtime streamUrl="/api/account/registrations/stream" />
-      <Typography variant="h4" component="h1">
-        My registration
-      </Typography>
+      <PageHeader title="My registration" />
       <AccountNavigation active="registrations" />
       <Button href="/account/registrations" sx={{ alignSelf: "flex-start" }}>
         All registrations
       </Button>
-      <Stack spacing={1} sx={{ overflowWrap: "anywhere" }}>
+      <Stack
+        spacing={2}
+        sx={{
+          overflowWrap: "anywhere",
+          pb: 3,
+          borderBottom: 1,
+          borderColor: "divider",
+        }}
+      >
         <Typography variant="h5" component="h2">
           {context?.title ?? "Event details unavailable"}
         </Typography>
@@ -182,13 +216,26 @@ export default async function RegistrationDetailPage({
                   id={`previous-application-${index}`}
                   aria-controls={`previous-application-details-${index}`}
                 >
-                  <Stack spacing={1} sx={{ alignItems: "flex-start" }}>
+                  <Stack
+                    direction={{ xs: "column", sm: "row" }}
+                    sx={{ gap: 1.5, alignItems: { sm: "center" } }}
+                  >
                     <ApplicationStatus status={attempt.status} />
-                    <AttemptDates attempt={attempt} />
+                    <Typography variant="body2" color="text.secondary">
+                      Submitted{" "}
+                      {formatEventTime(
+                        attempt.submittedAt,
+                        attempt.context?.timezone ?? "UTC",
+                      )}{" "}
+                      ({attempt.context?.timezone ?? "UTC"})
+                    </Typography>
                   </Stack>
                 </AccordionSummary>
                 <AccordionDetails>
-                  <AttemptAnswers attempt={attempt} />
+                  <Stack spacing={3}>
+                    <AttemptDates attempt={attempt} />
+                    <AttemptAnswers attempt={attempt} />
+                  </Stack>
                 </AccordionDetails>
               </Accordion>
             ))}

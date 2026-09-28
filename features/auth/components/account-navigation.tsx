@@ -28,7 +28,8 @@ export function AccountNavigation({
         overflowX: "auto",
         "& .MuiButton-root": { flexShrink: 0 },
         "& [aria-current=page]": {
-          bgcolor: "action.selected",
+          bgcolor: "action.hover",
+          boxShadow: "inset 0 -2px var(--mui-palette-primary-main)",
           fontWeight: 700,
         },
       }}

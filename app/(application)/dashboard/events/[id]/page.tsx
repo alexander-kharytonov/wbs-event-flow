@@ -1,4 +1,4 @@
-import { Box, Chip, Divider, Paper, Stack, Typography } from "@mui/material";
+import { Box, Button, Chip, Paper, Stack, Typography } from "@mui/material";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import { DateTime } from "@/components/ui/date-time";
@@ -40,7 +40,13 @@ export default async function EventPage({
         applicationCount={event._count.applications}
       />
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
-        <Stack spacing={3}>
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+            gap: 4,
+          }}
+        >
           <Stack component="section" spacing={2}>
             <Typography variant="h6" component="h2">
               Schedule
@@ -51,7 +57,6 @@ export default async function EventPage({
               timezone={event.timezone}
             />
           </Stack>
-          <Divider />
           <Stack component="section" spacing={2}>
             <Typography variant="h6" component="h2">
               Registration
@@ -94,7 +99,6 @@ export default async function EventPage({
               Guest capacity: {event.capacity ?? "No limit"}
             </Typography>
           </Stack>
-          <Divider />
           <Stack component="section" spacing={2}>
             <Typography variant="h6" component="h2">
               Access
@@ -116,22 +120,50 @@ export default async function EventPage({
               </Typography>
             </Stack>
           </Stack>
+          <Stack
+            component="section"
+            spacing={1}
+            sx={{ alignItems: "flex-start" }}
+          >
+            <Typography variant="h6" component="h2">
+              Applications
+            </Typography>
+            <Typography color="text.secondary">
+              {event._count.applications} submitted attempts
+            </Typography>
+            <Button
+              href={`/dashboard/events/${id}/applications`}
+              variant="outlined"
+            >
+              Review applications
+            </Button>
+          </Stack>
           {event.description && (
-            <>
-              <Divider />
-              <Stack component="section" spacing={2}>
-                <Typography variant="h6" component="h2">
-                  Description
-                </Typography>
-                <Typography
-                  sx={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}
-                >
-                  {event.description}
-                </Typography>
-              </Stack>
-            </>
+            <Stack
+              component="section"
+              spacing={2}
+              sx={{
+                gridColumn: "1 / -1",
+                pt: 3,
+                borderTop: 1,
+                borderColor: "divider",
+              }}
+            >
+              <Typography variant="h6" component="h2">
+                Description
+              </Typography>
+              <Typography
+                sx={{
+                  whiteSpace: "pre-wrap",
+                  overflowWrap: "anywhere",
+                  maxWidth: "75ch",
+                }}
+              >
+                {event.description}
+              </Typography>
+            </Stack>
           )}
-        </Stack>
+        </Box>
       </Paper>
     </Stack>
   );

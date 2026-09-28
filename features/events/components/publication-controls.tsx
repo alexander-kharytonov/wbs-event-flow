@@ -29,7 +29,11 @@ export function PublicationControls({
   const state = publicationState({ contentVersion, publishedRevision });
 
   return (
-    <Stack spacing={1.5} aria-busy={pending}>
+    <Stack
+      direction={{ xs: "column", md: "row" }}
+      sx={{ gap: 1.5, flexWrap: "wrap", alignItems: { md: "center" } }}
+      aria-busy={pending}
+    >
       <Stack
         direction="row"
         useFlexGap
@@ -45,7 +49,7 @@ export function PublicationControls({
         {state !== "Published" && (
           <Button
             variant="contained"
-            color="success"
+            color="primary"
             disabled={pending || result.conflict}
             onClick={() => {
               notifications.close(`publish:${eventId}`);
@@ -95,6 +99,7 @@ export function PublicationControls({
           sx={{ flexWrap: "wrap" }}
         >
           <Button
+            size="small"
             startIcon={<OpenInNewIcon />}
             href={`/e/${publicId}`}
             target="_blank"
@@ -103,7 +108,7 @@ export function PublicationControls({
             Open public page
           </Button>
           <Button
-            variant="outlined"
+            size="small"
             startIcon={<LinkIcon />}
             onClick={async () => {
               try {

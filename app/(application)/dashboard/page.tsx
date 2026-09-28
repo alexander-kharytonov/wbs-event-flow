@@ -5,6 +5,8 @@ import LinkOutlined from "@mui/icons-material/LinkOutlined";
 import PublicOutlined from "@mui/icons-material/PublicOutlined";
 import { Box, Button, Link, Paper, Stack, Typography } from "@mui/material";
 import { DateTime } from "@/components/ui/date-time";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { PublicationStatus } from "@/features/events/components/publication-status";
 import { publicationState } from "@/features/events/publication-state";
 import { requireOrganizer } from "@/features/organizer/server/require-organizer";
@@ -45,28 +47,19 @@ export default async function DashboardPage({
 
   return (
     <Stack spacing={3}>
-      <Stack
-        direction={{ xs: "column", sm: "row" }}
-        spacing={2}
-        sx={{ justifyContent: "space-between", alignItems: { sm: "center" } }}
-      >
-        <Stack spacing={1}>
-          <Typography variant="h4" component="h1">
-            My events
-          </Typography>
-          <Typography color="text.secondary">
-            Shape the details, publish when ready, and welcome your guests.
-          </Typography>
-        </Stack>
-        <Button
-          href="/dashboard/events/new"
-          variant="contained"
-          startIcon={<Add />}
-          sx={{ alignSelf: "flex-start", flexShrink: 0 }}
-        >
-          Create event
-        </Button>
-      </Stack>
+      <PageHeader
+        title="My events"
+        description="Manage your events, registration forms, and applications."
+        actions={
+          <Button
+            href="/dashboard/events/new"
+            variant="contained"
+            startIcon={<Add />}
+          >
+            Create event
+          </Button>
+        }
+      />
       <Stack
         component="nav"
         aria-label="Filter events"
@@ -88,22 +81,19 @@ export default async function DashboardPage({
         ))}
       </Stack>
       {visibleEvents.length === 0 ? (
-        <Paper
-          variant="outlined"
-          sx={{ p: { xs: 3, sm: 6 }, textAlign: "center" }}
-        >
-          <Stack spacing={2} sx={{ alignItems: "center" }}>
-            <EventOutlined sx={{ fontSize: 40, color: "text.secondary" }} />
-            <Typography variant="h6" component="h2">
-              {filter === "ALL"
-                ? "Your first event starts here"
-                : `No ${labels[filter].toLowerCase()} events`}
-            </Typography>
-            <Typography color="text.secondary">
-              {filter === "ALL"
-                ? "Create a draft to set the schedule and registration details."
-                : `Your ${labels[filter].toLowerCase()} events will appear here.`}
-            </Typography>
+        <EmptyState
+          icon={<EventOutlined />}
+          title={
+            filter === "ALL"
+              ? "Your first event starts here"
+              : `No ${labels[filter].toLowerCase()} events`
+          }
+          description={
+            filter === "ALL"
+              ? "Create a draft to set the schedule and registration details."
+              : `Your ${labels[filter].toLowerCase()} events will appear here.`
+          }
+          action={
             <Button
               href="/dashboard/events/new"
               variant="contained"
@@ -111,8 +101,8 @@ export default async function DashboardPage({
             >
               Create event
             </Button>
-          </Stack>
-        </Paper>
+          }
+        />
       ) : (
         <Box
           component="ul"

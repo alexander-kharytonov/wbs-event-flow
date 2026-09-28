@@ -1,10 +1,11 @@
-import { Alert, Box, Link, Paper, Stack, Typography } from "@mui/material";
+import { Box, Link, Paper, Stack, Typography } from "@mui/material";
 import { notFound } from "next/navigation";
 import { ApplicationCapacity } from "@/features/events/components/application-capacity";
 import { ApplicationDialog } from "@/features/events/components/application-dialog";
 import { ApplicationReviewControls } from "@/features/events/components/application-review-controls";
 import { ApplicationStatus } from "@/features/events/components/application-status";
 import { EventHeader } from "@/features/events/components/event-header";
+import { SubmittedAnswers } from "@/features/events/components/submitted-answers";
 import { formatEventTime } from "@/features/events/format-event-time";
 import { historicalAnswers } from "@/features/events/historical-answers";
 import { getOwnedApplication } from "@/features/events/server/organizer-applications";
@@ -129,54 +130,7 @@ export async function ApplicationDetail({
             was submitted.
           </Typography>
         </Stack>
-        {answers === null ? (
-          <Alert severity="warning">Answer unavailable</Alert>
-        ) : answers.length === 0 ? (
-          <Typography color="text.secondary">
-            There were no additional questions on this registration form.
-          </Typography>
-        ) : (
-          <Box component="dl" sx={{ m: 0 }}>
-            {answers.map((answer, index) => (
-              <Box
-                key={answer.fieldId}
-                sx={{
-                  display: "grid",
-                  gridTemplateColumns: {
-                    xs: "minmax(0, 1fr)",
-                    sm: "minmax(0, 2fr) minmax(0, 3fr)",
-                  },
-                  columnGap: 3,
-                  rowGap: 0.75,
-                  py: 2,
-                  borderTop: 1,
-                  borderColor: "divider",
-                  overflowWrap: "anywhere",
-                }}
-              >
-                <Typography
-                  component="dt"
-                  variant="body2"
-                  color="text.secondary"
-                >
-                  {index + 1}. {answer.label}
-                </Typography>
-                <Typography
-                  component="dd"
-                  sx={{ m: 0, whiteSpace: "pre-wrap" }}
-                  color={
-                    answer.value === "Answer unavailable" ||
-                    answer.value === "Not provided"
-                      ? "text.secondary"
-                      : "text.primary"
-                  }
-                >
-                  {answer.value}
-                </Typography>
-              </Box>
-            ))}
-          </Box>
-        )}
+        <SubmittedAnswers answers={answers} />
       </Stack>
       {application.status === "PENDING" && (
         <Paper

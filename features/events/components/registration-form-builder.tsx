@@ -129,17 +129,19 @@ export function RegistrationFormBuilder({
         </Alert>
       )}
       <Typography color="text.secondary">
-        Build the form your guests will complete. Questions save to your
-        workspace; publish the event to make changes available to guests.
+        Questions save to your workspace. Publish changes when you’re ready.
       </Typography>
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
-        <Stack spacing={2}>
-          <Box>
+        <Stack
+          direction={{ xs: "column", md: "row" }}
+          sx={{ gap: 2, alignItems: { md: "center" } }}
+        >
+          <Box sx={{ flex: 1 }}>
             <Typography variant="h6" component="h2">
               Guest details
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              These details are always required and cannot be changed.
+              Always collected with every application.
             </Typography>
           </Box>
           {["Full name", "Email"].map((label) => (
@@ -147,10 +149,10 @@ export function RegistrationFormBuilder({
               key={label}
               direction="row"
               spacing={1.5}
-              sx={{ alignItems: "center" }}
+              sx={{ alignItems: "center", gap: 1 }}
             >
               <LockOutlined fontSize="small" color="disabled" />
-              <Typography sx={{ flex: 1 }}>{label}</Typography>
+              <Typography>{label}</Typography>
               <Chip label="Required" size="small" variant="outlined" />
             </Stack>
           ))}
@@ -189,53 +191,72 @@ export function RegistrationFormBuilder({
           </Paper>
         )}
         {form.fields.map((field, index) => (
-          <Paper key={field.id} variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
-            <Stack spacing={1.5}>
-              <Typography
-                variant="subtitle1"
-                component="h3"
-                sx={{ overflowWrap: "anywhere" }}
-              >
-                {index + 1}. {field.label}
-              </Typography>
-              <Stack direction="row" spacing={1}>
-                <Chip size="small" label={fieldTypeLabels[field.type]} />
-                <Chip
-                  size="small"
-                  variant="outlined"
-                  label={field.required ? "Required" : "Optional"}
-                />
-              </Stack>
-              {field.description && (
+          <Paper
+            key={field.id}
+            variant="outlined"
+            sx={{ p: { xs: 2, sm: 2.5 } }}
+          >
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: {
+                  xs: "minmax(0, 1fr)",
+                  md: "minmax(0, 1fr) auto",
+                },
+                gap: 2,
+              }}
+            >
+              <Stack spacing={1}>
                 <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}
+                  variant="subtitle1"
+                  component="h3"
+                  sx={{ overflowWrap: "anywhere" }}
                 >
-                  {field.description}
+                  {index + 1}. {field.label}
                 </Typography>
-              )}
-              {field.options.length > 0 && (
-                <Box
-                  component="ol"
-                  sx={{ m: 0, pl: 3, overflowWrap: "anywhere" }}
-                >
-                  {field.options.map((option) => (
-                    <Typography
-                      component="li"
-                      variant="body2"
-                      key={option.label}
-                    >
-                      {option.label}
-                    </Typography>
-                  ))}
-                </Box>
-              )}
+                <Stack direction="row" spacing={1}>
+                  <Chip size="small" label={fieldTypeLabels[field.type]} />
+                  <Chip
+                    size="small"
+                    variant="outlined"
+                    label={field.required ? "Required" : "Optional"}
+                  />
+                </Stack>
+                {field.description && (
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}
+                  >
+                    {field.description}
+                  </Typography>
+                )}
+                {field.options.length > 0 && (
+                  <Box
+                    component="ol"
+                    sx={{ m: 0, pl: 3, overflowWrap: "anywhere" }}
+                  >
+                    {field.options.map((option) => (
+                      <Typography
+                        component="li"
+                        variant="body2"
+                        key={option.label}
+                      >
+                        {option.label}
+                      </Typography>
+                    ))}
+                  </Box>
+                )}
+              </Stack>
               {
                 <Stack
                   direction="row"
                   spacing={0.5}
-                  sx={{ alignItems: "center", flexWrap: "wrap" }}
+                  sx={{
+                    alignItems: "center",
+                    alignSelf: "start",
+                    flexWrap: "wrap",
+                  }}
                 >
                   <IconButton
                     aria-label={`Move question ${index + 1} up`}
@@ -274,7 +295,7 @@ export function RegistrationFormBuilder({
                   </Button>
                 </Stack>
               }
-            </Stack>
+            </Box>
           </Paper>
         ))}
       </Stack>

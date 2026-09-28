@@ -12,13 +12,12 @@ import {
   Typography,
 } from "@mui/material";
 import { notFound } from "next/navigation";
+import { EmptyState } from "@/components/ui/empty-state";
+import { applicationStatusLabels } from "@/features/events/application-status-labels";
 import { ApplicationCapacity } from "@/features/events/components/application-capacity";
 import { ApplicationListItemButton } from "@/features/events/components/application-list-item-button";
 import { ApplicationRealtime } from "@/features/events/components/application-realtime";
-import {
-  ApplicationStatus,
-  applicationStatusLabels,
-} from "@/features/events/components/application-status";
+import { ApplicationStatus } from "@/features/events/components/application-status";
 import { EventHeader } from "@/features/events/components/event-header";
 import { formatEventTime } from "@/features/events/format-event-time";
 import { getOwnedApplications } from "@/features/events/server/organizer-applications";
@@ -74,6 +73,21 @@ export default async function ApplicationsPage({
         active="applications"
         applicationCount={event.applications.length}
       />
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        sx={{
+          gap: 1,
+          justifyContent: "space-between",
+          alignItems: { sm: "baseline" },
+        }}
+      >
+        <Typography variant="h6" component="h2">
+          Applications
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {counts.PENDING} pending review · {counts.ALL} submitted attempts
+        </Typography>
+      </Stack>
       {event.publishedRevision && (
         <ApplicationCapacity
           snapshot={event.publishedRevision.snapshot}
@@ -103,19 +117,26 @@ export default async function ApplicationsPage({
         )}
       </Stack>
       {applications.length === 0 ? (
-        <Paper variant="outlined" sx={{ p: 4, textAlign: "center" }}>
-          <InboxOutlined color="action" sx={{ fontSize: 36, mb: 1 }} />
-          <Typography variant="h6" component="h3">
-            {filter === "ALL"
+        <EmptyState
+          icon={<InboxOutlined />}
+          title={
+            filter === "ALL"
               ? "No applications yet"
-              : `No ${applicationStatusLabels[filter].toLowerCase()} applications`}
-          </Typography>
-          <Typography color="text.secondary" sx={{ mt: 1 }}>
-            {filter === "ALL"
+              : `No ${applicationStatusLabels[filter].toLowerCase()} applications`
+          }
+          description={
+            filter === "ALL"
               ? "Submitted registrations will appear here for review."
-              : "Applications with this status will appear here."}
-          </Typography>
-        </Paper>
+              : "Applications with this status will appear here."
+          }
+          action={
+            filter !== "ALL" ? (
+              <Button href={`/dashboard/events/${id}/applications`}>
+                View all applications
+              </Button>
+            ) : undefined
+          }
+        />
       ) : (
         <Paper variant="outlined">
           <List disablePadding aria-label="Event applications">

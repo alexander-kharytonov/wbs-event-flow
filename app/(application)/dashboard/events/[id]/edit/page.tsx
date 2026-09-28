@@ -28,7 +28,7 @@ export default async function EditEventPage({
   }
 
   return (
-    <Stack spacing={3}>
+    <Stack spacing={3} sx={{ maxWidth: 880, width: "100%", mx: "auto" }}>
       <Link href={`/dashboard/events/${id}`} sx={{ alignSelf: "flex-start" }}>
         Back to event
       </Link>

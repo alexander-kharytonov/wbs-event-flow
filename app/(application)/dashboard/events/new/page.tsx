@@ -7,7 +7,7 @@ export default async function NewEventPage() {
   await requireOrganizer();
 
   return (
-    <Stack spacing={3}>
+    <Stack spacing={3} sx={{ maxWidth: 880, width: "100%", mx: "auto" }}>
       <Link href="/dashboard" sx={{ alignSelf: "flex-start" }}>
         My events
       </Link>

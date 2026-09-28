@@ -6,7 +6,6 @@ import {
   Box,
   Button,
   MenuItem,
-  Paper,
   Stack,
   TextField,
   Typography,
@@ -97,7 +96,14 @@ export function EventForm({
       action={action}
       spacing={3}
       aria-busy={pending}
-      sx={{ maxWidth: 820, width: "100%", mx: "auto" }}
+      sx={{
+        width: "100%",
+        bgcolor: "background.paper",
+        border: 1,
+        borderColor: "divider",
+        borderRadius: 1,
+        p: { xs: 2, sm: 4 },
+      }}
     >
       {edit && (
         <>
@@ -121,7 +127,10 @@ export function EventForm({
           )}
         </Alert>
       )}
-      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
+      <Box
+        component="section"
+        sx={{ pb: 3, borderBottom: 1, borderColor: "divider" }}
+      >
         <Stack spacing={3}>
           <Typography variant="h6" component="h2">
             Basic information
@@ -140,8 +149,11 @@ export function EventForm({
             slotProps={{ htmlInput: { maxLength: 20000 } }}
           />
         </Stack>
-      </Paper>
-      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
+      </Box>
+      <Box
+        component="section"
+        sx={{ pb: 3, borderBottom: 1, borderColor: "divider" }}
+      >
         <Stack spacing={3}>
           <Typography variant="h6" component="h2">
             Schedule
@@ -208,8 +220,11 @@ export function EventForm({
             replaced with an unambiguous time.
           </Typography>
         </Stack>
-      </Paper>
-      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
+      </Box>
+      <Box
+        component="section"
+        sx={{ pb: 3, borderBottom: 1, borderColor: "divider" }}
+      >
         <Stack spacing={3}>
           <Typography variant="h6" component="h2">
             Registration
@@ -262,8 +277,11 @@ export function EventForm({
             />
           </Box>
         </Stack>
-      </Paper>
-      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
+      </Box>
+      <Box
+        component="section"
+        sx={{ pb: 3, borderBottom: 1, borderColor: "divider" }}
+      >
         <Stack spacing={3}>
           <Typography variant="h6" component="h2">
             Access
@@ -297,8 +315,8 @@ export function EventForm({
             </MenuItem>
           </TextField>
         </Stack>
-      </Paper>
-      <Paper variant="outlined" sx={{ p: 2 }}>
+      </Box>
+      <Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {edit
             ? "Changes are saved to your workspace. Publish them when you’re ready to update the public event."
@@ -321,7 +339,7 @@ export function EventForm({
             {edit ? "Back to event" : "Back to my events"}
           </Button>
         </Stack>
-      </Paper>
+      </Box>
     </Stack>
   );
 }
