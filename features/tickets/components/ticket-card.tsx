@@ -14,7 +14,12 @@ export function TicketCard({ ticket }: { ticket: TicketPresentation }) {
   return (
     <Paper
       variant="outlined"
-      sx={{ p: { xs: 2, sm: 3 }, overflowWrap: "anywhere" }}
+      sx={{
+        p: { xs: 2, sm: 3 },
+        overflowWrap: "anywhere",
+        minWidth: 0,
+        containerType: "inline-size",
+      }}
     >
       <Stack spacing={2}>
         <Stack
@@ -40,9 +45,15 @@ export function TicketCard({ ticket }: { ticket: TicketPresentation }) {
           />
         </Stack>
         <Stack
-          direction={{ xs: "column", sm: "row" }}
           spacing={3}
-          sx={{ alignItems: { sm: "center" } }}
+          useFlexGap
+          sx={{
+            flexDirection: "column",
+            "@container (min-width: 640px)": {
+              flexDirection: "row",
+              alignItems: "center",
+            },
+          }}
         >
           <Stack spacing={1.5} sx={{ flex: 1, minWidth: 0 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
@@ -96,7 +107,8 @@ export function TicketCard({ ticket }: { ticket: TicketPresentation }) {
               spacing={1}
               sx={{
                 alignItems: "center",
-                alignSelf: { xs: "center", sm: "auto" },
+                alignSelf: "center",
+                flexShrink: 0,
                 maxWidth: "100%",
               }}
             >

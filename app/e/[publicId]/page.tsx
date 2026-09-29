@@ -195,14 +195,6 @@ export default async function PublicEventPage({ params }: Props) {
               timezone={snapshot.timezone}
             />
           )}
-          {user && (application || withdrawn) && (
-            <Button
-              href={`/account/registrations/${application?.eventId ?? withdrawn?.eventId}`}
-              sx={{ alignSelf: "flex-start" }}
-            >
-              View application history
-            </Button>
-          )}
           {withdrawn && !frozen && (
             <Alert severity="info">
               <AlertTitle>Your application: Withdrawn</AlertTitle>
@@ -210,6 +202,13 @@ export default async function PublicEventPage({ params }: Props) {
                 ? "You can apply again below. Only answers to unchanged questions have been carried over. Your new application will need organizer review."
                 : "Your application has been withdrawn. You can apply again when registration is open."}
             </Alert>
+          )}
+          {user && (application || withdrawn) && (
+            <Button
+              href={`/account/registrations/${application?.eventId ?? withdrawn?.eventId}`}
+            >
+              View application history
+            </Button>
           )}
         </>
       }

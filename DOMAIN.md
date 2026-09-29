@@ -772,6 +772,8 @@ decode results are ignored during processing and until explicit Scan next;
 Scan next reopens the submission gate without restarting the camera. Stop scanner
 and unmount release media/decoder. Stopping during a pending check-in releases the
 camera without cancelling the request or allowing another before its result.
+Explicit Stop clears the displayed result/error and suppresses the pending
+response in the scanner UI; it does not undo a check-in on the server.
 Switching cameras while a result is displayed preserves that result and gate.
 It stores
 no scanned secret. No raw payload, credential or hash enters Attendance, results,

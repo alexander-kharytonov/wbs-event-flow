@@ -78,7 +78,8 @@ meaning of that attempt. Later profile or form edits do not rewrite them.
 Duplicate attempts receive a neutral confirmation without exposing another
 application's existence or details.
 
-A verified user can see their linked current application on the public event and
+A verified user can see their linked current application on the public event or
+their account registration-detail page and
 withdraw a pending or approved application before the currently published event
 end. Approval atomically creates a Registration from the submitted identity and its Ticket.
 Withdrawal keeps the old attempt and atomically revokes its Registration and Ticket, freeing

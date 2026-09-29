@@ -5,9 +5,9 @@ import {
   Alert,
   Box,
   Button,
-  CircularProgress,
   MenuItem,
   Paper,
+  Skeleton,
   Stack,
   TextField,
   Typography,
@@ -67,6 +67,7 @@ export function TicketScanner({
   const mounted = useRef(false);
   const phase = useRef<ScannerState>("IDLE");
   const generation = useRef(0);
+  const discardPendingResult = useRef(false);
   const [state, setState] = useState<ScannerState>("IDLE");
   const [result, setResult] = useState<CheckInResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -258,6 +259,7 @@ export function TicketScanner({
           }
 
           // Synchronous gate closes before awaiting the action: one request per explicit scan.
+          discardPendingResult.current = false;
           changeState("PROCESSING");
 
           try {
@@ -267,11 +269,23 @@ export function TicketScanner({
             });
 
             if (current()) {
+              if (discardPendingResult.current) {
+                changeState("IDLE");
+
+                return;
+              }
+
               setResult(response);
               changeState("RESULT");
             }
           } catch {
             if (current()) {
+              if (discardPendingResult.current) {
+                changeState("IDLE");
+
+                return;
+              }
+
               setError(
                 "Could not complete check-in. Check your connection and sign-in, then scan again.",
               );
@@ -359,7 +373,11 @@ export function TicketScanner({
   }
 
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
+    <>
+      <Alert severity="info">
+        Start the scanner to scan an attendee’s ticket QR. The camera stays on
+        between scans. Choose Scan next when you’re ready for the next ticket.
+      </Alert>
       <Box
         sx={{
           display: "grid",
@@ -371,8 +389,10 @@ export function TicketScanner({
           alignItems: "stretch",
         }}
       >
-        <Box
+        <Paper
+          variant="outlined"
           sx={{
+            p: { xs: 2, sm: 3 },
             display: "grid",
             gridTemplateRows: "1fr auto",
             gap: 2,
@@ -380,37 +400,42 @@ export function TicketScanner({
           }}
         >
           <Stack spacing={2}>
-            <Typography color="text.secondary">
-              Start the scanner to scan an attendee’s ticket QR. The camera
-              stays on between scans. Choose Scan next when you’re ready for the
-              next ticket.
-            </Typography>
-            {cameras.length > 0 && (
-              <TextField
-                select
-                label="Camera"
-                value={cameraId}
-                disabled={state === "STARTING" || state === "PROCESSING"}
-                onChange={(event) => {
-                  const selectedCamera = event.target.value;
-                  setCameraId(selectedCamera);
+            <TextField
+              select
+              label="Camera"
+              value={state === "STARTING" ? "" : cameraId}
+              disabled={
+                state === "STARTING" ||
+                state === "PROCESSING" ||
+                cameras.length === 0
+              }
+              slotProps={{
+                select: {
+                  displayEmpty: true,
+                  renderValue:
+                    state === "STARTING" ? () => "Starting camera…" : undefined,
+                },
+                inputLabel: { shrink: true },
+              }}
+              onChange={(event) => {
+                const selectedCamera = event.target.value;
+                setCameraId(selectedCamera);
 
-                  if (decoder.current) {
-                    const nextPhase = phase.current;
-                    changeState("IDLE");
-                    void start(selectedCamera, nextPhase);
-                  }
-                }}
-                fullWidth
-              >
-                <MenuItem value="">Automatic (prefer rear camera)</MenuItem>
-                {cameras.map((camera, index) => (
-                  <MenuItem key={camera.deviceId} value={camera.deviceId}>
-                    {camera.label || `Camera ${index + 1}`}
-                  </MenuItem>
-                ))}
-              </TextField>
-            )}
+                if (decoder.current) {
+                  const nextPhase = phase.current;
+                  changeState("IDLE");
+                  void start(selectedCamera, nextPhase);
+                }
+              }}
+              fullWidth
+            >
+              <MenuItem value="">Automatic (prefer rear camera)</MenuItem>
+              {cameras.map((camera, index) => (
+                <MenuItem key={camera.deviceId} value={camera.deviceId}>
+                  {camera.label || `Camera ${index + 1}`}
+                </MenuItem>
+              ))}
+            </TextField>
             <Box
               sx={{
                 position: "relative",
@@ -421,7 +446,6 @@ export function TicketScanner({
                 "& .scan-region-highlight-svg": {
                   stroke: "var(--mui-palette-primary-main) !important",
                 },
-                display: cameraOn || state === "STARTING" ? "block" : "none",
               }}
             >
               <video
@@ -429,8 +453,29 @@ export function TicketScanner({
                 playsInline
                 muted
                 aria-label="Ticket scanner camera"
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  display: "block",
+                  visibility: cameraOn ? "visible" : "hidden",
+                }}
               />
+              {!cameraOn && (
+                <Stack
+                  spacing={1}
+                  sx={{
+                    position: "absolute",
+                    inset: 0,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "text.secondary",
+                  }}
+                >
+                  <QrCodeScannerOutlined sx={{ fontSize: 40 }} />
+                  <Typography variant="body2">Camera is off</Typography>
+                </Stack>
+              )}
             </Box>
           </Stack>
           {cameraOn || state === "STARTING" ? (
@@ -438,6 +483,9 @@ export function TicketScanner({
               fullWidth
               variant="outlined"
               onClick={() => {
+                discardPendingResult.current = true;
+                setResult(null);
+                setError(null);
                 void stopCamera().catch(() => {});
 
                 if (phase.current !== "PROCESSING") {
@@ -459,77 +507,78 @@ export function TicketScanner({
               Start scanner
             </Button>
           )}
-        </Box>
-        <Box
-          sx={{
-            display: "grid",
-            gridTemplateRows: "1fr auto",
-            gap: 2,
-            minWidth: 0,
-          }}
-        >
-          <Box aria-live="polite" aria-atomic="true">
-            {(state === "STARTING" || state === "PROCESSING") && (
-              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-                <CircularProgress size={20} />
-                <Typography>
-                  {state === "STARTING"
-                    ? "Starting camera…"
-                    : "Checking ticket…"}
-                </Typography>
-              </Stack>
-            )}
-            {state === "SCANNING" && (
-              <Alert severity="info">Point the camera at the ticket QR.</Alert>
-            )}
-            {error && <Alert severity="error">{error}</Alert>}
-            {result && (
-              <Alert
-                severity={
-                  result.code === "CHECKED_IN"
-                    ? "success"
-                    : result.code === "ALREADY_CHECKED_IN"
-                      ? "info"
-                      : "warning"
-                }
-              >
-                <Stack spacing={0.5} sx={{ overflowWrap: "anywhere" }}>
-                  <Typography sx={{ fontWeight: 600 }}>
+        </Paper>
+
+        {!result && !error ? (
+          <Skeleton
+            animation="wave"
+            variant="rounded"
+            width="100%"
+            aria-label="Waiting for scan result"
+            sx={{ height: { xs: 240, md: "100%" }, minHeight: 240 }}
+          />
+        ) : (
+          <Paper
+            variant="outlined"
+            sx={{
+              p: { xs: 2, sm: 3 },
+              display: "grid",
+              gridTemplateRows: "1fr auto",
+              gap: 2,
+              minWidth: 0,
+            }}
+          >
+            <Stack spacing={2} aria-live="polite" aria-atomic="true">
+              {error && <Alert severity="error">{error}</Alert>}
+              {result && (
+                <Alert
+                  severity={
+                    result.code === "CHECKED_IN"
+                      ? "success"
+                      : result.code === "ALREADY_CHECKED_IN"
+                        ? "info"
+                        : "warning"
+                  }
+                >
+                  <Stack spacing={0.5} sx={{ overflowWrap: "anywhere" }}>
                     {resultMessage(result, timezone)}
-                  </Typography>
-                  {"attendee" in result && (
-                    <>
-                      <Typography>{result.attendee.attendeeName}</Typography>
+                    {"attendee" in result && (
+                      <>
+                        <Typography>{result.attendee.attendeeName}</Typography>
+                        <Typography variant="body2">
+                          {result.attendee.attendeeEmail}
+                        </Typography>
+                        <Typography variant="body2">
+                          {result.attendee.ticketNumber}
+                        </Typography>
+                      </>
+                    )}
+                    {"checkedInAt" in result && (
                       <Typography variant="body2">
-                        {result.attendee.attendeeEmail}
+                        {formatEventTime(
+                          new Date(result.checkedInAt),
+                          timezone,
+                        )}{" "}
+                        ({timezone})
                       </Typography>
-                      <Typography variant="body2">
-                        {result.attendee.ticketNumber}
-                      </Typography>
-                    </>
-                  )}
-                  {"checkedInAt" in result && (
-                    <Typography variant="body2">
-                      {formatEventTime(new Date(result.checkedInAt), timezone)}{" "}
-                      ({timezone})
-                    </Typography>
-                  )}
-                </Stack>
-              </Alert>
+                    )}
+                  </Stack>
+                </Alert>
+              )}
+            </Stack>
+            {cameraOn && (state === "RESULT" || state === "ERROR") && (
+              <Button
+                fullWidth
+                variant="contained"
+                startIcon={<QrCodeScannerOutlined />}
+                onClick={scanNext}
+              >
+                Scan next
+              </Button>
             )}
-          </Box>
-          {cameraOn && (state === "RESULT" || state === "ERROR") && (
-            <Button
-              fullWidth
-              variant="contained"
-              startIcon={<QrCodeScannerOutlined />}
-              onClick={scanNext}
-            >
-              Scan next
-            </Button>
-          )}
-        </Box>
+          </Paper>
+        )}
       </Box>
-    </Paper>
+    </>
   );
 }

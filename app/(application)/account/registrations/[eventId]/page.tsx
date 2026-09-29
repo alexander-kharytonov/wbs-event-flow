@@ -19,6 +19,7 @@ import { ApplicationRealtime } from "@/features/events/components/application-re
 import { ApplicationStatus } from "@/features/events/components/application-status";
 import { RegistrationAdmission } from "@/features/events/components/registration-admission";
 import { SubmittedAnswers } from "@/features/events/components/submitted-answers";
+import { WithdrawApplicationButton } from "@/features/events/components/withdraw-application-button";
 import { formatEventTime } from "@/features/events/format-event-time";
 import { getMyRegistration } from "@/features/events/server/get-my-registration";
 import { TicketCard } from "@/features/tickets/components/ticket-card";
@@ -40,7 +41,8 @@ function AttemptDates({ attempt }: { attempt: Attempt }) {
         sx={{
           m: 0,
           display: "grid",
-          gridTemplateColumns: { xs: "1fr", sm: "repeat(3, minmax(0, 1fr))" },
+          gridTemplateColumns:
+            "repeat(auto-fit, minmax(min(100%, 140px), 1fr))",
           gap: 2,
           "& dt": { typography: "caption", color: "text.secondary" },
           "& dd": { m: 0, typography: "body2" },
@@ -146,7 +148,11 @@ export default async function RegistrationDetailPage({
         <Link href="/account/registrations" sx={{ alignSelf: "flex-start" }}>
           ← All registrations
         </Link>
-        <Typography variant="h4" component="h1">
+        <Typography
+          variant="h3"
+          component="h1"
+          sx={{ fontSize: { xs: "2rem", sm: "2.5rem" } }}
+        >
           {context?.title ?? "Event details unavailable"}
         </Typography>
         {registration.cancelledAt && (
@@ -178,38 +184,64 @@ export default async function RegistrationDetailPage({
           </Button>
         )}
       </Stack>
-      {current.admission?.ticket && (
-        <TicketCard ticket={current.admission.ticket} />
-      )}
-      {current.admission && !current.admission.ticket && (
-        <RegistrationAdmission
-          admission={{
-            createdAt: current.admission.createdAt,
-            revokedAt: current.admission.revokedAt,
-          }}
-          timezone={context?.timezone ?? "UTC"}
-        />
-      )}
-      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
-        <Stack spacing={2}>
-          <Stack
-            direction="row"
-            sx={{ alignItems: "center", flexWrap: "wrap", gap: 1 }}
-          >
-            <Typography variant="h6" component="h2">
-              Current application
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: {
+            xs: "minmax(0, 1fr)",
+            md: current.admission ? "minmax(0, 1fr) 320px" : "minmax(0, 1fr)",
+          },
+          gap: 3,
+          alignItems: "start",
+        }}
+      >
+        <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, minWidth: 0 }}>
+          <Stack spacing={2}>
+            <Stack
+              direction="row"
+              sx={{ alignItems: "center", flexWrap: "wrap", gap: 1 }}
+            >
+              <Typography variant="h6" component="h2">
+                Current application
+              </Typography>
+              <ApplicationStatus status={current.status} />
+              {registration.publicId &&
+                !registration.completed &&
+                !registration.cancelledAt &&
+                context &&
+                Date.now() < Date.parse(context.endsAt) &&
+                (current.status === "PENDING" ||
+                  current.status === "APPROVED") && (
+                  <Box sx={{ ml: { sm: "auto" } }}>
+                    <WithdrawApplicationButton
+                      publicId={registration.publicId}
+                      applicationId={current.id}
+                    />
+                  </Box>
+                )}
+            </Stack>
+            <AttemptDates attempt={current} />
+            <Typography variant="body2" color="text.secondary">
+              Questions and options are shown as they were when this application
+              was submitted.
             </Typography>
-            <ApplicationStatus status={current.status} />
+            <Divider />
+            <AttemptAnswers attempt={current} />
           </Stack>
-          <AttemptDates attempt={current} />
-          <Typography variant="body2" color="text.secondary">
-            Questions and options are shown as they were when this application
-            was submitted.
-          </Typography>
-          <Divider />
-          <AttemptAnswers attempt={current} />
-        </Stack>
-      </Paper>
+        </Paper>
+        {current.admission?.ticket && (
+          <TicketCard ticket={current.admission.ticket} />
+        )}
+        {current.admission && !current.admission.ticket && (
+          <RegistrationAdmission
+            admission={{
+              createdAt: current.admission.createdAt,
+              revokedAt: current.admission.revokedAt,
+            }}
+            timezone={context?.timezone ?? "UTC"}
+          />
+        )}
+      </Box>
       {previous.length > 0 && (
         <Stack
           component="section"
@@ -248,7 +280,23 @@ export default async function RegistrationDetailPage({
                   </Stack>
                 </AccordionSummary>
                 <AccordionDetails>
-                  <Stack spacing={3}>
+                  <Box
+                    sx={{
+                      display: "grid",
+                      gridTemplateColumns: {
+                        xs: "minmax(0, 1fr)",
+                        md: attempt.admission
+                          ? "minmax(0, 1fr) 320px"
+                          : "minmax(0, 1fr)",
+                      },
+                      gap: 3,
+                      alignItems: "start",
+                    }}
+                  >
+                    <Stack spacing={3} sx={{ minWidth: 0 }}>
+                      <AttemptDates attempt={attempt} />
+                      <AttemptAnswers attempt={attempt} />
+                    </Stack>
                     {attempt.admission?.ticket && (
                       <TicketCard ticket={attempt.admission.ticket} />
                     )}
@@ -261,9 +309,7 @@ export default async function RegistrationDetailPage({
                         timezone={attempt.context?.timezone ?? "UTC"}
                       />
                     )}
-                    <AttemptDates attempt={attempt} />
-                    <AttemptAnswers attempt={attempt} />
-                  </Stack>
+                  </Box>
                 </AccordionDetails>
               </Accordion>
             ))}
