@@ -6,8 +6,10 @@ import {
   Box,
   Button,
   CircularProgress,
+  MenuItem,
   Paper,
   Stack,
+  TextField,
   Typography,
 } from "@mui/material";
 import type QrScanner from "qr-scanner";
@@ -56,7 +58,11 @@ export function TicketScanner({
   timezone: string;
 }) {
   const video = useRef<HTMLVideoElement>(null);
-  const decoder = useRef<QrScanner | null>(null);
+  const decoder = useRef<{
+    scanner: QrScanner;
+    pendingPauses: Set<Promise<boolean>>;
+  } | null>(null);
+  const cleanup = useRef<Promise<void>>(Promise.resolve());
   const media = useRef<MediaStream | null>(null);
   const mounted = useRef(false);
   const phase = useRef<ScannerState>("IDLE");
@@ -64,10 +70,14 @@ export function TicketScanner({
   const [state, setState] = useState<ScannerState>("IDLE");
   const [result, setResult] = useState<CheckInResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
+  const [cameraId, setCameraId] = useState("");
   const stopCamera = useCallback(() => {
     const element = video.current;
     // The decoder may replace the stream when a backgrounded tab resumes.
-    const currentStream = decoder.current?.$video.srcObject;
+    const previous = decoder.current;
+    decoder.current = null;
+    const currentStream = previous?.scanner.$video.srcObject;
 
     if (currentStream instanceof MediaStream) {
       for (const track of currentStream.getTracks()) {
@@ -87,8 +97,27 @@ export function TicketScanner({
       element.srcObject = null;
     }
 
-    decoder.current?.destroy();
-    decoder.current = null;
+    if (previous) {
+      const overlay = previous.scanner.$overlay;
+      previous.scanner.destroy();
+
+      // destroy() calls pause(), which can also have been started by visibility
+      // changes. Drain those actual promises before this video can be reused.
+      cleanup.current = Promise.all([
+        cleanup.current,
+        ...previous.pendingPauses,
+      ]).then(() => undefined);
+
+      if (overlay) {
+        for (const animation of overlay.getAnimations({ subtree: true })) {
+          animation.cancel();
+        }
+
+        overlay.remove();
+      }
+    }
+
+    return cleanup.current;
   }, []);
 
   useEffect(() => {
@@ -97,7 +126,7 @@ export function TicketScanner({
     return () => {
       mounted.current = false;
       generation.current += 1;
-      stopCamera();
+      void stopCamera().catch(() => {});
     };
   }, [stopCamera]);
 
@@ -106,7 +135,7 @@ export function TicketScanner({
     setState(next);
   }
 
-  async function start() {
+  async function start(selectedCamera = cameraId) {
     if (["STARTING", "SCANNING", "PROCESSING"].includes(phase.current)) {
       return;
     }
@@ -118,6 +147,12 @@ export function TicketScanner({
     setError(null);
 
     try {
+      await stopCamera();
+
+      if (!current()) {
+        return;
+      }
+
       if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
         throw new Error("SECURE_CONTEXT");
       }
@@ -131,7 +166,9 @@ export function TicketScanner({
       // Request once so permission errors remain distinguishable from missing hardware.
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
-        video: { facingMode: { ideal: "environment" } },
+        video: selectedCamera
+          ? { deviceId: { exact: selectedCamera } }
+          : { facingMode: { ideal: "environment" } },
       });
 
       if (!current() || !video.current) {
@@ -144,13 +181,40 @@ export function TicketScanner({
 
       media.current = stream;
       video.current.srcObject = stream;
+      const activeCamera = stream.getVideoTracks()[0]?.getSettings().deviceId;
+
+      // Labels are available after permission. Enumeration must not prevent
+      // scanning when the browser can open a camera but cannot list devices.
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+
+        if (!current()) {
+          return;
+        }
+
+        const available = devices.filter(
+          (device) => device.kind === "videoinput" && device.deviceId,
+        );
+        setCameras(available);
+        setCameraId(
+          available.some((device) => device.deviceId === activeCamera)
+            ? (activeCamera ?? "")
+            : "",
+        );
+      } catch {
+        // Keep the working stream and any previously enumerated choices.
+      }
+
+      if (!current() || !video.current) {
+        return;
+      }
 
       for (const track of stream.getVideoTracks()) {
         track.addEventListener(
           "ended",
           () => {
             if (current() && phase.current === "SCANNING") {
-              stopCamera();
+              void stopCamera().catch(() => {});
               setError(
                 "Camera access ended. Start the scanner again to continue.",
               );
@@ -170,9 +234,14 @@ export function TicketScanner({
 
           // Synchronous gate closes before awaiting the action: one request per explicit scan.
           changeState("PROCESSING");
-          stopCamera();
 
           try {
+            await stopCamera();
+
+            if (!current()) {
+              return;
+            }
+
             const response = await checkInTicketAction({
               eventId,
               qrPayload: decoded.data,
@@ -192,7 +261,7 @@ export function TicketScanner({
           }
         },
         {
-          preferredCamera: "environment",
+          preferredCamera: activeCamera || selectedCamera || "environment",
           highlightScanRegion: true,
           maxScansPerSecond: 10,
           returnDetailedScanResult: true,
@@ -206,7 +275,7 @@ export function TicketScanner({
               return;
             }
 
-            stopCamera();
+            void stopCamera().catch(() => {});
             setError(
               "The scanner could not read the camera. Please start it again.",
             );
@@ -214,7 +283,21 @@ export function TicketScanner({
           },
         },
       );
-      decoder.current = scanner;
+      const pendingPauses = new Set<Promise<boolean>>();
+      const pause = scanner.pause.bind(scanner);
+      // Track the public pause lifecycle, including calls from destroy()/stop()
+      // and background-tab handling. No guessed timer or private fields needed.
+      scanner.pause = (stopStreamImmediately) => {
+        const pending = pause(stopStreamImmediately);
+        pendingPauses.add(pending);
+        void pending.then(
+          () => pendingPauses.delete(pending),
+          () => pendingPauses.delete(pending),
+        );
+
+        return pending;
+      };
+      decoder.current = { scanner, pendingPauses };
       changeState("SCANNING");
       await scanner.start();
     } catch (failure) {
@@ -222,7 +305,12 @@ export function TicketScanner({
         return;
       }
 
-      stopCamera();
+      await stopCamera();
+
+      if (!current()) {
+        return;
+      }
+
       const name = failure instanceof Error ? failure.name : "";
       setError(
         name === "NotAllowedError" || name === "SecurityError"
@@ -242,6 +330,32 @@ export function TicketScanner({
           Scan an attendee’s ticket QR. Camera access starts only when you
           choose Start scanner.
         </Typography>
+        {cameras.length > 0 && (
+          <TextField
+            select
+            label="Camera"
+            size="small"
+            value={cameraId}
+            disabled={state === "STARTING" || state === "PROCESSING"}
+            onChange={(event) => {
+              const selectedCamera = event.target.value;
+              setCameraId(selectedCamera);
+
+              if (phase.current === "SCANNING") {
+                changeState("IDLE");
+                void start(selectedCamera);
+              }
+            }}
+            fullWidth
+          >
+            <MenuItem value="">Automatic (prefer rear camera)</MenuItem>
+            {cameras.map((camera, index) => (
+              <MenuItem key={camera.deviceId} value={camera.deviceId}>
+                {camera.label || `Camera ${index + 1}`}
+              </MenuItem>
+            ))}
+          </TextField>
+        )}
         <Box
           sx={{
             position: "relative",
@@ -317,7 +431,7 @@ export function TicketScanner({
             variant="outlined"
             onClick={() => {
               generation.current += 1;
-              stopCamera();
+              void stopCamera().catch(() => {});
               changeState("IDLE");
             }}
             sx={{ alignSelf: "flex-start" }}
@@ -329,7 +443,7 @@ export function TicketScanner({
             variant="contained"
             startIcon={<QrCodeScannerOutlined />}
             disabled={state === "STARTING" || state === "PROCESSING"}
-            onClick={start}
+            onClick={() => void start()}
             sx={{ alignSelf: "flex-start" }}
           >
             {state === "RESULT" || state === "ERROR"

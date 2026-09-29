@@ -765,7 +765,9 @@ over all active Registrations; revoked attendance remains historical. Linked and
 anonymous Ticket projections expose only checkedInAt, without extending access.
 
 The client scanner uses qr-scanner with software decoding when native decoding
-is unavailable, requests an environment camera after user interaction, stops
+is unavailable, initially prefers an environment camera after user interaction,
+and offers camera selection after permission. Switching cameras awaits the previous
+scanner cleanup; Scan next retains the selected camera. The scanner stops
 media/decoder after the first result, and requires explicit Scan next. It stores
 no scanned secret. No raw payload, credential or hash enters Attendance, results,
 errors or SSE. Next development Server Function argument logging is disabled via
