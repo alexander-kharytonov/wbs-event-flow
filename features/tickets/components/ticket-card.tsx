@@ -1,6 +1,6 @@
 import "server-only";
 import ConfirmationNumberOutlined from "@mui/icons-material/ConfirmationNumberOutlined";
-import { Alert, Box, Chip, Paper, Stack, Typography } from "@mui/material";
+import { Alert, Box, Paper, Stack, Typography } from "@mui/material";
 import Image from "next/image";
 import { DateTime } from "@/components/ui/date-time";
 import { formatEventTime } from "@/features/events/format-event-time";
@@ -8,7 +8,6 @@ import type { TicketPresentation } from "@/features/tickets/server/ticket-displa
 
 export function TicketCard({ ticket }: { ticket: TicketPresentation }) {
   const { context, revoked, cancelled, completed, qrDataUrl } = ticket;
-  const usable = !revoked && !cancelled;
   const timezone = context?.timezone ?? "UTC";
 
   return (
@@ -31,18 +30,6 @@ export function TicketCard({ ticket }: { ticket: TicketPresentation }) {
           <Typography variant="h6" component="h2">
             Your ticket
           </Typography>
-          <Chip
-            size="small"
-            variant="outlined"
-            color={usable ? "success" : "default"}
-            label={
-              revoked
-                ? "Ticket revoked"
-                : cancelled
-                  ? "Event cancelled"
-                  : "Registration confirmed"
-            }
-          />
         </Stack>
         <Stack
           spacing={3}
