@@ -14,7 +14,8 @@ export function EventNavigation({
     | "registration-form"
     | "preview"
     | "applications"
-    | "attendees";
+    | "attendees"
+    | "check-in";
 }) {
   return (
     <Stack
@@ -88,6 +89,13 @@ export function EventNavigation({
         >
           Attendees
         </Badge>
+      </Button>
+      <Button
+        href={`/dashboard/events/${eventId}/check-in`}
+        color={active === "check-in" ? "primary" : "inherit"}
+        aria-current={active === "check-in" ? "page" : undefined}
+      >
+        Check-in
       </Button>
     </Stack>
   );

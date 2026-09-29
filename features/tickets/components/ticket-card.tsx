@@ -78,6 +78,12 @@ export function TicketCard({ ticket }: { ticket: TicketPresentation }) {
             <Typography variant="caption" color="text.secondary">
               Issued {formatEventTime(ticket.issuedAt, timezone)} ({timezone})
             </Typography>
+            {ticket.checkedInAt && (
+              <Alert severity="success">
+                Checked in · {formatEventTime(ticket.checkedInAt, timezone)} (
+                {timezone})
+              </Alert>
+            )}
             {ticket.revokedAt && (
               <Typography variant="caption" color="text.secondary">
                 Revoked {formatEventTime(ticket.revokedAt, timezone)} (

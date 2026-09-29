@@ -150,7 +150,7 @@ Anonymous applicants do not receive a personal status stream. Cancellation also 
 Catalog and other Event editing/publication updates are outside this realtime scope.
 
 The product does not provide email changes or password reset, anonymous
-application claiming, scanner, check-in, or attendance.
+application claiming.
 These boundaries describe current scope, not a delivery roadmap.
 
 ## Event lifecycle
@@ -206,4 +206,28 @@ completion, archive and publication changes never rewrite Ticket history.
 Approval email links to authenticated detail or the separate anonymous capability;
 it never contains the QR credential. Delivery checks current revocation and
 cancellation before offering a Ticket CTA. Tickets are not transferable or
-regenerable, and PDF, Wallet, scanning and attendance are not implemented.
+regenerable, and PDF and Wallet are not implemented.
+
+## Check-in and attendance
+
+Attendance is the immutable historical fact of a successful check-in, separate
+from Application review, Registration admission and Ticket credentials. Verified
+Event owner-organizers can scan Ticket QR codes online from Check-in beside
+Attendees. Camera access starts on request; each scan pauses the camera until
+the organizer chooses Scan next.
+
+New attendance requires an ongoing, non-cancelled Event and active Registration
+and Ticket. The server uses persisted Event dates and DB time: start inclusive,
+end exclusive. Publication and archive state do not independently gate check-in.
+Ticket validity is not check-in eligibility.
+
+Each Registration can be checked in once. Repeat scans show Already checked in
+with the original time, including after later withdrawal or cancellation.
+Attendance survives admission/Ticket revocation, cancellation, archive and
+publication changes. There is no manual check-in, undo, check-out, re-entry or
+offline scanning.
+
+Attendees shows attendance history and checked-in/total currently active
+Registrations. Linked Ticket details refresh through the existing account stream;
+anonymous Ticket pages show attendance after reload. Check-in alone does not hide
+the QR; existing revocation/cancellation visibility rules still apply.
