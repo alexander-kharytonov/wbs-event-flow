@@ -3,6 +3,7 @@ import { z } from "zod";
 import { applicationsFrozen } from "@/features/events/event-lifecycle";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 import { lockEventForUpdate } from "@/features/events/server/lock-event-for-update";
+import { issueTicket } from "@/features/tickets/server/issue-ticket";
 import {
   emailEventSnapshot,
   enqueueApplicationEmail,
@@ -153,7 +154,7 @@ export async function reviewOwnedApplication(
             },
           });
         } else {
-          await tx.registration.create({
+          const registration = await tx.registration.create({
             data: {
               eventId,
               sourceApplicationId: applicationId,
@@ -163,6 +164,8 @@ export async function reviewOwnedApplication(
               createdAt: reviewedAt,
             },
           });
+
+          const ticket = await issueTicket(tx, registration);
 
           // Approval already requires a valid current published snapshot.
           if (!snapshot.success || !event.publicId) {
@@ -174,7 +177,8 @@ export async function reviewOwnedApplication(
             type: "APPLICATION_APPROVED",
             recipientEmail: application.email,
             payload: {
-              schemaVersion: 1,
+              schemaVersion: 2,
+              ticketId: ticket.id,
               applicantName: application.fullName,
               event: emailEventSnapshot(snapshot.data, event.publicId),
             },

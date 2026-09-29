@@ -237,7 +237,7 @@ WITHDRAWN never transitions back to PENDING. Repeating withdrawal of an already
 WITHDRAWN own application returns success without changing it only while the
 Event lifecycle still permits application operations.
 Review accepts only PENDING, writes reviewedAt, and uses a conditional update.
-Approval creates Registration before EmailOutbox/NOTIFY in the same transaction;
+Approval creates Registration and Ticket before EmailOutbox/NOTIFY in the same transaction;
 rejection never creates Registration.
 Withdrawal writes withdrawnAt and retains any previous reviewedAt. For an initially
 APPROVED attempt, exactly one active Registration must be conditionally revoked
@@ -470,8 +470,9 @@ same transaction. Duplicate/no-op/error paths create no delivery intent; rollbac
 removes both mutation and outbox. Withdrawal creates no email.
 
 EmailOutbox has no Event/Application foreign keys. Its unique deduplicationKey is
-Application.id + purpose. Recipient and versioned schemaVersion=1 JSON payload
-are immutable delivery snapshots. They contain only the fields needed by that
+Application.id + purpose. Recipient and versioned JSON payload are immutable
+delivery snapshots (v1 contracts; APPLICATION_APPROVED additionally supports v2
+with a Ticket reference, described below). They contain only the fields needed by that
 email, not answers, rendered HTML/subject, or an absolute hostname. Separate Zod
 contracts validate each type on creation and again before rendering. Received,
 organizer, and approval emails snapshot the current published event under the
@@ -614,8 +615,8 @@ are excluded. CHECK requires revokedAt >= createdAt when revoked.
 Every current APPROVED Application has exactly one active Registration through
 the existing Event FOR UPDATE + ReadCommitted mutation protocol. Approve creates
 admission with createdAt = reviewedAt = decisionNow before its outbox/NOTIFY.
-Approved withdrawal updates both rows atomically; missing admission is an invariant
-violation, not a successful withdrawal. PENDING withdrawal remains Application-only.
+Approved withdrawal updates Application, Registration and Ticket atomically;
+missing admission or Ticket is an invariant violation, not a successful withdrawal. PENDING withdrawal remains Application-only.
 DB constraints or any thrown failure roll back the entire transaction.
 
 The transactional migration rejects inconsistent timestamps, noncanonical email,
@@ -634,3 +635,85 @@ confirms admission only from active Registration. Existing owner/User scoped SSE
 refreshes these reads; no new protocol or payload is introduced. Cancellation
 recipients are pending applicants plus active admissions, preserving normalized
 email deduplication and existing linked-user invalidations.
+
+## 22. Ticket / secure credential
+
+`Registration` is granted admission; `Ticket` is its immutable credential, with a
+unique Registration FK (`onDelete: Restrict`), UUIDv7 id, unique non-secret support
+number, unique credential hash, encrypted credential, issuedAt and nullable
+revokedAt. No Event id/status is duplicated: Event is reached through Registration.
+DB CHECKs enforce revokedAt >= issuedAt and an all-null/all-present anonymous
+hash/envelope pair. UNIQUE registrationId gives cardinality 0..1; matching writers
+and backfill ensure every granted Registration has exactly one Ticket.
+
+The QR bearer credential is `randomBytes(32)` encoded base64url (256 random bits).
+SHA-256 is the deterministic lookup hash. AES-256-GCM with a random 96-bit IV and
+128-bit authentication tag encrypts the secret for repeated display. The opaque
+`v1.iv.ciphertext.tag` envelope authenticates Registration id and secret purpose
+as AAD. `TICKET_CREDENTIAL_ENCRYPTION_KEY` is a separate required canonical
+base64url encoding of exactly 32 random bytes; never the Better Auth secret.
+Loss/change of this key prevents existing Tickets from being displayed. Keys and
+database backups must be retained securely together but stored separately.
+
+QR payload is exactly `eventflow:ticket:v1:<credential>`, with no identity or IDs.
+The server QR encoder generates SVG on render; no image is stored in the database
+and no QR encoder is shipped to the client. The credential is never plaintext in
+DB, Outbox, email, browser URLs, logs or SSE. Ticket numbers use readable random
+characters, UNIQUE database enforcement and bounded savepoint retry on number
+collision only. Numbers never authorize access.
+
+**Capability issuance semantics:** at issue/backfill, Registration.userId null
+creates a separate random 256-bit anonymous browser capability, stored as its own
+SHA-256 hash and AES-GCM envelope. A linked Registration gets neither field.
+After issue, capability presence is historical Ticket data and is never
+synchronized with later Registration.userId changes. User deletion keeps existing
+ON DELETE SET NULL, preserves Registration/Ticket and their QR credential, creates
+no capability, and removes authenticated browser access. It never converts a
+historically linked Ticket to an anonymous Ticket. No email-based claiming exists.
+
+Verified-session ownership protects `/account/registrations/[eventId]` and its
+Ticket read model. `/ticket/<access-token>` needs no login and authorizes only by
+anonymousAccessHash. Invalid/unknown tokens share an unavailable response. The
+page exposes only Ticket/attendee/Event context (validated current publication,
+or submitted snapshot when unavailable), not application answers or workspace.
+It is request-time rendered, private/no-store, noindex/nofollow/noarchive and
+no-referrer, without third-party resources. Application request logging excludes
+capability routes. Deployment proxies/access logs must also redact `/ticket/*`;
+Next's application logger cannot configure external infrastructure.
+
+Approve holds the existing Event lock, obtains decisionNow, updates Application,
+creates Registration and Ticket, then enqueues approval email and NOTIFY in one
+transaction. Both issuedAt and Registration.createdAt equal decisionNow. Approved
+withdrawal requires exactly one active Registration and Ticket, revokes both at
+one decisionNow and notifies in the same transaction. Any failure rolls back all
+writes. Pending withdrawal has no Ticket. Reapply creates a new attempt and, on
+approval, new Registration/Ticket/number/secrets; old rows stay revoked.
+
+Effective credential state for this iteration is: credential resolves AND Ticket
+not revoked AND Registration not revoked AND Event not cancelled. Completed,
+archived and unpublished are independent context, not new check-in rules.
+No lifecycle command mutates Ticket history. Revoked/cancelled cards suppress QR;
+completed cards retain history and can display QR with an Event completed notice.
+
+APPLICATION_APPROVED v2 freezes applicant/Event email data and stores only ticketId
+as the delivery reference. Rendering reads current Ticket/Registration/cancellation
+state, decrypts only the anonymous access secret when needed, and constructs an
+absolute CTA from BETTER_AUTH_URL. Linked CTA uses authenticated detail. Revoked
+or cancelled state removes the Ticket CTA and explains the change. A User deleted
+before delivery receives no authenticated or newly invented anonymous CTA. v1
+payloads remain supported. Existing durable leases/retries/deduplication remain;
+state is checked at rendering, not atomically with remote SMTP delivery, and Ticket
+pages always recheck current state. No QR credential enters approval payloads.
+Existing applications.changed routing and empty browser invalidation refresh
+linked Ticket issue/revoke without a new protocol or anonymous stream.
+
+The normal Ticket schema migration is followed, with application writers stopped,
+by `pnpm db:backfill-tickets`. One table-locked transaction validates Application /
+Registration history, creates missing Tickets using the canonical Node helper,
+and verifies every Registration/Ticket pair, timestamps and encrypted secrets.
+Existing valid Tickets are verified, never replaced; repeated runs are idempotent.
+Any failure rolls back the entire data backfill and exits nonzero. Schema migration
+and data backfill are separate deployment steps: writers must not resume between
+them. issuedAt means entitlement time (= Registration.createdAt), not the physical
+time the backfill generated a new secret; revokedAt copies Registration.revokedAt.
+No history is invented, repaired, silently skipped or emailed by backfill.

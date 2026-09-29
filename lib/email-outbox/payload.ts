@@ -33,11 +33,22 @@ export const newApplicationPayload = z.strictObject({
   eventId: z.uuid(),
 });
 
-export const applicationApprovedPayload = z.strictObject({
+const applicationApprovedV1 = z.strictObject({
   schemaVersion: z.literal(1),
   applicantName: z.string().min(1),
   event,
 });
+
+export const applicationApprovedPayload = z.discriminatedUnion(
+  "schemaVersion",
+  [
+    applicationApprovedV1,
+    applicationApprovedV1.extend({
+      schemaVersion: z.literal(2),
+      ticketId: z.uuid(),
+    }),
+  ],
+);
 
 // Rejection must not depend on a current publication or usable public link.
 // Even a damaged historical snapshot cannot introduce a new Reject guard.

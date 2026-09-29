@@ -222,6 +222,19 @@ model Application {
   @@index([eventRevisionId])
 }
 
+model Ticket {
+  id                       String       @id @default(uuid(7)) @db.Uuid
+  registrationId           String       @unique @db.Uuid
+  number                   String       @unique
+  credentialHash           String       @unique
+  credentialEncrypted      String
+  anonymousAccessHash      String?      @unique
+  anonymousAccessEncrypted String?
+  issuedAt                 DateTime     @db.Timestamptz(3)
+  revokedAt                DateTime?    @db.Timestamptz(3)
+  registration             Registration @relation(fields: [registrationId], references: [id], onDelete: Restrict)
+}
+
 model Registration {
   id                  String      @id @default(uuid(7)) @db.Uuid
   eventId             String      @db.Uuid
@@ -234,6 +247,8 @@ model Registration {
   event               Event       @relation(fields: [eventId], references: [id], onDelete: Restrict)
   sourceApplication   Application @relation(fields: [eventId, sourceApplicationId], references: [eventId, id], onDelete: Restrict)
   user                User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  ticket Ticket?
 
   @@unique([eventId, userId], map: "Registration_active_user_key", where: raw("((\"revokedAt\" IS NULL) AND (\"userId\" IS NOT NULL))"))
   @@unique([eventId, attendeeEmail], map: "Registration_active_email_key", where: raw("(\"revokedAt\" IS NULL)"))

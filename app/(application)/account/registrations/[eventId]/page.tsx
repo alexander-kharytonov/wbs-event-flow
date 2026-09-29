@@ -21,6 +21,7 @@ import { RegistrationAdmission } from "@/features/events/components/registration
 import { SubmittedAnswers } from "@/features/events/components/submitted-answers";
 import { formatEventTime } from "@/features/events/format-event-time";
 import { getMyRegistration } from "@/features/events/server/get-my-registration";
+import { TicketCard } from "@/features/tickets/components/ticket-card";
 import { requireVerifiedUser } from "@/lib/session";
 
 type Attempt = NonNullable<
@@ -177,9 +178,15 @@ export default async function RegistrationDetailPage({
           </Button>
         )}
       </Stack>
-      {current.admission && (
+      {current.admission?.ticket && (
+        <TicketCard ticket={current.admission.ticket} />
+      )}
+      {current.admission && !current.admission.ticket && (
         <RegistrationAdmission
-          admission={current.admission}
+          admission={{
+            createdAt: current.admission.createdAt,
+            revokedAt: current.admission.revokedAt,
+          }}
           timezone={context?.timezone ?? "UTC"}
         />
       )}
@@ -242,9 +249,15 @@ export default async function RegistrationDetailPage({
                 </AccordionSummary>
                 <AccordionDetails>
                   <Stack spacing={3}>
-                    {attempt.admission && (
+                    {attempt.admission?.ticket && (
+                      <TicketCard ticket={attempt.admission.ticket} />
+                    )}
+                    {attempt.admission && !attempt.admission.ticket && (
                       <RegistrationAdmission
-                        admission={attempt.admission}
+                        admission={{
+                          createdAt: attempt.admission.createdAt,
+                          revokedAt: attempt.admission.revokedAt,
+                        }}
                         timezone={attempt.context?.timezone ?? "UTC"}
                       />
                     )}

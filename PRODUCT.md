@@ -80,15 +80,15 @@ application's existence or details.
 
 A verified user can see their linked current application on the public event and
 withdraw a pending or approved application before the currently published event
-end. Approval atomically creates a Registration from the submitted identity.
-Withdrawal keeps the old attempt and atomically revokes its Registration, freeing
+end. Approval atomically creates a Registration from the submitted identity and its Ticket.
+Withdrawal keeps the old attempt and atomically revokes its Registration and Ticket, freeing
 a place if it was approved. Revoked admission remains in history.
 Anonymous applications are not claimed by signing in with a matching email and
 cannot be withdrawn through the account flow.
 
 After withdrawal, a linked user can apply again while registration is open. The
 new attempt uses the current form, needs review again and creates a new Registration
-only on approval; old Registrations are never reactivated. It carries over answers
+and Ticket only on approval; old Registrations and Tickets are never reactivated. It carries over answers
 only to unchanged questions. Changed or newly required questions must be
 completed as needed. Rejected applications cannot be withdrawn or retried with
 the same event/email or event/account identity.
@@ -150,7 +150,7 @@ Anonymous applicants do not receive a personal status stream. Cancellation also 
 Catalog and other Event editing/publication updates are outside this realtime scope.
 
 The product does not provide email changes or password reset, anonymous
-application claiming or ticket/QR check-in.
+application claiming, scanner, check-in, or attendance.
 These boundaries describe current scope, not a delivery roadmap.
 
 ## Event lifecycle
@@ -188,3 +188,22 @@ identity, first publication timestamp, or cancellation. No soft deletion exists.
 
 The archive has its own route and visibility filters. It offers no Create event
 action; new drafts are created from active My events.
+
+## Tickets
+
+Registration grants admission; its Ticket is the immutable credential for that
+admission. Verified linked attendees see current and historical Tickets on their
+Registration Detail. Applicants who were anonymous at Ticket issue receive a
+separate private bearer link in approval email; no account is required. Anyone
+holding that link can view that Ticket. It never grants withdrawal or claiming.
+A linked User's deletion preserves history but does not create anonymous access.
+
+Ticket cards show the submitted attendee identity, Event schedule, support number
+and QR. Keep both the QR and anonymous link private. Revoked admissions/Tickets
+and cancelled Events hide the QR. Completed Events retain Ticket history and may
+still display QR; this makes no promise about check-in eligibility. Cancel,
+completion, archive and publication changes never rewrite Ticket history.
+Approval email links to authenticated detail or the separate anonymous capability;
+it never contains the QR credential. Delivery checks current revocation and
+cancellation before offering a Ticket CTA. Tickets are not transferable or
+regenerable, and PDF, Wallet, scanning and attendance are not implemented.

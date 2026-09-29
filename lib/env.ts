@@ -10,6 +10,14 @@ const serverEnvSchema = z.object({
     return ["http:", "https:"].includes(url.protocol) && url.origin === value;
   }, "Expected an HTTP(S) origin without a trailing slash"),
   BETTER_AUTH_SECRET: z.string().min(32),
+  TICKET_CREDENTIAL_ENCRYPTION_KEY: z
+    .string()
+    .regex(/^[A-Za-z0-9_-]{43}$/)
+    .refine((value) => {
+      const key = Buffer.from(value, "base64url");
+
+      return key.length === 32 && key.toString("base64url") === value;
+    }, "Expected 32 random bytes encoded as canonical base64url"),
   SMTP_HOST: z.string().min(1),
   SMTP_PORT: z.coerce.number().int().min(1).max(65535),
   SMTP_FROM: z.email(),
@@ -31,6 +39,8 @@ export function getServerEnv() {
     NODE_ENV: process.env.NODE_ENV,
     BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
     BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
+    TICKET_CREDENTIAL_ENCRYPTION_KEY:
+      process.env.TICKET_CREDENTIAL_ENCRYPTION_KEY,
     SMTP_HOST: process.env.SMTP_HOST,
     SMTP_PORT: process.env.SMTP_PORT,
     SMTP_FROM: process.env.SMTP_FROM,
