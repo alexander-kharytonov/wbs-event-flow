@@ -5,6 +5,7 @@ import { ApplicationDialog } from "@/features/events/components/application-dial
 import { ApplicationReviewControls } from "@/features/events/components/application-review-controls";
 import { ApplicationStatus } from "@/features/events/components/application-status";
 import { EventHeader } from "@/features/events/components/event-header";
+import { RegistrationAdmission } from "@/features/events/components/registration-admission";
 import { SubmittedAnswers } from "@/features/events/components/submitted-answers";
 import { applicationsFrozen } from "@/features/events/event-lifecycle";
 import { formatEventTime } from "@/features/events/format-event-time";
@@ -77,6 +78,12 @@ export async function ApplicationDetail({
             </Typography>
           </Box>
           <ApplicationStatus status={application.status} />
+          {application.registrations[0] && (
+            <RegistrationAdmission
+              admission={application.registrations[0]}
+              compact
+            />
+          )}
         </Stack>
         <Box sx={{ bgcolor: "background.default", p: 2 }}>
           <Box
@@ -153,7 +160,7 @@ export async function ApplicationDetail({
               </Typography>
               <ApplicationCapacity
                 snapshot={event.publishedRevision?.snapshot}
-                approved={event._count.applications}
+                occupied={event.occupied}
               />
               <ApplicationReviewControls
                 eventId={id}

@@ -19,6 +19,7 @@ import { ApplicationListItemButton } from "@/features/events/components/applicat
 import { ApplicationRealtime } from "@/features/events/components/application-realtime";
 import { ApplicationStatus } from "@/features/events/components/application-status";
 import { EventHeader } from "@/features/events/components/event-header";
+import { RegistrationAdmission } from "@/features/events/components/registration-admission";
 import { formatEventTime } from "@/features/events/format-event-time";
 import { getOwnedApplications } from "@/features/events/server/organizer-applications";
 import { requireOrganizer } from "@/features/organizer/server/require-organizer";
@@ -91,7 +92,7 @@ export default async function ApplicationsPage({
       {event.publishedRevision && (
         <ApplicationCapacity
           snapshot={event.publishedRevision.snapshot}
-          approved={counts.APPROVED}
+          occupied={event.occupied}
         />
       )}
       <Stack
@@ -242,6 +243,12 @@ export default async function ApplicationsPage({
                         }}
                       >
                         <ApplicationStatus status={application.status} />
+                        {application.registrations[0] && (
+                          <RegistrationAdmission
+                            admission={application.registrations[0]}
+                            compact
+                          />
+                        )}
                       </Stack>
                     </Box>
                   </ApplicationListItemButton>

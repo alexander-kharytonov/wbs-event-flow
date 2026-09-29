@@ -17,6 +17,7 @@ import { notFound } from "next/navigation";
 import { DateTime } from "@/components/ui/date-time";
 import { ApplicationRealtime } from "@/features/events/components/application-realtime";
 import { ApplicationStatus } from "@/features/events/components/application-status";
+import { RegistrationAdmission } from "@/features/events/components/registration-admission";
 import { SubmittedAnswers } from "@/features/events/components/submitted-answers";
 import { formatEventTime } from "@/features/events/format-event-time";
 import { getMyRegistration } from "@/features/events/server/get-my-registration";
@@ -176,6 +177,12 @@ export default async function RegistrationDetailPage({
           </Button>
         )}
       </Stack>
+      {current.admission && (
+        <RegistrationAdmission
+          admission={current.admission}
+          timezone={context?.timezone ?? "UTC"}
+        />
+      )}
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
         <Stack spacing={2}>
           <Stack
@@ -235,6 +242,12 @@ export default async function RegistrationDetailPage({
                 </AccordionSummary>
                 <AccordionDetails>
                   <Stack spacing={3}>
+                    {attempt.admission && (
+                      <RegistrationAdmission
+                        admission={attempt.admission}
+                        timezone={attempt.context?.timezone ?? "UTC"}
+                      />
+                    )}
                     <AttemptDates attempt={attempt} />
                     <AttemptAnswers attempt={attempt} />
                   </Stack>

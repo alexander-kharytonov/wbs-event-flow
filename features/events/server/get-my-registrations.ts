@@ -12,6 +12,10 @@ export async function getMyRegistrations(userId: string) {
         select: {
           eventId: true,
           status: true,
+          registrations: {
+            where: { userId },
+            select: { createdAt: true, revokedAt: true },
+          },
           event: {
             select: {
               cancelledAt: true,
@@ -40,7 +44,7 @@ export async function getMyRegistrations(userId: string) {
   }
 
   const registrations = [...currentByEvent.values()].flatMap(
-    ({ eventId, status, event }) => {
+    ({ eventId, status, event, registrations: admissions }) => {
       const parsed = eventSnapshotSchema.safeParse(
         event.publishedRevision?.snapshot,
       );
@@ -58,6 +62,7 @@ export async function getMyRegistrations(userId: string) {
           endsAt: context?.endsAt ?? null,
           timezone: context?.timezone ?? null,
           status,
+          admission: admissions[0] ?? null,
         },
       ];
     },

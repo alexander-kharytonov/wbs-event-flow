@@ -7,7 +7,12 @@ export function EventNavigation({
 }: {
   eventId: string;
   applicationCount: number;
-  active: "overview" | "registration-form" | "preview" | "applications";
+  active:
+    | "overview"
+    | "registration-form"
+    | "preview"
+    | "applications"
+    | "attendees";
 }) {
   return (
     <Stack
@@ -65,6 +70,13 @@ export function EventNavigation({
         >
           Applications
         </Badge>
+      </Button>
+      <Button
+        href={`/dashboard/events/${eventId}/attendees`}
+        color={active === "attendees" ? "primary" : "inherit"}
+        aria-current={active === "attendees" ? "page" : undefined}
+      >
+        Attendees
       </Button>
     </Stack>
   );

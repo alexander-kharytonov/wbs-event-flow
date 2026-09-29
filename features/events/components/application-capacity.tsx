@@ -3,10 +3,10 @@ import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 
 export function ApplicationCapacity({
   snapshot,
-  approved,
+  occupied,
 }: {
   snapshot: unknown;
-  approved: number;
+  occupied: number;
 }) {
   const parsed = eventSnapshotSchema.safeParse(snapshot);
 
@@ -21,12 +21,12 @@ export function ApplicationCapacity({
 
   const capacity = parsed.data.capacity;
 
-  if (capacity !== null && approved >= capacity) {
+  if (capacity !== null && occupied >= capacity) {
     return (
       <Alert severity="warning">
-        {approved} of {capacity} places filled · 0 available.
-        {approved > capacity
-          ? ` The event is ${approved - capacity} over capacity. Existing approvals are kept.`
+        {occupied} of {capacity} places filled · 0 available.
+        {occupied > capacity
+          ? ` The event is ${occupied - capacity} over capacity. Existing registrations are kept.`
           : " All places are filled."}
         {
           " Further approvals are blocked until a place becomes available. Pending applications remain pending."
@@ -39,20 +39,20 @@ export function ApplicationCapacity({
     <Stack spacing={1}>
       <Typography variant="body2" sx={{ fontWeight: 600 }}>
         {capacity === null
-          ? `${approved} approved · Unlimited capacity`
-          : `${approved} of ${capacity} places filled · ${capacity - approved} available`}
+          ? `${occupied} registered · Unlimited capacity`
+          : `${occupied} of ${capacity} places filled · ${capacity - occupied} available`}
       </Typography>
       {capacity !== null && (
         <LinearProgress
           variant="determinate"
-          value={(approved / capacity) * 100}
+          value={(occupied / capacity) * 100}
           aria-label="Filled places"
-          aria-valuetext={`${approved} of ${capacity} places filled`}
+          aria-valuetext={`${occupied} of ${capacity} places filled`}
           sx={{ height: 10, borderRadius: 0.5 }}
         />
       )}
       <Typography variant="caption" color="text.secondary">
-        Only approved applications occupy places.
+        Only active registrations occupy places.
       </Typography>
     </Stack>
   );

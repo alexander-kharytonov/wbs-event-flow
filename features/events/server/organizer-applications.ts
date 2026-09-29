@@ -49,10 +49,16 @@ export async function getOwnedApplications(
           email: true,
           status: true,
           createdAt: true,
+          registrations: { select: { createdAt: true, revokedAt: true } },
         },
       });
 
+      const occupied = await tx.registration.count({
+        where: { eventId, revokedAt: null },
+      });
+
       return {
+        occupied,
         startsAt: event.startsAt,
         endsAt: event.endsAt,
         cancelledAt: event.cancelledAt,
@@ -95,6 +101,7 @@ export async function getOwnedApplication(
           reviewedAt: true,
           withdrawnAt: true,
           eventRevisionId: true,
+          registrations: { select: { createdAt: true, revokedAt: true } },
         },
       });
 
@@ -138,8 +145,8 @@ export async function getOwnedApplication(
             select: { snapshot: true, contentVersion: true, number: true },
           })
         : null;
-      const approved = await tx.application.count({
-        where: { eventId, status: "APPROVED" },
+      const occupied = await tx.registration.count({
+        where: { eventId, revokedAt: null },
       });
 
       return {
@@ -158,7 +165,7 @@ export async function getOwnedApplication(
           publicId: event.publicId,
           timezone: event.timezone,
           publishedRevision,
-          _count: { applications: approved },
+          occupied,
         },
       };
     },

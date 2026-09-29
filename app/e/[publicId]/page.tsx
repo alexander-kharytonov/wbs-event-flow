@@ -6,6 +6,7 @@ import { applicationPrefill } from "@/features/events/application-prefill";
 import { applicationStatusLabels } from "@/features/events/application-status-labels";
 import { ApplicationRealtime } from "@/features/events/components/application-realtime";
 import { EventGuestView } from "@/features/events/components/event-guest-view";
+import { RegistrationAdmission } from "@/features/events/components/registration-admission";
 import { RegistrationApplicationForm } from "@/features/events/components/registration-application-form";
 import { WithdrawApplicationButton } from "@/features/events/components/withdraw-application-button";
 import { registrationAvailability } from "@/features/events/registration-availability";
@@ -53,12 +54,12 @@ export default async function PublicEventPage({ params }: Props) {
   } = await publishedSnapshot(params);
   const { publicId } = await params;
   const now = new Date();
-  const approved =
+  const occupied =
     !cancelledAt &&
     snapshot.capacity !== null &&
     now.getTime() < Date.parse(snapshot.endsAt)
-      ? await prisma.application.count({
-          where: { event: { publicId }, status: "APPROVED" },
+      ? await prisma.registration.count({
+          where: { event: { publicId }, revokedAt: null },
         })
       : undefined;
   const session = await getSession();
@@ -76,7 +77,13 @@ export default async function PublicEventPage({ params }: Props) {
           event: { publicId },
           status: { not: "WITHDRAWN" },
         },
-        select: { id: true, status: true },
+        select: { id: true, status: true, eventId: true },
+      })
+    : null;
+  const admission = user
+    ? await prisma.registration.findFirst({
+        where: { userId: user.id, event: { publicId }, revokedAt: null },
+        select: { createdAt: true, revokedAt: true },
       })
     : null;
   const withdrawn =
@@ -86,7 +93,12 @@ export default async function PublicEventPage({ params }: Props) {
           orderBy: [{ createdAt: "desc" }, { id: "desc" }],
           select: {
             id: true,
+            eventId: true,
             fullName: true,
+            registrations: {
+              where: { userId: user.id },
+              select: { createdAt: true, revokedAt: true },
+            },
             eventRevision: { select: { snapshot: true } },
             answers: {
               select: {
@@ -121,7 +133,7 @@ export default async function PublicEventPage({ params }: Props) {
       cancellationReason={cancellationReason}
       snapshot={snapshot}
       now={now}
-      approved={approved}
+      occupied={occupied}
       showApplicationLink={
         !ownedEvent &&
         !application &&
@@ -139,11 +151,17 @@ export default async function PublicEventPage({ params }: Props) {
               You cannot apply to attend your own event.
             </Alert>
           )}
-          {application && (
+          {admission && (
+            <RegistrationAdmission
+              admission={admission}
+              timezone={snapshot.timezone}
+            />
+          )}
+          {application && !admission && (
             <Alert
               severity={
                 application.status === "APPROVED"
-                  ? "success"
+                  ? "info"
                   : application.status === "REJECTED"
                     ? "error"
                     : "info"
@@ -155,7 +173,7 @@ export default async function PublicEventPage({ params }: Props) {
               {frozen
                 ? "Your application status is preserved as part of this event’s history."
                 : application.status === "APPROVED"
-                  ? "Your application has been approved."
+                  ? "Your application was approved. Admission details are unavailable."
                   : application.status === "REJECTED"
                     ? "Your application has been declined."
                     : "Your application has been received and is awaiting organizer review."}
@@ -171,6 +189,20 @@ export default async function PublicEventPage({ params }: Props) {
                 applicationId={application.id}
               />
             )}
+          {withdrawn?.registrations[0] && (
+            <RegistrationAdmission
+              admission={withdrawn.registrations[0]}
+              timezone={snapshot.timezone}
+            />
+          )}
+          {user && (application || withdrawn) && (
+            <Button
+              href={`/account/registrations/${application?.eventId ?? withdrawn?.eventId}`}
+              sx={{ alignSelf: "flex-start" }}
+            >
+              View application history
+            </Button>
+          )}
           {withdrawn && !frozen && (
             <Alert severity="info">
               <AlertTitle>Your application: Withdrawn</AlertTitle>

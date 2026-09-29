@@ -237,7 +237,11 @@ WITHDRAWN never transitions back to PENDING. Repeating withdrawal of an already
 WITHDRAWN own application returns success without changing it only while the
 Event lifecycle still permits application operations.
 Review accepts only PENDING, writes reviewedAt, and uses a conditional update.
-Withdrawal writes withdrawnAt and retains any previous reviewedAt.
+Approval creates Registration before EmailOutbox/NOTIFY in the same transaction;
+rejection never creates Registration.
+Withdrawal writes withdrawnAt and retains any previous reviewedAt. For an initially
+APPROVED attempt, exactly one active Registration must be conditionally revoked
+using the same decisionNow; any other count throws and rolls back withdrawal.
 
 Sources: [review](features/events/server/review-application.ts),
 [withdrawal](features/events/server/withdraw-application.ts).
@@ -266,17 +270,17 @@ another email/account. There is no shared active-status helper; Public Event's
 ## 11. Capacity
 
 Capacity comes from the current published snapshot; null means unlimited.
-Only APPROVED attempts occupy places, across all submitted revisions of the Event.
-PENDING, REJECTED, and WITHDRAWN do not. Finite-capacity UI uses:
+Only active Registrations (`revokedAt IS NULL`) occupy places, across all submitted
+revisions of the Event. Application status counts remain review/history counts. Finite-capacity UI uses:
 
 ```text
-filled = count(APPROVED for Event)
+filled = count(Registration for Event where revokedAt IS NULL)
 available = max(0, capacity - filled)
 ```
 
 Submit and reapply may create PENDING even when full. Approve locks Event, reads
-current capacity, counts approved applications, and refuses approval when full.
-APPROVED -> WITHDRAWN releases a place. Publishing a lower capacity may make the
+current capacity, counts active Registrations, and refuses approval when full.
+APPROVED -> WITHDRAWN atomically revokes admission and releases a place. Publishing a lower capacity may make the
 Event over capacity without demoting existing approvals. Later approvals remain
 blocked until space exists. Concurrent approvals cannot independently take the
 same final slot through the current server flow.
@@ -291,7 +295,8 @@ by id + Event + that userId, permits PENDING/APPROVED, and requires now < the
 current published endsAt and persisted Event endsAt, with no cancellation. It does not use the submitted revision's end or the
 registration close. REJECTED cannot be withdrawn. No payload/answers are deleted.
 
-Reapply uses Submit and inserts a new PENDING attempt. For a verified User with
+Reapply uses Submit and inserts a new PENDING attempt. Its later approval creates
+a new Registration; the previous revoked Registration is never reactivated. For a verified User with
 any prior WITHDRAWN attempt on that Event, the submitted revision must equal the
 current pointer under lock. An intervening publication requires reloading the
 form. Current admission/owner guards and partial uniqueness still apply.
@@ -562,7 +567,7 @@ The owner supplies a trimmed 1–2000 character reason. A DB CHECK requires both
 cancellation columns null, or a non-null cancellation date and a non-null reason
 containing non-whitespace text. No mutation changes a saved cancellation reason.
 Within the Event-locked transaction, Cancel updates the domain fact, selects
-PENDING/APPROVED attempts, deduplicates normalized emails, validates frozen v1
+PENDING attempts and active Registrations, deduplicates normalized emails, validates frozen v1
 EVENT_CANCELLED payloads and bulk inserts outbox intents via createMany. A single
 outbox wake-up accompanies a nonempty batch. Each event/address has a unique
 cancellation deduplication key. Applicant context is selected deterministically
@@ -580,8 +585,51 @@ Existing dispatcher/retry/at-least-once delivery semantics are unchanged.
 Archive is owner-only for Completed/Cancelled; Restore clears archivedAt. Both
 use the same lock/DB clock but never change public/attendee state or emit attendee
 notifications. Archived workspaces are read-only apart from Restore. Delete
-requires no revisions, no Applications, null publicId/publishedAt/cancelledAt,
+requires no revisions, no Applications or Registrations, null publicId/publishedAt/cancelledAt,
 and an active workspace; existing form cascades remove owned draft structures.
 Delete and Publish serialize on Event; publication history permanently disqualifies
 hard deletion. Lifecycle, publication, and archive preserve the workspace edit
 token; content writes continue to advance it.
+
+## 21. Registration / granted admission
+
+Application is the request/review/answers/attempt-history authority. Registration
+is the granted-admission authority, created only by approval (or historical
+backfill of a proven approval). `revokedAt IS NULL` means active; a timestamp
+means historical revoked admission. Event cancellation/completion and archive/restore
+do not mutate Registration. Event lifecycle still independently gates actions.
+
+Registration snapshots `Application.fullName/email/userId`, never current profile
+identity. Email uses the existing submitted trim/lowercase semantics, without a
+new normalization rule. User deletion sets userId null and preserves snapshots.
+There is no email-based claiming.
+
+DB enforcement: sourceApplicationId is globally unique; `(eventId, sourceApplicationId)`
+references Application `(eventId, id)`. The inverse Application.registrations list
+has actual cardinality 0..1. Event and source Application deletion are RESTRICT.
+Partial unique indexes enforce one active registration per Event/non-null User
+and per Event/email across linked and anonymous identities together; revoked rows
+are excluded. CHECK requires revokedAt >= createdAt when revoked.
+
+Every current APPROVED Application has exactly one active Registration through
+the existing Event FOR UPDATE + ReadCommitted mutation protocol. Approve creates
+admission with createdAt = reviewedAt = decisionNow before its outbox/NOTIFY.
+Approved withdrawal updates both rows atomically; missing admission is an invariant
+violation, not a successful withdrawal. PENDING withdrawal remains Application-only.
+DB constraints or any thrown failure roll back the entire transaction.
+
+The transactional migration rejects inconsistent timestamps, noncanonical email,
+identity collisions and broken history references; it does not repair history.
+APPROVED backfills active admission at reviewedAt. WITHDRAWN with reviewedAt and
+withdrawnAt backfills revoked admission at those exact times. Other attempts have
+no Registration. Correspondence is checked before commit. Application writers
+must be stopped during migration and resumed only with the matching implementation.
+
+Organizer Attendees reads only owned Event Registrations, with Active/Revoked
+filters and identity/grant/revocation snapshots. Application filters and counts
+continue to count attempts. My Registrations and its detail preserve application
+states/history and add admission context from linked Registrations. Public Event
+confirms admission only from active Registration. Existing owner/User scoped SSE
+refreshes these reads; no new protocol or payload is introduced. Cancellation
+recipients are pending applicants plus active admissions, preserving normalized
+email deduplication and existing linked-user invalidations.

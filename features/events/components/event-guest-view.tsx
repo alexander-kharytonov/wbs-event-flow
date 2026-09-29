@@ -22,7 +22,7 @@ export function EventGuestView({
   cancelled = false,
   cancellationReason,
   now,
-  approved,
+  occupied,
   children,
   notice,
   showApplicationLink = false,
@@ -31,7 +31,7 @@ export function EventGuestView({
   cancellationReason?: string | null;
   snapshot: EventSnapshot;
   now: Date;
-  approved?: number;
+  occupied?: number;
   children?: ReactNode;
   notice?: ReactNode;
   showApplicationLink?: boolean;
@@ -202,7 +202,7 @@ export function EventGuestView({
                 <Box>
                   <Typography component="dt">
                     {!hasEnded &&
-                    approved !== undefined &&
+                    occupied !== undefined &&
                     snapshot.capacity !== null
                       ? "Places available"
                       : "Guest capacity"}
@@ -210,11 +210,11 @@ export function EventGuestView({
                   <Typography component="dd">
                     {snapshot.capacity === null
                       ? "No limit"
-                      : !hasEnded && approved !== undefined
-                        ? Math.max(0, snapshot.capacity - approved)
+                      : !hasEnded && occupied !== undefined
+                        ? Math.max(0, snapshot.capacity - occupied)
                         : `${snapshot.capacity} guests`}
                     {!hasEnded &&
-                      approved !== undefined &&
+                      occupied !== undefined &&
                       snapshot.capacity !== null && (
                         <Typography
                           component="span"
@@ -222,7 +222,7 @@ export function EventGuestView({
                           color="text.secondary"
                           sx={{ mt: 0.5, display: "block", fontWeight: 400 }}
                         >
-                          {approved} of {snapshot.capacity} places filled
+                          {occupied} of {snapshot.capacity} places filled
                         </Typography>
                       )}
                   </Typography>
@@ -245,8 +245,8 @@ export function EventGuestView({
                 {hasEnded && " This event has ended. Registration is closed."}
                 {!hasEnded &&
                   snapshot.capacity !== null &&
-                  approved !== undefined &&
-                  approved >= snapshot.capacity &&
+                  occupied !== undefined &&
+                  occupied >= snapshot.capacity &&
                   state === "OPEN" &&
                   " All places are currently filled. You can still apply — a place may become available."}
               </Typography>
