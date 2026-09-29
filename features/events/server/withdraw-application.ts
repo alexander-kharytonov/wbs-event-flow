@@ -107,6 +107,20 @@ export async function withdrawOwnApplication(
               "Approved application must have exactly one active registration.",
             );
           }
+
+          const revokedTicket = await tx.ticket.updateMany({
+            where: {
+              registration: { eventId, sourceApplicationId: applicationId },
+              revokedAt: null,
+            },
+            data: { revokedAt: now },
+          });
+
+          if (revokedTicket.count !== 1) {
+            throw new Error(
+              "Approved withdrawal must revoke exactly one active Ticket.",
+            );
+          }
         }
 
         await notifyApplicationChanged(tx, { eventId, userId });

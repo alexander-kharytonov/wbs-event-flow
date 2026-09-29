@@ -9,8 +9,13 @@ import {
 } from "@/lib/email-outbox/payload";
 import { renderEmailTemplate } from "@/lib/email-template";
 import { getServerEnv } from "@/lib/env";
+import { prisma } from "@/lib/prisma";
+import { decryptTicketSecret } from "@/lib/ticket-crypto";
 
-export function renderOutboxEmail(type: EmailOutboxType, payload: unknown) {
+export async function renderOutboxEmail(
+  type: EmailOutboxType,
+  payload: unknown,
+) {
   const origin = getServerEnv().BETTER_AUTH_URL;
   const absoluteUrl = (path: string) => new URL(path, origin).href;
   let subject: string;
@@ -86,6 +91,67 @@ export function renderOutboxEmail(type: EmailOutboxType, payload: unknown) {
       introduction =
         "Your application has been approved. We look forward to seeing you at the event.";
       action = { label: "View event", url: eventUrl };
+
+      if ("ticketId" in data) {
+        const ticket = await prisma.ticket.findUniqueOrThrow({
+          where: { id: data.ticketId },
+          select: {
+            registrationId: true,
+            revokedAt: true,
+            anonymousAccessHash: true,
+            anonymousAccessEncrypted: true,
+            registration: {
+              select: {
+                eventId: true,
+                userId: true,
+                revokedAt: true,
+                event: { select: { cancelledAt: true } },
+              },
+            },
+          },
+        });
+
+        if (
+          ticket.revokedAt ||
+          ticket.registration.revokedAt ||
+          ticket.registration.event.cancelledAt
+        ) {
+          introduction = ticket.registration.event.cancelledAt
+            ? "Your application was approved, but the event has since been cancelled. Your ticket history is preserved."
+            : "Your application was approved, but your admission has since been revoked. Your ticket history is preserved.";
+          action = undefined;
+        } else if (
+          ticket.anonymousAccessHash &&
+          ticket.anonymousAccessEncrypted
+        ) {
+          const access = decryptTicketSecret(
+            ticket.anonymousAccessEncrypted,
+            ticket.registrationId,
+            "access",
+            ticket.anonymousAccessHash,
+          );
+          introduction =
+            "Your application has been approved and your ticket is ready. Keep this private ticket link safe; anyone with it can view your ticket.";
+          action = {
+            label: "View ticket",
+            url: absoluteUrl(`/ticket/${access}`),
+          };
+        } else if (ticket.registration.userId) {
+          introduction =
+            "Your application has been approved and your ticket is ready. Sign in to view it in your registration.";
+          action = {
+            label: "View ticket",
+            url: absoluteUrl(
+              `/account/registrations/${ticket.registration.eventId}`,
+            ),
+          };
+        } else {
+          // A deleted linked User never turns this into an anonymous Ticket.
+          introduction =
+            "Your application was approved. The account previously linked to this registration is no longer available.";
+          action = undefined;
+        }
+      }
     }
   }
 

@@ -2,6 +2,10 @@ import "server-only";
 import { z } from "zod";
 import { historicalAnswers } from "@/features/events/historical-answers";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
+import {
+  presentTicket,
+  ticketDisplaySelect,
+} from "@/features/tickets/server/ticket-display";
 import { prisma } from "@/lib/prisma";
 
 // Call only with the user ID returned by the authoritative verified session.
@@ -27,6 +31,7 @@ export async function getMyRegistration(userId: string, eventId: string) {
           registrations: {
             where: { userId },
             select: {
+              ticket: { select: ticketDisplaySelect },
               createdAt: true,
               revokedAt: true,
               attendeeName: true,
@@ -61,6 +66,7 @@ export async function getMyRegistration(userId: string, eventId: string) {
       const event = await tx.event.findUniqueOrThrow({
         where: { id: eventId },
         select: {
+          endsAt: true,
           cancelledAt: true,
           cancellationReason: true,
           publicId: true,
@@ -97,29 +103,59 @@ export async function getMyRegistration(userId: string, eventId: string) {
     publication.success && z.uuid().safeParse(publicId).success
       ? publication.data
       : null;
-  const attempts = applications.map((application) => {
-    const submitted = eventSnapshotSchema.safeParse(application.snapshot);
-
-    return {
-      id: application.id,
-      status: application.status,
-      admission: application.registrations[0] ?? null,
-      fullName: application.fullName,
-      email: application.email,
-      submittedAt: application.createdAt,
-      reviewedAt: application.reviewedAt,
-      withdrawnAt: application.withdrawnAt,
-      context: submitted.success
+  const completed = currentApplication.event.endsAt.getTime() <= Date.now();
+  const publishedContext = currentPublication
+    ? {
+        title: currentPublication.title,
+        startsAt: currentPublication.startsAt,
+        endsAt: currentPublication.endsAt,
+        timezone: currentPublication.timezone,
+      }
+    : null;
+  const attempts = await Promise.all(
+    applications.map(async (application) => {
+      const submitted = eventSnapshotSchema.safeParse(application.snapshot);
+      const context = submitted.success
         ? {
             title: submitted.data.title,
             startsAt: submitted.data.startsAt,
             endsAt: submitted.data.endsAt,
             timezone: submitted.data.timezone,
           }
-        : null,
-      answers: historicalAnswers(application.snapshot, application.answers),
-    };
-  });
+        : null;
+      const admission = application.registrations[0];
+      const ticket = admission?.ticket
+        ? await presentTicket(
+            admission.ticket,
+            admission,
+            application.id === currentApplication.id
+              ? (publishedContext ?? context)
+              : context,
+            currentApplication.event.cancelledAt,
+            completed,
+          )
+        : null;
+
+      return {
+        id: application.id,
+        status: application.status,
+        admission: admission
+          ? {
+              createdAt: admission.createdAt,
+              revokedAt: admission.revokedAt,
+              ticket,
+            }
+          : null,
+        fullName: application.fullName,
+        email: application.email,
+        submittedAt: application.createdAt,
+        reviewedAt: application.reviewedAt,
+        withdrawnAt: application.withdrawnAt,
+        context,
+        answers: historicalAnswers(application.snapshot, application.answers),
+      };
+    }),
+  );
   const current = attempts.find(({ id }) => id === currentApplication.id);
 
   if (!current) {
@@ -127,16 +163,10 @@ export async function getMyRegistration(userId: string, eventId: string) {
   }
 
   return {
+    completed,
     cancelledAt: currentApplication.event.cancelledAt,
     cancellationReason: currentApplication.event.cancellationReason,
-    context: currentPublication
-      ? {
-          title: currentPublication.title,
-          startsAt: currentPublication.startsAt,
-          endsAt: currentPublication.endsAt,
-          timezone: currentPublication.timezone,
-        }
-      : current.context,
+    context: publishedContext ?? current.context,
     historicalContext: currentPublication === null,
     publicId: currentPublication ? publicId : null,
     current,
