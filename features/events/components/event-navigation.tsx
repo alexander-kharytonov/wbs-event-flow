@@ -4,9 +4,11 @@ export function EventNavigation({
   eventId,
   active,
   applicationCount,
+  attendeeCount,
 }: {
   eventId: string;
   applicationCount: number;
+  attendeeCount: number;
   active:
     | "overview"
     | "registration-form"
@@ -75,8 +77,17 @@ export function EventNavigation({
         href={`/dashboard/events/${eventId}/attendees`}
         color={active === "attendees" ? "primary" : "inherit"}
         aria-current={active === "attendees" ? "page" : undefined}
+        aria-label={`Attendees (${attendeeCount})`}
+        sx={{ pr: 3 }}
       >
-        Attendees
+        <Badge
+          badgeContent={attendeeCount}
+          color="primary"
+          showZero
+          sx={{ "& .MuiBadge-badge": { right: -12 } }}
+        >
+          Attendees
+        </Badge>
       </Button>
     </Stack>
   );

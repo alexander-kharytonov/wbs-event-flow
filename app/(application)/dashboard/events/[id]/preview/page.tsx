@@ -29,7 +29,12 @@ export default async function PreviewPage({
         where: { id, organizerId: organizer.id },
         include: {
           ...workspaceInclude,
-          _count: { select: { applications: true } },
+          _count: {
+            select: {
+              applications: true,
+              registrations: { where: { revokedAt: null } },
+            },
+          },
         },
       }),
     { isolationLevel: "RepeatableRead" },
@@ -48,6 +53,7 @@ export default async function PreviewPage({
         event={event}
         active="preview"
         applicationCount={event._count.applications}
+        attendeeCount={event._count.registrations}
       />
       <Alert severity="info">
         Preview of your current workspace, including unpublished changes.

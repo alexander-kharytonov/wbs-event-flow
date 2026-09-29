@@ -46,6 +46,7 @@ export default async function AttendeesPage({
         event={event}
         active="attendees"
         applicationCount={event._count.applications}
+        attendeeCount={activeCount}
       />
       <Stack spacing={1}>
         <Typography variant="h6" component="h2">

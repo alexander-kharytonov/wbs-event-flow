@@ -1,3 +1,5 @@
+"use client";
+
 import CheckCircleOutlined from "@mui/icons-material/CheckCircleOutlined";
 import { Chip, Stack, Typography } from "@mui/material";
 import { formatEventTime } from "@/features/events/format-event-time";

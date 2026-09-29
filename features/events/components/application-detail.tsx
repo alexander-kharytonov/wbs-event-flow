@@ -48,6 +48,7 @@ export async function ApplicationDetail({
             event={event}
             active="applications"
             applicationCount={event.applicationCount}
+            attendeeCount={event.occupied}
           />
           <Link
             href={`/dashboard/events/${id}/applications`}
@@ -77,13 +78,24 @@ export async function ApplicationDetail({
               {application.email}
             </Typography>
           </Box>
-          <ApplicationStatus status={application.status} />
-          {application.registrations[0] && (
-            <RegistrationAdmission
-              admission={application.registrations[0]}
-              compact
-            />
-          )}
+          <Stack
+            direction="row"
+            useFlexGap
+            spacing={1}
+            sx={{
+              flexWrap: "wrap",
+              alignItems: "center",
+              justifyContent: { xs: "flex-start", sm: "flex-end" },
+            }}
+          >
+            <ApplicationStatus status={application.status} />
+            {application.registrations[0] && (
+              <RegistrationAdmission
+                admission={application.registrations[0]}
+                compact
+              />
+            )}
+          </Stack>
         </Stack>
         <Box sx={{ bgcolor: "background.default", p: 2 }}>
           <Box

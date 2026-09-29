@@ -626,7 +626,8 @@ no Registration. Correspondence is checked before commit. Application writers
 must be stopped during migration and resumed only with the matching implementation.
 
 Organizer Attendees reads only owned Event Registrations, with Active/Revoked
-filters and identity/grant/revocation snapshots. Application filters and counts
+filters and identity/grant/revocation snapshots. The Attendees navigation badge
+counts active Registrations, excluding revoked history. Application filters and counts
 continue to count attempts. My Registrations and its detail preserve application
 states/history and add admission context from linked Registrations. Public Event
 confirms admission only from active Registration. Existing owner/User scoped SSE

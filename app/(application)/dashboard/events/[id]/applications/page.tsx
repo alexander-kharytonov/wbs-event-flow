@@ -73,6 +73,7 @@ export default async function ApplicationsPage({
         event={event}
         active="applications"
         applicationCount={event.applications.length}
+        attendeeCount={event.occupied}
       />
       <Stack
         direction={{ xs: "column", sm: "row" }}
