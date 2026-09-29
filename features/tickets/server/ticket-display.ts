@@ -37,6 +37,7 @@ async function ticketQrSvg(ticket: TicketDisplay) {
 export type TicketPresentation = {
   number: string;
   issuedAt: Date;
+  checkedInAt: Date | null;
   revokedAt: Date | null;
   attendeeName: string;
   attendeeEmail: string;
@@ -59,6 +60,7 @@ export async function presentTicket(
     attendeeName: string;
     attendeeEmail: string;
     revokedAt: Date | null;
+    attendance: { checkedInAt: Date } | null;
   },
   context: TicketPresentation["context"],
   cancelledAt: Date | null,
@@ -70,6 +72,7 @@ export async function presentTicket(
   return {
     number: ticket.number,
     issuedAt: ticket.issuedAt,
+    checkedInAt: admission.attendance?.checkedInAt ?? null,
     revokedAt: ticket.revokedAt,
     attendeeName: admission.attendeeName,
     attendeeEmail: admission.attendeeEmail,

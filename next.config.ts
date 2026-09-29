@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // Auth and anonymous Ticket URLs contain bearer secrets.
   logging: {
+    serverFunctions: false,
     incomingRequests: { ignore: [/\/api\/auth\//, /\/ticket(?:\/|%2f)/i] },
   },
   async headers() {

@@ -32,6 +32,7 @@ export async function getMyRegistration(userId: string, eventId: string) {
             where: { userId },
             select: {
               ticket: { select: ticketDisplaySelect },
+              attendance: { select: { checkedInAt: true } },
               createdAt: true,
               revokedAt: true,
               attendeeName: true,

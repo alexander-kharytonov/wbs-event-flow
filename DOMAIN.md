@@ -717,3 +717,66 @@ and data backfill are separate deployment steps: writers must not resume between
 them. issuedAt means entitlement time (= Registration.createdAt), not the physical
 time the backfill generated a new secret; revokedAt copies Registration.revokedAt.
 No history is invented, repaired, silently skipped or emailed by backfill.
+
+## 23. Attendance / QR check-in
+
+Attendance records a successful check-in, not admission eligibility. It has a
+UUIDv7 id, UNIQUE required registrationId, nullable ticketId, checkedInAt
+timestamptz(3), nullable checkedInByUserId and method QR. There is no eventId;
+Event is reached through Registration. The Registration FK is RESTRICT. The
+composite (registrationId, ticketId) FK references Ticket (registrationId, id)
+with RESTRICT, and a DB CHECK requires ticketId for QR. User deletion SET NULLs
+the actor; it does not remove the fact. No update/delete/revoke/undo writer exists.
+The additive migration intentionally creates no historical Attendance.
+
+The owner-only Server Action derives verified User and OrganizerProfile from the
+authoritative session. Its only client fields are eventId and full qrPayload.
+The server-only parser accepts exactly eventflow:ticket:v1:<credential>, using
+the existing canonical 32-byte/43-character base64url secret validation. It does
+not trim, normalize or accept alternate formats. SHA-256 credentialHash lookup
+requires no decrypt. Invalid/unknown credentials return before an Event lock.
+
+Candidate lookup is not authority. ReadCommitted transaction order is owned
+Event FOR UPDATE, one DB clock_timestamp(), then authoritative Ticket by hash,
+Registration and Attendance reread. Foreign Event returns WRONG_EVENT without
+identity, Ticket number or Event details. After matching the Event, checks are:
+existing Attendance -> ALREADY_CHECKED_IN; cancellation -> EVENT_CANCELLED;
+decisionNow < startsAt -> CHECK_IN_NOT_OPEN; decisionNow >= endsAt ->
+CHECK_IN_CLOSED; either Registration/Ticket revoked -> ADMISSION_REVOKED.
+Otherwise insert Attendance with the same decisionNow, session actor and QR
+method, then transactional attendance.changed NOTIFY. CHECKED_IN returns after
+commit. Auth/unavailable and infrastructure failures are not INVALID_CREDENTIAL.
+Publication/archive are not check-in guards. Existing Event locks serialize
+scans with approved Withdraw, Cancel and schedule edits; UNIQUE registrationId
+is the final duplicate protection, with no generic idempotency or savepoint retry.
+
+Attendance survives later Withdraw, admission/Ticket revoke, Event cancellation,
+archive/restore and publication changes. Existing Attendance wins even over later
+cancellation, closure or revocation; ALREADY_CHECKED_IN reports history and does
+not grant a new entry. Withdraw/Cancel semantics are unchanged. Ticket validity
+and QR visibility remain distinct from check-in eligibility.
+
+attendance.changed shares event_flow_applications, the strict internal parser,
+Event/User broker routing and existing SSE endpoints. Only INSERT emits; repeat,
+error and no-op paths do not. Browser frames remain empty invalidations followed
+by authoritative router.refresh(), with existing reconnect/session boundaries.
+Operational counts include only currently active Registrations with Attendance
+over all active Registrations; revoked attendance remains historical. Linked and
+anonymous Ticket projections expose only checkedInAt, without extending access.
+
+The client scanner uses qr-scanner with software decoding when native decoding
+is unavailable, initially prefers an environment camera after user interaction,
+and offers camera selection after permission. Switching cameras awaits the previous
+scanner cleanup. After a decode, the camera/decoder stays active but further
+decode results are ignored during processing and until explicit Scan next;
+Scan next reopens the submission gate without restarting the camera. Stop scanner
+and unmount release media/decoder. Stopping during a pending check-in releases the
+camera without cancelling the request or allowing another before its result.
+Explicit Stop clears the displayed result/error and suppresses the pending
+response in the scanner UI; it does not undo a check-in on the server.
+Switching cameras while a result is displayed preserves that result and gate.
+It stores
+no scanned secret. No raw payload, credential or hash enters Attendance, results,
+errors or SSE. Next development Server Function argument logging is disabled via
+logging.serverFunctions: false; existing Ticket/auth URL logging exclusions remain.
+External infrastructure must not capture action request bodies containing secrets.

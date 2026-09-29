@@ -21,6 +21,7 @@ export async function getAnonymousTicket(access: string) {
           attendeeName: true,
           attendeeEmail: true,
           revokedAt: true,
+          attendance: { select: { checkedInAt: true } },
           sourceApplication: {
             select: { eventRevision: { select: { snapshot: true } } },
           },

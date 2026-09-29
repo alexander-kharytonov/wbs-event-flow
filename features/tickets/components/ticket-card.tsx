@@ -1,6 +1,6 @@
 import "server-only";
 import ConfirmationNumberOutlined from "@mui/icons-material/ConfirmationNumberOutlined";
-import { Alert, Box, Chip, Paper, Stack, Typography } from "@mui/material";
+import { Alert, Box, Paper, Stack, Typography } from "@mui/material";
 import Image from "next/image";
 import { DateTime } from "@/components/ui/date-time";
 import { formatEventTime } from "@/features/events/format-event-time";
@@ -8,13 +8,17 @@ import type { TicketPresentation } from "@/features/tickets/server/ticket-displa
 
 export function TicketCard({ ticket }: { ticket: TicketPresentation }) {
   const { context, revoked, cancelled, completed, qrDataUrl } = ticket;
-  const usable = !revoked && !cancelled;
   const timezone = context?.timezone ?? "UTC";
 
   return (
     <Paper
       variant="outlined"
-      sx={{ p: { xs: 2, sm: 3 }, overflowWrap: "anywhere" }}
+      sx={{
+        p: { xs: 2, sm: 3 },
+        overflowWrap: "anywhere",
+        minWidth: 0,
+        containerType: "inline-size",
+      }}
     >
       <Stack spacing={2}>
         <Stack
@@ -26,23 +30,17 @@ export function TicketCard({ ticket }: { ticket: TicketPresentation }) {
           <Typography variant="h6" component="h2">
             Your ticket
           </Typography>
-          <Chip
-            size="small"
-            variant="outlined"
-            color={usable ? "success" : "default"}
-            label={
-              revoked
-                ? "Ticket revoked"
-                : cancelled
-                  ? "Event cancelled"
-                  : "Registration confirmed"
-            }
-          />
         </Stack>
         <Stack
-          direction={{ xs: "column", sm: "row" }}
           spacing={3}
-          sx={{ alignItems: { sm: "center" } }}
+          useFlexGap
+          sx={{
+            flexDirection: "column",
+            "@container (min-width: 640px)": {
+              flexDirection: "row",
+              alignItems: "center",
+            },
+          }}
         >
           <Stack spacing={1.5} sx={{ flex: 1, minWidth: 0 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
@@ -78,6 +76,12 @@ export function TicketCard({ ticket }: { ticket: TicketPresentation }) {
             <Typography variant="caption" color="text.secondary">
               Issued {formatEventTime(ticket.issuedAt, timezone)} ({timezone})
             </Typography>
+            {ticket.checkedInAt && (
+              <Alert severity="success">
+                Checked in · {formatEventTime(ticket.checkedInAt, timezone)} (
+                {timezone})
+              </Alert>
+            )}
             {ticket.revokedAt && (
               <Typography variant="caption" color="text.secondary">
                 Revoked {formatEventTime(ticket.revokedAt, timezone)} (
@@ -90,7 +94,8 @@ export function TicketCard({ ticket }: { ticket: TicketPresentation }) {
               spacing={1}
               sx={{
                 alignItems: "center",
-                alignSelf: { xs: "center", sm: "auto" },
+                alignSelf: "center",
+                flexShrink: 0,
                 maxWidth: "100%",
               }}
             >

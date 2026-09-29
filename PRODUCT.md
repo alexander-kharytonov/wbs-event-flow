@@ -78,7 +78,8 @@ meaning of that attempt. Later profile or form edits do not rewrite them.
 Duplicate attempts receive a neutral confirmation without exposing another
 application's existence or details.
 
-A verified user can see their linked current application on the public event and
+A verified user can see their linked current application on the public event or
+their account registration-detail page and
 withdraw a pending or approved application before the currently published event
 end. Approval atomically creates a Registration from the submitted identity and its Ticket.
 Withdrawal keeps the old attempt and atomically revokes its Registration and Ticket, freeing
@@ -150,7 +151,7 @@ Anonymous applicants do not receive a personal status stream. Cancellation also 
 Catalog and other Event editing/publication updates are outside this realtime scope.
 
 The product does not provide email changes or password reset, anonymous
-application claiming, scanner, check-in, or attendance.
+application claiming.
 These boundaries describe current scope, not a delivery roadmap.
 
 ## Event lifecycle
@@ -206,4 +207,29 @@ completion, archive and publication changes never rewrite Ticket history.
 Approval email links to authenticated detail or the separate anonymous capability;
 it never contains the QR credential. Delivery checks current revocation and
 cancellation before offering a Ticket CTA. Tickets are not transferable or
-regenerable, and PDF, Wallet, scanning and attendance are not implemented.
+regenerable, and PDF and Wallet are not implemented.
+
+## Check-in and attendance
+
+Attendance is the immutable historical fact of a successful check-in, separate
+from Application review, Registration admission and Ticket credentials. Verified
+Event owner-organizers can scan Ticket QR codes online from Check-in beside
+Attendees. Camera access starts on request and stays on between scans. Each scan
+blocks further ticket submissions until the result arrives and the organizer
+chooses Scan next. Stop scanner or leaving Check-in releases the camera.
+
+New attendance requires an ongoing, non-cancelled Event and active Registration
+and Ticket. The server uses persisted Event dates and DB time: start inclusive,
+end exclusive. Publication and archive state do not independently gate check-in.
+Ticket validity is not check-in eligibility.
+
+Each Registration can be checked in once. Repeat scans show Already checked in
+with the original time, including after later withdrawal or cancellation.
+Attendance survives admission/Ticket revocation, cancellation, archive and
+publication changes. There is no manual check-in, undo, check-out, re-entry or
+offline scanning.
+
+Attendees shows attendance history and checked-in/total currently active
+Registrations. Linked Ticket details refresh through the existing account stream;
+anonymous Ticket pages show attendance after reload. Check-in alone does not hide
+the QR; existing revocation/cancellation visibility rules still apply.

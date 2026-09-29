@@ -1,7 +1,7 @@
 "use client";
 
 import CheckCircleOutlined from "@mui/icons-material/CheckCircleOutlined";
-import { Chip, Stack, Typography } from "@mui/material";
+import { Alert, AlertTitle, Chip, Typography } from "@mui/material";
 import { formatEventTime } from "@/features/events/format-event-time";
 
 export function RegistrationAdmission({
@@ -13,7 +13,7 @@ export function RegistrationAdmission({
   timezone?: string;
   compact?: boolean;
 }) {
-  const status = (
+  return compact ? (
     <Chip
       label={
         admission.revokedAt ? "Registration revoked" : "Registration confirmed"
@@ -24,23 +24,21 @@ export function RegistrationAdmission({
       variant="outlined"
       sx={{ alignSelf: "flex-start" }}
     />
-  );
-
-  if (compact) {
-    return status;
-  }
-
-  return (
-    <Stack spacing={1}>
-      {status}
-      <Typography variant="body2" color="text.secondary">
+  ) : (
+    <Alert severity={admission.revokedAt ? "info" : "success"}>
+      <AlertTitle>
+        {admission.revokedAt
+          ? "Registration revoked"
+          : "Registration confirmed"}
+      </AlertTitle>
+      <Typography variant="body2">
         Granted {formatEventTime(admission.createdAt, timezone)} ({timezone})
       </Typography>
       {admission.revokedAt && (
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{ mt: 1 }}>
           Revoked {formatEventTime(admission.revokedAt, timezone)} ({timezone})
         </Typography>
       )}
-    </Stack>
+    </Alert>
   );
 }

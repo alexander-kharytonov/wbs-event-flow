@@ -43,7 +43,7 @@ export function EventGuestView({
 
   return (
     <Box>
-      <Stack spacing={4} sx={{ overflowWrap: "anywhere" }}>
+      <Stack spacing={3} sx={{ overflowWrap: "anywhere" }}>
         <Stack
           spacing={2}
           sx={{ pb: 3, borderBottom: 1, borderColor: "divider" }}

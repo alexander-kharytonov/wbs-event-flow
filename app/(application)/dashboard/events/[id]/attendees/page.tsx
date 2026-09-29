@@ -35,6 +35,9 @@ export default async function AttendeesPage({
   const visible = attendees.filter(
     (attendee) => (attendee.revokedAt !== null) === revoked,
   );
+  const checkedInCount = attendees.filter(
+    (attendee) => attendee.revokedAt === null && attendee.attendance !== null,
+  ).length;
 
   return (
     <Stack spacing={3}>
@@ -55,6 +58,9 @@ export default async function AttendeesPage({
         <Typography variant="body2" color="text.secondary">
           Granted registrations and their history. Pending requests remain in
           Applications.
+        </Typography>
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          Checked in: {checkedInCount} / {activeCount} active registrations
         </Typography>
       </Stack>
       <Stack
@@ -132,6 +138,11 @@ export default async function AttendeesPage({
                       {event.timezone})
                     </Typography>
                   )}
+                  <Typography variant="body2" color="text.secondary">
+                    {attendee.attendance
+                      ? `Checked in · ${formatEventTime(attendee.attendance.checkedInAt, event.timezone)} (${event.timezone})`
+                      : "Not checked in"}
+                  </Typography>
                 </Stack>
                 <Chip
                   size="small"

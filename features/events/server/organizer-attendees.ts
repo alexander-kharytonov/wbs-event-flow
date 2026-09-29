@@ -39,6 +39,7 @@ export async function getOwnedAttendees(organizerId: string, eventId: string) {
           attendeeEmail: true,
           createdAt: true,
           revokedAt: true,
+          attendance: { select: { checkedInAt: true } },
         },
       });
 
