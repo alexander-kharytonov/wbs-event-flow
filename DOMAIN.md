@@ -767,8 +767,13 @@ anonymous Ticket projections expose only checkedInAt, without extending access.
 The client scanner uses qr-scanner with software decoding when native decoding
 is unavailable, initially prefers an environment camera after user interaction,
 and offers camera selection after permission. Switching cameras awaits the previous
-scanner cleanup; Scan next retains the selected camera. The scanner stops
-media/decoder after the first result, and requires explicit Scan next. It stores
+scanner cleanup. After a decode, the camera/decoder stays active but further
+decode results are ignored during processing and until explicit Scan next;
+Scan next reopens the submission gate without restarting the camera. Stop scanner
+and unmount release media/decoder. Stopping during a pending check-in releases the
+camera without cancelling the request or allowing another before its result.
+Switching cameras while a result is displayed preserves that result and gate.
+It stores
 no scanned secret. No raw payload, credential or hash enters Attendance, results,
 errors or SSE. Next development Server Function argument logging is disabled via
 logging.serverFunctions: false; existing Ticket/auth URL logging exclusions remain.

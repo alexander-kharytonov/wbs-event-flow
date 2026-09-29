@@ -213,8 +213,9 @@ regenerable, and PDF and Wallet are not implemented.
 Attendance is the immutable historical fact of a successful check-in, separate
 from Application review, Registration admission and Ticket credentials. Verified
 Event owner-organizers can scan Ticket QR codes online from Check-in beside
-Attendees. Camera access starts on request; each scan pauses the camera until
-the organizer chooses Scan next.
+Attendees. Camera access starts on request and stays on between scans. Each scan
+blocks further ticket submissions until the result arrives and the organizer
+chooses Scan next. Stop scanner or leaving Check-in releases the camera.
 
 New attendance requires an ongoing, non-cancelled Event and active Registration
 and Ticket. The server uses persisted Event dates and DB time: start inclusive,
