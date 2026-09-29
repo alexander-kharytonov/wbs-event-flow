@@ -15,6 +15,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { AccountNavigation } from "@/features/auth/components/account-navigation";
 import { ApplicationRealtime } from "@/features/events/components/application-realtime";
 import { ApplicationStatus } from "@/features/events/components/application-status";
+import { RegistrationAdmission } from "@/features/events/components/registration-admission";
 import { getMyRegistrations } from "@/features/events/server/get-my-registrations";
 import { requireVerifiedUser } from "@/lib/session";
 
@@ -101,7 +102,14 @@ export default async function MyRegistrationsPage() {
                           overflowWrap: "anywhere",
                         }}
                       >
-                        <ApplicationStatus status={registration.status} />
+                        {registration.admission ? (
+                          <RegistrationAdmission
+                            admission={registration.admission}
+                            compact
+                          />
+                        ) : (
+                          <ApplicationStatus status={registration.status} />
+                        )}
                         {registration.cancelledAt && (
                           <Alert
                             severity="error"

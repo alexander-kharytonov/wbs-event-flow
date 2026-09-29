@@ -106,11 +106,11 @@ export async function reviewOwnedApplication(
           const capacity = snapshot.data.capacity;
 
           if (capacity !== null) {
-            const approved = await tx.application.count({
-              where: { eventId, status: "APPROVED" },
+            const occupied = await tx.registration.count({
+              where: { eventId, revokedAt: null },
             });
 
-            if (approved >= capacity) {
+            if (occupied >= capacity) {
               return {
                 code: "CAPACITY_REACHED",
                 message:
@@ -153,6 +153,17 @@ export async function reviewOwnedApplication(
             },
           });
         } else {
+          await tx.registration.create({
+            data: {
+              eventId,
+              sourceApplicationId: applicationId,
+              userId: application.userId,
+              attendeeName: application.fullName,
+              attendeeEmail: application.email,
+              createdAt: reviewedAt,
+            },
+          });
+
           // Approval already requires a valid current published snapshot.
           if (!snapshot.success || !event.publicId) {
             throw new Error("Published event email snapshot unavailable.");

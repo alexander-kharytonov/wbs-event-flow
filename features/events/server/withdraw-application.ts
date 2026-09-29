@@ -92,6 +92,23 @@ export async function withdrawOwnApplication(
           },
         });
 
+        if (application.status === "APPROVED") {
+          const revoked = await tx.registration.updateMany({
+            where: {
+              eventId,
+              sourceApplicationId: applicationId,
+              revokedAt: null,
+            },
+            data: { revokedAt: now },
+          });
+
+          if (revoked.count !== 1) {
+            throw new Error(
+              "Approved application must have exactly one active registration.",
+            );
+          }
+        }
+
         await notifyApplicationChanged(tx, { eventId, userId });
 
         return { success: true };

@@ -115,7 +115,18 @@ export async function changeOwnedEventLifecycle(
             select: { id: true },
           });
 
-          if (latest || application || event.publicId || event.publishedAt) {
+          const registration = await tx.registration.findFirst({
+            where: { eventId: event.id },
+            select: { id: true },
+          });
+
+          if (
+            latest ||
+            application ||
+            registration ||
+            event.publicId ||
+            event.publishedAt
+          ) {
             return {
               message:
                 "Only a never-published draft without applications can be deleted.",
@@ -152,10 +163,28 @@ export async function changeOwnedEventLifecycle(
           ? currentSnapshot.data
           : eventSnapshotSchema.parse(latest.snapshot);
         const affected = await tx.application.findMany({
-          where: { eventId: event.id, status: { in: ["PENDING", "APPROVED"] } },
+          where: { eventId: event.id, status: "PENDING" },
           orderBy: [{ createdAt: "desc" }, { id: "desc" }],
           select: { id: true, email: true, fullName: true, userId: true },
         });
+        const admissions = await tx.registration.findMany({
+          where: { eventId: event.id, revokedAt: null },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          select: {
+            id: true,
+            attendeeEmail: true,
+            attendeeName: true,
+            userId: true,
+          },
+        });
+        affected.push(
+          ...admissions.map((admission) => ({
+            id: admission.id,
+            email: admission.attendeeEmail,
+            fullName: admission.attendeeName,
+            userId: admission.userId,
+          })),
+        );
         const recipients = new Map<string, (typeof affected)[number]>();
 
         for (const application of affected) {

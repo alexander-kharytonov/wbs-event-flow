@@ -24,6 +24,15 @@ export async function getMyRegistration(userId: string, eventId: string) {
           reviewedAt: true,
           withdrawnAt: true,
           eventRevisionId: true,
+          registrations: {
+            where: { userId },
+            select: {
+              createdAt: true,
+              revokedAt: true,
+              attendeeName: true,
+              attendeeEmail: true,
+            },
+          },
         },
       });
 
@@ -94,6 +103,7 @@ export async function getMyRegistration(userId: string, eventId: string) {
     return {
       id: application.id,
       status: application.status,
+      admission: application.registrations[0] ?? null,
       fullName: application.fullName,
       email: application.email,
       submittedAt: application.createdAt,

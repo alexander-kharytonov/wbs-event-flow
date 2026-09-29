@@ -20,6 +20,7 @@ model User {
   accounts         Account[]
   organizerProfile OrganizerProfile?
   applications     Application[]
+  registrations    Registration[]
 
   @@unique([email])
   @@map("user")
@@ -72,6 +73,7 @@ model Event {
   publishedRevision   EventRevision?    @relation("CurrentPublishedRevision", fields: [id, publishedRevisionId], references: [eventId, id], onDelete: Restrict, onUpdate: Restrict)
   registrationForm    RegistrationForm?
   applications        Application[]
+  registrations       Registration[]
 
   @@unique([id, publishedRevisionId])
   @@index([organizerId, createdAt])
@@ -209,12 +211,32 @@ model Application {
   reviewedAt      DateTime?           @db.Timestamptz(3)
   withdrawnAt     DateTime?           @db.Timestamptz(3)
   answers         ApplicationAnswer[]
+  registrations   Registration[]
+
+  @@unique([eventId, id])
 
   @@unique([eventId, email], where: raw("(status = ANY (ARRAY['PENDING'::\"ApplicationStatus\", 'APPROVED'::\"ApplicationStatus\", 'REJECTED'::\"ApplicationStatus\"]))"))
   @@unique([eventId, userId], where: raw("(status = ANY (ARRAY['PENDING'::\"ApplicationStatus\", 'APPROVED'::\"ApplicationStatus\", 'REJECTED'::\"ApplicationStatus\"]))"))
   @@index([eventId, userId, createdAt])
   @@index([eventId, status])
   @@index([eventRevisionId])
+}
+
+model Registration {
+  id                  String      @id @default(uuid(7)) @db.Uuid
+  eventId             String      @db.Uuid
+  sourceApplicationId String      @unique @db.Uuid
+  userId              String?     @db.Uuid
+  attendeeName        String
+  attendeeEmail       String
+  createdAt           DateTime    @default(now()) @db.Timestamptz(3)
+  revokedAt           DateTime?   @db.Timestamptz(3)
+  event               Event       @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  sourceApplication   Application @relation(fields: [eventId, sourceApplicationId], references: [eventId, id], onDelete: Restrict)
+  user                User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([eventId, userId], map: "Registration_active_user_key", where: raw("((\"revokedAt\" IS NULL) AND (\"userId\" IS NOT NULL))"))
+  @@unique([eventId, attendeeEmail], map: "Registration_active_email_key", where: raw("(\"revokedAt\" IS NULL)"))
 }
 
 model ApplicationAnswer {

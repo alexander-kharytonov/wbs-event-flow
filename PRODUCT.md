@@ -11,8 +11,8 @@ An Event Flow account uses email and password with email verification. A User is
 a neutral identity and can apply to events without becoming an organizer.
 Organizer access is activated explicitly through **Become an organizer**. Signing
 up, signing in, or visiting the organizer onboarding page does not activate it.
-Attendance is expressed through applications, not a separate attendee account or
-role.
+Applications express requests; Registrations express granted admission. Neither
+requires a separate attendee account or role.
 
 ## Organizer experience
 
@@ -33,6 +33,8 @@ Organizers can:
   Counts represent submitted attempts, not distinct people.
 - Read an application's submitted details and historical answers, then approve
   or reject a pending application.
+- Open Attendees to read Active and Revoked registrations, with submitted name,
+  email and grant/revocation dates. This view has no attendee mutation controls.
 
 ## Public events
 
@@ -63,7 +65,7 @@ configured close time and event end, or at event end if no close time was set.
 It may remain open after the event starts, but never after it ends. New event
 settings cannot place registration opening or closing after event end.
 
-Only approved applications occupy places. A full event can still receive pending
+Only active Registrations occupy places. A full event can still receive pending
 applications; approval waits until a place is available. Capacity may be unlimited.
 Reducing published capacity below existing approvals keeps those approvals and
 blocks further approvals until space is available.
@@ -78,12 +80,15 @@ application's existence or details.
 
 A verified user can see their linked current application on the public event and
 withdraw a pending or approved application before the currently published event
-end. Withdrawal keeps the old attempt and frees a place if it was approved.
+end. Approval atomically creates a Registration from the submitted identity.
+Withdrawal keeps the old attempt and atomically revokes its Registration, freeing
+a place if it was approved. Revoked admission remains in history.
 Anonymous applications are not claimed by signing in with a matching email and
 cannot be withdrawn through the account flow.
 
 After withdrawal, a linked user can apply again while registration is open. The
-new attempt uses the current form, needs review again, and carries over answers
+new attempt uses the current form, needs review again and creates a new Registration
+only on approval; old Registrations are never reactivated. It carries over answers
 only to unchanged questions. Changed or newly required questions must be
 completed as needed. Rejected applications cannot be withdrawn or retried with
 the same event/email or event/account identity.
@@ -100,7 +105,8 @@ Profile sections.
 links to public events and organizer activation or the existing organizer dashboard.
 
 `/account/registrations` shows linked Event registrations, one card per Event.
-The current non-withdrawn attempt supplies Pending, Approved, or Rejected status;
+Active admission displays “Registration confirmed”; revoked admission remains
+visible. The current non-withdrawn attempt supplies Pending, Approved, or Rejected status;
 otherwise the latest withdrawn attempt supplies Withdrawn. Linked PRIVATE events
 and historical owner applications are included. Anonymous email matches are not
 claimed. Cards show the current published title and schedule, including republished
@@ -112,7 +118,7 @@ opens the existing public event withdrawal/reapplication flow.
 
 View registration opens `/account/registrations/[eventId]`, showing the current
 application and expandable previous attempts with submitted identity, lifecycle
-dates, and answers from each attempt's submitted form. If the current publication
+dates, admission grant/revocation context, and answers from each attempt's submitted form. If the current publication
 is unavailable, the detail remains readable using safe submitted event context,
 without unpublished workspace content or a View event action.
 
@@ -135,7 +141,7 @@ review. Rejection messages contain no rejection reason and may omit the Event
 link when it is unavailable. Email delivery retries automatically, with rare
 duplicate delivery possible after a crash. There are no notification preferences.
 
-Organizer Applications, My Registrations (including registration detail), and the
+Organizer Applications and Attendees, My Registrations (including registration detail), and the
 verified user's personalized application state on Public Event update in realtime
 after application changes.
 Realtime is a progressive enhancement: pages still render authoritative server
@@ -162,7 +168,8 @@ revision even when content has not changed. Completed events cannot publish.
 Upcoming workspaces are editable. During an ongoing event, the start is immutable
 and a changed end must remain in the future. Completed, cancelled, and archived
 workspaces are read-only. Applications freeze on completion or cancellation;
-their statuses and historical answers are preserved.
+their statuses and historical answers are preserved. Cancellation, completion,
+archive and restore do not revoke or rewrite Registration history.
 
 Owners can cancel a previously published Upcoming/Ongoing event with a required,
 trimmed reason of at most 2000 characters. Cancellation cannot be undone or edited.
@@ -176,7 +183,7 @@ invalidation. Registration cards/details show cancellation separately from statu
 Archive is available only for Completed/Cancelled events. It moves the read-only
 workspace to `/dashboard/archived` without changing publication, attendees, email, or attendee
 realtime. Restore returns it to active My events without making it editable.
-Hard Delete is limited to pristine drafts with no revisions, applications, public
+Hard Delete is limited to pristine drafts with no revisions, applications, registrations, public
 identity, first publication timestamp, or cancellation. No soft deletion exists.
 
 The archive has its own route and visibility filters. It offers no Create event

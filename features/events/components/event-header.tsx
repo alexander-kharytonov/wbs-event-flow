@@ -25,11 +25,13 @@ export function EventHeader({
   event,
   active,
   applicationCount,
+  attendeeCount,
   actions = [],
 }: {
   actions?: ComponentProps<typeof EventActions>["actions"];
   eventId: string;
   applicationCount: number;
+  attendeeCount: number;
   event: EventHeaderData;
   active: ComponentProps<typeof EventNavigation>["active"];
 }) {
@@ -115,6 +117,7 @@ export function EventHeader({
         eventId={id}
         active={active}
         applicationCount={applicationCount}
+        attendeeCount={attendeeCount}
       />
     </Stack>
   );

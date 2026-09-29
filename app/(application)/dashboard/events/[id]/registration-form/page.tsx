@@ -26,6 +26,7 @@ export default async function RegistrationFormPage({
         event={event}
         active="registration-form"
         applicationCount={event.applicationCount}
+        attendeeCount={event.attendeeCount}
       />
       {workspaceReadOnly(event, new Date()) ? (
         <Alert

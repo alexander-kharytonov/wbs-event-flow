@@ -23,7 +23,13 @@ export default async function EventPage({
   const event = await prisma.event.findFirst({
     where: { id, organizerId: organizer.id },
     include: {
-      _count: { select: { applications: true, revisions: true } },
+      _count: {
+        select: {
+          applications: true,
+          revisions: true,
+          registrations: { where: { revokedAt: null } },
+        },
+      },
       publishedRevision: { select: { contentVersion: true, number: true } },
     },
   });
@@ -74,6 +80,7 @@ export default async function EventPage({
         actions={actions}
         active="overview"
         applicationCount={event._count.applications}
+        attendeeCount={event._count.registrations}
       />
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
         <Box

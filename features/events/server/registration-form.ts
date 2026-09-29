@@ -59,7 +59,12 @@ export async function getRegistrationForm(
           cancellationReason: true,
           archivedAt: true,
           title: true,
-          _count: { select: { applications: true } },
+          _count: {
+            select: {
+              applications: true,
+              registrations: { where: { revokedAt: null } },
+            },
+          },
           publicId: true,
           contentVersion: true,
           publishedRevision: { select: { contentVersion: true, number: true } },
@@ -79,6 +84,7 @@ export async function getRegistrationForm(
         archivedAt: event.archivedAt,
         title: event.title,
         applicationCount: event._count.applications,
+        attendeeCount: event._count.registrations,
         publicId: event.publicId,
         contentVersion: event.contentVersion,
         publishedRevision: event.publishedRevision,

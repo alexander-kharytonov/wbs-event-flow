@@ -5,6 +5,7 @@ import { ApplicationDialog } from "@/features/events/components/application-dial
 import { ApplicationReviewControls } from "@/features/events/components/application-review-controls";
 import { ApplicationStatus } from "@/features/events/components/application-status";
 import { EventHeader } from "@/features/events/components/event-header";
+import { RegistrationAdmission } from "@/features/events/components/registration-admission";
 import { SubmittedAnswers } from "@/features/events/components/submitted-answers";
 import { applicationsFrozen } from "@/features/events/event-lifecycle";
 import { formatEventTime } from "@/features/events/format-event-time";
@@ -47,6 +48,7 @@ export async function ApplicationDetail({
             event={event}
             active="applications"
             applicationCount={event.applicationCount}
+            attendeeCount={event.occupied}
           />
           <Link
             href={`/dashboard/events/${id}/applications`}
@@ -76,7 +78,24 @@ export async function ApplicationDetail({
               {application.email}
             </Typography>
           </Box>
-          <ApplicationStatus status={application.status} />
+          <Stack
+            direction="row"
+            useFlexGap
+            spacing={1}
+            sx={{
+              flexWrap: "wrap",
+              alignItems: "center",
+              justifyContent: { xs: "flex-start", sm: "flex-end" },
+            }}
+          >
+            <ApplicationStatus status={application.status} />
+            {application.registrations[0] && (
+              <RegistrationAdmission
+                admission={application.registrations[0]}
+                compact
+              />
+            )}
+          </Stack>
         </Stack>
         <Box sx={{ bgcolor: "background.default", p: 2 }}>
           <Box
@@ -153,7 +172,7 @@ export async function ApplicationDetail({
               </Typography>
               <ApplicationCapacity
                 snapshot={event.publishedRevision?.snapshot}
-                approved={event._count.applications}
+                occupied={event.occupied}
               />
               <ApplicationReviewControls
                 eventId={id}
