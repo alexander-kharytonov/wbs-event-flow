@@ -2,6 +2,7 @@ import { Alert, Stack, Typography } from "@mui/material";
 import type { ComponentProps } from "react";
 import { BackLink } from "@/components/ui/back-link";
 import { EventActions } from "@/features/events/components/event-actions";
+import { EventCapacity } from "@/features/events/components/event-capacity";
 import { EventLifecycleStatus } from "@/features/events/components/event-lifecycle-status";
 import { EventNavigation } from "@/features/events/components/event-navigation";
 import { PublicEventLinks } from "@/features/events/components/public-event-links";
@@ -25,7 +26,7 @@ type EventHeaderData = EventLifecycleData & {
   publishedRevision: {
     contentVersion: number;
     number?: number;
-    snapshot?: unknown;
+    snapshot: unknown;
   } | null;
 };
 
@@ -95,9 +96,7 @@ export function EventHeader({
 
   return (
     <Stack spacing={2}>
-      <BackLink href={event.archivedAt ? "/dashboard/archived" : "/dashboard"}>
-        {event.archivedAt ? "Archived events" : "My events"}
-      </BackLink>
+      <BackLink href="/dashboard">My events</BackLink>
       <Stack
         direction={{ xs: "column", sm: "row" }}
         spacing={2}
@@ -149,6 +148,12 @@ export function EventHeader({
           This event has already started. First publication is only available
           before the event starts.
         </Alert>
+      )}
+      {event.publishedRevision && (
+        <EventCapacity
+          snapshot={event.publishedRevision.snapshot}
+          occupied={attendeeCount}
+        />
       )}
       <EventNavigation
         eventId={id}

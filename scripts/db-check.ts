@@ -76,7 +76,8 @@ async function main() {
             SELECT 'attendance_ticket_attendee_provenance', count(*)
             FROM "Attendance" h
             LEFT JOIN "Ticket" t ON t.id = h."ticketId"
-            WHERE t.id IS NULL OR h."attendeeId" IS DISTINCT FROM t."attendeeId"
+            WHERE (h.method = 'QR' AND (t.id IS NULL OR h."attendeeId" IS DISTINCT FROM t."attendeeId"))
+              OR (h.method = 'MANUAL' AND h."ticketId" IS NOT NULL)
             UNION ALL
             SELECT 'active_registration_primary_capacity', count(*)
             FROM active_registrations r

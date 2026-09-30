@@ -1,10 +1,10 @@
 import { Alert, Box, Paper, Stack, Typography } from "@mui/material";
 import { notFound } from "next/navigation";
 import { BackLink } from "@/components/ui/back-link";
-import { ApplicationCapacity } from "@/features/events/components/application-capacity";
 import { ApplicationDialog } from "@/features/events/components/application-dialog";
 import { ApplicationReviewControls } from "@/features/events/components/application-review-controls";
 import { ApplicationStatus } from "@/features/events/components/application-status";
+import { EventCapacity } from "@/features/events/components/event-capacity";
 import { EventHeader } from "@/features/events/components/event-header";
 import { RegistrationAdmission } from "@/features/events/components/registration-admission";
 import { SubmittedAnswers } from "@/features/events/components/submitted-answers";
@@ -168,10 +168,12 @@ export async function ApplicationDetail({
               <Typography variant="h6" component="h3">
                 Review application
               </Typography>
-              <ApplicationCapacity
-                snapshot={event.publishedRevision?.snapshot}
-                occupied={event.occupied}
-              />
+              {(modal || !event.publishedRevision) && (
+                <EventCapacity
+                  snapshot={event.publishedRevision?.snapshot}
+                  occupied={event.occupied}
+                />
+              )}
               <ApplicationReviewControls
                 eventId={id}
                 applicationId={applicationId}

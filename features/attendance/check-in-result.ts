@@ -5,20 +5,16 @@ type AttendeePresentation = {
   ticketNumber: string;
 };
 
+export type CheckInDecision =
+  | { code: "CHECKED_IN" | "ALREADY_CHECKED_IN"; checkedInAt: string }
+  | { code: "ADMISSION_REVOKED" | "EVENT_CANCELLED" }
+  | { code: "CHECK_IN_NOT_OPEN" | "CHECK_IN_CLOSED"; boundaryAt: string };
+
+type CheckInFailure = { code: "UNAVAILABLE" | "FAILED"; message: string };
+
+export type ManualCheckInResult = CheckInDecision | CheckInFailure;
+
 export type CheckInResult =
-  | {
-      code: "CHECKED_IN" | "ALREADY_CHECKED_IN";
-      attendee: AttendeePresentation;
-      checkedInAt: string;
-    }
-  | {
-      code: "ADMISSION_REVOKED" | "EVENT_CANCELLED";
-      attendee: AttendeePresentation;
-    }
-  | {
-      code: "CHECK_IN_NOT_OPEN" | "CHECK_IN_CLOSED";
-      attendee: AttendeePresentation;
-      boundaryAt: string;
-    }
+  | (CheckInDecision & { attendee: AttendeePresentation })
   | { code: "INVALID_CREDENTIAL" | "WRONG_EVENT" }
-  | { code: "UNAVAILABLE" | "FAILED"; message: string };
+  | CheckInFailure;

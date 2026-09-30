@@ -1,7 +1,7 @@
 import { Alert, LinearProgress, Stack, Typography } from "@mui/material";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 
-export function ApplicationCapacity({
+export function EventCapacity({
   snapshot,
   occupied,
 }: {
@@ -26,7 +26,7 @@ export function ApplicationCapacity({
       <Alert severity="warning">
         {occupied} of {capacity} places filled · 0 available.
         {occupied > capacity
-          ? ` The event is ${occupied - capacity} over capacity. Existing registrations are kept.`
+          ? ` The event is ${occupied - capacity} over capacity. Existing admissions are kept.`
           : " All places are filled."}
         {
           " Further approvals are blocked until a place becomes available. Pending applications remain pending."
@@ -39,7 +39,7 @@ export function ApplicationCapacity({
     <Stack spacing={1}>
       <Typography variant="body2" sx={{ fontWeight: 600 }}>
         {capacity === null
-          ? `${occupied} registered · Unlimited capacity`
+          ? `${occupied} admitted · Unlimited capacity`
           : `${occupied} of ${capacity} places filled · ${capacity - occupied} available`}
       </Typography>
       {capacity !== null && (
@@ -52,7 +52,7 @@ export function ApplicationCapacity({
         />
       )}
       <Typography variant="caption" color="text.secondary">
-        Only active registrations occupy places.
+        Only active attendees occupy places.
       </Typography>
     </Stack>
   );

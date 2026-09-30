@@ -1,10 +1,10 @@
 import "server-only";
 import { z } from "zod";
 import type { CheckInResult } from "@/features/attendance/check-in-result";
+import { checkInAttendee } from "@/features/attendance/server/check-in-attendee";
 import { parseTicketQr } from "@/features/attendance/server/parse-ticket-qr";
 import { lockEventForUpdate } from "@/features/events/server/lock-event-for-update";
 import { prisma } from "@/lib/prisma";
-import { notifyAttendanceChanged } from "@/lib/realtime/application-notifications";
 import { hashTicketSecret } from "@/lib/ticket-crypto";
 
 const inputSchema = z.strictObject({
@@ -95,61 +95,19 @@ export async function checkInTicket(
           ticketNumber: ticket.number,
         };
 
-        if (ticket.attendee.attendance) {
-          return {
-            code: "ALREADY_CHECKED_IN",
-            attendee,
-            checkedInAt: ticket.attendee.attendance.checkedInAt.toISOString(),
-          };
-        }
-
-        if (event.cancelledAt) {
-          return { code: "EVENT_CANCELLED", attendee };
-        }
-
-        if (event.decisionNow < event.startsAt) {
-          return {
-            code: "CHECK_IN_NOT_OPEN",
-            attendee,
-            boundaryAt: event.startsAt.toISOString(),
-          };
-        }
-
-        if (event.decisionNow >= event.endsAt) {
-          return {
-            code: "CHECK_IN_CLOSED",
-            attendee,
-            boundaryAt: event.endsAt.toISOString(),
-          };
-        }
-
-        if (
-          registration.revokedAt ||
-          ticket.attendee.revokedAt ||
-          ticket.revokedAt
-        ) {
-          return { code: "ADMISSION_REVOKED", attendee };
-        }
-
-        await tx.attendance.create({
-          data: {
-            attendeeId: ticket.attendee.id,
-            ticketId: ticket.id,
-            checkedInAt: event.decisionNow,
-            checkedInByUserId: actor.userId,
+        const decision = await checkInAttendee(
+          tx,
+          event,
+          actor,
+          ticket.attendee,
+          {
             method: "QR",
+            ticketId: ticket.id,
+            revokedAt: ticket.revokedAt,
           },
-        });
-        await notifyAttendanceChanged(tx, {
-          eventId: event.id,
-          userId: registration.userId,
-        });
+        );
 
-        return {
-          code: "CHECKED_IN",
-          attendee,
-          checkedInAt: event.decisionNow.toISOString(),
-        };
+        return { ...decision, attendee };
       },
       { isolationLevel: "ReadCommitted" },
     );

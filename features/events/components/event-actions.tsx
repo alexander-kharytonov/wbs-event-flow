@@ -201,7 +201,9 @@ export function EventActions({
       {publication.conflict && publication.message && (
         <Alert severity="error" sx={{ maxWidth: 320 }}>
           {publication.message}
-          <Button href={`/dashboard/events/${eventId}`}>Reload event</Button>
+          <Button component="a" href={`/dashboard/events/${eventId}`}>
+            Reload event
+          </Button>
         </Alert>
       )}
       <Dialog

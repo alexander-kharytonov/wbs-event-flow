@@ -14,6 +14,7 @@ import {
   MenuItem,
   Typography,
 } from "@mui/material";
+import NextLink from "next/link";
 import { useId, useState } from "react";
 import { useNotifications } from "@/hooks/use-notifications";
 import { authClient } from "@/lib/auth-client";
@@ -146,7 +147,11 @@ export function AccountMenu({
           },
         }}
       >
-        <MenuItem component="a" href="/account" onClick={() => setAnchor(null)}>
+        <MenuItem
+          component={NextLink}
+          href="/account"
+          onClick={() => setAnchor(null)}
+        >
           <ListItemIcon>
             <AccountCircleOutlined fontSize="small" />
           </ListItemIcon>
@@ -154,7 +159,7 @@ export function AccountMenu({
         </MenuItem>
         <Divider />
         <MenuItem
-          component="a"
+          component={NextLink}
           href={organizerProfileId ? "/dashboard" : "/onboarding/organizer"}
           onClick={() => setAnchor(null)}
         >

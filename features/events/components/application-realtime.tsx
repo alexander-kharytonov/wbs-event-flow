@@ -19,6 +19,8 @@ export function ApplicationRealtime({ streamUrl }: { streamUrl: string }) {
         router.refresh();
       }, 150);
     };
+    // Initial connection closes the read-to-subscribe gap; reconnects recover
+    // missed notifications because LISTEN/NOTIFY has no replay.
     source.addEventListener("connected", scheduleRefresh);
     source.addEventListener("invalidate", scheduleRefresh);
 

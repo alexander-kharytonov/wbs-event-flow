@@ -86,7 +86,7 @@ export function RegistrationFieldForm({
             <Alert severity="error">
               {message}
               {conflict && (
-                <Button color="inherit" href={reloadHref}>
+                <Button component="a" color="inherit" href={reloadHref}>
                   Reload latest version
                 </Button>
               )}

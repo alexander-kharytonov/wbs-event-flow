@@ -285,6 +285,7 @@ model Attendee {
 
 enum AttendanceMethod {
   QR
+  MANUAL
 }
 
 model Attendance {
