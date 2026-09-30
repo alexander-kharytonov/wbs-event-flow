@@ -1,11 +1,10 @@
-import PeopleOutlined from "@mui/icons-material/PeopleOutlined";
-import { Box, Button, Chip, Paper, Stack, Typography } from "@mui/material";
+import { Stack, Typography } from "@mui/material";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { EmptyState } from "@/components/ui/empty-state";
 import { ApplicationRealtime } from "@/features/events/components/application-realtime";
+import { AttendeesList } from "@/features/events/components/attendees-list";
 import { EventHeader } from "@/features/events/components/event-header";
-import { formatEventTime } from "@/features/events/format-event-time";
+import { eventLifecycle } from "@/features/events/event-lifecycle";
 import { getOwnedAttendees } from "@/features/events/server/organizer-attendees";
 import { requireOrganizer } from "@/features/organizer/server/require-organizer";
 
@@ -28,16 +27,15 @@ export default async function AttendeesPage({
   }
 
   const { event, attendees } = data;
-  const revoked = status === "revoked";
-  const activeCount = attendees.filter(
-    (attendee) => attendee.revokedAt === null,
-  ).length;
-  const visible = attendees.filter(
-    (attendee) => (attendee.revokedAt !== null) === revoked,
+  const activeAttendees = attendees.filter(
+    (attendee) => !attendee.revokedAt && !attendee.registration.revokedAt,
   );
-  const checkedInCount = attendees.filter(
-    (attendee) => attendee.revokedAt === null && attendee.attendance !== null,
+  const activeCount = activeAttendees.length;
+  const checkedInCount = activeAttendees.filter(
+    (attendee) => attendee.attendance,
   ).length;
+  const admission =
+    status === "active" || status === "revoked" ? status : "all";
 
   return (
     <Stack spacing={3}>
@@ -51,115 +49,30 @@ export default async function AttendeesPage({
         applicationCount={event._count.applications}
         attendeeCount={activeCount}
       />
-      <Stack spacing={1}>
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        sx={{
+          gap: 1,
+          justifyContent: "space-between",
+          alignItems: { sm: "baseline" },
+        }}
+      >
         <Typography variant="h6" component="h2">
           Attendees
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Admitted people and their history. Pending requests remain in
-          Applications.
-        </Typography>
-        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-          Checked in: {checkedInCount} / {activeCount} active attendees
+          {activeCount} admitted · {checkedInCount} checked in ·{" "}
+          {activeCount - checkedInCount} not arrived
         </Typography>
       </Stack>
-      <Stack
-        component="nav"
-        aria-label="Filter attendees"
-        direction="row"
-        spacing={1}
-      >
-        <Button
-          href={`/dashboard/events/${id}/attendees`}
-          variant={!revoked ? "contained" : "text"}
-          aria-current={!revoked ? "page" : undefined}
-        >
-          Active ({activeCount})
-        </Button>
-        <Button
-          href={`/dashboard/events/${id}/attendees?status=revoked`}
-          variant={revoked ? "contained" : "text"}
-          aria-current={revoked ? "page" : undefined}
-        >
-          Revoked ({attendees.length - activeCount})
-        </Button>
-      </Stack>
-      {visible.length === 0 ? (
-        <EmptyState
-          icon={<PeopleOutlined />}
-          title={revoked ? "No revoked attendees" : "No active attendees yet"}
-          description={
-            revoked
-              ? "Withdrawn admissions will appear here."
-              : "Attendees appear when you approve an application."
-          }
-        />
-      ) : (
-        <Paper
-          variant="outlined"
-          component="ul"
-          sx={{ m: 0, p: 0, listStyle: "none" }}
-        >
-          {visible.map((attendee) => (
-            <Box
-              key={attendee.id}
-              component="li"
-              sx={{
-                p: { xs: 2, sm: 3 },
-                "& + li": { borderTop: 1, borderColor: "divider" },
-              }}
-            >
-              <Stack
-                direction={{ xs: "column", sm: "row" }}
-                sx={{
-                  gap: 2,
-                  justifyContent: "space-between",
-                  overflowWrap: "anywhere",
-                }}
-              >
-                <Stack spacing={0.5} sx={{ minWidth: 0 }}>
-                  <Typography sx={{ fontWeight: 600 }}>
-                    {attendee.name}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {attendee.email}
-                  </Typography>
-                  {attendee.kind === "GUEST" && (
-                    <Typography variant="body2" color="text.secondary">
-                      Guest · Guest of{" "}
-                      {attendee.registration.attendees[0]?.name}
-                    </Typography>
-                  )}
-                  <Typography variant="body2" color="text.secondary">
-                    Granted{" "}
-                    {formatEventTime(attendee.createdAt, event.timezone)} (
-                    {event.timezone})
-                  </Typography>
-                  {attendee.revokedAt && (
-                    <Typography variant="body2" color="text.secondary">
-                      Revoked{" "}
-                      {formatEventTime(attendee.revokedAt, event.timezone)} (
-                      {event.timezone})
-                    </Typography>
-                  )}
-                  <Typography variant="body2" color="text.secondary">
-                    {attendee.attendance
-                      ? `Checked in · ${formatEventTime(attendee.attendance.checkedInAt, event.timezone)} (${event.timezone})`
-                      : "Not checked in"}
-                  </Typography>
-                </Stack>
-                <Chip
-                  size="small"
-                  variant="outlined"
-                  label={attendee.revokedAt ? "Revoked" : "Active"}
-                  color={attendee.revokedAt ? "default" : "success"}
-                  sx={{ alignSelf: "flex-start" }}
-                />
-              </Stack>
-            </Box>
-          ))}
-        </Paper>
-      )}
+      <AttendeesList
+        key={admission}
+        eventId={id}
+        attendees={attendees}
+        timezone={event.timezone}
+        lifecycle={eventLifecycle(event, new Date())}
+        initialAdmission={admission}
+      />
     </Stack>
   );
 }

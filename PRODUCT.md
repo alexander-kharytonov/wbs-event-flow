@@ -29,12 +29,14 @@ Organizers can:
 - Publish an event and republish subsequent changes. Editing alone does not
   change the public event. Republishing an already published unchanged version
   does not create another version.
-- Open Applications and filter All, Pending, Approved, Rejected, or Withdrawn.
+- Open Applications, search submitted name/email and select All, Pending, Approved,
+  Rejected, or Withdrawn in the status filter.
   Counts represent submitted attempts, not distinct people.
 - Read an application's submitted details and historical answers, then approve
   or reject a pending application.
 - Open Attendees to read Active and Revoked admitted people, with submitted name,
-  email and grant/revocation dates. This view has no attendee mutation controls.
+  email and grant/revocation dates. Search name/email/Ticket number, filter admission
+  and attendance, and open person details with owner-only Manual check-in.
 
 ## Public events
 
@@ -221,20 +223,30 @@ Attendees. Camera access starts on request and stays on between scans. Each scan
 blocks further ticket submissions until the result arrives and the organizer
 chooses Scan next. Stop scanner or leaving Check-in releases the camera.
 
-New attendance requires an ongoing, non-cancelled Event and active Registration, Attendee
-and Ticket. The server uses persisted Event dates and DB time: start inclusive,
-end exclusive. Publication and archive state do not independently gate check-in.
+New QR or MANUAL attendance requires an ongoing, non-cancelled Event and active
+Registration and Attendee. QR additionally requires an active Ticket; Manual does
+not require a present or active Ticket. The server uses persisted Event dates and
+DB time: start inclusive, end exclusive. Publication and archive state do not independently gate check-in.
 Ticket validity is not check-in eligibility.
 
-Each Attendee can be checked in once. Repeat scans show Already checked in
+Each Attendee can be checked in once through QR or owner-only Manual check-in.
+Both record the authorized actor User. Repeat attempts show Already checked in
 with the original time, including after later withdrawal or cancellation.
 Attendance survives admission/Ticket revocation, cancellation, archive and
-publication changes. There is no manual check-in, undo, check-out, re-entry or
+publication changes. There is no undo, check-out, re-entry or
 offline scanning.
 
-Attendees shows attendance history and checked-in/total currently active
-Attendees. Linked Ticket details refresh through the existing account stream;
-anonymous Ticket pages show attendance after reload. Check-in alone does not hide
+Attendees shows PRIMARY/GUEST details, Ticket status, attendance method/time and
+actor (unavailable if deleted). Search and independent admission/attendance filters
+apply to the loaded list; admission offers All/Active/Revoked, with All + All
+as the default. Compact counters beside the heading are computed before
+filters: Admitted = active Attendees, Checked in = active with Attendance, Not
+arrived = active without Attendance. Capacity uses only the current valid published
+snapshot and appears in the shared event header before the navigation tabs
+(null is Unlimited, invalid
+shows a warning, absent publication hides the capacity block). Revoked history remains
+visible without contributing to operational counters. Linked Ticket details refresh
+through the existing account stream; anonymous Ticket pages show attendance after reload. Check-in alone does not hide
 the QR; existing revocation/cancellation visibility rules still apply.
 
 ## Guests / +1

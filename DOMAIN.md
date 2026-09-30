@@ -286,7 +286,7 @@ blocked until space exists. Concurrent approvals cannot independently take the
 same final slot through the current server flow.
 
 Sources: [review](features/events/server/review-application.ts),
-[capacity UI](features/events/components/application-capacity.tsx).
+[capacity UI](features/events/components/event-capacity.tsx).
 
 ## 12. Withdrawal and reapplication
 
@@ -626,10 +626,13 @@ withdrawnAt backfills revoked admission at those exact times. Other attempts hav
 no Registration. Correspondence is checked before commit. Application writers
 must be stopped during migration and resumed only with the matching implementation.
 
-Organizer Attendees reads only owned Event Attendees through Registration, with Active/Revoked
+Organizer Attendees reads only owned Event Attendees through Registration, with All/Active/Revoked
 filters and identity/grant/revocation snapshots. The Attendees navigation badge
 counts active Attendees, excluding revoked history. Application filters and counts
-continue to count attempts. My Registrations and its detail preserve application
+continue to count attempts. Organizer Applications searches the loaded safe name/email
+projection case-insensitively and combines it with the status select; counts precede
+search/filter and custom answers are not searched. Existing status URLs initialize
+the filter. My Registrations and its detail preserve application
 states/history and add admission context from linked Registrations. Public Event
 confirms admission only from active Registration. Existing owner/User scoped SSE
 refreshes these reads; no new protocol or payload is introduced. Cancellation
@@ -718,14 +721,15 @@ Repeated runs verify a completed no-op; ambiguous/partial states fail. Missing
 historical Tickets are errors, never an instruction to regenerate credentials.
 The old №19 Ticket backfill command is retired after this cutover.
 
-## 23. Attendance / QR check-in
+## 23. Attendance / QR and Manual check-in
 
 Attendance records a successful check-in, not admission eligibility. It has a
 UUIDv7 id, UNIQUE required attendeeId, nullable ticketId, checkedInAt
-timestamptz(3), nullable checkedInByUserId and method QR. There is no eventId;
+timestamptz(3), nullable checkedInByUserId and method QR or MANUAL. There is no eventId;
 Event is reached through Attendee -> Registration. The Attendee FK is RESTRICT. The
 composite (attendeeId, ticketId) FK references Ticket (attendeeId, id)
-with RESTRICT, and a DB CHECK requires ticketId for QR. User deletion SET NULLs
+with RESTRICT. A DB CHECK requires ticketId for QR and NULL ticketId for MANUAL.
+Existing QR history is validated without rewriting it. User deletion SET NULLs
 the actor; it does not remove the fact. No update/delete/revoke/undo writer exists.
 The additive migration intentionally creates no historical Attendance.
 
@@ -750,6 +754,23 @@ Publication/archive are not check-in guards. Existing Event locks serialize
 scans with approved Withdraw, Cancel and schedule edits; UNIQUE attendeeId
 is the final duplicate protection, with no generic idempotency or savepoint retry.
 
+Manual's owner-only action derives the verified User/Organizer from the session;
+eventId and attendeeId are selectors only. Its ReadCommitted transaction locks the
+owned Event, takes the same post-lock DB decisionNow and rereads Attendee with
+Registration/Attendance. Unknown or foreign attendees return neutral UNAVAILABLE
+without identity. It does not read or require Ticket. The shared server-only core
+applies existing Attendance, cancellation, start, end, then admission revocation
+checks in that order; QR additionally checks Ticket revocation at the final guard.
+Manual INSERT uses method MANUAL, ticketId NULL, DB decisionNow and actor User id,
+then the same transactional attendance.changed routed by Registration.userId.
+Infrastructure failures return FAILED, not a domain validation result.
+
+checkedInByUserId means authorized actor User, not Event owner as a domain concept.
+Owner-only authorization remains outside the shared decision/write core but within
+the operation's locked transaction boundary. Iteration 22 grants no Staff access.
+The shared Event lock and UNIQUE attendeeId serialize Manual/Manual, Manual/QR,
+Withdraw and Cancel; only the first successful insertion records history.
+
 Attendance survives later Withdraw, admission/Ticket revoke, Event cancellation,
 archive/restore and publication changes. Existing Attendance wins even over later
 cancellation, closure or revocation; ALREADY_CHECKED_IN reports history and does
@@ -761,7 +782,17 @@ Event/User broker routing and existing SSE endpoints. Only INSERT emits; repeat,
 error and no-op paths do not. Browser frames remain empty invalidations followed
 by authoritative router.refresh(), with existing reconnect/session boundaries.
 Operational counts include only currently active Attendees with Attendance
-over all active Attendees; revoked attendance remains historical. Linked and
+over all active Attendees; revoked attendance remains historical. Organizer's safe
+loaded projection includes name, nullable email, kind, PRIMARY name for Guests,
+admission/Ticket status, Ticket number, attendance time/method and actor name only.
+It contains no Ticket credentials, hashes or encrypted fields. Actor deletion is
+shown as unavailable. Client search covers name/email/Ticket number case-insensitively;
+independent All/Active/Revoked and All/Checked in/Not checked in filters default to
+All + All. A row opens a small dialog; Manual action visibility is only a hint,
+and fresh props update the open detail by attendee id. Admitted/Checked in/Not
+arrived appear as compact counters beside the heading. The shared EventCapacity
+display appears in EventHeader before navigation tabs, rather than in the list sections. Missing/invalid publication
+never falls back to draft capacity; null published capacity is unlimited. Linked and
 anonymous Ticket projections expose only checkedInAt, without extending access.
 
 The client scanner uses qr-scanner with software decoding when native decoding

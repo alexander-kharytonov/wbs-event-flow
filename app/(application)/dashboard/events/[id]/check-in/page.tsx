@@ -25,7 +25,10 @@ export default async function CheckInPage({
   }
 
   const { event, attendees } = data;
-  const active = attendees.filter((attendee) => attendee.revokedAt === null);
+  const active = attendees.filter(
+    (attendee) =>
+      attendee.revokedAt === null && attendee.registration.revokedAt === null,
+  );
   const checkedIn = active.filter(
     (attendee) => attendee.attendance !== null,
   ).length;
@@ -48,7 +51,7 @@ export default async function CheckInPage({
           Check-in
         </Typography>
         <Typography color="text.secondary">
-          Checked in: {checkedIn} / {active.length} active registrations
+          Checked in: {checkedIn} / {active.length} active attendees
         </Typography>
       </Stack>
       {lifecycle === "Ongoing" ? (

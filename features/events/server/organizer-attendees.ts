@@ -41,6 +41,7 @@ export async function getOwnedAttendees(organizerId: string, eventId: string) {
           kind: true,
           registration: {
             select: {
+              revokedAt: true,
               attendees: { where: { kind: "PRIMARY" }, select: { name: true } },
             },
           },
@@ -48,7 +49,14 @@ export async function getOwnedAttendees(organizerId: string, eventId: string) {
           email: true,
           createdAt: true,
           revokedAt: true,
-          attendance: { select: { checkedInAt: true } },
+          ticket: { select: { number: true, revokedAt: true } },
+          attendance: {
+            select: {
+              checkedInAt: true,
+              method: true,
+              checkedInByUser: { select: { name: true } },
+            },
+          },
         },
       });
 
@@ -57,3 +65,7 @@ export async function getOwnedAttendees(organizerId: string, eventId: string) {
     { isolationLevel: "RepeatableRead" },
   );
 }
+
+export type OrganizerAttendee = NonNullable<
+  Awaited<ReturnType<typeof getOwnedAttendees>>
+>["attendees"][number];
