@@ -1,23 +1,32 @@
-import { Alert, Link, Stack, Typography } from "@mui/material";
+import { Alert, Stack, Typography } from "@mui/material";
 import type { ComponentProps } from "react";
+import { BackLink } from "@/components/ui/back-link";
 import { EventActions } from "@/features/events/components/event-actions";
 import { EventLifecycleStatus } from "@/features/events/components/event-lifecycle-status";
 import { EventNavigation } from "@/features/events/components/event-navigation";
 import { PublicEventLinks } from "@/features/events/components/public-event-links";
 import { PublicationStatus } from "@/features/events/components/publication-status";
+import { PublishedVersion } from "@/features/events/components/published-version";
 import {
   type EventLifecycleData,
   eventLifecycle,
   workspaceReadOnly,
 } from "@/features/events/event-lifecycle";
 import { publicationState } from "@/features/events/publication-state";
+import { eventSnapshotV1Schema } from "@/features/events/schemas/event-snapshot";
 
 type EventHeaderData = EventLifecycleData & {
   cancellationReason: string | null;
   title: string;
   contentVersion: number;
   publicId: string | null;
-  publishedRevision: { contentVersion: number; number?: number } | null;
+  publishedAt: Date | null;
+  _count: { revisions: number };
+  publishedRevision: {
+    contentVersion: number;
+    number?: number;
+    snapshot?: unknown;
+  } | null;
 };
 
 export function EventHeader({
@@ -26,9 +35,7 @@ export function EventHeader({
   active,
   applicationCount,
   attendeeCount,
-  actions = [],
 }: {
-  actions?: ComponentProps<typeof EventActions>["actions"];
   eventId: string;
   applicationCount: number;
   attendeeCount: number;
@@ -41,7 +48,9 @@ export function EventHeader({
   const lifecycle = eventLifecycle(event, now);
   const canPublish =
     !readOnly &&
-    state !== "Published" &&
+    (state !== "Published" ||
+      eventSnapshotV1Schema.safeParse(event.publishedRevision?.snapshot)
+        .success) &&
     (lifecycle === "Upcoming" || Boolean(event.publicId));
   const publishLabel = !canPublish
     ? null
@@ -51,14 +60,44 @@ export function EventHeader({
         ? "Republish"
         : "Publish";
 
+  const actions: ("cancel" | "unpublish" | "archive" | "restore" | "delete")[] =
+    [];
+
+  if (event.archivedAt) {
+    actions.push("restore");
+  } else {
+    if (!event.cancelledAt && event.publishedRevision) {
+      actions.push("unpublish");
+    }
+
+    if (lifecycle === "Cancelled" || lifecycle === "Completed") {
+      actions.push("archive");
+    }
+
+    if (
+      !event.cancelledAt &&
+      lifecycle !== "Completed" &&
+      event._count.revisions > 0
+    ) {
+      actions.push("cancel");
+    }
+
+    if (
+      !event.cancelledAt &&
+      !event.publicId &&
+      !event.publishedAt &&
+      event._count.revisions === 0 &&
+      applicationCount === 0
+    ) {
+      actions.push("delete");
+    }
+  }
+
   return (
     <Stack spacing={2}>
-      <Link
-        href={event.archivedAt ? "/dashboard/archived" : "/dashboard"}
-        sx={{ alignSelf: "flex-start" }}
-      >
-        {event.archivedAt ? "← Archived events" : "← My events"}
-      </Link>
+      <BackLink href={event.archivedAt ? "/dashboard/archived" : "/dashboard"}>
+        {event.archivedAt ? "Archived events" : "My events"}
+      </BackLink>
       <Stack
         direction={{ xs: "column", sm: "row" }}
         spacing={2}
@@ -79,9 +118,7 @@ export function EventHeader({
             <EventLifecycleStatus event={event} now={now} />
             <PublicationStatus state={state} />
             {event.publishedRevision?.number && (
-              <Typography variant="body2" color="text.secondary">
-                Revision {event.publishedRevision.number}
-              </Typography>
+              <PublishedVersion number={event.publishedRevision.number} />
             )}
             {event.publicId && event.publishedRevision && (
               <PublicEventLinks publicId={event.publicId} />

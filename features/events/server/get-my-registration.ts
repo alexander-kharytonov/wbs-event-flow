@@ -3,9 +3,10 @@ import { z } from "zod";
 import { historicalAnswers } from "@/features/events/historical-answers";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 import {
-  presentTicket,
-  ticketDisplaySelect,
-} from "@/features/tickets/server/ticket-display";
+  partyAttendeeSelect,
+  presentPartyGuests,
+} from "@/features/guests/server/party-presentation";
+import { presentTicket } from "@/features/tickets/server/ticket-display";
 import { prisma } from "@/lib/prisma";
 
 // Call only with the user ID returned by the authoritative verified session.
@@ -31,12 +32,13 @@ export async function getMyRegistration(userId: string, eventId: string) {
           registrations: {
             where: { userId },
             select: {
-              ticket: { select: ticketDisplaySelect },
-              attendance: { select: { checkedInAt: true } },
+              id: true,
+              attendees: {
+                select: partyAttendeeSelect,
+                orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+              },
               createdAt: true,
               revokedAt: true,
-              attendeeName: true,
-              attendeeEmail: true,
             },
           },
         },
@@ -67,6 +69,7 @@ export async function getMyRegistration(userId: string, eventId: string) {
       const event = await tx.event.findUniqueOrThrow({
         where: { id: eventId },
         select: {
+          startsAt: true,
           endsAt: true,
           cancelledAt: true,
           cancellationReason: true,
@@ -125,10 +128,18 @@ export async function getMyRegistration(userId: string, eventId: string) {
           }
         : null;
       const admission = application.registrations[0];
-      const ticket = admission?.ticket
+      const primaries =
+        admission?.attendees.filter(({ kind }) => kind === "PRIMARY") ?? [];
+      const primary = primaries[0];
+
+      if (admission && (primaries.length !== 1 || !primary?.ticket)) {
+        throw new Error("Registration PRIMARY/Ticket correspondence failed.");
+      }
+
+      const ticket = primary?.ticket
         ? await presentTicket(
-            admission.ticket,
-            admission,
+            primary.ticket,
+            { ...primary, revokedAt: admission.revokedAt ?? primary.revokedAt },
             application.id === currentApplication.id
               ? (publishedContext ?? context)
               : context,
@@ -142,6 +153,14 @@ export async function getMyRegistration(userId: string, eventId: string) {
         status: application.status,
         admission: admission
           ? {
+              id: admission.id,
+              guests: await presentPartyGuests(
+                admission,
+                currentApplication.event,
+                application.id === currentApplication.id
+                  ? (publishedContext ?? context)
+                  : context,
+              ),
               createdAt: admission.createdAt,
               revokedAt: admission.revokedAt,
               ticket,

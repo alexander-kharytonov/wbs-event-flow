@@ -21,10 +21,12 @@ export async function getOwnedApplications(
           cancellationReason: true,
           archivedAt: true,
           title: true,
+          _count: { select: { revisions: true } },
           timezone: true,
           publishedRevisionId: true,
           contentVersion: true,
           publicId: true,
+          publishedAt: true,
         },
       });
 
@@ -53,8 +55,8 @@ export async function getOwnedApplications(
         },
       });
 
-      const occupied = await tx.registration.count({
-        where: { eventId, revokedAt: null },
+      const occupied = await tx.attendee.count({
+        where: { registration: { eventId }, revokedAt: null },
       });
 
       return {
@@ -67,6 +69,8 @@ export async function getOwnedApplications(
         title: event.title,
         contentVersion: event.contentVersion,
         publicId: event.publicId,
+        publishedAt: event.publishedAt,
+        _count: event._count,
         timezone: event.timezone,
         publishedRevision,
         applications,
@@ -132,11 +136,12 @@ export async function getOwnedApplication(
           cancellationReason: true,
           archivedAt: true,
           title: true,
-          _count: { select: { applications: true } },
+          _count: { select: { applications: true, revisions: true } },
           timezone: true,
           publishedRevisionId: true,
           contentVersion: true,
           publicId: true,
+          publishedAt: true,
         },
       });
       const publishedRevision = event.publishedRevisionId
@@ -145,8 +150,8 @@ export async function getOwnedApplication(
             select: { snapshot: true, contentVersion: true, number: true },
           })
         : null;
-      const occupied = await tx.registration.count({
-        where: { eventId, revokedAt: null },
+      const occupied = await tx.attendee.count({
+        where: { registration: { eventId }, revokedAt: null },
       });
 
       return {
@@ -163,6 +168,8 @@ export async function getOwnedApplication(
           title: event.title,
           contentVersion: event.contentVersion,
           publicId: event.publicId,
+          publishedAt: event.publishedAt,
+          _count: event._count,
           timezone: event.timezone,
           publishedRevision,
           occupied,

@@ -5,7 +5,11 @@ import type { Prisma } from "@/generated/prisma/client";
 export const applicationNotificationChannel = "event_flow_applications";
 
 const notificationSchema = z.strictObject({
-  type: z.enum(["applications.changed", "attendance.changed"]),
+  type: z.enum([
+    "applications.changed",
+    "attendance.changed",
+    "attendees.changed",
+  ]),
   eventId: z.uuid(),
   userId: z.uuid().nullable(),
 });
@@ -39,5 +43,13 @@ export async function notifyAttendanceChanged(
   routing: { eventId: string; userId: string | null },
 ) {
   const payload = JSON.stringify({ type: "attendance.changed", ...routing });
+  await tx.$executeRaw`SELECT pg_notify(${applicationNotificationChannel}::text, ${payload}::text)`;
+}
+
+export async function notifyAttendeesChanged(
+  tx: Prisma.TransactionClient,
+  routing: { eventId: string; userId: string | null },
+) {
+  const payload = JSON.stringify({ type: "attendees.changed", ...routing });
   await tx.$executeRaw`SELECT pg_notify(${applicationNotificationChannel}::text, ${payload}::text)`;
 }

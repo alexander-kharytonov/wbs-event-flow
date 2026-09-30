@@ -15,6 +15,7 @@
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
     "db:check": "node --conditions=react-server --import tsx scripts/db-check.ts",
+    "db:migrate-attendees": "node --conditions=react-server --import tsx scripts/migrate-attendees.ts",
     "db:backfill-tickets": "node --conditions=react-server --import tsx scripts/backfill-tickets.ts"
   },
   "dependencies": {

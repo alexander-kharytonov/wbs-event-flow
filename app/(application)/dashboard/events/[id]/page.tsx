@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { z } from "zod";
 import { DateTime } from "@/components/ui/date-time";
 import { EventHeader } from "@/features/events/components/event-header";
-import { eventLifecycle } from "@/features/events/event-lifecycle";
 import { formatEventTime } from "@/features/events/format-event-time";
 import { requireOrganizer } from "@/features/organizer/server/require-organizer";
 import { prisma } from "@/lib/prisma";
@@ -27,10 +26,11 @@ export default async function EventPage({
         select: {
           applications: true,
           revisions: true,
-          registrations: { where: { revokedAt: null } },
         },
       },
-      publishedRevision: { select: { contentVersion: true, number: true } },
+      publishedRevision: {
+        select: { contentVersion: true, number: true, snapshot: true },
+      },
     },
   });
 
@@ -38,49 +38,18 @@ export default async function EventPage({
     notFound();
   }
 
-  const lifecycle = eventLifecycle(event, new Date());
-  const actions: ("cancel" | "unpublish" | "archive" | "restore" | "delete")[] =
-    [];
-
-  if (event.archivedAt) {
-    actions.push("restore");
-  } else {
-    if (!event.cancelledAt && event.publishedRevisionId) {
-      actions.push("unpublish");
-    }
-
-    if (lifecycle === "Cancelled" || lifecycle === "Completed") {
-      actions.push("archive");
-    }
-
-    if (
-      !event.cancelledAt &&
-      lifecycle !== "Completed" &&
-      event._count.revisions > 0
-    ) {
-      actions.push("cancel");
-    }
-
-    if (
-      !event.cancelledAt &&
-      !event.publicId &&
-      !event.publishedAt &&
-      event._count.revisions === 0 &&
-      event._count.applications === 0
-    ) {
-      actions.push("delete");
-    }
-  }
+  const attendeeCount = await prisma.attendee.count({
+    where: { registration: { eventId: id }, revokedAt: null },
+  });
 
   return (
     <Stack spacing={3}>
       <EventHeader
         eventId={id}
         event={event}
-        actions={actions}
         active="overview"
         applicationCount={event._count.applications}
-        attendeeCount={event._count.registrations}
+        attendeeCount={attendeeCount}
       />
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
         <Box
@@ -139,7 +108,7 @@ export default async function EventPage({
               </Box>
             </Box>
             <Typography>
-              Guest capacity: {event.capacity ?? "No limit"}
+              Event capacity: {event.capacity ?? "No limit"}
             </Typography>
           </Stack>
           <Stack component="section" spacing={2}>
@@ -156,7 +125,7 @@ export default async function EventPage({
                 size="small"
               />
               <Typography>
-                Guest account{" "}
+                Applicant account{" "}
                 {event.accountRequirement === "OPTIONAL"
                   ? "optional"
                   : "required"}

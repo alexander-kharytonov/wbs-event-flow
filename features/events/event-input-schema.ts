@@ -41,6 +41,11 @@ export const eventInputSchema = z
     accountRequirement: z.enum(["OPTIONAL", "REQUIRED"], {
       error: "Choose Optional or Required.",
     }),
+    maxGuestsPerRegistration: z
+      .string()
+      .regex(/^\d+$/)
+      .transform(Number)
+      .pipe(z.number().int().min(0).max(10)),
     capacity: z.union([
       z.literal("").transform(() => null),
       z

@@ -1,6 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { eventLifecycle } from "@/features/events/event-lifecycle";
+import { eventSnapshotV2Schema } from "@/features/events/schemas/event-snapshot";
 import {
   buildEventSnapshot,
   workspaceInclude,
@@ -77,7 +78,11 @@ export async function publishOwnedEvent(
           };
         }
 
-        if (event.publishedRevision?.contentVersion === contentVersion) {
+        if (
+          event.publishedRevision?.contentVersion === contentVersion &&
+          eventSnapshotV2Schema.safeParse(event.publishedRevision.snapshot)
+            .success
+        ) {
           return { success: true };
         }
 

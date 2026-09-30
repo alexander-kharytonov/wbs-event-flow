@@ -6,8 +6,10 @@ import {
   Autocomplete,
   Box,
   Button,
+  FormControlLabel,
   MenuItem,
   Stack,
+  Switch,
   TextField,
   Typography,
 } from "@mui/material";
@@ -28,6 +30,7 @@ const emptyValues: EventFormValues = {
   visibility: "PRIVATE",
   accountRequirement: "OPTIONAL",
   capacity: "",
+  maxGuestsPerRegistration: "0",
   registrationOpensAt: "",
   registrationClosesAt: "",
 };
@@ -98,6 +101,7 @@ export function EventForm({
       component="form"
       action={action}
       spacing={3}
+      useFlexGap
       aria-busy={pending}
       sx={{
         width: "100%",
@@ -255,14 +259,44 @@ export function EventForm({
           <Typography variant="h6" component="h2">
             Registration
           </Typography>
+          <Stack spacing={1}>
+            <FormControlLabel
+              label="Allow attendees to bring guests"
+              control={
+                <Switch
+                  checked={values.maxGuestsPerRegistration !== "0"}
+                  onChange={(_, enabled) =>
+                    setValues((current) => ({
+                      ...current,
+                      maxGuestsPerRegistration: enabled ? "1" : "0",
+                    }))
+                  }
+                />
+              }
+            />
+            {values.maxGuestsPerRegistration !== "0" ? (
+              <TextField
+                {...field("maxGuestsPerRegistration")}
+                label="Maximum guests per registration"
+                type="number"
+                slotProps={{ htmlInput: { min: 1, max: 10 } }}
+              />
+            ) : (
+              <input type="hidden" name="maxGuestsPerRegistration" value="0" />
+            )}
+            <Typography variant="body2" color="text.secondary">
+              Guests count toward event capacity and can be managed until the
+              event starts.
+            </Typography>
+          </Stack>
           <TextField
             {...field("capacity")}
-            label="Guest capacity"
+            label="Event capacity"
             type="number"
             slotProps={{ htmlInput: { min: 1, max: 2147483647, step: 1 } }}
             helperText={
               state.errors?.capacity?.[0] ??
-              "Leave blank for no limit on approved guests."
+              "Leave blank for no limit on admitted attendees."
             }
           />
           <Box
@@ -328,7 +362,7 @@ export function EventForm({
           </TextField>
           <TextField
             {...field("accountRequirement")}
-            label="Do guests need an account?"
+            label="Do applicants need an account?"
             helperText={
               state.errors?.accountRequirement?.[0] ??
               "A required account must have a verified email before applying."
@@ -348,7 +382,11 @@ export function EventForm({
             ? "Changes are saved to your workspace. Publish them when you’re ready to update the public event."
             : "Your event starts as an unpublished draft. You can review it before publishing."}
         </Typography>
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={2}
+          sx={{ "& > a": { alignSelf: { xs: "flex-start", sm: "center" } } }}
+        >
           <Button type="submit" variant="contained" disabled={pending}>
             {pending
               ? edit
@@ -357,12 +395,6 @@ export function EventForm({
               : edit
                 ? "Save changes"
                 : "Create event"}
-          </Button>
-          <Button
-            href={edit ? `/dashboard/events/${edit.id}` : "/dashboard"}
-            color="inherit"
-          >
-            {edit ? "Back to event" : "Back to my events"}
           </Button>
         </Stack>
       </Box>

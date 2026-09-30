@@ -21,8 +21,11 @@ export async function getOwnedAttendees(organizerId: string, eventId: string) {
           archivedAt: true,
           contentVersion: true,
           publicId: true,
-          publishedRevision: { select: { contentVersion: true, number: true } },
-          _count: { select: { applications: true } },
+          publishedAt: true,
+          publishedRevision: {
+            select: { contentVersion: true, number: true, snapshot: true },
+          },
+          _count: { select: { applications: true, revisions: true } },
         },
       });
 
@@ -30,13 +33,19 @@ export async function getOwnedAttendees(organizerId: string, eventId: string) {
         return null;
       }
 
-      const attendees = await tx.registration.findMany({
-        where: { eventId },
+      const attendees = await tx.attendee.findMany({
+        where: { registration: { eventId } },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         select: {
           id: true,
-          attendeeName: true,
-          attendeeEmail: true,
+          kind: true,
+          registration: {
+            select: {
+              attendees: { where: { kind: "PRIMARY" }, select: { name: true } },
+            },
+          },
+          name: true,
+          email: true,
           createdAt: true,
           revokedAt: true,
           attendance: { select: { checkedInAt: true } },

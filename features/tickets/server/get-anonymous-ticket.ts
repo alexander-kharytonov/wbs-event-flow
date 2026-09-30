@@ -1,6 +1,10 @@
 import "server-only";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 import {
+  partyAttendeeSelect,
+  presentPartyGuests,
+} from "@/features/guests/server/party-presentation";
+import {
   presentTicket,
   ticketDisplaySelect,
 } from "@/features/tickets/server/ticket-display";
@@ -16,21 +20,32 @@ export async function getAnonymousTicket(access: string) {
     where: { anonymousAccessHash: hashTicketSecret(access) },
     select: {
       ...ticketDisplaySelect,
-      registration: {
+      attendee: {
         select: {
-          attendeeName: true,
-          attendeeEmail: true,
+          kind: true,
+          name: true,
+          email: true,
           revokedAt: true,
           attendance: { select: { checkedInAt: true } },
-          sourceApplication: {
-            select: { eventRevision: { select: { snapshot: true } } },
-          },
-          event: {
+          registration: {
             select: {
-              cancelledAt: true,
-              cancellationReason: true,
-              endsAt: true,
-              publishedRevision: { select: { snapshot: true } },
+              revokedAt: true,
+              attendees: {
+                select: partyAttendeeSelect,
+                orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+              },
+              sourceApplication: {
+                select: { eventRevision: { select: { snapshot: true } } },
+              },
+              event: {
+                select: {
+                  cancelledAt: true,
+                  cancellationReason: true,
+                  startsAt: true,
+                  endsAt: true,
+                  publishedRevision: { select: { snapshot: true } },
+                },
+              },
             },
           },
         },
@@ -38,16 +53,16 @@ export async function getAnonymousTicket(access: string) {
     },
   });
 
-  if (!ticket) {
+  if (ticket?.attendee.kind !== "PRIMARY") {
     return null;
   }
 
-  const event = ticket.registration.event;
+  const event = ticket.attendee.registration.event;
   const published = eventSnapshotSchema.safeParse(
     event.publishedRevision?.snapshot,
   );
   const historical = eventSnapshotSchema.safeParse(
-    ticket.registration.sourceApplication.eventRevision.snapshot,
+    ticket.attendee.registration.sourceApplication.eventRevision.snapshot,
   );
   const snapshot = published.success
     ? published.data
@@ -56,9 +71,25 @@ export async function getAnonymousTicket(access: string) {
       : null;
 
   return {
+    guests: await presentPartyGuests(
+      ticket.attendee.registration,
+      event,
+      snapshot
+        ? {
+            title: snapshot.title,
+            startsAt: snapshot.startsAt,
+            endsAt: snapshot.endsAt,
+            timezone: snapshot.timezone,
+          }
+        : null,
+    ),
     ticket: await presentTicket(
       ticket,
-      ticket.registration,
+      {
+        ...ticket.attendee,
+        revokedAt:
+          ticket.attendee.registration.revokedAt ?? ticket.attendee.revokedAt,
+      },
       snapshot
         ? {
             title: snapshot.title,

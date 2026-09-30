@@ -22,6 +22,7 @@ export function eventFormValues(event: Event): EventFormValues {
     timezone: event.timezone,
     visibility: event.visibility,
     accountRequirement: event.accountRequirement,
+    maxGuestsPerRegistration: event.maxGuestsPerRegistration.toString(),
     capacity: event.capacity?.toString() ?? "",
     registrationOpensAt: localTime(event.registrationOpensAt),
     registrationClosesAt: localTime(event.registrationClosesAt),

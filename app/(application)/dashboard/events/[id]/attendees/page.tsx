@@ -56,11 +56,11 @@ export default async function AttendeesPage({
           Attendees
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Granted registrations and their history. Pending requests remain in
+          Admitted people and their history. Pending requests remain in
           Applications.
         </Typography>
         <Typography variant="body2" sx={{ fontWeight: 600 }}>
-          Checked in: {checkedInCount} / {activeCount} active registrations
+          Checked in: {checkedInCount} / {activeCount} active attendees
         </Typography>
       </Stack>
       <Stack
@@ -87,9 +87,7 @@ export default async function AttendeesPage({
       {visible.length === 0 ? (
         <EmptyState
           icon={<PeopleOutlined />}
-          title={
-            revoked ? "No revoked registrations" : "No active attendees yet"
-          }
+          title={revoked ? "No revoked attendees" : "No active attendees yet"}
           description={
             revoked
               ? "Withdrawn admissions will appear here."
@@ -121,11 +119,17 @@ export default async function AttendeesPage({
               >
                 <Stack spacing={0.5} sx={{ minWidth: 0 }}>
                   <Typography sx={{ fontWeight: 600 }}>
-                    {attendee.attendeeName}
+                    {attendee.name}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {attendee.attendeeEmail}
+                    {attendee.email}
                   </Typography>
+                  {attendee.kind === "GUEST" && (
+                    <Typography variant="body2" color="text.secondary">
+                      Guest · Guest of{" "}
+                      {attendee.registration.attendees[0]?.name}
+                    </Typography>
+                  )}
                   <Typography variant="body2" color="text.secondary">
                     Granted{" "}
                     {formatEventTime(attendee.createdAt, event.timezone)} (

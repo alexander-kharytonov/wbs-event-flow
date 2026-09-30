@@ -1,6 +1,7 @@
 type AttendeePresentation = {
+  kind: "PRIMARY" | "GUEST";
   attendeeName: string;
-  attendeeEmail: string;
+  attendeeEmail: string | null;
   ticketNumber: string;
 };
 

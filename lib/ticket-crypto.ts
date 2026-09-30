@@ -39,10 +39,10 @@ export function generateTicketNumber() {
   return `EF-${characters.slice(0, 4)}-${characters.slice(4)}`;
 }
 
-// AAD binds both the Registration and the purpose, preventing envelope swapping.
+// AAD binds both the Attendee and the purpose, preventing envelope swapping.
 export function encryptTicketSecret(
   secret: string,
-  registrationId: string,
+  attendeeId: string,
   purpose: "credential" | "access",
 ) {
   if (!isTicketSecret(secret)) {
@@ -55,9 +55,7 @@ export function encryptTicketSecret(
   );
   const iv = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", key, iv);
-  cipher.setAAD(
-    Buffer.from(`eventflow:ticket:v1:${registrationId}:${purpose}`),
-  );
+  cipher.setAAD(Buffer.from(`eventflow:ticket:v1:${attendeeId}:${purpose}`));
   const ciphertext = Buffer.concat([
     cipher.update(secret, "utf8"),
     cipher.final(),
@@ -73,7 +71,7 @@ export function encryptTicketSecret(
 
 export function decryptTicketSecret(
   envelope: string,
-  registrationId: string,
+  attendeeId: string,
   purpose: "credential" | "access",
   expectedHash: string,
 ) {
@@ -102,9 +100,7 @@ export function decryptTicketSecret(
     "base64url",
   );
   const decipher = createDecipheriv("aes-256-gcm", key, iv);
-  decipher.setAAD(
-    Buffer.from(`eventflow:ticket:v1:${registrationId}:${purpose}`),
-  );
+  decipher.setAAD(Buffer.from(`eventflow:ticket:v1:${attendeeId}:${purpose}`));
   decipher.setAuthTag(tag);
   const secret = Buffer.concat([
     decipher.update(ciphertext),

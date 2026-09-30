@@ -43,7 +43,7 @@ const snapshotV1FieldSchema = z
     }
   });
 
-export const eventSnapshotSchema = z
+export const eventSnapshotV1Schema = z
   .strictObject({
     schemaVersion: z.literal(1),
     title: z.string().trim().min(1).max(200),
@@ -93,5 +93,38 @@ export const eventSnapshotSchema = z
       });
     }
   });
+
+// Extend the serialized shape while retaining v1's historical refinements.
+export const eventSnapshotV2Schema = z
+  .strictObject({
+    ...eventSnapshotV1Schema.shape,
+    schemaVersion: z.literal(2),
+    maxGuestsPerRegistration: z.number().int().min(0).max(10),
+  })
+  .superRefine((snapshot, ctx) => {
+    const { maxGuestsPerRegistration: _limit, ...fields } = snapshot;
+    const historical = eventSnapshotV1Schema.safeParse({
+      ...fields,
+      schemaVersion: 1,
+    });
+
+    if (!historical.success) {
+      for (const issue of historical.error.issues) {
+        ctx.addIssue({
+          code: "custom",
+          path: issue.path,
+          message: issue.message,
+        });
+      }
+    }
+  });
+
+export const eventSnapshotSchema = z.union([
+  eventSnapshotV1Schema.transform((snapshot) => ({
+    ...snapshot,
+    maxGuestsPerRegistration: 0,
+  })),
+  eventSnapshotV2Schema,
+]);
 
 export type EventSnapshot = z.infer<typeof eventSnapshotSchema>;

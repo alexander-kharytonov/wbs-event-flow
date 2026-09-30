@@ -1,7 +1,10 @@
 import { Alert, Container, Stack, Typography } from "@mui/material";
 import type { Metadata } from "next";
+import { refresh } from "next/cache";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
+import { PartyGuests } from "@/features/guests/components/party-guests";
+import { addGuest, removeGuest } from "@/features/guests/server/manage-guests";
 import { TicketCard } from "@/features/tickets/components/ticket-card";
 import { getAnonymousTicket } from "@/features/tickets/server/get-anonymous-ticket";
 
@@ -24,6 +27,25 @@ export default async function AnonymousTicketPage({
     notFound();
   }
 
+  // Captured capability is encrypted by Next, never passed as a presentation prop.
+  async function add(input: { name: string; email: string }) {
+    "use server";
+
+    const result = await addGuest({ capability: accessToken }, input);
+    refresh();
+
+    return result;
+  }
+
+  async function remove(guestId: string) {
+    "use server";
+
+    const result = await removeGuest({ capability: accessToken }, guestId);
+    refresh();
+
+    return result;
+  }
+
   return (
     <Container component="main" maxWidth="md" sx={{ py: { xs: 3, sm: 5 } }}>
       <Stack spacing={3}>
@@ -31,7 +53,8 @@ export default async function AnonymousTicketPage({
           Your ticket
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          This is your private ticket page. Keep its link safe.
+          This private link lets you view tickets and manage guests for your
+          registration. Keep it safe.
         </Typography>
         {data.cancelledAt && data.cancellationReason && (
           <Alert severity="error" sx={{ whiteSpace: "pre-wrap" }}>
@@ -39,6 +62,11 @@ export default async function AnonymousTicketPage({
           </Alert>
         )}
         <TicketCard ticket={data.ticket} />
+        <PartyGuests
+          party={data.guests}
+          addAction={add}
+          removeAction={remove}
+        />
       </Stack>
     </Container>
   );

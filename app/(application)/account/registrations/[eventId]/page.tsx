@@ -7,13 +7,13 @@ import {
   Box,
   Button,
   Divider,
-  Link,
   Paper,
   Stack,
   Typography,
 } from "@mui/material";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { BackLink } from "@/components/ui/back-link";
 import { DateTime } from "@/components/ui/date-time";
 import { ApplicationRealtime } from "@/features/events/components/application-realtime";
 import { ApplicationStatus } from "@/features/events/components/application-status";
@@ -22,6 +22,11 @@ import { SubmittedAnswers } from "@/features/events/components/submitted-answers
 import { WithdrawApplicationButton } from "@/features/events/components/withdraw-application-button";
 import { formatEventTime } from "@/features/events/format-event-time";
 import { getMyRegistration } from "@/features/events/server/get-my-registration";
+import { PartyGuests } from "@/features/guests/components/party-guests";
+import {
+  addLinkedGuest,
+  removeLinkedGuest,
+} from "@/features/guests/guest-actions";
 import { TicketCard } from "@/features/tickets/components/ticket-card";
 import { requireVerifiedUser } from "@/lib/session";
 
@@ -145,9 +150,7 @@ export default async function RegistrationDetailPage({
           borderColor: "divider",
         }}
       >
-        <Link href="/account/registrations" sx={{ alignSelf: "flex-start" }}>
-          ← All registrations
-        </Link>
+        <BackLink href="/account/registrations">All registrations</BackLink>
         <Typography
           variant="h3"
           component="h1"
@@ -242,6 +245,13 @@ export default async function RegistrationDetailPage({
           />
         )}
       </Box>
+      {current.admission && (
+        <PartyGuests
+          party={current.admission.guests}
+          addAction={addLinkedGuest.bind(null, current.admission.id)}
+          removeAction={removeLinkedGuest.bind(null, current.admission.id)}
+        />
+      )}
       {previous.length > 0 && (
         <Stack
           component="section"
@@ -310,6 +320,21 @@ export default async function RegistrationDetailPage({
                       />
                     )}
                   </Box>
+                  {attempt.admission && (
+                    <Box sx={{ mt: 3 }}>
+                      <PartyGuests
+                        party={attempt.admission.guests}
+                        addAction={addLinkedGuest.bind(
+                          null,
+                          attempt.admission.id,
+                        )}
+                        removeAction={removeLinkedGuest.bind(
+                          null,
+                          attempt.admission.id,
+                        )}
+                      />
+                    </Box>
+                  )}
                 </AccordionDetails>
               </Accordion>
             ))}

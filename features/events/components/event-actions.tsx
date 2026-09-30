@@ -25,6 +25,7 @@ import {
   Stack,
   TextField,
 } from "@mui/material";
+import NextLink from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useState, useTransition } from "react";
 import { changeEventLifecycle } from "@/features/events/event-lifecycle-action";
@@ -96,7 +97,9 @@ export function EventActions({
         disabled={pending}
       >
         <Button
-          href={readOnly ? undefined : `/dashboard/events/${eventId}/edit`}
+          component={NextLink}
+          scroll={false}
+          href={`/dashboard/events/${eventId}/edit`}
           disabled={readOnly || pending}
           startIcon={<EditOutlined />}
         >

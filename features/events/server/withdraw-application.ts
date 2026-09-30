@@ -79,6 +79,46 @@ export async function withdrawOwnApplication(
           };
         }
 
+        const admission = await tx.registration.findUnique({
+          where: { sourceApplicationId: applicationId },
+          include: {
+            attendees: {
+              where: { kind: "PRIMARY" },
+              include: { ticket: true },
+            },
+          },
+        });
+
+        if (application.status === "PENDING" && admission) {
+          throw new Error("Pending application cannot have admission history.");
+        }
+
+        if (application.status === "APPROVED") {
+          const primary = admission?.attendees[0];
+          const ticket = primary?.ticket;
+
+          if (
+            !admission ||
+            admission.eventId !== eventId ||
+            admission.userId !== userId ||
+            admission.revokedAt ||
+            admission.attendees.length !== 1 ||
+            !primary ||
+            primary.revokedAt ||
+            primary.userId !== admission.userId ||
+            primary.name !== admission.attendeeName ||
+            primary.email !== admission.attendeeEmail ||
+            +primary.createdAt !== +admission.createdAt ||
+            !ticket ||
+            ticket.revokedAt ||
+            +ticket.issuedAt !== +primary.createdAt
+          ) {
+            throw new Error(
+              "Approved withdrawal admission correspondence failed.",
+            );
+          }
+        }
+
         await tx.application.update({
           where: {
             id: applicationId,
@@ -108,18 +148,38 @@ export async function withdrawOwnApplication(
             );
           }
 
-          const revokedTicket = await tx.ticket.updateMany({
-            where: {
-              registration: { eventId, sourceApplicationId: applicationId },
-              revokedAt: null,
-            },
+          if (!admission) {
+            throw new Error("Registration is missing.");
+          }
+
+          const activeAttendees = await tx.attendee.findMany({
+            where: { registrationId: admission.id, revokedAt: null },
+            select: { id: true, ticket: { select: { revokedAt: true } } },
+          });
+
+          if (
+            activeAttendees.some(
+              (attendee) => !attendee.ticket || attendee.ticket.revokedAt,
+            )
+          ) {
+            throw new Error("Active party Ticket correspondence failed.");
+          }
+
+          const ids = activeAttendees.map(({ id }) => id);
+          const revokedAttendees = await tx.attendee.updateMany({
+            where: { id: { in: ids }, revokedAt: null },
+            data: { revokedAt: now },
+          });
+          const revokedTickets = await tx.ticket.updateMany({
+            where: { attendeeId: { in: ids }, revokedAt: null },
             data: { revokedAt: now },
           });
 
-          if (revokedTicket.count !== 1) {
-            throw new Error(
-              "Approved withdrawal must revoke exactly one active Ticket.",
-            );
+          if (
+            revokedAttendees.count !== ids.length ||
+            revokedTickets.count !== ids.length
+          ) {
+            throw new Error("Whole-party revocation correspondence failed.");
           }
         }
 

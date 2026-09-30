@@ -1,5 +1,6 @@
-import { Alert, Box, Link, Paper, Stack, Typography } from "@mui/material";
+import { Alert, Box, Paper, Stack, Typography } from "@mui/material";
 import { notFound } from "next/navigation";
+import { BackLink } from "@/components/ui/back-link";
 import { ApplicationCapacity } from "@/features/events/components/application-capacity";
 import { ApplicationDialog } from "@/features/events/components/application-dialog";
 import { ApplicationReviewControls } from "@/features/events/components/application-review-controls";
@@ -50,12 +51,9 @@ export async function ApplicationDetail({
             applicationCount={event.applicationCount}
             attendeeCount={event.occupied}
           />
-          <Link
-            href={`/dashboard/events/${id}/applications`}
-            sx={{ alignSelf: "flex-start" }}
-          >
+          <BackLink href={`/dashboard/events/${id}/applications`}>
             All applications
-          </Link>
+          </BackLink>
           <Typography variant="h4" component="h2">
             Application detail
           </Typography>

@@ -546,7 +546,10 @@ export function TicketScanner({
                       <>
                         <Typography>{result.attendee.attendeeName}</Typography>
                         <Typography variant="body2">
-                          {result.attendee.attendeeEmail}
+                          {result.attendee.kind}{" "}
+                          {result.attendee.attendeeEmail
+                            ? `· ${result.attendee.attendeeEmail}`
+                            : ""}
                         </Typography>
                         <Typography variant="body2">
                           {result.attendee.ticketNumber}
