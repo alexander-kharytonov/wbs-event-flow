@@ -58,9 +58,13 @@ export function ApplicationsList({
   return (
     <Stack spacing={2}>
       <Stack
-        direction={{ xs: "column", sm: "row" }}
-        spacing={1.5}
         sx={{
+          display: "grid",
+          gap: 1.5,
+          gridTemplateColumns: {
+            xs: "minmax(0, 1fr)",
+            md: "repeat(2, minmax(0, 1fr))",
+          },
           "& .MuiSelect-select": {
             display: "flex",
             alignItems: "center",
@@ -91,7 +95,7 @@ export function ApplicationsList({
               ),
             },
           }}
-          sx={{ flex: 1 }}
+          sx={{ minWidth: 0 }}
         />
         <TextField
           select
@@ -110,7 +114,7 @@ export function ApplicationsList({
               setFilter(value);
             }
           }}
-          sx={{ minWidth: 210 }}
+          sx={{ minWidth: 0 }}
         >
           {(
             ["ALL", "PENDING", "APPROVED", "REJECTED", "WITHDRAWN"] as const

@@ -43,7 +43,7 @@ export function PrimaryNavigation({
       ? [{ href: "/account", label: "My account", icon: AccountCircleOutlined }]
       : []),
     ...(organizer
-      ? [{ href: "/dashboard", label: "Organizer", icon: DashboardOutlined }]
+      ? [{ href: "/dashboard", label: "Dashboard", icon: DashboardOutlined }]
       : []),
   ];
   const mobileLinks = [
@@ -52,7 +52,7 @@ export function PrimaryNavigation({
       ? [
           {
             href: "/account",
-            label: "Account overview",
+            label: "My account",
             icon: AccountCircleOutlined,
           },
           {
@@ -63,7 +63,7 @@ export function PrimaryNavigation({
           { href: "/account/profile", label: "Profile", icon: PersonOutlined },
           {
             href: organizer ? "/dashboard" : "/onboarding/organizer",
-            label: organizer ? "Organizer workspace" : "Become an organizer",
+            label: organizer ? "Dashboard" : "Become an organizer",
             icon: DashboardOutlined,
           },
         ]

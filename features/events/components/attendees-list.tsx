@@ -2,6 +2,7 @@
 
 import BlockOutlined from "@mui/icons-material/BlockOutlined";
 import CheckCircleOutlined from "@mui/icons-material/CheckCircleOutlined";
+import Close from "@mui/icons-material/Close";
 import HowToRegOutlined from "@mui/icons-material/HowToRegOutlined";
 import PeopleOutlined from "@mui/icons-material/PeopleOutlined";
 import RadioButtonUncheckedOutlined from "@mui/icons-material/RadioButtonUncheckedOutlined";
@@ -16,6 +17,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  IconButton,
   InputAdornment,
   List,
   ListItem,
@@ -140,9 +142,13 @@ export function AttendeesList({
   return (
     <Stack spacing={2}>
       <Stack
-        direction={{ xs: "column", sm: "row" }}
-        spacing={1.5}
         sx={{
+          display: "grid",
+          gap: 1.5,
+          gridTemplateColumns: {
+            xs: "minmax(0, 1fr)",
+            md: "repeat(2, minmax(0, 1fr))",
+          },
           "& .MuiSelect-select": {
             display: "flex",
             alignItems: "center",
@@ -173,96 +179,105 @@ export function AttendeesList({
               ),
             },
           }}
-          sx={{ flex: 1 }}
+          sx={{ minWidth: 0 }}
         />
-        <TextField
-          select
-          label="Admission"
-          value={admission}
-          onChange={(event) =>
-            setAdmission(
-              event.target.value === "all"
-                ? "all"
-                : event.target.value === "revoked"
-                  ? "revoked"
-                  : "active",
-            )
-          }
-          sx={{ minWidth: 180 }}
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+            gap: 1.5,
+            minWidth: 0,
+          }}
         >
-          <MenuItem value="all">
-            <Box
-              component="span"
-              sx={{ display: "inline-flex", alignItems: "center", gap: 1 }}
-            >
-              <PeopleOutlined fontSize="small" />
-              All
-            </Box>
-          </MenuItem>
-          <MenuItem value="active">
-            <Box
-              component="span"
-              sx={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 1,
-                color: "success.main",
-              }}
-            >
-              <CheckCircleOutlined fontSize="small" />
-              Active
-            </Box>
-          </MenuItem>
-          <MenuItem value="revoked">
-            <Box
-              component="span"
-              sx={{ display: "inline-flex", alignItems: "center", gap: 1 }}
-            >
-              <BlockOutlined fontSize="small" />
-              Revoked
-            </Box>
-          </MenuItem>
-        </TextField>
-        <TextField
-          select
-          label="Attendance"
-          value={attendance}
-          onChange={(event) => setAttendance(event.target.value)}
-          sx={{ minWidth: 210 }}
-        >
-          <MenuItem value="all">
-            <Box
-              component="span"
-              sx={{ display: "inline-flex", alignItems: "center", gap: 1 }}
-            >
-              <PeopleOutlined fontSize="small" />
-              All
-            </Box>
-          </MenuItem>
-          <MenuItem value="checked">
-            <Box
-              component="span"
-              sx={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 1,
-                color: "success.main",
-              }}
-            >
-              <HowToRegOutlined fontSize="small" />
-              Checked in
-            </Box>
-          </MenuItem>
-          <MenuItem value="not-checked">
-            <Box
-              component="span"
-              sx={{ display: "inline-flex", alignItems: "center", gap: 1 }}
-            >
-              <RadioButtonUncheckedOutlined fontSize="small" />
-              Not checked in
-            </Box>
-          </MenuItem>
-        </TextField>
+          <TextField
+            select
+            label="Admission"
+            value={admission}
+            onChange={(event) =>
+              setAdmission(
+                event.target.value === "all"
+                  ? "all"
+                  : event.target.value === "revoked"
+                    ? "revoked"
+                    : "active",
+              )
+            }
+            sx={{ minWidth: 0 }}
+          >
+            <MenuItem value="all">
+              <Box
+                component="span"
+                sx={{ display: "inline-flex", alignItems: "center", gap: 1 }}
+              >
+                <PeopleOutlined fontSize="small" />
+                All
+              </Box>
+            </MenuItem>
+            <MenuItem value="active">
+              <Box
+                component="span"
+                sx={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 1,
+                  color: "success.main",
+                }}
+              >
+                <CheckCircleOutlined fontSize="small" />
+                Active
+              </Box>
+            </MenuItem>
+            <MenuItem value="revoked">
+              <Box
+                component="span"
+                sx={{ display: "inline-flex", alignItems: "center", gap: 1 }}
+              >
+                <BlockOutlined fontSize="small" />
+                Revoked
+              </Box>
+            </MenuItem>
+          </TextField>
+          <TextField
+            select
+            label="Attendance"
+            value={attendance}
+            onChange={(event) => setAttendance(event.target.value)}
+            sx={{ minWidth: 0 }}
+          >
+            <MenuItem value="all">
+              <Box
+                component="span"
+                sx={{ display: "inline-flex", alignItems: "center", gap: 1 }}
+              >
+                <PeopleOutlined fontSize="small" />
+                All
+              </Box>
+            </MenuItem>
+            <MenuItem value="checked">
+              <Box
+                component="span"
+                sx={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 1,
+                  color: "success.main",
+                }}
+              >
+                <HowToRegOutlined fontSize="small" />
+                Checked in
+              </Box>
+            </MenuItem>
+            <MenuItem value="not-checked">
+              <Box
+                component="span"
+                sx={{ display: "inline-flex", alignItems: "center", gap: 1 }}
+              >
+                <RadioButtonUncheckedOutlined fontSize="small" />
+                Not checked in
+              </Box>
+            </MenuItem>
+          </TextField>
+        </Box>
       </Stack>
       {visible.length === 0 ? (
         <EmptyState
@@ -437,99 +452,238 @@ export function AttendeesList({
         open={Boolean(selected)}
         onClose={closeDetail}
         fullWidth
-        maxWidth="sm"
+        maxWidth="md"
         aria-labelledby="attendee-detail-title"
+        slotProps={{
+          paper: {
+            sx: {
+              m: { xs: 1, sm: 4 },
+              width: { xs: "calc(100% - 16px)", sm: "calc(100% - 64px)" },
+              maxHeight: { xs: "calc(100% - 16px)", sm: "calc(100% - 64px)" },
+            },
+          },
+        }}
       >
         {selected && (
           <>
-            <DialogTitle
-              id="attendee-detail-title"
-              sx={{ overflowWrap: "anywhere" }}
-            >
-              {selected.name}
+            <DialogTitle id="attendee-detail-title" sx={{ pr: 7 }}>
+              Attendee detail
+              <IconButton
+                aria-label="Close attendee"
+                onClick={closeDetail}
+                disabled={pending}
+                sx={{ position: "absolute", right: 12, top: 12 }}
+              >
+                <Close />
+              </IconButton>
             </DialogTitle>
             <DialogContent dividers>
-              <Stack spacing={2} sx={{ overflowWrap: "anywhere" }}>
-                <Box>
-                  <Typography>
-                    {selected.email ?? "No email provided"}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {selected.kind === "GUEST"
-                      ? `Guest · Guest of ${selected.registration.attendees[0]?.name ?? "Unavailable"}`
-                      : "Primary"}
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography sx={{ fontWeight: 600 }}>
-                    Admission · {isActive(selected) ? "Active" : "Revoked"}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Granted {formatEventTime(selected.createdAt, timezone)} (
-                    {timezone})
-                  </Typography>
-                  {(selected.revokedAt || selected.registration.revokedAt) && (
-                    <Typography variant="body2" color="text.secondary">
-                      Revoked{" "}
-                      {formatEventTime(
-                        (selected.revokedAt ??
-                          selected.registration.revokedAt) as Date,
-                        timezone,
-                      )}{" "}
-                      ({timezone})
+              <Stack spacing={3} sx={{ overflowWrap: "anywhere" }}>
+                <Stack spacing={2.5}>
+                  <Stack
+                    direction={{ xs: "column", sm: "row" }}
+                    spacing={1.5}
+                    sx={{
+                      justifyContent: "space-between",
+                      alignItems: { xs: "flex-start", sm: "center" },
+                    }}
+                  >
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography variant="h5" component="h3">
+                        {selected.name}
+                      </Typography>
+                      <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+                        {selected.email ?? "No email provided"}
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ mt: 0.5 }}
+                      >
+                        {selected.kind === "GUEST"
+                          ? `Guest of ${selected.registration.attendees[0]?.name ?? "Unavailable"}`
+                          : "Primary attendee"}
+                      </Typography>
+                    </Box>
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      useFlexGap
+                      sx={{
+                        flexWrap: "wrap",
+                        alignItems: "center",
+                        justifyContent: { xs: "flex-start", sm: "flex-end" },
+                      }}
+                    >
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        label={
+                          isActive(selected)
+                            ? "Admission active"
+                            : "Admission revoked"
+                        }
+                        color={isActive(selected) ? "success" : "default"}
+                        icon={
+                          isActive(selected) ? (
+                            <CheckCircleOutlined />
+                          ) : (
+                            <BlockOutlined />
+                          )
+                        }
+                        sx={{ borderRadius: 1, fontWeight: 600 }}
+                      />
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        label={
+                          selected.attendance ? "Checked in" : "Not checked in"
+                        }
+                        color={selected.attendance ? "success" : "default"}
+                        icon={
+                          selected.attendance ? (
+                            <HowToRegOutlined />
+                          ) : (
+                            <RadioButtonUncheckedOutlined />
+                          )
+                        }
+                        sx={{ borderRadius: 1, fontWeight: 600 }}
+                      />
+                    </Stack>
+                  </Stack>
+                  <Box sx={{ bgcolor: "background.default", p: 2 }}>
+                    <Box
+                      component="dl"
+                      sx={{
+                        m: 0,
+                        display: "grid",
+                        gridTemplateColumns: {
+                          xs: "1fr",
+                          sm: "repeat(2, minmax(0, 1fr))",
+                        },
+                        gap: 2,
+                        "& dt": {
+                          typography: "caption",
+                          color: "text.secondary",
+                          mb: 0.5,
+                        },
+                        "& dd": { m: 0, typography: "body2" },
+                      }}
+                    >
+                      <Box>
+                        <Typography component="dt">
+                          Admission granted
+                        </Typography>
+                        <Typography component="dd">
+                          {formatEventTime(selected.createdAt, timezone)}
+                        </Typography>
+                      </Box>
+                      {(selected.revokedAt ||
+                        selected.registration.revokedAt) && (
+                        <Box>
+                          <Typography component="dt">
+                            Admission revoked
+                          </Typography>
+                          <Typography component="dd">
+                            {formatEventTime(
+                              (selected.revokedAt ??
+                                selected.registration.revokedAt) as Date,
+                              timezone,
+                            )}
+                          </Typography>
+                        </Box>
+                      )}
+                      <Box>
+                        <Typography component="dt">Ticket status</Typography>
+                        <Typography component="dd">
+                          {selected.ticket
+                            ? selected.ticket.revokedAt
+                              ? "Revoked"
+                              : "Active"
+                            : "Unavailable"}
+                        </Typography>
+                      </Box>
+                      {selected.ticket && (
+                        <Box sx={{ gridColumn: "1 / -1" }}>
+                          <Typography component="dt">Ticket number</Typography>
+                          <Typography
+                            component="dd"
+                            sx={{ fontFamily: "monospace" }}
+                          >
+                            {selected.ticket.number}
+                          </Typography>
+                        </Box>
+                      )}
+                    </Box>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ display: "block", mt: 1.5 }}
+                    >
+                      All times in {timezone}
                     </Typography>
-                  )}
-                </Box>
-                <Box>
-                  <Typography sx={{ fontWeight: 600 }}>
-                    Ticket ·{" "}
-                    {selected.ticket
-                      ? selected.ticket.revokedAt
-                        ? "Revoked"
-                        : "Active"
-                      : "Unavailable"}
-                  </Typography>
-                  {selected.ticket && (
-                    <Typography variant="body2">
-                      {selected.ticket.number}
-                    </Typography>
-                  )}
-                </Box>
-                <Box>
-                  <Typography sx={{ fontWeight: 600 }}>
-                    {selected.attendance ? "Checked in" : "Not checked in"}
+                  </Box>
+                </Stack>
+                <Stack spacing={1.5}>
+                  <Typography variant="h6" component="h3">
+                    Attendance
                   </Typography>
                   {selected.attendance ? (
-                    <>
-                      <Typography variant="body2">
-                        {formatEventTime(
-                          selected.attendance.checkedInAt,
-                          timezone,
-                        )}{" "}
-                        ({timezone})
-                      </Typography>
-                      <Typography variant="body2">
-                        Method:{" "}
-                        {selected.attendance.method === "QR" ? "QR" : "Manual"}
-                      </Typography>
-                      <Typography variant="body2">
-                        Checked in by:{" "}
-                        {selected.attendance.checkedInByUser?.name ||
-                          "Unavailable"}
-                      </Typography>
-                    </>
+                    <Box
+                      component="dl"
+                      sx={{
+                        m: 0,
+                        display: "grid",
+                        gridTemplateColumns: {
+                          xs: "1fr",
+                          sm: "repeat(2, minmax(0, 1fr))",
+                        },
+                        gap: 2,
+                        "& dt": {
+                          typography: "caption",
+                          color: "text.secondary",
+                          mb: 0.5,
+                        },
+                        "& dd": { m: 0, typography: "body2" },
+                      }}
+                    >
+                      <Box sx={{ gridColumn: "1 / -1" }}>
+                        <Typography component="dt">Checked in at</Typography>
+                        <Typography component="dd">
+                          {formatEventTime(
+                            selected.attendance.checkedInAt,
+                            timezone,
+                          )}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography component="dt">Method</Typography>
+                        <Typography component="dd">
+                          {selected.attendance.method === "QR"
+                            ? "QR code"
+                            : "Manual"}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography component="dt">Checked in by</Typography>
+                        <Typography component="dd">
+                          {selected.attendance.checkedInByUser?.name ||
+                            "Unavailable"}
+                        </Typography>
+                      </Box>
+                    </Box>
                   ) : (
-                    lifecycle !== "Ongoing" && (
-                      <Typography variant="body2" color="text.secondary">
-                        {lifecycle === "Upcoming"
-                          ? "Check-in opens when the event starts."
-                          : lifecycle === "Cancelled"
-                            ? "This event is cancelled."
-                            : "Check-in is closed."}
-                      </Typography>
-                    )
+                    <Typography variant="body2" color="text.secondary">
+                      {lifecycle === "Upcoming"
+                        ? "Check-in opens when the event starts."
+                        : lifecycle === "Cancelled"
+                          ? "This event is cancelled."
+                          : lifecycle === "Completed"
+                            ? "Check-in is closed."
+                            : "This attendee has not checked in yet."}
+                    </Typography>
                   )}
-                </Box>
+                </Stack>
                 {result && (
                   <Alert
                     severity={
@@ -546,16 +700,13 @@ export function AttendeesList({
                 )}
               </Stack>
             </DialogContent>
-            <DialogActions>
-              <Button autoFocus onClick={closeDetail} disabled={pending}>
-                Close
-              </Button>
-              {canCheckIn && (
+            {canCheckIn && (
+              <DialogActions>
                 <Button variant="contained" loading={pending} onClick={checkIn}>
                   Manual check-in
                 </Button>
-              )}
-            </DialogActions>
+              </DialogActions>
+            )}
           </>
         )}
       </Dialog>

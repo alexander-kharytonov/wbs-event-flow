@@ -4,6 +4,7 @@ import AccountCircleOutlined from "@mui/icons-material/AccountCircleOutlined";
 import DashboardOutlined from "@mui/icons-material/DashboardOutlined";
 import EventAvailableOutlined from "@mui/icons-material/EventAvailableOutlined";
 import Logout from "@mui/icons-material/Logout";
+import PersonOutlined from "@mui/icons-material/PersonOutlined";
 import {
   Avatar,
   ButtonBase,
@@ -15,6 +16,7 @@ import {
   Typography,
 } from "@mui/material";
 import NextLink from "next/link";
+import { usePathname } from "next/navigation";
 import { useId, useState } from "react";
 import { useNotifications } from "@/hooks/use-notifications";
 import { authClient } from "@/lib/auth-client";
@@ -26,10 +28,25 @@ export function AccountMenu({
   name: string;
   organizerProfileId?: string;
 }) {
+  const pathname = usePathname();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [pending, setPending] = useState(false);
   const notifications = useNotifications();
   const id = useId();
+  const accountLinks = [
+    { href: "/account", label: "My account", icon: AccountCircleOutlined },
+    {
+      href: "/account/registrations",
+      label: "My registrations",
+      icon: EventAvailableOutlined,
+    },
+    { href: "/account/profile", label: "Profile", icon: PersonOutlined },
+  ];
+  const workspaceHref = organizerProfileId
+    ? "/dashboard"
+    : "/onboarding/organizer";
+  const workspaceActive =
+    pathname === workspaceHref || pathname.startsWith(`${workspaceHref}/`);
   const parts = name.trim().split(/\s+/u).filter(Boolean);
   const initials = [
     parts[0],
@@ -147,23 +164,38 @@ export function AccountMenu({
           },
         }}
       >
-        <MenuItem
-          component={NextLink}
-          href="/account"
-          onClick={() => setAnchor(null)}
-        >
-          <ListItemIcon>
-            <AccountCircleOutlined fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>My account</ListItemText>
-        </MenuItem>
+        {accountLinks.map(({ href, label, icon: Icon }) => {
+          const active =
+            pathname === href ||
+            (href !== "/account" && pathname.startsWith(`${href}/`));
+
+          return (
+            <MenuItem
+              key={href}
+              component={NextLink}
+              href={href}
+              selected={active}
+              aria-current={active ? "page" : undefined}
+              onClick={() => setAnchor(null)}
+              sx={{ color: active ? "primary.main" : "text.primary" }}
+            >
+              <ListItemIcon sx={{ color: "inherit" }}>
+                <Icon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText>{label}</ListItemText>
+            </MenuItem>
+          );
+        })}
         <Divider />
         <MenuItem
           component={NextLink}
-          href={organizerProfileId ? "/dashboard" : "/onboarding/organizer"}
+          href={workspaceHref}
+          selected={workspaceActive}
+          aria-current={workspaceActive ? "page" : undefined}
+          sx={{ color: workspaceActive ? "primary.main" : "text.primary" }}
           onClick={() => setAnchor(null)}
         >
-          <ListItemIcon>
+          <ListItemIcon sx={{ color: "inherit" }}>
             {organizerProfileId ? (
               <DashboardOutlined fontSize="small" />
             ) : (

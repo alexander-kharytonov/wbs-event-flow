@@ -108,8 +108,7 @@ export function OrganizerEventResults({ events }: { events: EventSummary[] }) {
           gap: 1.5,
           gridTemplateColumns: {
             xs: "minmax(0, 1fr)",
-            sm: "repeat(2, minmax(0, 1fr))",
-            lg: "minmax(220px, 1fr) repeat(3, minmax(170px, auto))",
+            lg: "repeat(2, minmax(0, 1fr))",
           },
           "& .MuiSelect-select": {
             display: "flex",
@@ -141,106 +140,126 @@ export function OrganizerEventResults({ events }: { events: EventSummary[] }) {
               ),
             },
           }}
-          sx={{ flex: 1 }}
+          sx={{ minWidth: 0 }}
         />
-        <TextField
-          select
-          label="Status"
-          value={status}
-          sx={{ minWidth: 0 }}
-          onChange={(event) => {
-            const value = event.target.value;
-
-            if (value === "ALL" || value === "ACTIVE" || value === "ARCHIVED") {
-              setStatus(value);
-            }
+        <Box
+          sx={{
+            display: "grid",
+            gap: 1.5,
+            minWidth: 0,
+            gridTemplateColumns: {
+              xs: "repeat(2, minmax(0, 1fr))",
+              md: "repeat(3, minmax(0, 1fr))",
+            },
           }}
         >
-          {(["ALL", "ACTIVE", "ARCHIVED"] as const).map((value) => (
-            <MenuItem key={value} value={value}>
-              <Box
-                component="span"
-                sx={{ display: "inline-flex", alignItems: "center", gap: 1 }}
-              >
-                {value === "ARCHIVED" ? (
-                  <ArchiveOutlined fontSize="small" />
-                ) : value === "ACTIVE" ? (
-                  <FolderOpenOutlined fontSize="small" />
-                ) : (
-                  <EventOutlined fontSize="small" />
-                )}
-                {statusLabels[value]}
-              </Box>
-            </MenuItem>
-          ))}
-        </TextField>
-        <TextField
-          select
-          label="Visibility"
-          value={visibility}
-          sx={{ minWidth: 0 }}
-          onChange={(event) => {
-            const value = event.target.value;
+          <TextField
+            select
+            label="Status"
+            value={status}
+            sx={{ minWidth: 0, gridColumn: { xs: "1 / -1", md: "auto" } }}
+            onChange={(event) => {
+              const value = event.target.value;
 
-            if (value === "ALL" || value === "PUBLIC" || value === "PRIVATE") {
-              setVisibility(value);
-            }
-          }}
-        >
-          {(["ALL", "PUBLIC", "PRIVATE"] as const).map((value) => (
-            <MenuItem key={value} value={value}>
-              <Box
-                component="span"
-                sx={{ display: "inline-flex", alignItems: "center", gap: 1 }}
-              >
-                {value === "PUBLIC" ? (
-                  <PublicOutlined fontSize="small" />
-                ) : value === "PRIVATE" ? (
-                  <LinkOutlined fontSize="small" />
-                ) : (
-                  <EventOutlined fontSize="small" />
-                )}
-                {labels[value]}
-              </Box>
-            </MenuItem>
-          ))}
-        </TextField>
-        <TextField
-          select
-          label="Lifecycle"
-          value={lifecycle}
-          sx={{ minWidth: 0 }}
-          onChange={(event) => {
-            const value = event.target.value;
+              if (
+                value === "ALL" ||
+                value === "ACTIVE" ||
+                value === "ARCHIVED"
+              ) {
+                setStatus(value);
+              }
+            }}
+          >
+            {(["ALL", "ACTIVE", "ARCHIVED"] as const).map((value) => (
+              <MenuItem key={value} value={value}>
+                <Box
+                  component="span"
+                  sx={{ display: "inline-flex", alignItems: "center", gap: 1 }}
+                >
+                  {value === "ARCHIVED" ? (
+                    <ArchiveOutlined fontSize="small" />
+                  ) : value === "ACTIVE" ? (
+                    <FolderOpenOutlined fontSize="small" />
+                  ) : (
+                    <EventOutlined fontSize="small" />
+                  )}
+                  {statusLabels[value]}
+                </Box>
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            select
+            label="Visibility"
+            value={visibility}
+            sx={{ minWidth: 0 }}
+            onChange={(event) => {
+              const value = event.target.value;
 
-            if (
-              value === "All" ||
-              value === "Upcoming" ||
-              value === "Ongoing" ||
-              value === "Completed" ||
-              value === "Cancelled"
-            ) {
-              setLifecycle(value);
-            }
-          }}
-        >
-          {lifecycleOptions.map(({ value, icon, color }) => (
-            <MenuItem key={value} value={value}>
-              <Box
-                component="span"
-                sx={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 1,
-                  color,
-                }}
-              >
-                {icon}
-                {value}
-              </Box>
-            </MenuItem>
-          ))}
-        </TextField>
+              if (
+                value === "ALL" ||
+                value === "PUBLIC" ||
+                value === "PRIVATE"
+              ) {
+                setVisibility(value);
+              }
+            }}
+          >
+            {(["ALL", "PUBLIC", "PRIVATE"] as const).map((value) => (
+              <MenuItem key={value} value={value}>
+                <Box
+                  component="span"
+                  sx={{ display: "inline-flex", alignItems: "center", gap: 1 }}
+                >
+                  {value === "PUBLIC" ? (
+                    <PublicOutlined fontSize="small" />
+                  ) : value === "PRIVATE" ? (
+                    <LinkOutlined fontSize="small" />
+                  ) : (
+                    <EventOutlined fontSize="small" />
+                  )}
+                  {labels[value]}
+                </Box>
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            select
+            label="Lifecycle"
+            value={lifecycle}
+            sx={{ minWidth: 0 }}
+            onChange={(event) => {
+              const value = event.target.value;
+
+              if (
+                value === "All" ||
+                value === "Upcoming" ||
+                value === "Ongoing" ||
+                value === "Completed" ||
+                value === "Cancelled"
+              ) {
+                setLifecycle(value);
+              }
+            }}
+          >
+            {lifecycleOptions.map(({ value, icon, color }) => (
+              <MenuItem key={value} value={value}>
+                <Box
+                  component="span"
+                  sx={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 1,
+                    color,
+                  }}
+                >
+                  {icon}
+                  {value}
+                </Box>
+              </MenuItem>
+            ))}
+          </TextField>
+        </Box>
       </Stack>
       {visibleEvents.length === 0 ? (
         <EmptyState
