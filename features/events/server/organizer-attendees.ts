@@ -21,10 +21,11 @@ export async function getOwnedAttendees(organizerId: string, eventId: string) {
           archivedAt: true,
           contentVersion: true,
           publicId: true,
+          publishedAt: true,
           publishedRevision: {
             select: { contentVersion: true, number: true, snapshot: true },
           },
-          _count: { select: { applications: true } },
+          _count: { select: { applications: true, revisions: true } },
         },
       });
 

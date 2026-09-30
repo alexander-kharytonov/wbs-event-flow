@@ -62,9 +62,11 @@ export async function getRegistrationForm(
           _count: {
             select: {
               applications: true,
+              revisions: true,
             },
           },
           publicId: true,
+          publishedAt: true,
           contentVersion: true,
           publishedRevision: {
             select: { contentVersion: true, number: true, snapshot: true },
@@ -89,6 +91,8 @@ export async function getRegistrationForm(
           where: { registration: { eventId }, revokedAt: null },
         }),
         publicId: event.publicId,
+        publishedAt: event.publishedAt,
+        _count: event._count,
         contentVersion: event.contentVersion,
         publishedRevision: event.publishedRevision,
         form: serializeForm(event.registrationForm),

@@ -14,7 +14,6 @@ import {
   Typography,
 } from "@mui/material";
 import { useActionState, useEffect, useState } from "react";
-import { BackLink } from "@/components/ui/back-link";
 import type {
   EventFormState,
   EventFormValues,
@@ -397,9 +396,6 @@ export function EventForm({
                 ? "Save changes"
                 : "Create event"}
           </Button>
-          <BackLink href={edit ? `/dashboard/events/${edit.id}` : "/dashboard"}>
-            {edit ? "Back to event" : "Back to my events"}
-          </BackLink>
         </Stack>
       </Box>
     </Stack>

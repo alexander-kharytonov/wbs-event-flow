@@ -31,7 +31,10 @@ export function EventFormDialog({
         },
       }}
     >
-      <DialogTitle id="event-form-dialog-title" sx={{ pr: 7 }}>
+      <DialogTitle
+        id="event-form-dialog-title"
+        sx={{ pr: 7, overflowWrap: "anywhere" }}
+      >
         {title}
         <IconButton
           aria-label="Close event form"

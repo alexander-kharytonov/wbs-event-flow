@@ -1,13 +1,12 @@
-import LayersOutlined from "@mui/icons-material/LayersOutlined";
 import { Alert, Stack, Typography } from "@mui/material";
 import type { ComponentProps } from "react";
 import { BackLink } from "@/components/ui/back-link";
 import { EventActions } from "@/features/events/components/event-actions";
 import { EventLifecycleStatus } from "@/features/events/components/event-lifecycle-status";
 import { EventNavigation } from "@/features/events/components/event-navigation";
-import { EventStatusChip } from "@/features/events/components/event-status-chip";
 import { PublicEventLinks } from "@/features/events/components/public-event-links";
 import { PublicationStatus } from "@/features/events/components/publication-status";
+import { PublishedVersion } from "@/features/events/components/published-version";
 import {
   type EventLifecycleData,
   eventLifecycle,
@@ -21,6 +20,8 @@ type EventHeaderData = EventLifecycleData & {
   title: string;
   contentVersion: number;
   publicId: string | null;
+  publishedAt: Date | null;
+  _count: { revisions: number };
   publishedRevision: {
     contentVersion: number;
     number?: number;
@@ -34,9 +35,7 @@ export function EventHeader({
   active,
   applicationCount,
   attendeeCount,
-  actions = [],
 }: {
-  actions?: ComponentProps<typeof EventActions>["actions"];
   eventId: string;
   applicationCount: number;
   attendeeCount: number;
@@ -60,6 +59,39 @@ export function EventHeader({
       : event.publicId
         ? "Republish"
         : "Publish";
+
+  const actions: ("cancel" | "unpublish" | "archive" | "restore" | "delete")[] =
+    [];
+
+  if (event.archivedAt) {
+    actions.push("restore");
+  } else {
+    if (!event.cancelledAt && event.publishedRevision) {
+      actions.push("unpublish");
+    }
+
+    if (lifecycle === "Cancelled" || lifecycle === "Completed") {
+      actions.push("archive");
+    }
+
+    if (
+      !event.cancelledAt &&
+      lifecycle !== "Completed" &&
+      event._count.revisions > 0
+    ) {
+      actions.push("cancel");
+    }
+
+    if (
+      !event.cancelledAt &&
+      !event.publicId &&
+      !event.publishedAt &&
+      event._count.revisions === 0 &&
+      applicationCount === 0
+    ) {
+      actions.push("delete");
+    }
+  }
 
   return (
     <Stack spacing={2}>
@@ -86,11 +118,7 @@ export function EventHeader({
             <EventLifecycleStatus event={event} now={now} />
             <PublicationStatus state={state} />
             {event.publishedRevision?.number && (
-              <EventStatusChip
-                icon={<LayersOutlined />}
-                label={`Published version ${event.publishedRevision.number}`}
-                color="default"
-              />
+              <PublishedVersion number={event.publishedRevision.number} />
             )}
             {event.publicId && event.publishedRevision && (
               <PublicEventLinks publicId={event.publicId} />

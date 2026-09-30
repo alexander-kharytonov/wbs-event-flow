@@ -25,9 +25,6 @@ export async function CreateEventView({ modal = false }: { modal?: boolean }) {
           Create event
         </Typography>
       )}
-      <Typography color="text.secondary">
-        Your event will be saved as a draft.
-      </Typography>
       <EventForm serverAction={createEvent} />
     </Stack>
   );
@@ -65,16 +62,15 @@ export async function EditEventView({
       {!modal && (
         <BackLink href={`/dashboard/events/${id}`}>Back to event</BackLink>
       )}
-      <Stack spacing={1}>
-        {!modal && (
-          <Typography variant="h4" component="h1">
-            Edit event
-          </Typography>
-        )}
-        <Typography color="text.secondary" sx={{ overflowWrap: "anywhere" }}>
+      {!modal && (
+        <Typography
+          variant="h4"
+          component="h1"
+          sx={{ overflowWrap: "anywhere" }}
+        >
           {event.title}
         </Typography>
-      </Stack>
+      )}
       {workspaceReadOnly(event, new Date()) ? (
         <Alert severity="info">
           This event is read-only. Its information and history remain available.
@@ -96,7 +92,7 @@ export async function EditEventView({
   );
 
   return modal ? (
-    <EventFormDialog title="Edit event">{content}</EventFormDialog>
+    <EventFormDialog title={event.title}>{content}</EventFormDialog>
   ) : (
     content
   );

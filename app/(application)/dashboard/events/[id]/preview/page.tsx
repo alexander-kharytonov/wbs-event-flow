@@ -32,6 +32,7 @@ export default async function PreviewPage({
           _count: {
             select: {
               applications: true,
+              revisions: true,
             },
           },
         },
