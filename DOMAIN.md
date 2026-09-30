@@ -585,8 +585,16 @@ Existing dispatcher/retry/at-least-once delivery semantics are unchanged.
 
 Archive is owner-only for Completed/Cancelled; Restore clears archivedAt. Both
 use the same lock/DB clock but never change public/attendee state or emit attendee
-notifications. Archived workspaces are read-only apart from Restore. Delete
-requires no revisions, no Applications or Registrations, null publicId/publishedAt/cancelledAt,
+notifications. Archived workspaces are read-only apart from Restore.
+The organizer event list reads only that organizer's events, including archived
+ones, into a selected card projection. Client title search is case-insensitive;
+independent archive, visibility and lifecycle filters each default to All.
+Lifecycle filtering uses eventLifecycle, with the same time and cancellation precedence
+as the card status. Active means not archived, not a lifecycle state. Filter options
+do not show counts. Filters are local UI state only, with no URL query initialization.
+There is no separate archive route. Filtering
+never changes an event's archive or publication state.
+Delete requires no revisions, no Applications or Registrations, null publicId/publishedAt/cancelledAt,
 and an active workspace; existing form cascades remove owned draft structures.
 Delete and Publish serialize on Event; publication history permanently disqualifies
 hard deletion. Lifecycle, publication, and archive preserve the workspace edit
@@ -630,9 +638,8 @@ Organizer Attendees reads only owned Event Attendees through Registration, with 
 filters and identity/grant/revocation snapshots. The Attendees navigation badge
 counts active Attendees, excluding revoked history. Application filters and counts
 continue to count attempts. Organizer Applications searches the loaded safe name/email
-projection case-insensitively and combines it with the status select; counts precede
-search/filter and custom answers are not searched. Existing status URLs initialize
-the filter. My Registrations and its detail preserve application
+projection case-insensitively and combines it with the status select. Filter options
+have no counts; page-level statistics remain unfiltered and custom answers are not searched. URL query parameters do not initialize filters. My Registrations and its detail preserve application
 states/history and add admission context from linked Registrations. Public Event
 confirms admission only from active Registration. Existing owner/User scoped SSE
 refreshes these reads; no new protocol or payload is introduced. Cancellation

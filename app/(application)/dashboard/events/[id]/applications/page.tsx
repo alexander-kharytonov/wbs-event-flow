@@ -8,27 +8,17 @@ import { requireOrganizer } from "@/features/organizer/server/require-organizer"
 
 export default async function ApplicationsPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ status?: string | string[] }>;
 }) {
   const organizer = await requireOrganizer();
   const { id } = await params;
-  const { status } = await searchParams;
   const event = await getOwnedApplications(organizer.id, id);
 
   if (!event) {
     notFound();
   }
 
-  const filter =
-    status === "PENDING" ||
-    status === "APPROVED" ||
-    status === "REJECTED" ||
-    status === "WITHDRAWN"
-      ? status
-      : "ALL";
   const pendingCount = event.applications.filter(
     (application) => application.status === "PENDING",
   ).length;
@@ -62,11 +52,9 @@ export default async function ApplicationsPage({
         </Typography>
       </Stack>
       <ApplicationsList
-        key={filter}
         eventId={id}
         applications={event.applications}
         timezone={event.timezone}
-        initialStatus={filter}
       />
     </Stack>
   );

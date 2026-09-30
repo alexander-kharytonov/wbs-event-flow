@@ -184,13 +184,18 @@ the existing at-least-once semantics. Linked affected attendees receive realtime
 invalidation. Registration cards/details show cancellation separately from status.
 
 Archive is available only for Completed/Cancelled events. It moves the read-only
-workspace to `/dashboard/archived` without changing publication, attendees, email, or attendee
+workspace into the Archived filter in My events without changing publication, attendees, email, or attendee
 realtime. Restore returns it to active My events without making it editable.
 Hard Delete is limited to pristine drafts with no revisions, applications, registrations, public
 identity, first publication timestamp, or cancellation. No soft deletion exists.
 
-The archive has its own route and visibility filters. It offers no Create event
-action; new drafts are created from active My events.
+My events combines active and archived events with title search and independent
+All/Active/Archived, All/Public/Private, and All/Upcoming/Ongoing/Completed/Cancelled
+filters, each defaulting to All. Filter options have no counts, including on
+Applications and Attendees. Filters are local UI state only; URL query
+parameters do not initialize them.
+There is no separate archive route.
+The Archived filter offers no Create event action.
 
 ## Tickets
 

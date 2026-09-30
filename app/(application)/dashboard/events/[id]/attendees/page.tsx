@@ -12,14 +12,11 @@ export const metadata: Metadata = { title: "Attendees | Event Flow" };
 
 export default async function AttendeesPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ status?: string | string[] }>;
 }) {
   const organizer = await requireOrganizer();
   const { id } = await params;
-  const { status } = await searchParams;
   const data = await getOwnedAttendees(organizer.id, id);
 
   if (!data) {
@@ -34,8 +31,6 @@ export default async function AttendeesPage({
   const checkedInCount = activeAttendees.filter(
     (attendee) => attendee.attendance,
   ).length;
-  const admission =
-    status === "active" || status === "revoked" ? status : "all";
 
   return (
     <Stack spacing={3}>
@@ -66,12 +61,10 @@ export default async function AttendeesPage({
         </Typography>
       </Stack>
       <AttendeesList
-        key={admission}
         eventId={id}
         attendees={attendees}
         timezone={event.timezone}
         lifecycle={eventLifecycle(event, new Date())}
-        initialAdmission={admission}
       />
     </Stack>
   );

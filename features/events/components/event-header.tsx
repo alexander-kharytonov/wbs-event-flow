@@ -96,9 +96,7 @@ export function EventHeader({
 
   return (
     <Stack spacing={2}>
-      <BackLink href={event.archivedAt ? "/dashboard/archived" : "/dashboard"}>
-        {event.archivedAt ? "Archived events" : "My events"}
-      </BackLink>
+      <BackLink href="/dashboard">My events</BackLink>
       <Stack
         direction={{ xs: "column", sm: "row" }}
         spacing={2}

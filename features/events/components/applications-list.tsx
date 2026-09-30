@@ -39,27 +39,13 @@ export function ApplicationsList({
   eventId,
   applications: allApplications,
   timezone,
-  initialStatus,
 }: {
   eventId: string;
   applications: Applications;
   timezone: string;
-  initialStatus: StatusFilter;
 }) {
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<StatusFilter>(initialStatus);
-  const counts = {
-    ALL: allApplications.length,
-    PENDING: 0,
-    APPROVED: 0,
-    REJECTED: 0,
-    WITHDRAWN: 0,
-  };
-
-  for (const application of allApplications) {
-    counts[application.status] += 1;
-  }
-
+  const [filter, setFilter] = useState<StatusFilter>("ALL");
   const query = search.trim().toLowerCase();
   const applications = allApplications.filter(
     (application) =>
@@ -157,8 +143,7 @@ export function ApplicationsList({
                 ) : (
                   <InboxOutlined fontSize="small" />
                 )}
-                {value === "ALL" ? "All" : applicationStatusLabels[value]} (
-                {counts[value]})
+                {value === "ALL" ? "All" : applicationStatusLabels[value]}
               </Box>
             </MenuItem>
           ))}

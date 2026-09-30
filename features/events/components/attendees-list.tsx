@@ -65,24 +65,21 @@ export function AttendeesList({
   attendees,
   timezone,
   lifecycle,
-  initialAdmission,
 }: {
   eventId: string;
   attendees: OrganizerAttendee[];
   timezone: string;
   lifecycle: "Upcoming" | "Ongoing" | "Completed" | "Cancelled";
-  initialAdmission: "all" | "active" | "revoked";
 }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [admission, setAdmission] = useState<"all" | "active" | "revoked">(
-    initialAdmission,
+    "all",
   );
   const [attendance, setAttendance] = useState("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [result, setResult] = useState<ManualCheckInResult | null>(null);
   const [pending, startTransition] = useTransition();
-  const active = attendees.filter(isActive);
   const query = search.trim().toLowerCase();
   const visible = attendees.filter((person) => {
     if (admission !== "all" && isActive(person) !== (admission === "active")) {
@@ -199,7 +196,7 @@ export function AttendeesList({
               sx={{ display: "inline-flex", alignItems: "center", gap: 1 }}
             >
               <PeopleOutlined fontSize="small" />
-              All ({attendees.length})
+              All
             </Box>
           </MenuItem>
           <MenuItem value="active">
@@ -213,7 +210,7 @@ export function AttendeesList({
               }}
             >
               <CheckCircleOutlined fontSize="small" />
-              Active ({active.length})
+              Active
             </Box>
           </MenuItem>
           <MenuItem value="revoked">
@@ -222,7 +219,7 @@ export function AttendeesList({
               sx={{ display: "inline-flex", alignItems: "center", gap: 1 }}
             >
               <BlockOutlined fontSize="small" />
-              Revoked ({attendees.length - active.length})
+              Revoked
             </Box>
           </MenuItem>
         </TextField>
