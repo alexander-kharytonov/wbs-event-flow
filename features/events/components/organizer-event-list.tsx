@@ -1,4 +1,3 @@
-import Add from "@mui/icons-material/Add";
 import EventOutlined from "@mui/icons-material/EventOutlined";
 import LinkOutlined from "@mui/icons-material/LinkOutlined";
 import PublicOutlined from "@mui/icons-material/PublicOutlined";
@@ -13,6 +12,7 @@ import {
 import { DateTime } from "@/components/ui/date-time";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
+import { CreateEventButton } from "@/features/events/components/create-event-button";
 import { EventLifecycleStatus } from "@/features/events/components/event-lifecycle-status";
 import { PublicationStatus } from "@/features/events/components/publication-status";
 import { publicationState } from "@/features/events/publication-state";
@@ -71,17 +71,7 @@ export async function OrganizerEventList({
             ? "Review archived events and their application history."
             : "Manage your events, registration forms, and applications."
         }
-        actions={
-          !archived && (
-            <Button
-              href="/dashboard/events/new"
-              variant="contained"
-              startIcon={<Add />}
-            >
-              Create event
-            </Button>
-          )
-        }
+        actions={!archived && <CreateEventButton />}
       />
       <Stack
         component="nav"
@@ -97,7 +87,6 @@ export async function OrganizerEventList({
           "& [aria-current=page]": {
             bgcolor: "action.selected",
             boxShadow: "inset 0 -2px var(--mui-palette-primary-main)",
-            fontWeight: 700,
           },
         }}
       >
@@ -169,13 +158,7 @@ export async function OrganizerEventList({
                 Back to My events
               </Button>
             ) : (
-              <Button
-                href="/dashboard/events/new"
-                variant="contained"
-                startIcon={<Add />}
-              >
-                Create event
-              </Button>
+              <CreateEventButton />
             )
           }
         />

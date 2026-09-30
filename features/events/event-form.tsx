@@ -14,6 +14,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useActionState, useEffect, useState } from "react";
+import { BackLink } from "@/components/ui/back-link";
 import type {
   EventFormState,
   EventFormValues,
@@ -101,6 +102,7 @@ export function EventForm({
       component="form"
       action={action}
       spacing={3}
+      useFlexGap
       aria-busy={pending}
       sx={{
         width: "100%",
@@ -381,7 +383,11 @@ export function EventForm({
             ? "Changes are saved to your workspace. Publish them when you’re ready to update the public event."
             : "Your event starts as an unpublished draft. You can review it before publishing."}
         </Typography>
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={2}
+          sx={{ "& > a": { alignSelf: { xs: "flex-start", sm: "center" } } }}
+        >
           <Button type="submit" variant="contained" disabled={pending}>
             {pending
               ? edit
@@ -391,12 +397,9 @@ export function EventForm({
                 ? "Save changes"
                 : "Create event"}
           </Button>
-          <Button
-            href={edit ? `/dashboard/events/${edit.id}` : "/dashboard"}
-            color="inherit"
-          >
+          <BackLink href={edit ? `/dashboard/events/${edit.id}` : "/dashboard"}>
             {edit ? "Back to event" : "Back to my events"}
-          </Button>
+          </BackLink>
         </Stack>
       </Box>
     </Stack>

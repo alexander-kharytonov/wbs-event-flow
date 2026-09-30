@@ -7,13 +7,13 @@ import {
   Box,
   Button,
   Divider,
-  Link,
   Paper,
   Stack,
   Typography,
 } from "@mui/material";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { BackLink } from "@/components/ui/back-link";
 import { DateTime } from "@/components/ui/date-time";
 import { ApplicationRealtime } from "@/features/events/components/application-realtime";
 import { ApplicationStatus } from "@/features/events/components/application-status";
@@ -150,9 +150,7 @@ export default async function RegistrationDetailPage({
           borderColor: "divider",
         }}
       >
-        <Link href="/account/registrations" sx={{ alignSelf: "flex-start" }}>
-          ← All registrations
-        </Link>
+        <BackLink href="/account/registrations">All registrations</BackLink>
         <Typography
           variant="h3"
           component="h1"

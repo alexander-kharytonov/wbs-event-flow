@@ -1,8 +1,11 @@
-import { Alert, Link, Stack, Typography } from "@mui/material";
+import LayersOutlined from "@mui/icons-material/LayersOutlined";
+import { Alert, Stack, Typography } from "@mui/material";
 import type { ComponentProps } from "react";
+import { BackLink } from "@/components/ui/back-link";
 import { EventActions } from "@/features/events/components/event-actions";
 import { EventLifecycleStatus } from "@/features/events/components/event-lifecycle-status";
 import { EventNavigation } from "@/features/events/components/event-navigation";
+import { EventStatusChip } from "@/features/events/components/event-status-chip";
 import { PublicEventLinks } from "@/features/events/components/public-event-links";
 import { PublicationStatus } from "@/features/events/components/publication-status";
 import {
@@ -60,12 +63,9 @@ export function EventHeader({
 
   return (
     <Stack spacing={2}>
-      <Link
-        href={event.archivedAt ? "/dashboard/archived" : "/dashboard"}
-        sx={{ alignSelf: "flex-start" }}
-      >
-        {event.archivedAt ? "← Archived events" : "← My events"}
-      </Link>
+      <BackLink href={event.archivedAt ? "/dashboard/archived" : "/dashboard"}>
+        {event.archivedAt ? "Archived events" : "My events"}
+      </BackLink>
       <Stack
         direction={{ xs: "column", sm: "row" }}
         spacing={2}
@@ -86,9 +86,11 @@ export function EventHeader({
             <EventLifecycleStatus event={event} now={now} />
             <PublicationStatus state={state} />
             {event.publishedRevision?.number && (
-              <Typography variant="body2" color="text.secondary">
-                Revision {event.publishedRevision.number}
-              </Typography>
+              <EventStatusChip
+                icon={<LayersOutlined />}
+                label={`Published version ${event.publishedRevision.number}`}
+                color="default"
+              />
             )}
             {event.publicId && event.publishedRevision && (
               <PublicEventLinks publicId={event.publicId} />

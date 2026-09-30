@@ -3,13 +3,13 @@
 import {
   Alert,
   Button,
-  Link,
   Paper,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
 import { useEffect, useRef, useState } from "react";
+import { BackLink } from "@/components/ui/back-link";
 import {
   rememberVerificationEmail,
   startVerificationCooldown,
@@ -124,9 +124,7 @@ export function VerificationForm({
       spacing={3}
       sx={{ width: "100%", maxWidth: 480, mx: "auto", my: "auto" }}
     >
-      <Link href="/" sx={{ alignSelf: "flex-start" }}>
-        Back to home
-      </Link>
+      <BackLink href="/">Back to home</BackLink>
       <Paper variant="outlined" sx={{ p: { xs: 3, sm: 4 } }}>
         <Stack spacing={3}>
           <Stack spacing={1}>

@@ -30,7 +30,6 @@ export function AccountNavigation({
         "& [aria-current=page]": {
           bgcolor: "action.selected",
           boxShadow: "inset 0 -2px var(--mui-palette-primary-main)",
-          fontWeight: 700,
         },
       }}
     >
