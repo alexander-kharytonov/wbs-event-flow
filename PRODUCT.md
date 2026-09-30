@@ -33,7 +33,7 @@ Organizers can:
   Counts represent submitted attempts, not distinct people.
 - Read an application's submitted details and historical answers, then approve
   or reject a pending application.
-- Open Attendees to read Active and Revoked registrations, with submitted name,
+- Open Attendees to read Active and Revoked admitted people, with submitted name,
   email and grant/revocation dates. This view has no attendee mutation controls.
 
 ## Public events
@@ -65,7 +65,7 @@ configured close time and event end, or at event end if no close time was set.
 It may remain open after the event starts, but never after it ends. New event
 settings cannot place registration opening or closing after event end.
 
-Only active Registrations occupy places. A full event can still receive pending
+Only active Attendees occupy places. A full event can still receive pending
 applications; approval waits until a place is available. Capacity may be unlimited.
 Reducing published capacity below existing approvals keeps those approvals and
 blocks further approvals until space is available.
@@ -81,15 +81,15 @@ application's existence or details.
 A verified user can see their linked current application on the public event or
 their account registration-detail page and
 withdraw a pending or approved application before the currently published event
-end. Approval atomically creates a Registration from the submitted identity and its Ticket.
-Withdrawal keeps the old attempt and atomically revokes its Registration and Ticket, freeing
+end. Approval atomically creates a Registration, its PRIMARY Attendee from the submitted identity, and that person’s Ticket.
+Withdrawal keeps the old attempt and atomically revokes its Registration, PRIMARY Attendee and Ticket, freeing
 a place if it was approved. Revoked admission remains in history.
 Anonymous applications are not claimed by signing in with a matching email and
 cannot be withdrawn through the account flow.
 
 After withdrawal, a linked user can apply again while registration is open. The
 new attempt uses the current form, needs review again and creates a new Registration
-and Ticket only on approval; old Registrations and Tickets are never reactivated. It carries over answers
+with a new PRIMARY and Ticket only on approval; old Registrations, Attendees and Tickets are never reactivated. It carries over answers
 only to unchanged questions. Changed or newly required questions must be
 completed as needed. Rejected applications cannot be withdrawn or retried with
 the same event/email or event/account identity.
@@ -192,8 +192,12 @@ action; new drafts are created from active My events.
 
 ## Tickets
 
-Registration grants admission; its Ticket is the immutable credential for that
-admission. Verified linked attendees see current and historical Tickets on their
+Registration holds the approved party’s ownership and lifecycle. Attendee is the
+concrete admitted person and capacity seat; its Ticket is the immutable credential.
+Iteration 21A creates only PRIMARY Attendees. Guests and party management are not
+implemented. Registration ownership and Attendee account association have separate
+responsibilities, even though they currently match. The structural migration
+preserves existing QR credentials, anonymous access tokens/URLs and Ticket history. Verified linked attendees see current and historical Tickets on their
 Registration Detail. Applicants who were anonymous at Ticket issue receive a
 separate private bearer link in approval email; no account is required. Anyone
 holding that link can view that Ticket. It never grants withdrawal or claiming.
@@ -218,18 +222,18 @@ Attendees. Camera access starts on request and stays on between scans. Each scan
 blocks further ticket submissions until the result arrives and the organizer
 chooses Scan next. Stop scanner or leaving Check-in releases the camera.
 
-New attendance requires an ongoing, non-cancelled Event and active Registration
+New attendance requires an ongoing, non-cancelled Event and active Registration, Attendee
 and Ticket. The server uses persisted Event dates and DB time: start inclusive,
 end exclusive. Publication and archive state do not independently gate check-in.
 Ticket validity is not check-in eligibility.
 
-Each Registration can be checked in once. Repeat scans show Already checked in
+Each Attendee can be checked in once. Repeat scans show Already checked in
 with the original time, including after later withdrawal or cancellation.
 Attendance survives admission/Ticket revocation, cancellation, archive and
 publication changes. There is no manual check-in, undo, check-out, re-entry or
 offline scanning.
 
 Attendees shows attendance history and checked-in/total currently active
-Registrations. Linked Ticket details refresh through the existing account stream;
+Attendees. Linked Ticket details refresh through the existing account stream;
 anonymous Ticket pages show attendance after reload. Check-in alone does not hide
 the QR; existing revocation/cancellation visibility rules still apply.

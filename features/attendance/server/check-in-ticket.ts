@@ -62,15 +62,16 @@ export async function checkInTicket(
             id: true,
             number: true,
             revokedAt: true,
-            registration: {
+            attendee: {
               select: {
                 id: true,
-                eventId: true,
-                userId: true,
-                attendeeName: true,
-                attendeeEmail: true,
+                name: true,
+                email: true,
                 revokedAt: true,
                 attendance: { select: { checkedInAt: true } },
+                registration: {
+                  select: { eventId: true, userId: true, revokedAt: true },
+                },
               },
             },
           },
@@ -80,23 +81,23 @@ export async function checkInTicket(
           return { code: "INVALID_CREDENTIAL" };
         }
 
-        const registration = ticket.registration;
+        const registration = ticket.attendee.registration;
 
         if (registration.eventId !== event.id) {
           return { code: "WRONG_EVENT" };
         }
 
         const attendee = {
-          attendeeName: registration.attendeeName,
-          attendeeEmail: registration.attendeeEmail,
+          attendeeName: ticket.attendee.name,
+          attendeeEmail: ticket.attendee.email,
           ticketNumber: ticket.number,
         };
 
-        if (registration.attendance) {
+        if (ticket.attendee.attendance) {
           return {
             code: "ALREADY_CHECKED_IN",
             attendee,
-            checkedInAt: registration.attendance.checkedInAt.toISOString(),
+            checkedInAt: ticket.attendee.attendance.checkedInAt.toISOString(),
           };
         }
 
@@ -120,13 +121,17 @@ export async function checkInTicket(
           };
         }
 
-        if (registration.revokedAt || ticket.revokedAt) {
+        if (
+          registration.revokedAt ||
+          ticket.attendee.revokedAt ||
+          ticket.revokedAt
+        ) {
           return { code: "ADMISSION_REVOKED", attendee };
         }
 
         await tx.attendance.create({
           data: {
-            registrationId: registration.id,
+            attendeeId: ticket.attendee.id,
             ticketId: ticket.id,
             checkedInAt: event.decisionNow,
             checkedInByUserId: actor.userId,

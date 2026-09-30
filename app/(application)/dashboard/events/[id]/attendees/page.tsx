@@ -121,10 +121,10 @@ export default async function AttendeesPage({
               >
                 <Stack spacing={0.5} sx={{ minWidth: 0 }}>
                   <Typography sx={{ fontWeight: 600 }}>
-                    {attendee.attendeeName}
+                    {attendee.name}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {attendee.attendeeEmail}
+                    {attendee.email}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     Granted{" "}

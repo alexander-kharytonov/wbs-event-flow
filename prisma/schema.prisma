@@ -21,6 +21,7 @@ model User {
   organizerProfile     OrganizerProfile?
   applications         Application[]
   registrations        Registration[]
+  attendees            Attendee[]
   checkedInAttendances Attendance[]
 
   @@unique([email])
@@ -225,7 +226,7 @@ model Application {
 
 model Ticket {
   id                       String       @id @default(uuid(7)) @db.Uuid
-  registrationId           String       @unique @db.Uuid
+  attendeeId               String       @unique @db.Uuid
   number                   String       @unique
   credentialHash           String       @unique
   credentialEncrypted      String
@@ -233,10 +234,10 @@ model Ticket {
   anonymousAccessEncrypted String?
   issuedAt                 DateTime     @db.Timestamptz(3)
   revokedAt                DateTime?    @db.Timestamptz(3)
-  registration             Registration @relation(fields: [registrationId], references: [id], onDelete: Restrict)
+  attendee                 Attendee     @relation(fields: [attendeeId], references: [id], onDelete: Restrict)
   attendances              Attendance[]
 
-  @@unique([registrationId, id])
+  @@unique([attendeeId, id])
 }
 
 model Registration {
@@ -252,11 +253,33 @@ model Registration {
   sourceApplication   Application @relation(fields: [eventId, sourceApplicationId], references: [eventId, id], onDelete: Restrict)
   user                User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
 
-  ticket     Ticket?
-  attendance Attendance?
+  attendees Attendee[]
 
   @@unique([eventId, userId], map: "Registration_active_user_key", where: raw("((\"revokedAt\" IS NULL) AND (\"userId\" IS NOT NULL))"))
   @@unique([eventId, attendeeEmail], map: "Registration_active_email_key", where: raw("(\"revokedAt\" IS NULL)"))
+}
+
+enum AttendeeKind {
+  PRIMARY
+  GUEST
+}
+
+model Attendee {
+  id             String       @id @default(uuid(7)) @db.Uuid
+  registrationId String       @db.Uuid
+  kind           AttendeeKind
+  userId         String?      @db.Uuid
+  name           String
+  email          String?
+  createdAt      DateTime     @default(now()) @db.Timestamptz(3)
+  revokedAt      DateTime?    @db.Timestamptz(3)
+  registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Restrict)
+  user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  ticket         Ticket?
+  attendance     Attendance?
+
+  @@unique([registrationId], map: "Attendee_primary_key", where: raw("(kind = 'PRIMARY'::\"AttendeeKind\")"))
+  @@index([registrationId, revokedAt])
 }
 
 enum AttendanceMethod {
@@ -265,13 +288,13 @@ enum AttendanceMethod {
 
 model Attendance {
   id                String           @id @default(uuid(7)) @db.Uuid
-  registrationId    String           @unique @db.Uuid
+  attendeeId        String           @unique @db.Uuid
   ticketId          String?          @db.Uuid
   checkedInAt       DateTime         @db.Timestamptz(3)
   checkedInByUserId String?          @db.Uuid
   method            AttendanceMethod
-  registration      Registration     @relation(fields: [registrationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  ticket            Ticket?          @relation(fields: [registrationId, ticketId], references: [registrationId, id], onDelete: Restrict, onUpdate: Restrict)
+  attendee          Attendee         @relation(fields: [attendeeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  ticket            Ticket?          @relation(fields: [attendeeId, ticketId], references: [attendeeId, id], onDelete: Restrict, onUpdate: Restrict)
   checkedInByUser   User?            @relation(fields: [checkedInByUserId], references: [id], onDelete: SetNull, onUpdate: Restrict)
 }
 

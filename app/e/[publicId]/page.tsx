@@ -58,8 +58,8 @@ export default async function PublicEventPage({ params }: Props) {
     !cancelledAt &&
     snapshot.capacity !== null &&
     now.getTime() < Date.parse(snapshot.endsAt)
-      ? await prisma.registration.count({
-          where: { event: { publicId }, revokedAt: null },
+      ? await prisma.attendee.count({
+          where: { registration: { event: { publicId } }, revokedAt: null },
         })
       : undefined;
   const session = await getSession();

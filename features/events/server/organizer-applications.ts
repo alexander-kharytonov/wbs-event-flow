@@ -53,8 +53,8 @@ export async function getOwnedApplications(
         },
       });
 
-      const occupied = await tx.registration.count({
-        where: { eventId, revokedAt: null },
+      const occupied = await tx.attendee.count({
+        where: { registration: { eventId }, revokedAt: null },
       });
 
       return {
@@ -145,8 +145,8 @@ export async function getOwnedApplication(
             select: { snapshot: true, contentVersion: true, number: true },
           })
         : null;
-      const occupied = await tx.registration.count({
-        where: { eventId, revokedAt: null },
+      const occupied = await tx.attendee.count({
+        where: { registration: { eventId }, revokedAt: null },
       });
 
       return {

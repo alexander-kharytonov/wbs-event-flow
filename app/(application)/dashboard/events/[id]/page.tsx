@@ -27,7 +27,6 @@ export default async function EventPage({
         select: {
           applications: true,
           revisions: true,
-          registrations: { where: { revokedAt: null } },
         },
       },
       publishedRevision: { select: { contentVersion: true, number: true } },
@@ -37,6 +36,10 @@ export default async function EventPage({
   if (!event) {
     notFound();
   }
+
+  const attendeeCount = await prisma.attendee.count({
+    where: { registration: { eventId: id }, revokedAt: null },
+  });
 
   const lifecycle = eventLifecycle(event, new Date());
   const actions: ("cancel" | "unpublish" | "archive" | "restore" | "delete")[] =
@@ -80,7 +83,7 @@ export default async function EventPage({
         actions={actions}
         active="overview"
         applicationCount={event._count.applications}
-        attendeeCount={event._count.registrations}
+        attendeeCount={attendeeCount}
       />
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
         <Box

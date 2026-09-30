@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import { Prisma, type Registration } from "@/generated/prisma/client";
+import { type Attendee, Prisma } from "@/generated/prisma/client";
 import {
   encryptTicketSecret,
   generateTicketNumber,
@@ -19,24 +19,30 @@ const numberCollision = z.object({
 // Caller holds the Event lock (or the backfill table locks).
 export async function issueTicket(
   tx: Prisma.TransactionClient,
-  registration: Pick<Registration, "id" | "userId" | "createdAt" | "revokedAt">,
+  attendee: Pick<
+    Attendee,
+    "id" | "kind" | "userId" | "createdAt" | "revokedAt"
+  >,
 ) {
   const credential = generateTicketSecret();
-  const access = registration.userId === null ? generateTicketSecret() : null;
+  const access =
+    attendee.kind === "PRIMARY" && attendee.userId === null
+      ? generateTicketSecret()
+      : null;
   const data = {
-    registrationId: registration.id,
+    attendeeId: attendee.id,
     credentialHash: hashTicketSecret(credential),
     credentialEncrypted: encryptTicketSecret(
       credential,
-      registration.id,
+      attendee.id,
       "credential",
     ),
     anonymousAccessHash: access ? hashTicketSecret(access) : null,
     anonymousAccessEncrypted: access
-      ? encryptTicketSecret(access, registration.id, "access")
+      ? encryptTicketSecret(access, attendee.id, "access")
       : null,
-    issuedAt: registration.createdAt,
-    revokedAt: registration.revokedAt,
+    issuedAt: attendee.createdAt,
+    revokedAt: attendee.revokedAt,
   };
 
   for (let attempt = 0; attempt < 5; attempt += 1) {

@@ -30,13 +30,13 @@ export async function getOwnedAttendees(organizerId: string, eventId: string) {
         return null;
       }
 
-      const attendees = await tx.registration.findMany({
-        where: { eventId },
+      const attendees = await tx.attendee.findMany({
+        where: { registration: { eventId } },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         select: {
           id: true,
-          attendeeName: true,
-          attendeeEmail: true,
+          name: true,
+          email: true,
           createdAt: true,
           revokedAt: true,
           attendance: { select: { checkedInAt: true } },

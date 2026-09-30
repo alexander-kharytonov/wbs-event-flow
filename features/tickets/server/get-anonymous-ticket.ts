@@ -16,21 +16,26 @@ export async function getAnonymousTicket(access: string) {
     where: { anonymousAccessHash: hashTicketSecret(access) },
     select: {
       ...ticketDisplaySelect,
-      registration: {
+      attendee: {
         select: {
-          attendeeName: true,
-          attendeeEmail: true,
+          name: true,
+          email: true,
           revokedAt: true,
           attendance: { select: { checkedInAt: true } },
-          sourceApplication: {
-            select: { eventRevision: { select: { snapshot: true } } },
-          },
-          event: {
+          registration: {
             select: {
-              cancelledAt: true,
-              cancellationReason: true,
-              endsAt: true,
-              publishedRevision: { select: { snapshot: true } },
+              revokedAt: true,
+              sourceApplication: {
+                select: { eventRevision: { select: { snapshot: true } } },
+              },
+              event: {
+                select: {
+                  cancelledAt: true,
+                  cancellationReason: true,
+                  endsAt: true,
+                  publishedRevision: { select: { snapshot: true } },
+                },
+              },
             },
           },
         },
@@ -42,12 +47,12 @@ export async function getAnonymousTicket(access: string) {
     return null;
   }
 
-  const event = ticket.registration.event;
+  const event = ticket.attendee.registration.event;
   const published = eventSnapshotSchema.safeParse(
     event.publishedRevision?.snapshot,
   );
   const historical = eventSnapshotSchema.safeParse(
-    ticket.registration.sourceApplication.eventRevision.snapshot,
+    ticket.attendee.registration.sourceApplication.eventRevision.snapshot,
   );
   const snapshot = published.success
     ? published.data
@@ -58,7 +63,11 @@ export async function getAnonymousTicket(access: string) {
   return {
     ticket: await presentTicket(
       ticket,
-      ticket.registration,
+      {
+        ...ticket.attendee,
+        revokedAt:
+          ticket.attendee.registration.revokedAt ?? ticket.attendee.revokedAt,
+      },
       snapshot
         ? {
             title: snapshot.title,

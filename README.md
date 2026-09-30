@@ -38,14 +38,27 @@ in `.env.example`). Generate it once, preserve it across restarts/deployments an
 back it up securely outside the database. Do not reuse the auth secret. Existing
 Ticket envelopes cannot be recovered without this key. Keep `.env` untracked.
 
+### Fresh database
+
+For a new, empty database, apply the normal migration history:
+
 ```bash
 pnpm infra:up
-pnpm db:migrate
+pnpm exec prisma migrate deploy
 pnpm db:generate
-pnpm db:backfill-tickets
 pnpm db:check
 pnpm dev
 ```
+
+The Node Attendee migration is not needed for an empty fresh database: there are
+no historical credentials to rebind.
+
+### Existing populated №20 database → №21A
+
+Follow the canonical [controlled Attendee cutover procedure](docs/attendee-migration.md).
+Do not run ordinary `prisma migrate deploy` across prepare and finalize on a
+populated №20 database without the intermediate Node data/crypto migration.
+Writers, readers and the email dispatcher must remain stopped throughout cutover.
 
 Open the configured `BETTER_AUTH_URL`, initially `http://localhost:3000`, and use
 that origin consistently for authentication. Prisma's generated client lives in
@@ -57,9 +70,9 @@ settings. `lib/prisma.ts` is the shared server-only client. DATABASE_URL expands
 from the POSTGRES variables in `.env.example`; use a URL-safe local password or
 percent-encode credentials when constructing a URL.
 
-The migration directory contains one initial development baseline generated from
-the current schema. It intentionally replaces pre-production migration history.
-New databases start from it. An old disposable local database with the removed
+The migration directory contains an initial development baseline followed by
+incremental migrations. The baseline replaces earlier pre-production migration
+history; new databases apply the complete migration history. An old disposable local database with the removed
 history requires an explicitly authorized reset after verifying its target; this
 is not an in-place migration path for a deployed production/staging database.
 There is no seed step or demo data.
@@ -95,7 +108,9 @@ These are the scripts currently defined in package.json:
 | `pnpm db:migrate` | Run local `prisma migrate dev` |
 | `pnpm db:generate` | Generate Prisma Client |
 | `pnpm db:studio` | Open Prisma Studio |
-| `pnpm db:check` | Run a read-only query through the application Prisma Client |
+| `pnpm db:check` | Check connectivity and authoritative №21A invariants in a read-only snapshot; no credential decryption |
+| `pnpm db:migrate-attendees` | Controlled №20 → №21A cutover only; follow the canonical procedure |
+| `pnpm db:backfill-tickets` | Retired fail-loudly guard for old instructions; not a setup or №21A migration step |
 
 Additional validation commands (CLI invocations, not package scripts):
 
@@ -131,14 +146,15 @@ action. Auth or onboarding GET requests do not create OrganizerProfile.
 - [DOMAIN.md](DOMAIN.md): domain model, invariants, and enforcement boundaries.
 - [AGENTS.md](AGENTS.md): project conventions and instructions for coding agents.
 
-## Ticket migration rollout
+## Historical Ticket backfill
 
-Stop application writers and the email worker before applying the Ticket migration.
-Set the dedicated encryption key, apply migrations, regenerate Prisma, then run
-`pnpm db:backfill-tickets` before starting the matching application. Backfill is
-one atomic transaction, validates history and encrypted values, reports created /
-verified counts, and is safe to repeat. Failure exits nonzero; never resume writers
-until it reports every Registration has exactly one Ticket. No approval emails are
-sent by this historical backfill. Protect both database and encryption-key backups.
+The historical №19 Ticket backfill must have completed before the №21A cutover.
+`db:backfill-tickets` is now a retired, explicitly failing tombstone command that
+guards against old instructions. Do not use it for fresh setup or №21A migration.
+After cutover, a missing historical Ticket is a corruption/investigation case,
+never a reason to generate a replacement credential. See the canonical
+[Attendee cutover procedure](docs/attendee-migration.md) for existing №20 databases.
+
+Protect both database and encryption-key backups.
 Configure any deployment ingress/CDN/access logger to redact `/ticket/*` URLs;
 application logging excludes these bearer paths but cannot control upstream logs.

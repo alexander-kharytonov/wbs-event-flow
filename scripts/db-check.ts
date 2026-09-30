@@ -5,10 +5,99 @@ async function main() {
   const { prisma } = await import("../lib/prisma");
 
   try {
-    const result = await prisma.$queryRaw<
-      { database: string; version: string; ok: number }[]
-    >`SELECT current_database() AS database, version() AS version, 1 AS ok`;
-    console.table(result);
+    const result = await prisma.$transaction(
+      async (tx) => {
+        await tx.$executeRaw`SET TRANSACTION READ ONLY`;
+        const connection = await tx.$queryRaw<
+          { database: string; version: string; ok: number }[]
+        >`SELECT current_database() AS database, version() AS version, 1 AS ok`;
+        // One consistent snapshot; only aggregate counts leave the database.
+        // GUEST absence and capacity equality are deliberately №21A-only checks.
+        const violations = await tx.$queryRaw<
+          { invariant: string; invalid_count: bigint }[]
+        >`
+          WITH primary_counts AS (
+            SELECT "registrationId", count(*) AS total
+            FROM "Attendee" WHERE kind = 'PRIMARY'
+            GROUP BY "registrationId"
+          ), ticket_counts AS (
+            SELECT "attendeeId", count(*) AS total
+            FROM "Ticket" GROUP BY "attendeeId"
+          ), active_registrations AS (
+            SELECT "eventId", count(*) AS total
+            FROM "Registration" WHERE "revokedAt" IS NULL
+            GROUP BY "eventId"
+          ), active_primaries AS (
+            SELECT r."eventId", count(*) AS total
+            FROM "Attendee" a
+            JOIN "Registration" r ON r.id = a."registrationId"
+            WHERE a.kind = 'PRIMARY' AND a."revokedAt" IS NULL
+            GROUP BY r."eventId"
+          ), checks AS (
+            SELECT 'registration_exactly_one_primary' AS invariant,
+              count(*) AS invalid_count
+            FROM "Registration" r
+            LEFT JOIN primary_counts p ON p."registrationId" = r.id
+            WHERE p.total IS DISTINCT FROM 1::bigint
+            UNION ALL
+            SELECT 'no_guest_at_21a_checkpoint', count(*)
+            FROM "Attendee" WHERE kind = 'GUEST'
+            UNION ALL
+            SELECT 'primary_registration_identity_history', count(*)
+            FROM "Attendee" a
+            LEFT JOIN "Registration" r ON r.id = a."registrationId"
+            WHERE a.kind = 'PRIMARY' AND (
+              r.id IS NULL
+              OR a."userId" IS DISTINCT FROM r."userId"
+              OR a.name IS DISTINCT FROM r."attendeeName"
+              OR a.email IS DISTINCT FROM r."attendeeEmail"
+              OR a."createdAt" IS DISTINCT FROM r."createdAt"
+              OR a."revokedAt" IS DISTINCT FROM r."revokedAt"
+            )
+            UNION ALL
+            SELECT 'primary_exactly_one_ticket', count(*)
+            FROM "Attendee" a
+            LEFT JOIN ticket_counts t ON t."attendeeId" = a.id
+            WHERE a.kind = 'PRIMARY' AND t.total IS DISTINCT FROM 1::bigint
+            UNION ALL
+            SELECT 'ticket_has_attendee', count(*)
+            FROM "Ticket" t
+            LEFT JOIN "Attendee" a ON a.id = t."attendeeId"
+            WHERE a.id IS NULL
+            UNION ALL
+            SELECT 'attendance_ticket_attendee_provenance', count(*)
+            FROM "Attendance" h
+            LEFT JOIN "Ticket" t ON t.id = h."ticketId"
+            WHERE t.id IS NULL OR h."attendeeId" IS DISTINCT FROM t."attendeeId"
+            UNION ALL
+            SELECT 'active_registration_primary_capacity', count(*)
+            FROM active_registrations r
+            FULL JOIN active_primaries a ON a."eventId" = r."eventId"
+            WHERE COALESCE(r.total, 0) <> COALESCE(a.total, 0)
+          )
+          SELECT invariant, invalid_count FROM checks
+          WHERE invalid_count > 0 ORDER BY invariant
+        `;
+
+        return { connection, violations };
+      },
+      { isolationLevel: "RepeatableRead" },
+    );
+
+    if (result.violations.length > 0) {
+      for (const violation of result.violations) {
+        console.error(
+          `Database invariant failed: ${violation.invariant}; count=${violation.invalid_count}`,
+        );
+      }
+
+      process.exitCode = 1;
+
+      return;
+    }
+
+    console.table(result.connection);
+    console.log("Database №21A checkpoint invariants passed.");
   } finally {
     await prisma.$disconnect();
   }
@@ -16,7 +105,7 @@ async function main() {
 
 main().catch(() => {
   console.error(
-    "Database connection check failed. Check server environment and PostgreSQL availability.",
+    "Database check failed. Check server environment, PostgreSQL availability and schema compatibility.",
   );
   process.exitCode = 1;
 });

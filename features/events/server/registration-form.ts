@@ -62,7 +62,6 @@ export async function getRegistrationForm(
           _count: {
             select: {
               applications: true,
-              registrations: { where: { revokedAt: null } },
             },
           },
           publicId: true,
@@ -84,7 +83,9 @@ export async function getRegistrationForm(
         archivedAt: event.archivedAt,
         title: event.title,
         applicationCount: event._count.applications,
-        attendeeCount: event._count.registrations,
+        attendeeCount: await tx.attendee.count({
+          where: { registration: { eventId }, revokedAt: null },
+        }),
         publicId: event.publicId,
         contentVersion: event.contentVersion,
         publishedRevision: event.publishedRevision,

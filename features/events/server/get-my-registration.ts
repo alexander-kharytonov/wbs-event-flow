@@ -31,12 +31,18 @@ export async function getMyRegistration(userId: string, eventId: string) {
           registrations: {
             where: { userId },
             select: {
-              ticket: { select: ticketDisplaySelect },
-              attendance: { select: { checkedInAt: true } },
+              attendees: {
+                where: { kind: "PRIMARY" },
+                select: {
+                  name: true,
+                  email: true,
+                  revokedAt: true,
+                  ticket: { select: ticketDisplaySelect },
+                  attendance: { select: { checkedInAt: true } },
+                },
+              },
               createdAt: true,
               revokedAt: true,
-              attendeeName: true,
-              attendeeEmail: true,
             },
           },
         },
@@ -125,10 +131,16 @@ export async function getMyRegistration(userId: string, eventId: string) {
           }
         : null;
       const admission = application.registrations[0];
-      const ticket = admission?.ticket
+      const primary = admission?.attendees[0];
+
+      if (admission && (admission.attendees.length !== 1 || !primary?.ticket)) {
+        throw new Error("Registration PRIMARY/Ticket correspondence failed.");
+      }
+
+      const ticket = primary?.ticket
         ? await presentTicket(
-            admission.ticket,
-            admission,
+            primary.ticket,
+            { ...primary, revokedAt: admission.revokedAt ?? primary.revokedAt },
             application.id === currentApplication.id
               ? (publishedContext ?? context)
               : context,

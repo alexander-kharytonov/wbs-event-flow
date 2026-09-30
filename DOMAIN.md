@@ -31,7 +31,7 @@ Source: [verification delivery and consumption](lib/email-verification.ts),
 [Better Auth hooks](lib/auth.ts).
 
 `User` is the single Event Flow identity. `OrganizerProfile` is an optional,
-one-per-User organizer capability. There is no Attendee, GuestProfile,
+one-per-User organizer capability. There is no GuestProfile,
 AttendeeProfile, User.role, or isOrganizer domain field/entity.
 
 Registration, sign-in, GET `/dashboard`, and GET `/onboarding/organizer` do not
@@ -237,7 +237,7 @@ WITHDRAWN never transitions back to PENDING. Repeating withdrawal of an already
 WITHDRAWN own application returns success without changing it only while the
 Event lifecycle still permits application operations.
 Review accepts only PENDING, writes reviewedAt, and uses a conditional update.
-Approval creates Registration and Ticket before EmailOutbox/NOTIFY in the same transaction;
+Approval creates Registration, PRIMARY Attendee and Ticket before EmailOutbox/NOTIFY in the same transaction;
 rejection never creates Registration.
 Withdrawal writes withdrawnAt and retains any previous reviewedAt. For an initially
 APPROVED attempt, exactly one active Registration must be conditionally revoked
@@ -270,16 +270,16 @@ another email/account. There is no shared active-status helper; Public Event's
 ## 11. Capacity
 
 Capacity comes from the current published snapshot; null means unlimited.
-Only active Registrations (`revokedAt IS NULL`) occupy places, across all submitted
+Only active Attendees (`revokedAt IS NULL`, through Registration/Event) occupy places, across all submitted
 revisions of the Event. Application status counts remain review/history counts. Finite-capacity UI uses:
 
 ```text
-filled = count(Registration for Event where revokedAt IS NULL)
+filled = count(Attendee through Registration for Event where revokedAt IS NULL)
 available = max(0, capacity - filled)
 ```
 
 Submit and reapply may create PENDING even when full. Approve locks Event, reads
-current capacity, counts active Registrations, and refuses approval when full.
+current capacity, counts active Attendees, and refuses approval when full.
 APPROVED -> WITHDRAWN atomically revokes admission and releases a place. Publishing a lower capacity may make the
 Event over capacity without demoting existing approvals. Later approvals remain
 blocked until space exists. Concurrent approvals cannot independently take the
@@ -595,7 +595,7 @@ token; content writes continue to advance it.
 ## 21. Registration / granted admission
 
 Application is the request/review/answers/attempt-history authority. Registration
-is the granted-admission authority, created only by approval (or historical
+is the approved-party, lifecycle and ownership authority, created only by approval (or historical
 backfill of a proven approval). `revokedAt IS NULL` means active; a timestamp
 means historical revoked admission. Event cancellation/completion and archive/restore
 do not mutate Registration. Event lifecycle still independently gates actions.
@@ -615,7 +615,7 @@ are excluded. CHECK requires revokedAt >= createdAt when revoked.
 Every current APPROVED Application has exactly one active Registration through
 the existing Event FOR UPDATE + ReadCommitted mutation protocol. Approve creates
 admission with createdAt = reviewedAt = decisionNow before its outbox/NOTIFY.
-Approved withdrawal updates Application, Registration and Ticket atomically;
+Approved withdrawal updates Application, Registration, PRIMARY Attendee and Ticket atomically;
 missing admission or Ticket is an invariant violation, not a successful withdrawal. PENDING withdrawal remains Application-only.
 DB constraints or any thrown failure roll back the entire transaction.
 
@@ -626,9 +626,9 @@ withdrawnAt backfills revoked admission at those exact times. Other attempts hav
 no Registration. Correspondence is checked before commit. Application writers
 must be stopped during migration and resumed only with the matching implementation.
 
-Organizer Attendees reads only owned Event Registrations, with Active/Revoked
+Organizer Attendees reads only owned Event Attendees through Registration, with Active/Revoked
 filters and identity/grant/revocation snapshots. The Attendees navigation badge
-counts active Registrations, excluding revoked history. Application filters and counts
+counts active Attendees, excluding revoked history. Application filters and counts
 continue to count attempts. My Registrations and its detail preserve application
 states/history and add admission context from linked Registrations. Public Event
 confirms admission only from active Registration. Existing owner/User scoped SSE
@@ -638,18 +638,18 @@ email deduplication and existing linked-user invalidations.
 
 ## 22. Ticket / secure credential
 
-`Registration` is granted admission; `Ticket` is its immutable credential, with a
-unique Registration FK (`onDelete: Restrict`), UUIDv7 id, unique non-secret support
+`Attendee` is a concrete admitted person; `Ticket` is its immutable credential, with a
+unique Attendee FK (`onDelete: Restrict`), UUIDv7 id, unique non-secret support
 number, unique credential hash, encrypted credential, issuedAt and nullable
-revokedAt. No Event id/status is duplicated: Event is reached through Registration.
+revokedAt. No Event id/status is duplicated: Event is reached through Attendee -> Registration.
 DB CHECKs enforce revokedAt >= issuedAt and an all-null/all-present anonymous
-hash/envelope pair. UNIQUE registrationId gives cardinality 0..1; matching writers
-and backfill ensure every granted Registration has exactly one Ticket.
+hash/envelope pair. UNIQUE attendeeId gives cardinality 0..1; matching writers
+and backfill ensure every PRIMARY has exactly one Ticket.
 
 The QR bearer credential is `randomBytes(32)` encoded base64url (256 random bits).
 SHA-256 is the deterministic lookup hash. AES-256-GCM with a random 96-bit IV and
 128-bit authentication tag encrypts the secret for repeated display. The opaque
-`v1.iv.ciphertext.tag` envelope authenticates Registration id and secret purpose
+`v1.iv.ciphertext.tag` envelope authenticates Attendee id and secret purpose
 as AAD. `TICKET_CREDENTIAL_ENCRYPTION_KEY` is a separate required canonical
 base64url encoding of exactly 32 random bytes; never the Better Auth secret.
 Loss/change of this key prevents existing Tickets from being displayed. Keys and
@@ -662,9 +662,9 @@ DB, Outbox, email, browser URLs, logs or SSE. Ticket numbers use readable random
 characters, UNIQUE database enforcement and bounded savepoint retry on number
 collision only. Numbers never authorize access.
 
-**Capability issuance semantics:** at issue/backfill, Registration.userId null
+**Capability issuance semantics:** explicitly only PRIMARY with userId null
 creates a separate random 256-bit anonymous browser capability, stored as its own
-SHA-256 hash and AES-GCM envelope. A linked Registration gets neither field.
+SHA-256 hash and AES-GCM envelope. A linked PRIMARY gets neither field. GUEST gets no capability.
 After issue, capability presence is historical Ticket data and is never
 synchronized with later Registration.userId changes. User deletion keeps existing
 ON DELETE SET NULL, preserves Registration/Ticket and their QR credential, creates
@@ -682,15 +682,15 @@ capability routes. Deployment proxies/access logs must also redact `/ticket/*`;
 Next's application logger cannot configure external infrastructure.
 
 Approve holds the existing Event lock, obtains decisionNow, updates Application,
-creates Registration and Ticket, then enqueues approval email and NOTIFY in one
-transaction. Both issuedAt and Registration.createdAt equal decisionNow. Approved
-withdrawal requires exactly one active Registration and Ticket, revokes both at
+creates Registration, PRIMARY and Ticket, then enqueues approval email and NOTIFY in one
+transaction. Ticket.issuedAt, PRIMARY.createdAt and Registration.createdAt equal decisionNow. Approved
+withdrawal requires exactly one active Registration, PRIMARY and its Ticket, revokes all three at
 one decisionNow and notifies in the same transaction. Any failure rolls back all
 writes. Pending withdrawal has no Ticket. Reapply creates a new attempt and, on
-approval, new Registration/Ticket/number/secrets; old rows stay revoked.
+approval, new Registration/PRIMARY/Ticket/number/secrets; old rows stay revoked.
 
 Effective credential state for this iteration is: credential resolves AND Ticket
-not revoked AND Registration not revoked AND Event not cancelled. Completed,
+not revoked AND Attendee not revoked AND Registration not revoked AND Event not cancelled. Completed,
 archived and unpublished are independent context, not new check-in rules.
 No lifecycle command mutates Ticket history. Revoked/cancelled cards suppress QR;
 completed cards retain history and can display QR with an Event completed notice.
@@ -707,24 +707,24 @@ pages always recheck current state. No QR credential enters approval payloads.
 Existing applications.changed routing and empty browser invalidation refresh
 linked Ticket issue/revoke without a new protocol or anonymous stream.
 
-The normal Ticket schema migration is followed, with application writers stopped,
-by `pnpm db:backfill-tickets`. One table-locked transaction validates Application /
-Registration history, creates missing Tickets using the canonical Node helper,
-and verifies every Registration/Ticket pair, timestamps and encrypted secrets.
-Existing valid Tickets are verified, never replaced; repeated runs are idempotent.
-Any failure rolls back the entire data backfill and exits nonzero. Schema migration
-and data backfill are separate deployment steps: writers must not resume between
-them. issuedAt means entitlement time (= Registration.createdAt), not the physical
-time the backfill generated a new secret; revokedAt copies Registration.revokedAt.
-No history is invented, repaired, silently skipped or emailed by backfill.
+Iteration 21A uses the controlled [Attendee rollout](docs/attendee-migration.md).
+Preparation SQL, a table-locked Node data/crypto transaction, and final SQL are
+separate steps with writers, old consumers and email dispatchers stopped throughout.
+The Node step verifies history and hashes before backfilling PRIMARY, rebinds the
+exact same QR/access secrets from Registration AAD to Attendee AAD using fresh IVs,
+and verifies unchanged Ticket IDs/numbers/hashes/timestamps and Attendance history.
+Production crypto accepts only Attendee context; no legacy fallback exists.
+Repeated runs verify a completed no-op; ambiguous/partial states fail. Missing
+historical Tickets are errors, never an instruction to regenerate credentials.
+The old №19 Ticket backfill command is retired after this cutover.
 
 ## 23. Attendance / QR check-in
 
 Attendance records a successful check-in, not admission eligibility. It has a
-UUIDv7 id, UNIQUE required registrationId, nullable ticketId, checkedInAt
+UUIDv7 id, UNIQUE required attendeeId, nullable ticketId, checkedInAt
 timestamptz(3), nullable checkedInByUserId and method QR. There is no eventId;
-Event is reached through Registration. The Registration FK is RESTRICT. The
-composite (registrationId, ticketId) FK references Ticket (registrationId, id)
+Event is reached through Attendee -> Registration. The Attendee FK is RESTRICT. The
+composite (attendeeId, ticketId) FK references Ticket (attendeeId, id)
 with RESTRICT, and a DB CHECK requires ticketId for QR. User deletion SET NULLs
 the actor; it does not remove the fact. No update/delete/revoke/undo writer exists.
 The additive migration intentionally creates no historical Attendance.
@@ -738,16 +738,16 @@ requires no decrypt. Invalid/unknown credentials return before an Event lock.
 
 Candidate lookup is not authority. ReadCommitted transaction order is owned
 Event FOR UPDATE, one DB clock_timestamp(), then authoritative Ticket by hash,
-Registration and Attendance reread. Foreign Event returns WRONG_EVENT without
+Attendee, Registration and Attendance reread. Foreign Event returns WRONG_EVENT without
 identity, Ticket number or Event details. After matching the Event, checks are:
 existing Attendance -> ALREADY_CHECKED_IN; cancellation -> EVENT_CANCELLED;
 decisionNow < startsAt -> CHECK_IN_NOT_OPEN; decisionNow >= endsAt ->
-CHECK_IN_CLOSED; either Registration/Ticket revoked -> ADMISSION_REVOKED.
+CHECK_IN_CLOSED; any Registration/Attendee/Ticket revoked -> ADMISSION_REVOKED.
 Otherwise insert Attendance with the same decisionNow, session actor and QR
 method, then transactional attendance.changed NOTIFY. CHECKED_IN returns after
 commit. Auth/unavailable and infrastructure failures are not INVALID_CREDENTIAL.
 Publication/archive are not check-in guards. Existing Event locks serialize
-scans with approved Withdraw, Cancel and schedule edits; UNIQUE registrationId
+scans with approved Withdraw, Cancel and schedule edits; UNIQUE attendeeId
 is the final duplicate protection, with no generic idempotency or savepoint retry.
 
 Attendance survives later Withdraw, admission/Ticket revoke, Event cancellation,
@@ -760,8 +760,8 @@ attendance.changed shares event_flow_applications, the strict internal parser,
 Event/User broker routing and existing SSE endpoints. Only INSERT emits; repeat,
 error and no-op paths do not. Browser frames remain empty invalidations followed
 by authoritative router.refresh(), with existing reconnect/session boundaries.
-Operational counts include only currently active Registrations with Attendance
-over all active Registrations; revoked attendance remains historical. Linked and
+Operational counts include only currently active Attendees with Attendance
+over all active Attendees; revoked attendance remains historical. Linked and
 anonymous Ticket projections expose only checkedInAt, without extending access.
 
 The client scanner uses qr-scanner with software decoding when native decoding
@@ -780,3 +780,37 @@ no scanned secret. No raw payload, credential or hash enters Attendance, results
 errors or SSE. Next development Server Function argument logging is disabled via
 logging.serverFunctions: false; existing Ticket/auth URL logging exclusions remain.
 External infrastructure must not capture action request bodies containing secrets.
+
+## 24. Attendee structural checkpoint (21A)
+
+Registration is an approved party: it retains userId for ownership/routing and
+createdAt/revokedAt for lifecycle. attendeeName/attendeeEmail remain transitional
+PRIMARY snapshots. Attendee is a concrete admitted person and capacity seat, with
+UUIDv7 id, Registration RESTRICT, optional User SET NULL, name, nullable email,
+createdAt and nullable revokedAt (timestamptz(3)). CHECKs enforce revokedAt >=
+createdAt and GUEST.userId IS NULL. No Guest writer or policy exists in 21A.
+
+A partial UNIQUE registrationId WHERE kind = PRIMARY applies across all history,
+including revoked rows. Exactly one PRIMARY per Registration is established by
+Approve, backfill and verification, without a trigger. PRIMARY copies the submitted
+Application identity and decisionNow; its transitional Registration fields stay
+synchronous. Registration.userId is party ownership; Attendee.userId is person
+account association, conceptually distinct even though equal today. Deleting User
+SET NULLs both without inventing anonymous capabilities or rewriting snapshots.
+
+Approve is Event lock -> DB decisionNow -> guards/active Attendee capacity ->
+Application approval -> Registration -> PRIMARY -> Ticket -> Outbox -> NOTIFY ->
+commit. Any failure rolls back all writes. Approved Withdraw verifies PRIMARY and
+Ticket correspondence and revokes all three at the same decisionNow; Attendance
+is untouched. It selects PRIMARY by kind, not by assuming no future other people.
+Reapply never resurrects old Registration/PRIMARY/Ticket/Attendance history.
+
+Person rows, scanner identity (nullable email), Tickets, attendance and seat counts
+come from Attendee. Detail projects Registration -> PRIMARY -> Ticket/Attendance.
+Applications, answers, attempts, ownership, cancellation recipients and account
+lists remain Registration/Application based. Registration.userId continues to
+route realtime notifications; applications.changed and attendance.changed and the
+SSE protocol are unchanged. Anonymous access is still a single-Ticket VIEW
+capability with the same token and URL, never party-management authorization.
+Active Registration count equals active PRIMARY count per Event before Guests.
+Guests, snapshot changes, guest capabilities and iteration 21B are not implemented.

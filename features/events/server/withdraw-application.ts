@@ -79,6 +79,46 @@ export async function withdrawOwnApplication(
           };
         }
 
+        const admission = await tx.registration.findUnique({
+          where: { sourceApplicationId: applicationId },
+          include: {
+            attendees: {
+              where: { kind: "PRIMARY" },
+              include: { ticket: true },
+            },
+          },
+        });
+
+        if (application.status === "PENDING" && admission) {
+          throw new Error("Pending application cannot have admission history.");
+        }
+
+        if (application.status === "APPROVED") {
+          const primary = admission?.attendees[0];
+          const ticket = primary?.ticket;
+
+          if (
+            !admission ||
+            admission.eventId !== eventId ||
+            admission.userId !== userId ||
+            admission.revokedAt ||
+            admission.attendees.length !== 1 ||
+            !primary ||
+            primary.revokedAt ||
+            primary.userId !== admission.userId ||
+            primary.name !== admission.attendeeName ||
+            primary.email !== admission.attendeeEmail ||
+            +primary.createdAt !== +admission.createdAt ||
+            !ticket ||
+            ticket.revokedAt ||
+            +ticket.issuedAt !== +primary.createdAt
+          ) {
+            throw new Error(
+              "Approved withdrawal admission correspondence failed.",
+            );
+          }
+        }
+
         await tx.application.update({
           where: {
             id: applicationId,
@@ -108,9 +148,25 @@ export async function withdrawOwnApplication(
             );
           }
 
-          const revokedTicket = await tx.ticket.updateMany({
+          const revokedPrimary = await tx.attendee.updateMany({
             where: {
               registration: { eventId, sourceApplicationId: applicationId },
+              kind: "PRIMARY",
+              revokedAt: null,
+            },
+            data: { revokedAt: now },
+          });
+
+          if (revokedPrimary.count !== 1) {
+            throw new Error("Approved withdrawal requires one active PRIMARY.");
+          }
+
+          const revokedTicket = await tx.ticket.updateMany({
+            where: {
+              attendee: {
+                kind: "PRIMARY",
+                registration: { eventId, sourceApplicationId: applicationId },
+              },
               revokedAt: null,
             },
             data: { revokedAt: now },

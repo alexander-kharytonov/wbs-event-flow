@@ -107,8 +107,8 @@ export async function reviewOwnedApplication(
           const capacity = snapshot.data.capacity;
 
           if (capacity !== null) {
-            const occupied = await tx.registration.count({
-              where: { eventId, revokedAt: null },
+            const occupied = await tx.attendee.count({
+              where: { registration: { eventId }, revokedAt: null },
             });
 
             if (occupied >= capacity) {
@@ -165,7 +165,17 @@ export async function reviewOwnedApplication(
             },
           });
 
-          const ticket = await issueTicket(tx, registration);
+          const primary = await tx.attendee.create({
+            data: {
+              registrationId: registration.id,
+              kind: "PRIMARY",
+              userId: application.userId,
+              name: application.fullName,
+              email: application.email,
+              createdAt: reviewedAt,
+            },
+          });
+          const ticket = await issueTicket(tx, primary);
 
           // Approval already requires a valid current published snapshot.
           if (!snapshot.success || !event.publicId) {

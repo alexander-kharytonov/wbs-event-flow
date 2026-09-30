@@ -24,19 +24,29 @@ export default async function PreviewPage({
   }
 
   const event = await prisma.$transaction(
-    (tx) =>
-      tx.event.findFirst({
+    async (tx) => {
+      const event = await tx.event.findFirst({
         where: { id, organizerId: organizer.id },
         include: {
           ...workspaceInclude,
           _count: {
             select: {
               applications: true,
-              registrations: { where: { revokedAt: null } },
             },
           },
         },
-      }),
+      });
+
+      if (!event) {
+        return null;
+      }
+
+      const attendeeCount = await tx.attendee.count({
+        where: { registration: { eventId: id }, revokedAt: null },
+      });
+
+      return { ...event, attendeeCount };
+    },
     { isolationLevel: "RepeatableRead" },
   );
 
@@ -53,7 +63,7 @@ export default async function PreviewPage({
         event={event}
         active="preview"
         applicationCount={event._count.applications}
-        attendeeCount={event._count.registrations}
+        attendeeCount={event.attendeeCount}
       />
       <Alert severity="info">
         Preview of your current workspace, including unpublished changes.

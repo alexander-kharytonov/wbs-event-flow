@@ -1,6 +1,6 @@
 type AttendeePresentation = {
   attendeeName: string;
-  attendeeEmail: string;
+  attendeeEmail: string | null;
   ticketNumber: string;
 };
 

@@ -96,16 +96,21 @@ export async function renderOutboxEmail(
         const ticket = await prisma.ticket.findUniqueOrThrow({
           where: { id: data.ticketId },
           select: {
-            registrationId: true,
+            attendeeId: true,
             revokedAt: true,
             anonymousAccessHash: true,
             anonymousAccessEncrypted: true,
-            registration: {
+            attendee: {
               select: {
-                eventId: true,
-                userId: true,
                 revokedAt: true,
-                event: { select: { cancelledAt: true } },
+                registration: {
+                  select: {
+                    eventId: true,
+                    userId: true,
+                    revokedAt: true,
+                    event: { select: { cancelledAt: true } },
+                  },
+                },
               },
             },
           },
@@ -113,10 +118,11 @@ export async function renderOutboxEmail(
 
         if (
           ticket.revokedAt ||
-          ticket.registration.revokedAt ||
-          ticket.registration.event.cancelledAt
+          ticket.attendee.revokedAt ||
+          ticket.attendee.registration.revokedAt ||
+          ticket.attendee.registration.event.cancelledAt
         ) {
-          introduction = ticket.registration.event.cancelledAt
+          introduction = ticket.attendee.registration.event.cancelledAt
             ? "Your application was approved, but the event has since been cancelled. Your ticket history is preserved."
             : "Your application was approved, but your admission has since been revoked. Your ticket history is preserved.";
           action = undefined;
@@ -126,7 +132,7 @@ export async function renderOutboxEmail(
         ) {
           const access = decryptTicketSecret(
             ticket.anonymousAccessEncrypted,
-            ticket.registrationId,
+            ticket.attendeeId,
             "access",
             ticket.anonymousAccessHash,
           );
@@ -136,13 +142,13 @@ export async function renderOutboxEmail(
             label: "View ticket",
             url: absoluteUrl(`/ticket/${access}`),
           };
-        } else if (ticket.registration.userId) {
+        } else if (ticket.attendee.registration.userId) {
           introduction =
             "Your application has been approved and your ticket is ready. Sign in to view it in your registration.";
           action = {
             label: "View ticket",
             url: absoluteUrl(
-              `/account/registrations/${ticket.registration.eventId}`,
+              `/account/registrations/${ticket.attendee.registration.eventId}`,
             ),
           };
         } else {

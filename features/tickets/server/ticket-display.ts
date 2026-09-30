@@ -6,7 +6,7 @@ import { decryptTicketSecret } from "@/lib/ticket-crypto";
 // Server-only input selection. Never pass this record through component props.
 export const ticketDisplaySelect = {
   number: true,
-  registrationId: true,
+  attendeeId: true,
   issuedAt: true,
   revokedAt: true,
   credentialHash: true,
@@ -20,7 +20,7 @@ type TicketDisplay = Prisma.TicketGetPayload<{
 async function ticketQrSvg(ticket: TicketDisplay) {
   const credential = decryptTicketSecret(
     ticket.credentialEncrypted,
-    ticket.registrationId,
+    ticket.attendeeId,
     "credential",
     ticket.credentialHash,
   );
@@ -40,7 +40,7 @@ export type TicketPresentation = {
   checkedInAt: Date | null;
   revokedAt: Date | null;
   attendeeName: string;
-  attendeeEmail: string;
+  attendeeEmail: string | null;
   context: {
     title: string;
     startsAt: string;
@@ -57,8 +57,8 @@ export type TicketPresentation = {
 export async function presentTicket(
   ticket: TicketDisplay,
   admission: {
-    attendeeName: string;
-    attendeeEmail: string;
+    name: string;
+    email: string | null;
     revokedAt: Date | null;
     attendance: { checkedInAt: Date } | null;
   },
@@ -74,8 +74,8 @@ export async function presentTicket(
     issuedAt: ticket.issuedAt,
     checkedInAt: admission.attendance?.checkedInAt ?? null,
     revokedAt: ticket.revokedAt,
-    attendeeName: admission.attendeeName,
-    attendeeEmail: admission.attendeeEmail,
+    attendeeName: admission.name,
+    attendeeEmail: admission.email,
     context: context
       ? {
           title: context.title,
