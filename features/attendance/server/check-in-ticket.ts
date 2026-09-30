@@ -65,6 +65,7 @@ export async function checkInTicket(
             attendee: {
               select: {
                 id: true,
+                kind: true,
                 name: true,
                 email: true,
                 revokedAt: true,
@@ -88,6 +89,7 @@ export async function checkInTicket(
         }
 
         const attendee = {
+          kind: ticket.attendee.kind,
           attendeeName: ticket.attendee.name,
           attendeeEmail: ticket.attendee.email,
           ticketNumber: ticket.number,

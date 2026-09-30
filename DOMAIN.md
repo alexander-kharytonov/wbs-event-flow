@@ -63,8 +63,8 @@ Sources: [create](features/events/create-event.ts),
 
 `publishOwnedEvent` locks the owned Event, checks the requested contentVersion,
 builds a snapshot, creates a new EventRevision, and changes publishedRevisionId
-atomically. Publishing the already-current contentVersion succeeds without
-creating another revision. Older revisions are not rewritten by application code.
+atomically. Publishing the already-current contentVersion with a valid v2 snapshot succeeds without
+creating another revision. A current v1 can republish to v2 at the same contentVersion. Older revisions are not rewritten by application code.
 
 The first publication generates a separate UUIDv7 publicId via PostgreSQL
 `uuidv7()` and assigns the first publishedAt. publicId is stored as `uuid`.
@@ -85,13 +85,13 @@ Sources: [publisher](features/events/server/publish-event.ts),
 
 ## 4. Snapshot contracts
 
-All current snapshots have `schemaVersion: 1`. Responsibilities are separate:
+New snapshots have `schemaVersion: 2`; historical v1 remains readable and immutable. Responsibilities are separate:
 
 | Contract | Responsibility | Implementation |
 | --- | --- | --- |
 | Current authoring | Validate mutable questions/options | [registrationFieldSchema](features/events/schemas/registration-form.ts) |
 | Historical v1 | Read the frozen serialized format independently of authoring | [eventSnapshotSchema](features/events/schemas/event-snapshot.ts) |
-| Current publication | Require valid v1 plus current authoring/publication rules | [eventPublicationSnapshotSchema](features/events/schemas/event-publication-snapshot.ts) |
+| Current publication | Require valid v2 plus current authoring/publication rules | [eventPublicationSnapshotSchema](features/events/schemas/event-publication-snapshot.ts) |
 
 V1 contains event content, schedule/timezone, visibility, account requirement,
 capacity, registration dates, and ordered fields/options. Each field retains id,
@@ -100,7 +100,7 @@ Array order expresses display order. Historical field constraints are defined
 locally in the v1 parser, without runtime imports of mutable authoring validation.
 Future authoring changes must not silently redefine that compatibility contract.
 
-`buildEventSnapshot` constructs v1 from workspace and applies the current
+`buildEventSnapshot` constructs v2 from workspace and applies the current
 publication validator, also for Preview. New publication forbids registration
 opens/closes after event end. Historical v1 still reads older snapshots containing
 a later close time; effective availability caps it at end.
@@ -615,7 +615,7 @@ are excluded. CHECK requires revokedAt >= createdAt when revoked.
 Every current APPROVED Application has exactly one active Registration through
 the existing Event FOR UPDATE + ReadCommitted mutation protocol. Approve creates
 admission with createdAt = reviewedAt = decisionNow before its outbox/NOTIFY.
-Approved withdrawal updates Application, Registration, PRIMARY Attendee and Ticket atomically;
+Approved withdrawal updates Application, Registration and all active Attendees/Tickets atomically;
 missing admission or Ticket is an invariant violation, not a successful withdrawal. PENDING withdrawal remains Application-only.
 DB constraints or any thrown failure roll back the entire transaction.
 
@@ -672,9 +672,9 @@ no capability, and removes authenticated browser access. It never converts a
 historically linked Ticket to an anonymous Ticket. No email-based claiming exists.
 
 Verified-session ownership protects `/account/registrations/[eventId]` and its
-Ticket read model. `/ticket/<access-token>` needs no login and authorizes only by
-anonymousAccessHash. Invalid/unknown tokens share an unavailable response. The
-page exposes only Ticket/attendee/Event context (validated current publication,
+Ticket read model. `/ticket/<access-token>` needs no login and authorizes this Registration party by
+anonymousAccessHash on a PRIMARY Ticket. Invalid/unknown tokens share an unavailable response. The
+page exposes party Tickets/attendees/Event context (validated current publication,
 or submitted snapshot when unavailable), not application answers or workspace.
 It is request-time rendered, private/no-store, noindex/nofollow/noarchive and
 no-referrer, without third-party resources. Application request logging excludes
@@ -684,7 +684,7 @@ Next's application logger cannot configure external infrastructure.
 Approve holds the existing Event lock, obtains decisionNow, updates Application,
 creates Registration, PRIMARY and Ticket, then enqueues approval email and NOTIFY in one
 transaction. Ticket.issuedAt, PRIMARY.createdAt and Registration.createdAt equal decisionNow. Approved
-withdrawal requires exactly one active Registration, PRIMARY and its Ticket, revokes all three at
+withdrawal requires exactly one active Registration, PRIMARY and its Ticket, revokes the Registration and all active Attendees/Tickets at
 one decisionNow and notifies in the same transaction. Any failure rolls back all
 writes. Pending withdrawal has no Ticket. Reapply creates a new attempt and, on
 approval, new Registration/PRIMARY/Ticket/number/secrets; old rows stay revoked.
@@ -788,7 +788,7 @@ createdAt/revokedAt for lifecycle. attendeeName/attendeeEmail remain transitiona
 PRIMARY snapshots. Attendee is a concrete admitted person and capacity seat, with
 UUIDv7 id, Registration RESTRICT, optional User SET NULL, name, nullable email,
 createdAt and nullable revokedAt (timestamptz(3)). CHECKs enforce revokedAt >=
-createdAt and GUEST.userId IS NULL. No Guest writer or policy exists in 21A.
+createdAt and GUEST.userId IS NULL. Guest writers and published policy are defined in section 25.
 
 A partial UNIQUE registrationId WHERE kind = PRIMARY applies across all history,
 including revoked rows. Exactly one PRIMARY per Registration is established by
@@ -801,16 +801,64 @@ SET NULLs both without inventing anonymous capabilities or rewriting snapshots.
 Approve is Event lock -> DB decisionNow -> guards/active Attendee capacity ->
 Application approval -> Registration -> PRIMARY -> Ticket -> Outbox -> NOTIFY ->
 commit. Any failure rolls back all writes. Approved Withdraw verifies PRIMARY and
-Ticket correspondence and revokes all three at the same decisionNow; Attendance
+Ticket correspondence and revokes the whole active party at the same decisionNow; Attendance
 is untouched. It selects PRIMARY by kind, not by assuming no future other people.
 Reapply never resurrects old Registration/PRIMARY/Ticket/Attendance history.
 
 Person rows, scanner identity (nullable email), Tickets, attendance and seat counts
-come from Attendee. Detail projects Registration -> PRIMARY -> Ticket/Attendance.
+come from Attendee. Detail projects Registration -> PRIMARY/GUEST -> Ticket/Attendance.
 Applications, answers, attempts, ownership, cancellation recipients and account
 lists remain Registration/Application based. Registration.userId continues to
 route realtime notifications; applications.changed and attendance.changed and the
-SSE protocol are unchanged. Anonymous access is still a single-Ticket VIEW
-capability with the same token and URL, never party-management authorization.
-Active Registration count equals active PRIMARY count per Event before Guests.
-Guests, snapshot changes, guest capabilities and iteration 21B are not implemented.
+SSE protocol are unchanged. Anonymous PRIMARY access now authorizes this party’s view and Guest management
+with the same token and URL.
+Active Registration count equals active PRIMARY count; Guests add further capacity seats.
+The structural checkpoint is extended by iteration 21B below.
+
+## 25. Guests and party management (21B)
+
+Registration.userId is linked party ownership, verified against the authoritative
+session; PRIMARY is the party owner’s admitted person. GUEST has userId null,
+a trimmed name (1–200), and an optional trimmed/lowercase validated email contact
+snapshot (empty becomes null). No email uniqueness or User lookup applies.
+
+Event.maxGuestsPerRegistration is draft authority: NOT NULL DEFAULT 0, CHECK 0–10.
+Only current published snapshot policy authorizes Add. Frozen v1 parsing is
+unchanged and implies effective limit 0; v2 requires the explicit field. New
+Publish/Preview use v2. Historical EventRevision JSON is never rewritten. Lowering
+the limit, including to zero, preserves all existing guests and Tickets.
+
+Both mutations authorize before and again after Event FOR UPDATE, then use its
+single post-lock DB decisionNow. Linked authorization compares Registration.userId;
+anonymous authorization validates the canonical existing access token, hashes it,
+and resolves Ticket -> PRIMARY -> this Registration. Guest Tickets, QR credentials,
+support numbers and client IDs grant no management authority. Capability presence
+remains historical issuance data, not inferred from a later null userId. The same
+PRIMARY capability can read revoked history; mutations require active Registration
+and PRIMARY/Ticket. It grants no account identity or whole-party withdrawal.
+
+Add/Remove require no cancellation and decisionNow < persisted Event.startsAt.
+Add additionally requires valid current publication, active GUEST count below its
+limit, and active Attendee count below published snapshot.capacity (null unlimited).
+Remove does not require publication or guest permission. It only targets a GUEST
+of the authorized Registration, revokes Guest and Ticket at one decisionNow, and
+never deletes or changes Attendance. A consistent already-revoked Guest is a no-op;
+partial Guest/Ticket state fails. Lifecycle guards still apply to repeated requests.
+Unknown/foreign parties, capabilities and targets return neutral UNAVAILABLE.
+
+Add creates GUEST and its normal Ticket atomically at decisionNow using existing
+Attendee AAD, credential and QR protocol. GUEST never gets an anonymous capability.
+Ticket failure rolls back the Guest. Event locking serializes guest limit/capacity
+with Approve, publication, Withdraw and Cancel, without mutable seat counters.
+Approved Withdraw retains PRIMARY correspondence validation and its previous
+lifecycle rules, revoking all active party people/Tickets at one decisionNow while
+preserving prior revocations and Attendance. Reapply never copies old Guests.
+
+Linked detail and the existing anonymous PRIMARY URL project all party Tickets
+through safe TicketPresentation before JSX. Revoked/cancelled QR suppression stays
+unchanged. Account lists remain party-based; organizer Attendees and scanner show
+kind, and organizer Guest rows name their PRIMARY. Successful Add/Remove emit
+transactional attendees.changed with only eventId and nullable Registration.userId.
+The existing broker/SSE invalidates Event and linked account views; anonymous pages
+refresh after mutation without SSE. No-op Remove emits nothing. Guest operations
+send no email; cancellation recipients remain Registration/PRIMARY-owner based.

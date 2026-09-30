@@ -3,7 +3,9 @@ import { eventPublicationSnapshotSchema } from "@/features/events/schemas/event-
 import type { Prisma } from "@/generated/prisma/client";
 
 export const workspaceInclude = {
-  publishedRevision: { select: { contentVersion: true, number: true } },
+  publishedRevision: {
+    select: { contentVersion: true, number: true, snapshot: true },
+  },
   registrationForm: {
     include: {
       fields: {
@@ -20,7 +22,8 @@ type EventWorkspace = Prisma.EventGetPayload<{
 
 export function buildEventSnapshot(event: EventWorkspace) {
   return eventPublicationSnapshotSchema.safeParse({
-    schemaVersion: 1,
+    schemaVersion: 2,
+    maxGuestsPerRegistration: event.maxGuestsPerRegistration,
     title: event.title,
     description: event.description,
     startsAt: event.startsAt.toISOString(),

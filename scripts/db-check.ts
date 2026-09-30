@@ -12,7 +12,7 @@ async function main() {
           { database: string; version: string; ok: number }[]
         >`SELECT current_database() AS database, version() AS version, 1 AS ok`;
         // One consistent snapshot; only aggregate counts leave the database.
-        // GUEST absence and capacity equality are deliberately №21A-only checks.
+        // Party and person invariants apply to PRIMARY and GUEST.
         const violations = await tx.$queryRaw<
           { invariant: string; invalid_count: bigint }[]
         >`
@@ -40,8 +40,16 @@ async function main() {
             LEFT JOIN primary_counts p ON p."registrationId" = r.id
             WHERE p.total IS DISTINCT FROM 1::bigint
             UNION ALL
-            SELECT 'no_guest_at_21a_checkpoint', count(*)
-            FROM "Attendee" WHERE kind = 'GUEST'
+            SELECT 'guest_identity_and_capability', count(*)
+            FROM "Attendee" a LEFT JOIN "Ticket" t ON t."attendeeId" = a.id
+            WHERE a.kind = 'GUEST' AND (a."userId" IS NOT NULL OR t."anonymousAccessHash" IS NOT NULL OR t."anonymousAccessEncrypted" IS NOT NULL)
+            UNION ALL
+            SELECT 'attendee_ticket_lifecycle', count(*)
+            FROM "Attendee" a JOIN "Ticket" t ON t."attendeeId" = a.id
+            JOIN "Registration" r ON r.id = a."registrationId"
+            WHERE t."issuedAt" IS DISTINCT FROM a."createdAt"
+              OR t."revokedAt" IS DISTINCT FROM a."revokedAt"
+              OR (r."revokedAt" IS NOT NULL AND a."revokedAt" IS NULL)
             UNION ALL
             SELECT 'primary_registration_identity_history', count(*)
             FROM "Attendee" a
@@ -55,10 +63,10 @@ async function main() {
               OR a."revokedAt" IS DISTINCT FROM r."revokedAt"
             )
             UNION ALL
-            SELECT 'primary_exactly_one_ticket', count(*)
+            SELECT 'attendee_exactly_one_ticket', count(*)
             FROM "Attendee" a
             LEFT JOIN ticket_counts t ON t."attendeeId" = a.id
-            WHERE a.kind = 'PRIMARY' AND t.total IS DISTINCT FROM 1::bigint
+            WHERE t.total IS DISTINCT FROM 1::bigint
             UNION ALL
             SELECT 'ticket_has_attendee', count(*)
             FROM "Ticket" t
@@ -97,7 +105,7 @@ async function main() {
     }
 
     console.table(result.connection);
-    console.log("Database №21A checkpoint invariants passed.");
+    console.log("Database party/Attendee invariants passed.");
   } finally {
     await prisma.$disconnect();
   }

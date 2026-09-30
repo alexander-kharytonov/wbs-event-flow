@@ -21,7 +21,9 @@ export async function getOwnedAttendees(organizerId: string, eventId: string) {
           archivedAt: true,
           contentVersion: true,
           publicId: true,
-          publishedRevision: { select: { contentVersion: true, number: true } },
+          publishedRevision: {
+            select: { contentVersion: true, number: true, snapshot: true },
+          },
           _count: { select: { applications: true } },
         },
       });
@@ -35,6 +37,12 @@ export async function getOwnedAttendees(organizerId: string, eventId: string) {
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         select: {
           id: true,
+          kind: true,
+          registration: {
+            select: {
+              attendees: { where: { kind: "PRIMARY" }, select: { name: true } },
+            },
+          },
           name: true,
           email: true,
           createdAt: true,

@@ -29,7 +29,9 @@ export default async function EventPage({
           revisions: true,
         },
       },
-      publishedRevision: { select: { contentVersion: true, number: true } },
+      publishedRevision: {
+        select: { contentVersion: true, number: true, snapshot: true },
+      },
     },
   });
 
@@ -142,7 +144,7 @@ export default async function EventPage({
               </Box>
             </Box>
             <Typography>
-              Guest capacity: {event.capacity ?? "No limit"}
+              Event capacity: {event.capacity ?? "No limit"}
             </Typography>
           </Stack>
           <Stack component="section" spacing={2}>
@@ -159,7 +161,7 @@ export default async function EventPage({
                 size="small"
               />
               <Typography>
-                Guest account{" "}
+                Applicant account{" "}
                 {event.accountRequirement === "OPTIONAL"
                   ? "optional"
                   : "required"}

@@ -148,34 +148,38 @@ export async function withdrawOwnApplication(
             );
           }
 
-          const revokedPrimary = await tx.attendee.updateMany({
-            where: {
-              registration: { eventId, sourceApplicationId: applicationId },
-              kind: "PRIMARY",
-              revokedAt: null,
-            },
-            data: { revokedAt: now },
-          });
-
-          if (revokedPrimary.count !== 1) {
-            throw new Error("Approved withdrawal requires one active PRIMARY.");
+          if (!admission) {
+            throw new Error("Registration is missing.");
           }
 
-          const revokedTicket = await tx.ticket.updateMany({
-            where: {
-              attendee: {
-                kind: "PRIMARY",
-                registration: { eventId, sourceApplicationId: applicationId },
-              },
-              revokedAt: null,
-            },
+          const activeAttendees = await tx.attendee.findMany({
+            where: { registrationId: admission.id, revokedAt: null },
+            select: { id: true, ticket: { select: { revokedAt: true } } },
+          });
+
+          if (
+            activeAttendees.some(
+              (attendee) => !attendee.ticket || attendee.ticket.revokedAt,
+            )
+          ) {
+            throw new Error("Active party Ticket correspondence failed.");
+          }
+
+          const ids = activeAttendees.map(({ id }) => id);
+          const revokedAttendees = await tx.attendee.updateMany({
+            where: { id: { in: ids }, revokedAt: null },
+            data: { revokedAt: now },
+          });
+          const revokedTickets = await tx.ticket.updateMany({
+            where: { attendeeId: { in: ids }, revokedAt: null },
             data: { revokedAt: now },
           });
 
-          if (revokedTicket.count !== 1) {
-            throw new Error(
-              "Approved withdrawal must revoke exactly one active Ticket.",
-            );
+          if (
+            revokedAttendees.count !== ids.length ||
+            revokedTickets.count !== ids.length
+          ) {
+            throw new Error("Whole-party revocation correspondence failed.");
           }
         }
 

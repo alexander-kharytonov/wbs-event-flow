@@ -1,6 +1,10 @@
 import "server-only";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 import {
+  partyAttendeeSelect,
+  presentPartyGuests,
+} from "@/features/guests/server/party-presentation";
+import {
   presentTicket,
   ticketDisplaySelect,
 } from "@/features/tickets/server/ticket-display";
@@ -18,6 +22,7 @@ export async function getAnonymousTicket(access: string) {
       ...ticketDisplaySelect,
       attendee: {
         select: {
+          kind: true,
           name: true,
           email: true,
           revokedAt: true,
@@ -25,6 +30,10 @@ export async function getAnonymousTicket(access: string) {
           registration: {
             select: {
               revokedAt: true,
+              attendees: {
+                select: partyAttendeeSelect,
+                orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+              },
               sourceApplication: {
                 select: { eventRevision: { select: { snapshot: true } } },
               },
@@ -32,6 +41,7 @@ export async function getAnonymousTicket(access: string) {
                 select: {
                   cancelledAt: true,
                   cancellationReason: true,
+                  startsAt: true,
                   endsAt: true,
                   publishedRevision: { select: { snapshot: true } },
                 },
@@ -43,7 +53,7 @@ export async function getAnonymousTicket(access: string) {
     },
   });
 
-  if (!ticket) {
+  if (ticket?.attendee.kind !== "PRIMARY") {
     return null;
   }
 
@@ -61,6 +71,18 @@ export async function getAnonymousTicket(access: string) {
       : null;
 
   return {
+    guests: await presentPartyGuests(
+      ticket.attendee.registration,
+      event,
+      snapshot
+        ? {
+            title: snapshot.title,
+            startsAt: snapshot.startsAt,
+            endsAt: snapshot.endsAt,
+            timezone: snapshot.timezone,
+          }
+        : null,
+    ),
     ticket: await presentTicket(
       ticket,
       {

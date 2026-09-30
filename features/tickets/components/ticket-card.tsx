@@ -6,7 +6,13 @@ import { DateTime } from "@/components/ui/date-time";
 import { formatEventTime } from "@/features/events/format-event-time";
 import type { TicketPresentation } from "@/features/tickets/server/ticket-display";
 
-export function TicketCard({ ticket }: { ticket: TicketPresentation }) {
+export function TicketCard({
+  ticket,
+  title = "Your ticket",
+}: {
+  ticket: TicketPresentation;
+  title?: string;
+}) {
   const { context, revoked, cancelled, completed, qrDataUrl } = ticket;
   const timezone = context?.timezone ?? "UTC";
 
@@ -28,7 +34,7 @@ export function TicketCard({ ticket }: { ticket: TicketPresentation }) {
         >
           <ConfirmationNumberOutlined color="primary" />
           <Typography variant="h6" component="h2">
-            Your ticket
+            {title}
           </Typography>
         </Stack>
         <Stack

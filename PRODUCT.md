@@ -82,7 +82,7 @@ A verified user can see their linked current application on the public event or
 their account registration-detail page and
 withdraw a pending or approved application before the currently published event
 end. Approval atomically creates a Registration, its PRIMARY Attendee from the submitted identity, and that person’s Ticket.
-Withdrawal keeps the old attempt and atomically revokes its Registration, PRIMARY Attendee and Ticket, freeing
+Withdrawal keeps the old attempt and atomically revokes its Registration and all active Attendees and Tickets, freeing
 a place if it was approved. Revoked admission remains in history.
 Anonymous applications are not claimed by signing in with a matching email and
 cannot be withdrawn through the account flow.
@@ -194,13 +194,12 @@ action; new drafts are created from active My events.
 
 Registration holds the approved party’s ownership and lifecycle. Attendee is the
 concrete admitted person and capacity seat; its Ticket is the immutable credential.
-Iteration 21A creates only PRIMARY Attendees. Guests and party management are not
-implemented. Registration ownership and Attendee account association have separate
+Registrations contain a PRIMARY and optional GUEST Attendees. Registration ownership and Attendee account association have separate
 responsibilities, even though they currently match. The structural migration
 preserves existing QR credentials, anonymous access tokens/URLs and Ticket history. Verified linked attendees see current and historical Tickets on their
 Registration Detail. Applicants who were anonymous at Ticket issue receive a
 separate private bearer link in approval email; no account is required. Anyone
-holding that link can view that Ticket. It never grants withdrawal or claiming.
+holding that link can view this party’s Tickets and add/remove its Guests. It never grants whole-party withdrawal or claiming.
 A linked User's deletion preserves history but does not create anonymous access.
 
 Ticket cards show the submitted attendee identity, Event schedule, support number
@@ -237,3 +236,23 @@ Attendees shows attendance history and checked-in/total currently active
 Attendees. Linked Ticket details refresh through the existing account stream;
 anonymous Ticket pages show attendance after reload. Check-in alone does not hide
 the QR; existing revocation/cancellation visibility rules still apply.
+
+## Guests / +1
+
+The PRIMARY manages their Registration party through a verified account owner
+session or their existing anonymous PRIMARY link. A Guest is an admitted person
+and capacity seat, with a required name and optional email contact snapshot.
+Email grants no identity or ownership. Guests have no account association or own
+browser capability; their normal Tickets and Attendance use the existing QR flow.
+
+Organizers configure 0–10 maximum active guests per registration in the Event
+workspace and publish the policy. Zero disables adding guests. Historical v1
+snapshots imply zero; new publications use v2. Add requires a current published
+permission and available published capacity. Remove needs neither publication nor
+a positive limit. Both require an active party, a non-cancelled Event, and time
+strictly before the persisted event start; party composition then freezes.
+Reducing the published guest limit never revokes existing Guests. Already removed
+guests remain history and consume no seats. Whole-party withdrawal keeps its
+existing lifecycle rules and revokes all active people and Tickets; reapplication
+starts with a new PRIMARY only. Adding/removing Guests sends no email. Cancellation
+recipients remain pending applicants and Registration/PRIMARY owners.

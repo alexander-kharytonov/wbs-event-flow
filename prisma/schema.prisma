@@ -58,6 +58,7 @@ model Event {
   timezone             String
   visibility           EventVisibility         @default(PRIVATE)
   accountRequirement   EventAccountRequirement @default(OPTIONAL)
+  maxGuestsPerRegistration Int @default(0)
   capacity             Int?
   registrationOpensAt  DateTime?               @db.Timestamptz(3)
   registrationClosesAt DateTime?               @db.Timestamptz(3)

@@ -11,13 +11,18 @@ import {
   workspaceReadOnly,
 } from "@/features/events/event-lifecycle";
 import { publicationState } from "@/features/events/publication-state";
+import { eventSnapshotV1Schema } from "@/features/events/schemas/event-snapshot";
 
 type EventHeaderData = EventLifecycleData & {
   cancellationReason: string | null;
   title: string;
   contentVersion: number;
   publicId: string | null;
-  publishedRevision: { contentVersion: number; number?: number } | null;
+  publishedRevision: {
+    contentVersion: number;
+    number?: number;
+    snapshot?: unknown;
+  } | null;
 };
 
 export function EventHeader({
@@ -41,7 +46,9 @@ export function EventHeader({
   const lifecycle = eventLifecycle(event, now);
   const canPublish =
     !readOnly &&
-    state !== "Published" &&
+    (state !== "Published" ||
+      eventSnapshotV1Schema.safeParse(event.publishedRevision?.snapshot)
+        .success) &&
     (lifecycle === "Upcoming" || Boolean(event.publicId));
   const publishLabel = !canPublish
     ? null

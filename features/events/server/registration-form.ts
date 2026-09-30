@@ -66,7 +66,9 @@ export async function getRegistrationForm(
           },
           publicId: true,
           contentVersion: true,
-          publishedRevision: { select: { contentVersion: true, number: true } },
+          publishedRevision: {
+            select: { contentVersion: true, number: true, snapshot: true },
+          },
           registrationForm: { select: formSelection },
         },
       });
