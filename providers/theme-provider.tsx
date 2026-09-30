@@ -2,6 +2,7 @@
 
 import { CssBaseline } from "@mui/material";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
+import NextLink from "next/link";
 
 const theme = createTheme({
   colorSchemes: {
@@ -127,6 +128,12 @@ const theme = createTheme({
     overline: { fontWeight: 700, letterSpacing: "0.12em" },
   },
   components: {
+    MuiLink: {
+      defaultProps: { component: NextLink },
+    },
+    MuiButtonBase: {
+      defaultProps: { LinkComponent: NextLink },
+    },
     MuiButton: {
       defaultProps: { disableElevation: true },
       styleOverrides: {

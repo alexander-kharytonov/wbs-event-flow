@@ -122,7 +122,7 @@ export function RegistrationFormBuilder({
         <Alert severity="error">
           {error.message}
           {error.conflict && (
-            <Button color="inherit" href={reloadHref}>
+            <Button component="a" color="inherit" href={reloadHref}>
               Reload latest version
             </Button>
           )}
@@ -348,7 +348,7 @@ export function RegistrationFormBuilder({
             <Alert severity="error" sx={{ mt: 2 }}>
               {error.message}
               {error.conflict && (
-                <Button color="inherit" href={reloadHref}>
+                <Button component="a" color="inherit" href={reloadHref}>
                   Reload latest version
                 </Button>
               )}

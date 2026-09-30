@@ -126,6 +126,7 @@ export function EventForm({
               <Button
                 color="inherit"
                 size="small"
+                component="a"
                 href={`/dashboard/events/${edit.id}/edit`}
               >
                 Reload latest version

@@ -20,6 +20,7 @@ import {
   useMediaQuery,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
+import NextLink from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useState } from "react";
 import { Logo } from "@/components/ui/logo";
@@ -165,7 +166,7 @@ export function PrimaryNavigation({
               return (
                 <ListItemButton
                   key={href}
-                  component="a"
+                  component={NextLink}
                   href={href}
                   selected={active}
                   aria-current={active ? "page" : undefined}
