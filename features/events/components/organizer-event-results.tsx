@@ -105,7 +105,7 @@ export function OrganizerEventResults({ events }: { events: EventSummary[] }) {
       <Stack
         sx={{
           display: "grid",
-          gap: 1.5,
+          gap: 2,
           gridTemplateColumns: {
             xs: "minmax(0, 1fr)",
             lg: "repeat(2, minmax(0, 1fr))",
@@ -145,7 +145,7 @@ export function OrganizerEventResults({ events }: { events: EventSummary[] }) {
         <Box
           sx={{
             display: "grid",
-            gap: 1.5,
+            gap: 2,
             minWidth: 0,
             gridTemplateColumns: {
               xs: "repeat(2, minmax(0, 1fr))",

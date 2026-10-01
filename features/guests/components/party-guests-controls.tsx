@@ -15,6 +15,7 @@ import {
 import { type ReactNode, useState, useTransition } from "react";
 import type { GuestResult } from "@/features/guests/guest-result";
 import type { PartyGuestsPresentation } from "@/features/guests/server/party-presentation";
+import { useNotifications } from "@/hooks/use-notifications";
 
 const messages: Record<GuestResult["code"], string> = {
   ADDED: "Guest added.",
@@ -47,38 +48,39 @@ export function PartyGuestsControls({
   addAction: (input: { name: string; email: string }) => Promise<GuestResult>;
   removeAction: (guestId: string) => Promise<GuestResult>;
 }) {
+  const notifications = useNotifications();
   const [open, setOpen] = useState(false);
   const [removeId, setRemoveId] = useState<string | null>(null);
-  const [result, setResult] = useState<GuestResult | null>(null);
   const [pending, startTransition] = useTransition();
 
   function submit(operation: () => Promise<GuestResult>) {
     startTransition(async () => {
       try {
         const next = await operation();
-        setResult(next);
 
         if (["ADDED", "REMOVED", "ALREADY_REMOVED"].includes(next.code)) {
           setOpen(false);
           setRemoveId(null);
+          notifications.show(messages[next.code], {
+            severity: "success",
+            autoHideDuration: 5000,
+          });
+
+          return;
         }
+
+        notifications.show(messages[next.code], {
+          severity: "error",
+          autoHideDuration: 5000,
+        });
       } catch {
-        setResult({ code: "FAILED" });
+        notifications.show(messages.FAILED, {
+          severity: "error",
+          autoHideDuration: 5000,
+        });
       }
     });
   }
-
-  const feedback = result && (
-    <Alert
-      severity={
-        ["ADDED", "REMOVED", "ALREADY_REMOVED"].includes(result.code)
-          ? "success"
-          : "error"
-      }
-    >
-      {messages[result.code]}
-    </Alert>
-  );
 
   return (
     <Stack component="section" spacing={2}>
@@ -98,7 +100,6 @@ export function PartyGuestsControls({
           <Button
             variant="outlined"
             onClick={() => {
-              setResult(null);
               setOpen(true);
             }}
           >
@@ -107,7 +108,6 @@ export function PartyGuestsControls({
         )}
       </Stack>
       {party.reason && <Alert severity="info">{party.reason}</Alert>}
-      {!open && !removeId && feedback}
       {party.items.length === 0 && (
         <Typography variant="body2" color="text.secondary">
           No guests added.
@@ -124,21 +124,31 @@ export function PartyGuestsControls({
         }}
       >
         {party.items.map((guest, index) => (
-          <Stack key={guest.id} spacing={1}>
+          <Box
+            key={guest.id}
+            sx={{
+              display: "grid",
+              gridTemplateRows: "subgrid",
+              gridRow: "span 2",
+              rowGap: 1,
+              minWidth: 0,
+            }}
+          >
             {cards[index]}
-            {guest.active && party.canRemove && (
-              <Button
-                color="error"
-                sx={{ alignSelf: "flex-start" }}
-                onClick={() => {
-                  setResult(null);
-                  setRemoveId(guest.id);
-                }}
-              >
-                Remove guest
-              </Button>
-            )}
-          </Stack>
+            <Box>
+              {guest.active && party.canRemove && (
+                <Button
+                  fullWidth
+                  color="error"
+                  onClick={() => {
+                    setRemoveId(guest.id);
+                  }}
+                >
+                  Remove guest
+                </Button>
+              )}
+            </Box>
+          </Box>
         ))}
       </Box>
       <Dialog
@@ -163,7 +173,6 @@ export function PartyGuestsControls({
           <DialogTitle>Add guest</DialogTitle>
           <DialogContent>
             <Stack spacing={2} sx={{ pt: 1 }}>
-              {feedback}
               <TextField
                 name="name"
                 label="Guest name"
@@ -199,7 +208,6 @@ export function PartyGuestsControls({
         <DialogTitle>Remove guest?</DialogTitle>
         <DialogContent>
           <Stack spacing={2}>
-            {feedback}
             <Typography>
               The guest’s ticket will be revoked and their place released. Their
               history will be kept.

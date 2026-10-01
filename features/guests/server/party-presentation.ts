@@ -47,9 +47,7 @@ export async function presentPartyGuests(
           ? "This event is unpublished. You can still remove guests before it starts."
           : limit === 0
             ? "Guests are not currently allowed. You can still remove existing guests before the event starts."
-            : activeCount >= limit
-              ? "The published guest limit has been reached."
-              : null;
+            : null;
   const items = await Promise.all(
     guests.map(async (guest) => {
       if (!guest.ticket) {

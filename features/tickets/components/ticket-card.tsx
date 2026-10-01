@@ -24,9 +24,11 @@ export function TicketCard({
         overflowWrap: "anywhere",
         minWidth: 0,
         containerType: "inline-size",
+        display: "flex",
+        flexDirection: "column",
       }}
     >
-      <Stack spacing={2}>
+      <Stack spacing={2} sx={{ flex: 1 }}>
         <Stack
           direction="row"
           spacing={1}
@@ -41,6 +43,7 @@ export function TicketCard({
           spacing={3}
           useFlexGap
           sx={{
+            flex: 1,
             flexDirection: "column",
             "@container (min-width: 640px)": {
               flexDirection: "row",
@@ -61,7 +64,11 @@ export function TicketCard({
             )}
             <Box>
               <Typography>{ticket.attendeeName}</Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ minHeight: "1lh" }}
+              >
                 {ticket.attendeeEmail}
               </Typography>
             </Box>

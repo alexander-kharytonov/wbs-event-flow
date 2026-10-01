@@ -83,7 +83,7 @@ export function AttendeesList({
   const [result, setResult] = useState<ManualCheckInResult | null>(null);
   const [pending, startTransition] = useTransition();
   const query = search.trim().toLowerCase();
-  const visible = attendees.filter((person) => {
+  const matching = attendees.filter((person) => {
     if (admission !== "all" && isActive(person) !== (admission === "active")) {
       return false;
     }
@@ -99,6 +99,25 @@ export function AttendeesList({
       value?.toLowerCase().includes(query),
     );
   });
+  const matchingIds = new Set(matching.map(({ id }) => id));
+  const guestsByRegistration = new Map<string, OrganizerAttendee[]>();
+
+  for (const person of matching) {
+    if (person.kind === "GUEST") {
+      const guests = guestsByRegistration.get(person.registrationId) ?? [];
+      guests.push(person);
+      guestsByRegistration.set(person.registrationId, guests);
+    }
+  }
+
+  const visibleGroups = attendees
+    .filter((person) => person.kind === "PRIMARY")
+    .map((primary) => ({
+      primary,
+      guests: guestsByRegistration.get(primary.registrationId) ?? [],
+      contextOnly: !matchingIds.has(primary.id),
+    }))
+    .filter(({ contextOnly, guests }) => !contextOnly || guests.length > 0);
   // Resolve by ID from fresh props: realtime refresh also updates an open dialog.
   const selected = attendees.find((person) => person.id === selectedId);
   const success =
@@ -137,6 +156,138 @@ export function AttendeesList({
         });
       }
     });
+  }
+
+  function renderAttendee(person: OrganizerAttendee, contextOnly = false) {
+    const nameParts = person.name.trim().split(/\s+/u).filter(Boolean);
+    const initials = [
+      nameParts[0],
+      ...(nameParts.length > 1 ? [nameParts[nameParts.length - 1]] : []),
+    ]
+      .map((part) => Array.from(part ?? "")[0] ?? "")
+      .join("")
+      .toUpperCase();
+    let colorHash = 0;
+
+    for (const character of initials) {
+      colorHash = (colorHash * 31 + (character.codePointAt(0) ?? 0)) % 360;
+    }
+
+    return (
+      <ListItemButton
+        onClick={() => {
+          setResult(null);
+          setSelectedId(person.id);
+        }}
+        aria-label={`Open attendee ${person.name}`}
+        aria-haspopup="dialog"
+        alignItems="flex-start"
+        sx={{
+          px: { xs: 2, sm: 3 },
+          py: 2,
+          ...(contextOnly ? { bgcolor: "action.hover" } : {}),
+          gap: { xs: 1.5, sm: 2 },
+          minWidth: 0,
+        }}
+      >
+        <ListItemAvatar sx={{ minWidth: 0, mt: 0.5 }}>
+          <Avatar
+            sx={{
+              bgcolor: `hsl(${colorHash}, 55%, 32%)`,
+              color: "#fff",
+              fontWeight: 600,
+              fontSize: 14,
+            }}
+          >
+            {initials}
+          </Avatar>
+        </ListItemAvatar>
+        <Box
+          sx={{
+            flex: 1,
+            minWidth: 0,
+            display: "flex",
+            flexDirection: { xs: "column", md: "row" },
+            gap: 2,
+            alignItems: { md: "center" },
+          }}
+        >
+          <ListItemText
+            sx={{ m: 0, minWidth: 0, overflowWrap: "anywhere" }}
+            primary={person.name}
+            secondary={
+              <>
+                {person.email && (
+                  <Typography
+                    component="span"
+                    variant="body2"
+                    sx={{
+                      display: "block",
+                      color: "text.primary",
+                      mt: 0.25,
+                    }}
+                  >
+                    {person.email}
+                  </Typography>
+                )}
+                <Typography
+                  component="span"
+                  variant="caption"
+                  sx={{ display: "block", mt: 0.5 }}
+                >
+                  {person.kind === "GUEST" ? "Guest" : "Primary attendee"}
+                  {person.ticket ? ` · ${person.ticket.number}` : ""}
+                  {contextOnly ? " · Shown for guest context" : ""}
+                </Typography>
+              </>
+            }
+            slotProps={{
+              primary: {
+                component: "div",
+                sx: { fontWeight: 600 },
+              },
+              secondary: { component: "div" },
+            }}
+          />
+          <Stack
+            direction="row"
+            useFlexGap
+            spacing={1.5}
+            sx={{
+              alignItems: "center",
+              flexWrap: "wrap",
+              flexShrink: 0,
+              maxWidth: "100%",
+            }}
+          >
+            <Chip
+              size="small"
+              variant="outlined"
+              label={isActive(person) ? "Active" : "Revoked"}
+              color={isActive(person) ? "success" : "default"}
+              icon={
+                isActive(person) ? <CheckCircleOutlined /> : <BlockOutlined />
+              }
+              sx={{ borderRadius: 1, fontWeight: 600 }}
+            />
+            <Chip
+              size="small"
+              variant="outlined"
+              label={person.attendance ? "Checked in" : "Not checked in"}
+              color={person.attendance ? "success" : "default"}
+              icon={
+                person.attendance ? (
+                  <HowToRegOutlined />
+                ) : (
+                  <RadioButtonUncheckedOutlined />
+                )
+              }
+              sx={{ borderRadius: 1, fontWeight: 600 }}
+            />
+          </Stack>
+        </Box>
+      </ListItemButton>
+    );
   }
 
   return (
@@ -279,7 +430,7 @@ export function AttendeesList({
           </TextField>
         </Box>
       </Stack>
-      {visible.length === 0 ? (
+      {visibleGroups.length === 0 ? (
         <EmptyState
           icon={<PeopleOutlined />}
           title={
@@ -294,157 +445,38 @@ export function AttendeesList({
       ) : (
         <Paper variant="outlined" sx={{ overflow: "hidden" }}>
           <List disablePadding aria-label="Event attendees">
-            {visible.map((person, index) => {
-              const nameParts = person.name
-                .trim()
-                .split(/\s+/u)
-                .filter(Boolean);
-              const initials = [
-                nameParts[0],
-                ...(nameParts.length > 1
-                  ? [nameParts[nameParts.length - 1]]
-                  : []),
-              ]
-                .map((part) => Array.from(part ?? "")[0] ?? "")
-                .join("")
-                .toUpperCase();
-              let colorHash = 0;
-
-              for (const character of initials) {
-                colorHash =
-                  (colorHash * 31 + (character.codePointAt(0) ?? 0)) % 360;
-              }
-
-              return (
-                <ListItem
-                  key={person.id}
-                  disablePadding
-                  divider={index < visible.length - 1}
-                >
-                  <ListItemButton
-                    onClick={() => {
-                      setResult(null);
-                      setSelectedId(person.id);
-                    }}
-                    aria-label={`Open attendee ${person.name}`}
-                    aria-haspopup="dialog"
-                    alignItems="flex-start"
+            {visibleGroups.map(({ primary, guests, contextOnly }, index) => (
+              <ListItem
+                key={primary.id}
+                disablePadding
+                divider={index < visibleGroups.length - 1}
+                sx={{ display: "block" }}
+              >
+                {renderAttendee(primary, contextOnly)}
+                {guests.length > 0 && (
+                  <List
+                    disablePadding
+                    aria-label={`Guests of ${primary.name}`}
                     sx={{
-                      px: { xs: 2, sm: 3 },
-                      py: 2.5,
-                      gap: { xs: 1.5, sm: 2 },
-                      minWidth: 0,
+                      ml: 2,
+                      my: 2,
+                      borderLeft: "2px solid",
+                      borderTop: "2px solid",
+                      borderBottom: "2px solid",
+                      borderColor: "divider",
+                      borderTopLeftRadius: 16,
+                      borderBottomLeftRadius: 16,
                     }}
                   >
-                    <ListItemAvatar sx={{ minWidth: 0, mt: 0.5 }}>
-                      <Avatar
-                        sx={{
-                          bgcolor: `hsl(${colorHash}, 55%, 32%)`,
-                          color: "#fff",
-                          fontWeight: 600,
-                          fontSize: 14,
-                        }}
-                      >
-                        {initials}
-                      </Avatar>
-                    </ListItemAvatar>
-                    <Box
-                      sx={{
-                        flex: 1,
-                        minWidth: 0,
-                        display: "flex",
-                        flexDirection: { xs: "column", md: "row" },
-                        gap: 2,
-                        alignItems: { md: "center" },
-                      }}
-                    >
-                      <ListItemText
-                        sx={{ m: 0, minWidth: 0, overflowWrap: "anywhere" }}
-                        primary={person.name}
-                        secondary={
-                          <>
-                            {person.email && (
-                              <Typography
-                                component="span"
-                                variant="body2"
-                                sx={{
-                                  display: "block",
-                                  color: "text.primary",
-                                  mt: 0.25,
-                                }}
-                              >
-                                {person.email}
-                              </Typography>
-                            )}
-                            <Typography
-                              component="span"
-                              variant="caption"
-                              sx={{ display: "block", mt: 0.5 }}
-                            >
-                              {person.kind === "GUEST"
-                                ? `Guest · Guest of ${person.registration.attendees[0]?.name ?? "Unavailable"}`
-                                : "Primary"}
-                              {person.ticket
-                                ? ` · ${person.ticket.number}`
-                                : ""}
-                            </Typography>
-                          </>
-                        }
-                        slotProps={{
-                          primary: {
-                            component: "div",
-                            sx: { fontWeight: 600 },
-                          },
-                          secondary: { component: "div" },
-                        }}
-                      />
-                      <Stack
-                        direction="row"
-                        useFlexGap
-                        spacing={1.5}
-                        sx={{
-                          alignItems: "center",
-                          flexWrap: "wrap",
-                          flexShrink: 0,
-                          maxWidth: "100%",
-                        }}
-                      >
-                        <Chip
-                          size="small"
-                          variant="outlined"
-                          label={isActive(person) ? "Active" : "Revoked"}
-                          color={isActive(person) ? "success" : "default"}
-                          icon={
-                            isActive(person) ? (
-                              <CheckCircleOutlined />
-                            ) : (
-                              <BlockOutlined />
-                            )
-                          }
-                          sx={{ borderRadius: 1, fontWeight: 600 }}
-                        />
-                        <Chip
-                          size="small"
-                          variant="outlined"
-                          label={
-                            person.attendance ? "Checked in" : "Not checked in"
-                          }
-                          color={person.attendance ? "success" : "default"}
-                          icon={
-                            person.attendance ? (
-                              <HowToRegOutlined />
-                            ) : (
-                              <RadioButtonUncheckedOutlined />
-                            )
-                          }
-                          sx={{ borderRadius: 1, fontWeight: 600 }}
-                        />
-                      </Stack>
-                    </Box>
-                  </ListItemButton>
-                </ListItem>
-              );
-            })}
+                    {guests.map((guest) => (
+                      <ListItem key={guest.id} disablePadding>
+                        {renderAttendee(guest)}
+                      </ListItem>
+                    ))}
+                  </List>
+                )}
+              </ListItem>
+            ))}
           </List>
         </Paper>
       )}

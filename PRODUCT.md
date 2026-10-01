@@ -242,8 +242,12 @@ publication changes. There is no undo, check-out, re-entry or
 offline scanning.
 
 Attendees shows PRIMARY/GUEST details, Ticket status, attendance method/time and
-actor (unavailable if deleted). Search and independent admission/attendance filters
-apply to the loaded list; admission offers All/Active/Revoked, with All + All
+actor (unavailable if deleted). Guests appear nested under their PRIMARY attendee,
+grouped by Registration. Search and independent admission/attendance filters
+match each person separately. A matching guest keeps their PRIMARY visible as
+context, even when the PRIMARY does not match; non-matching guests stay hidden.
+Matching only the PRIMARY does not reveal non-matching guests.
+Filters apply to the loaded list; admission offers All/Active/Revoked, with All + All
 as the default. Compact counters beside the heading are computed before
 filters: Admitted = active Attendees, Checked in = active with Attendance, Not
 arrived = active without Attendance. Capacity uses only the current valid published
