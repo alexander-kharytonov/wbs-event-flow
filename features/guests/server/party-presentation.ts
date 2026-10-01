@@ -72,6 +72,7 @@ export async function presentPartyGuests(
   );
 
   return {
+    showSection: !frozen || guests.length > 0,
     items,
     activeCount,
     limit,

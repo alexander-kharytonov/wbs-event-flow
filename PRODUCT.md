@@ -272,6 +272,9 @@ snapshots imply zero; new publications use v2. Add requires a current published
 permission and available published capacity. Remove needs neither publication nor
 a positive limit. Both require an active party, a non-cancelled Event, and time
 strictly before the persisted event start; party composition then freezes.
+After the event starts, the Guests section is hidden if no guests were ever
+added to that Registration. Existing guest tickets, including revoked ones,
+remain visible in history.
 Reducing the published guest limit never revokes existing Guests. Already removed
 guests remain history and consume no seats. Whole-party withdrawal keeps its
 existing lifecycle rules and revokes all active people and Tickets; reapplication

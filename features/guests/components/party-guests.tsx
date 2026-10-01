@@ -13,6 +13,10 @@ export function PartyGuests({
   addAction: (input: { name: string; email: string }) => Promise<GuestResult>;
   removeAction: (guestId: string) => Promise<GuestResult>;
 }) {
+  if (!party.showSection) {
+    return null;
+  }
+
   return (
     <PartyGuestsControls
       party={{
