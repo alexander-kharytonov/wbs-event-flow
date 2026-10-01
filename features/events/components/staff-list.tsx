@@ -127,10 +127,6 @@ export function StaffList({
 
   return (
     <>
-      <Alert severity="info">
-        Give verified Event Flow users access to help run this event. Only you
-        can manage staff.
-      </Alert>
       <Stack
         direction="row"
         sx={{ gap: 1, justifyContent: "space-between", alignItems: "center" }}
