@@ -17,6 +17,7 @@ import {
   verificationCooldownKey,
   verificationEmailKey,
 } from "@/features/auth/verification-flow";
+import { useNotifications } from "@/hooks/use-notifications";
 import { authClient } from "@/lib/auth-client";
 import { safeReturnPath } from "@/lib/safe-return-path";
 
@@ -33,10 +34,8 @@ export function VerificationForm({
   const [pending, setPending] = useState(false);
   const [remaining, setRemaining] = useState(0);
   const [cooldownLoaded, setCooldownLoaded] = useState(false);
-  const [feedback, setFeedback] = useState<{
-    severity: "info" | "error";
-    message: string;
-  }>();
+  const notifications = useNotifications();
+  const [hasFeedback, setHasFeedback] = useState(false);
   const inFlight = useRef(false);
   const retryAt = useRef(0);
   const destination = safeReturnPath(returnTo);
@@ -76,7 +75,8 @@ export function VerificationForm({
 
     inFlight.current = true;
     setPending(true);
-    setFeedback(undefined);
+    notifications.close("verification-resend");
+    setHasFeedback(false);
     rememberVerificationEmail(email);
 
     try {
@@ -90,29 +90,29 @@ export function VerificationForm({
           startCooldown();
         }
 
-        setFeedback({
-          severity: "error",
-          message:
-            result.error.status === 429
-              ? "Please wait before requesting another email."
-              : "Could not send the verification email. Please try again.",
-        });
+        setHasFeedback(true);
+        notifications.show(
+          result.error.status === 429
+            ? "Please wait before requesting another email."
+            : "Could not send the verification email. Please try again.",
+          { severity: "error", key: "verification-resend" },
+        );
 
         return;
       }
 
       startCooldown();
-      setFeedback({
-        severity: "info",
-        message:
-          "If this account needs verification, a new link has been sent. Check your inbox and spam folder.",
-      });
+      setHasFeedback(true);
+      notifications.show(
+        "If this account needs verification, a new link has been sent. Check your inbox and spam folder.",
+        { severity: "info", key: "verification-resend" },
+      );
     } catch {
-      setFeedback({
-        severity: "error",
-        message:
-          "Could not confirm email delivery. Check your connection and try again.",
-      });
+      setHasFeedback(true);
+      notifications.show(
+        "Could not confirm email delivery. Check your connection and try again.",
+        { severity: "error", key: "verification-resend" },
+      );
     } finally {
       inFlight.current = false;
       setPending(false);
@@ -137,20 +137,17 @@ export function VerificationForm({
               below.
             </Typography>
           </Stack>
-          {invalidLink && !feedback && (
+          {invalidLink && !hasFeedback && (
             <Alert severity="warning">
               This verification link is invalid, expired, or already used. Open
               the latest verification email or request a new one below.
             </Alert>
           )}
-          {deliveryFailed && !feedback && (
+          {deliveryFailed && !hasFeedback && (
             <Alert severity="error">
               We couldn’t confirm that your verification email was sent. You can
               request a new link below.
             </Alert>
-          )}
-          {feedback && (
-            <Alert severity={feedback.severity}>{feedback.message}</Alert>
           )}
           <Stack
             component="form"

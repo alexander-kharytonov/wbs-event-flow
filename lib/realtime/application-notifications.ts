@@ -7,6 +7,7 @@ export const applicationNotificationChannel = "event_flow_applications";
 const notificationSchema = z.strictObject({
   type: z.enum([
     "applications.changed",
+    "event.access.changed",
     "attendance.changed",
     "attendees.changed",
   ]),
@@ -51,5 +52,17 @@ export async function notifyAttendeesChanged(
   routing: { eventId: string; userId: string | null },
 ) {
   const payload = JSON.stringify({ type: "attendees.changed", ...routing });
+  await tx.$executeRaw`SELECT pg_notify(${applicationNotificationChannel}::text, ${payload}::text)`;
+}
+
+export async function notifyEventAccessChanged(
+  tx: Prisma.TransactionClient,
+  eventId: string,
+) {
+  const payload = JSON.stringify({
+    type: "event.access.changed",
+    eventId,
+    userId: null,
+  });
   await tx.$executeRaw`SELECT pg_notify(${applicationNotificationChannel}::text, ${payload}::text)`;
 }

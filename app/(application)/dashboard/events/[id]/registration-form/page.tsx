@@ -4,6 +4,7 @@ import { EventHeader } from "@/features/events/components/event-header";
 import { RegistrationFormBuilder } from "@/features/events/components/registration-form-builder";
 import { workspaceReadOnly } from "@/features/events/event-lifecycle";
 import { getRegistrationForm } from "@/features/events/server/registration-form";
+import { requireEventPermission } from "@/features/events/server/require-event-permission";
 import { requireOrganizer } from "@/features/organizer/server/require-organizer";
 
 export default async function RegistrationFormPage({
@@ -11,8 +12,9 @@ export default async function RegistrationFormPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const organizer = await requireOrganizer();
   const { id } = await params;
+  await requireEventPermission(id, "registrationForm.edit");
+  const organizer = await requireOrganizer();
   const event = await getRegistrationForm(id, organizer.id);
 
   if (!event) {
@@ -21,13 +23,7 @@ export default async function RegistrationFormPage({
 
   return (
     <Stack spacing={3}>
-      <EventHeader
-        eventId={id}
-        event={event}
-        active="registration-form"
-        applicationCount={event.applicationCount}
-        attendeeCount={event.attendeeCount}
-      />
+      <EventHeader eventId={id} active="registration-form" />
       {workspaceReadOnly(event, new Date()) ? (
         <Alert
           severity="info"

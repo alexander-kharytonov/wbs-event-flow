@@ -128,16 +128,20 @@ export function RegistrationFormBuilder({
           )}
         </Alert>
       )}
-      <Typography color="text.secondary">
+      <Alert severity="info">
         Questions save to your workspace. Publish changes when you’re ready.
-      </Typography>
+      </Alert>
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
         <Stack
           direction={{ xs: "column", md: "row" }}
           sx={{ gap: 2, alignItems: { md: "center" } }}
         >
           <Box sx={{ flex: 1 }}>
-            <Typography variant="h6" component="h2">
+            <Typography
+              variant="h6"
+              component="h2"
+              sx={{ minHeight: 42, display: "flex", alignItems: "center" }}
+            >
               Guest details
             </Typography>
             <Typography variant="body2" color="text.secondary">
@@ -164,7 +168,11 @@ export function RegistrationFormBuilder({
           sx={{ alignItems: "center", justifyContent: "space-between" }}
           spacing={1}
         >
-          <Typography variant="h6" component="h2">
+          <Typography
+            variant="h6"
+            component="h2"
+            sx={{ minHeight: 42, display: "flex", alignItems: "center" }}
+          >
             Questions
           </Typography>
           {

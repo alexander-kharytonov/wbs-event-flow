@@ -11,8 +11,8 @@ import { SubmittedAnswers } from "@/features/events/components/submitted-answers
 import { applicationsFrozen } from "@/features/events/event-lifecycle";
 import { formatEventTime } from "@/features/events/format-event-time";
 import { historicalAnswers } from "@/features/events/historical-answers";
-import { getOwnedApplication } from "@/features/events/server/organizer-applications";
-import { requireOrganizer } from "@/features/organizer/server/require-organizer";
+import { getEventApplication } from "@/features/events/server/organizer-applications";
+import { requireVerifiedUser } from "@/lib/session";
 
 export async function ApplicationDetail({
   eventId: id,
@@ -23,12 +23,8 @@ export async function ApplicationDetail({
   applicationId: string;
   modal?: boolean;
 }) {
-  const organizer = await requireOrganizer();
-  const application = await getOwnedApplication(
-    organizer.id,
-    id,
-    applicationId,
-  );
+  const user = await requireVerifiedUser();
+  const application = await getEventApplication(user.id, id, applicationId);
 
   if (!application) {
     notFound();
@@ -44,13 +40,7 @@ export async function ApplicationDetail({
     <Stack spacing={3}>
       {!modal && (
         <>
-          <EventHeader
-            eventId={id}
-            event={event}
-            active="applications"
-            applicationCount={event.applicationCount}
-            attendeeCount={event.occupied}
-          />
+          <EventHeader eventId={id} active="applications" />
           <BackLink href={`/dashboard/events/${id}/applications`}>
             All applications
           </BackLink>
@@ -138,6 +128,11 @@ export async function ApplicationDetail({
           </Typography>
         </Box>
       </Stack>
+      {application.reviewedAt && (
+        <Typography variant="body2" color="text.secondary">
+          Reviewed by {application.reviewedByUser?.name ?? "Unavailable"}
+        </Typography>
+      )}
       <Stack spacing={2}>
         <Stack spacing={0.5}>
           <Typography variant="h6" component="h3">
@@ -157,6 +152,7 @@ export async function ApplicationDetail({
         </Alert>
       )}
       {application.status === "PENDING" &&
+        application.userId !== user.id &&
         !event.archivedAt &&
         !applicationsFrozen(event, new Date()) && (
           <Paper

@@ -8,6 +8,7 @@ import {
   buildEventSnapshot,
   workspaceInclude,
 } from "@/features/events/server/build-event-snapshot";
+import { requireEventPermission } from "@/features/events/server/require-event-permission";
 import { requireOrganizer } from "@/features/organizer/server/require-organizer";
 import { prisma } from "@/lib/prisma";
 
@@ -16,8 +17,9 @@ export default async function PreviewPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const organizer = await requireOrganizer();
   const { id } = await params;
+  await requireEventPermission(id, "event.preview");
+  const organizer = await requireOrganizer();
 
   if (!z.uuid().safeParse(id).success) {
     notFound();
@@ -59,13 +61,7 @@ export default async function PreviewPage({
 
   return (
     <Stack spacing={3}>
-      <EventHeader
-        eventId={id}
-        event={event}
-        active="preview"
-        applicationCount={event._count.applications}
-        attendeeCount={event.attendeeCount}
-      />
+      <EventHeader eventId={id} active="preview" />
       <Alert severity="info">
         Preview of your current workspace, including unpublished changes.
         Registration is unavailable in preview.
@@ -74,7 +70,11 @@ export default async function PreviewPage({
         <EventGuestView snapshot={snapshot.data} now={new Date()}>
           <Stack spacing={3}>
             <Stack spacing={0.5}>
-              <Typography variant="h6" component="h2">
+              <Typography
+                variant="h6"
+                component="h2"
+                sx={{ minHeight: 42, display: "flex", alignItems: "center" }}
+              >
                 Registration form preview
               </Typography>
               <Typography variant="body2" color="text.secondary">

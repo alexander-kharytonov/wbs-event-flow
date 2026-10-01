@@ -1,5 +1,50 @@
 import { Alert, Stack, Typography } from "@mui/material";
+import { notFound } from "next/navigation";
 import type { ComponentProps } from "react";
+import { DateTime } from "@/components/ui/date-time";
+import { EventAccessStatus } from "@/features/events/components/event-access-status";
+import {
+  authorizeEventActor,
+  type EventPermission,
+  hasEventPermission,
+} from "@/features/events/server/event-access";
+import { getOperationalEvent } from "@/features/events/server/event-context";
+import { prisma } from "@/lib/prisma";
+import { requireVerifiedUser } from "@/lib/session";
+
+const eventSections: {
+  id:
+    | "overview"
+    | "registration-form"
+    | "preview"
+    | "staff"
+    | "applications"
+    | "attendees"
+    | "check-in";
+  label: string;
+  permission: EventPermission;
+}[] = [
+  { id: "overview", label: "Overview", permission: "event.context.read" },
+  {
+    id: "registration-form",
+    label: "Registration form",
+    permission: "registrationForm.edit",
+  },
+  { id: "preview", label: "Preview", permission: "event.preview" },
+  { id: "staff", label: "Staff", permission: "staff.manage" },
+  {
+    id: "applications",
+    label: "Applications",
+    permission: "applications.read",
+  },
+  {
+    id: "attendees",
+    label: "Attendees",
+    permission: "attendees.read.reception",
+  },
+  { id: "check-in", label: "Check-in", permission: "checkIn.qr" },
+];
+
 import { BackLink } from "@/components/ui/back-link";
 import { EventActions } from "@/features/events/components/event-actions";
 import { EventCapacity } from "@/features/events/components/event-capacity";
@@ -30,18 +75,14 @@ type EventHeaderData = EventLifecycleData & {
   } | null;
 };
 
-export function EventHeader({
+function OwnerEventControls({
   eventId: id,
   event,
-  active,
   applicationCount,
-  attendeeCount,
 }: {
   eventId: string;
   applicationCount: number;
-  attendeeCount: number;
   event: EventHeaderData;
-  active: ComponentProps<typeof EventNavigation>["active"];
 }) {
   const now = new Date();
   const readOnly = workspaceReadOnly(event, now);
@@ -95,6 +136,92 @@ export function EventHeader({
   }
 
   return (
+    <EventActions
+      eventId={id}
+      actions={actions}
+      readOnly={readOnly}
+      publishLabel={publishLabel}
+      contentVersion={event.contentVersion}
+    />
+  );
+}
+
+export async function EventHeader({
+  eventId,
+  active,
+}: {
+  eventId: string;
+  active: ComponentProps<typeof EventNavigation>["active"];
+}) {
+  const user = await requireVerifiedUser();
+  const data = await prisma.$transaction(
+    async (tx) => {
+      const access = await authorizeEventActor(
+        tx,
+        eventId,
+        user.id,
+        "event.context.read",
+      );
+
+      if (!access) {
+        return null;
+      }
+
+      const context = await getOperationalEvent(tx, eventId);
+      const attendeeCount = await tx.attendee.count({
+        where: { revokedAt: null, registration: { eventId, revokedAt: null } },
+      });
+      const applicationCount = hasEventPermission(
+        access.role,
+        "applications.read",
+      )
+        ? await tx.application.count({ where: { eventId } })
+        : undefined;
+      const ownerEvent = hasEventPermission(access.role, "event.edit")
+        ? await tx.event.findUniqueOrThrow({
+            where: { id: eventId },
+            include: {
+              _count: { select: { revisions: true } },
+              publishedRevision: {
+                select: { contentVersion: true, number: true, snapshot: true },
+              },
+            },
+          })
+        : null;
+      const published =
+        hasEventPermission(access.role, "attendees.read.full") && !ownerEvent
+          ? await tx.event.findUniqueOrThrow({
+              where: { id: eventId },
+              select: { publishedRevision: { select: { snapshot: true } } },
+            })
+          : null;
+      const sections = eventSections.filter(({ permission }) =>
+        hasEventPermission(access.role, permission),
+      );
+
+      return {
+        access,
+        context,
+        attendeeCount,
+        applicationCount,
+        ownerEvent,
+        published,
+        sections,
+      };
+    },
+    { isolationLevel: "RepeatableRead" },
+  );
+
+  if (!data) {
+    notFound();
+  }
+
+  const { context, access, ownerEvent, attendeeCount, applicationCount } = data;
+  const snapshot =
+    ownerEvent?.publishedRevision?.snapshot ??
+    data.published?.publishedRevision?.snapshot;
+
+  return (
     <Stack spacing={2}>
       <BackLink href="/dashboard">My events</BackLink>
       <Stack
@@ -108,56 +235,56 @@ export function EventHeader({
             component="h1"
             sx={{ overflowWrap: "anywhere" }}
           >
-            {event.title}
+            {context.title}
           </Typography>
-          <Stack
-            direction="row"
-            sx={{ gap: 1, alignItems: "center", flexWrap: "wrap" }}
-          >
-            <EventLifecycleStatus event={event} now={now} />
-            <PublicationStatus state={state} />
-            {event.publishedRevision?.number && (
-              <PublishedVersion number={event.publishedRevision.number} />
-            )}
-            {event.publicId && event.publishedRevision && (
-              <PublicEventLinks publicId={event.publicId} />
-            )}
-          </Stack>
+          <DateTime
+            date={context.startsAt}
+            endDate={context.endsAt}
+            timezone={context.timezone}
+          />
         </Stack>
-        <EventActions
-          eventId={id}
-          actions={actions}
-          readOnly={readOnly}
-          publishLabel={publishLabel}
-          contentVersion={event.contentVersion}
-        />
+        {ownerEvent && (
+          <OwnerEventControls
+            eventId={eventId}
+            event={ownerEvent}
+            applicationCount={applicationCount ?? 0}
+          />
+        )}
       </Stack>
-      {event.cancelledAt && (
-        <Alert
-          severity="error"
-          sx={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}
-        >
-          Event cancelled. {event.cancellationReason}
+      {context.cancelledAt && (
+        <Alert severity="error">
+          Event cancelled.
+          {ownerEvent?.cancellationReason
+            ? ` ${ownerEvent.cancellationReason}`
+            : ""}
         </Alert>
       )}
-      {readOnly && !event.cancelledAt && (
-        <Alert severity="info">This event workspace is read-only.</Alert>
+      {context.archivedAt && (
+        <Alert severity="info">This event is archived.</Alert>
       )}
-      {!readOnly && !event.publicId && lifecycle === "Ongoing" && (
-        <Alert severity="info">
-          This event has already started. First publication is only available
-          before the event starts.
-        </Alert>
-      )}
-      {event.publishedRevision && (
-        <EventCapacity
-          snapshot={event.publishedRevision.snapshot}
-          occupied={attendeeCount}
-        />
+      <Stack
+        direction="row"
+        sx={{ gap: 1, alignItems: "center", flexWrap: "wrap" }}
+      >
+        <EventAccessStatus role={access.role} />
+        <EventLifecycleStatus event={context} now={new Date()} />
+        {ownerEvent && (
+          <PublicationStatus state={publicationState(ownerEvent)} />
+        )}
+        {ownerEvent?.publishedRevision && (
+          <PublishedVersion number={ownerEvent.publishedRevision.number} />
+        )}
+        {ownerEvent?.publicId && ownerEvent.publishedRevision && (
+          <PublicEventLinks publicId={ownerEvent.publicId} />
+        )}
+      </Stack>
+      {snapshot && (
+        <EventCapacity snapshot={snapshot} occupied={attendeeCount} />
       )}
       <EventNavigation
-        eventId={id}
+        eventId={eventId}
         active={active}
+        sections={data.sections.map(({ id, label }) => ({ id, label }))}
         applicationCount={applicationCount}
         attendeeCount={attendeeCount}
       />

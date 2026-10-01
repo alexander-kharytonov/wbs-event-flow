@@ -14,6 +14,7 @@ import {
   Box,
   Button,
   CardActionArea,
+  Chip,
   InputAdornment,
   MenuItem,
   Paper,
@@ -28,24 +29,35 @@ import { PageHeader } from "@/components/ui/page-header";
 import { CreateEventButton } from "@/features/events/components/create-event-button";
 import { EventLifecycleStatus } from "@/features/events/components/event-lifecycle-status";
 import { PublicationStatus } from "@/features/events/components/publication-status";
+import { accessLabels } from "@/features/events/event-access-labels";
 import { eventLifecycle } from "@/features/events/event-lifecycle";
 import { publicationState } from "@/features/events/publication-state";
 
 type EventSummary = {
   id: string;
-  publicId: string | null;
+  role: keyof typeof accessLabels;
+  publicId?: string | null;
   title: string;
-  visibility: "PUBLIC" | "PRIVATE";
+  visibility?: "PUBLIC" | "PRIVATE";
   startsAt: Date;
   endsAt: Date;
   cancelledAt: Date | null;
   archivedAt: Date | null;
   timezone: string;
-  contentVersion: number;
-  publishedRevision: { contentVersion: number } | null;
+  contentVersion?: number;
+  publishedRevision?: { contentVersion: number } | null;
 };
 
-export function OrganizerEventResults({ events }: { events: EventSummary[] }) {
+export function OrganizerEventResults({
+  events,
+  canCreate,
+}: {
+  events: EventSummary[];
+  canCreate: boolean;
+}) {
+  const [access, setAccess] = useState("ALL");
+  const hasAssigned = events.some((event) => event.role !== "OWNER");
+  const showVisibility = !hasAssigned || access === "OWNED";
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"ALL" | "ACTIVE" | "ARCHIVED">("ALL");
   const [visibility, setVisibility] = useState<"ALL" | "PUBLIC" | "PRIVATE">(
@@ -88,9 +100,12 @@ export function OrganizerEventResults({ events }: { events: EventSummary[] }) {
   const query = search.trim().toLowerCase();
   const visibleEvents = events.filter(
     (event) =>
+      (access === "ALL" || (event.role === "OWNER") === (access === "OWNED")) &&
       (status === "ALL" ||
         Boolean(event.archivedAt) === (status === "ARCHIVED")) &&
-      (visibility === "ALL" || event.visibility === visibility) &&
+      (!showVisibility ||
+        visibility === "ALL" ||
+        event.visibility === visibility) &&
       (lifecycle === "All" || eventLifecycle(event, now) === lifecycle) &&
       event.title.toLowerCase().includes(query),
   );
@@ -99,9 +114,32 @@ export function OrganizerEventResults({ events }: { events: EventSummary[] }) {
     <Stack spacing={3}>
       <PageHeader
         title="My events"
-        description="Manage your events, registration forms, and applications."
-        actions={status !== "ARCHIVED" && <CreateEventButton />}
+        description="Your events and the events you help run."
+        actions={
+          status !== "ARCHIVED" &&
+          (canCreate ? (
+            <CreateEventButton />
+          ) : (
+            <Button href="/onboarding/organizer" variant="outlined">
+              Become an organizer
+            </Button>
+          ))
+        }
       />
+      {hasAssigned && (
+        <TextField
+          select
+          label="Access"
+          value={access}
+          onChange={(event) => setAccess(event.target.value)}
+          size="small"
+          sx={{ width: { xs: "100%", sm: 200 } }}
+        >
+          <MenuItem value="ALL">All</MenuItem>
+          <MenuItem value="OWNED">Owned</MenuItem>
+          <MenuItem value="ASSIGNED">Assigned</MenuItem>
+        </TextField>
+      )}
       <Stack
         sx={{
           display: "grid",
@@ -149,7 +187,9 @@ export function OrganizerEventResults({ events }: { events: EventSummary[] }) {
             minWidth: 0,
             gridTemplateColumns: {
               xs: "repeat(2, minmax(0, 1fr))",
-              md: "repeat(3, minmax(0, 1fr))",
+              md: showVisibility
+                ? "repeat(3, minmax(0, 1fr))"
+                : "repeat(2, minmax(0, 1fr))",
             },
           }}
         >
@@ -188,41 +228,47 @@ export function OrganizerEventResults({ events }: { events: EventSummary[] }) {
               </MenuItem>
             ))}
           </TextField>
-          <TextField
-            select
-            label="Visibility"
-            value={visibility}
-            sx={{ minWidth: 0 }}
-            onChange={(event) => {
-              const value = event.target.value;
+          {showVisibility && (
+            <TextField
+              select
+              label="Visibility"
+              value={visibility}
+              sx={{ minWidth: 0 }}
+              onChange={(event) => {
+                const value = event.target.value;
 
-              if (
-                value === "ALL" ||
-                value === "PUBLIC" ||
-                value === "PRIVATE"
-              ) {
-                setVisibility(value);
-              }
-            }}
-          >
-            {(["ALL", "PUBLIC", "PRIVATE"] as const).map((value) => (
-              <MenuItem key={value} value={value}>
-                <Box
-                  component="span"
-                  sx={{ display: "inline-flex", alignItems: "center", gap: 1 }}
-                >
-                  {value === "PUBLIC" ? (
-                    <PublicOutlined fontSize="small" />
-                  ) : value === "PRIVATE" ? (
-                    <LinkOutlined fontSize="small" />
-                  ) : (
-                    <EventOutlined fontSize="small" />
-                  )}
-                  {labels[value]}
-                </Box>
-              </MenuItem>
-            ))}
-          </TextField>
+                if (
+                  value === "ALL" ||
+                  value === "PUBLIC" ||
+                  value === "PRIVATE"
+                ) {
+                  setVisibility(value);
+                }
+              }}
+            >
+              {(["ALL", "PUBLIC", "PRIVATE"] as const).map((value) => (
+                <MenuItem key={value} value={value}>
+                  <Box
+                    component="span"
+                    sx={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 1,
+                    }}
+                  >
+                    {value === "PUBLIC" ? (
+                      <PublicOutlined fontSize="small" />
+                    ) : value === "PRIVATE" ? (
+                      <LinkOutlined fontSize="small" />
+                    ) : (
+                      <EventOutlined fontSize="small" />
+                    )}
+                    {labels[value]}
+                  </Box>
+                </MenuItem>
+              ))}
+            </TextField>
+          )}
           <TextField
             select
             label="Lifecycle"
@@ -278,6 +324,7 @@ export function OrganizerEventResults({ events }: { events: EventSummary[] }) {
             events.length ? (
               <Button
                 onClick={() => {
+                  setAccess("ALL");
                   setSearch("");
                   setStatus("ALL");
                   setVisibility("ALL");
@@ -286,7 +333,7 @@ export function OrganizerEventResults({ events }: { events: EventSummary[] }) {
               >
                 Clear filters
               </Button>
-            ) : status !== "ARCHIVED" ? (
+            ) : status !== "ARCHIVED" && canCreate ? (
               <CreateEventButton />
             ) : undefined
           }
@@ -343,21 +390,37 @@ export function OrganizerEventResults({ events }: { events: EventSummary[] }) {
                       spacing={0.75}
                       sx={{ alignItems: "center", color: "text.secondary" }}
                     >
-                      {event.visibility === "PUBLIC" ? (
+                      {event.visibility ===
+                      undefined ? null : event.visibility === "PUBLIC" ? (
                         <PublicOutlined sx={{ fontSize: 16 }} />
                       ) : (
                         <LinkOutlined sx={{ fontSize: 16 }} />
                       )}
                       <Typography variant="body2">
-                        {labels[event.visibility]}
+                        {event.visibility
+                          ? labels[event.visibility]
+                          : "Assigned event"}
                       </Typography>
                     </Stack>
                     <Stack
                       direction="row"
                       sx={{ gap: 1, alignItems: "center", flexWrap: "wrap" }}
                     >
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        label={accessLabels[event.role]}
+                      />
                       <EventLifecycleStatus event={event} now={now} />
-                      <PublicationStatus state={publicationState(event)} />
+                      {event.contentVersion !== undefined && (
+                        <PublicationStatus
+                          state={publicationState({
+                            contentVersion: event.contentVersion,
+                            publishedRevision: event.publishedRevision ?? null,
+                            publicId: event.publicId ?? null,
+                          })}
+                        />
+                      )}
                     </Stack>
                   </Stack>
                   <Typography

@@ -1,12 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { reviewOwnedApplication } from "@/features/events/server/review-application";
-import { requireOrganizer } from "@/features/organizer/server/require-organizer";
+import { reviewEventApplication } from "@/features/events/server/review-application";
+import { requireVerifiedUser } from "@/lib/session";
 
 async function review(input: unknown, decision: "APPROVED" | "REJECTED") {
-  const organizer = await requireOrganizer();
-  const result = await reviewOwnedApplication(organizer.id, input, decision);
+  const user = await requireVerifiedUser();
+  const result = await reviewEventApplication(user.id, input, decision);
 
   if (
     result.success ||

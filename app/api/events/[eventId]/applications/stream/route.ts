@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { authorizeEventActor } from "@/features/events/server/event-access";
 import { prisma } from "@/lib/prisma";
 import { applicationStreamResponse } from "@/lib/realtime/sse-response";
 import { getStreamSession } from "@/lib/session";
@@ -15,25 +16,15 @@ export async function GET(
     return authorized;
   }
 
-  const organizer = await prisma.organizerProfile.findUnique({
-    where: { userId: authorized.userId },
-    select: { id: true },
-  });
-
-  if (!organizer) {
-    return new Response(null, {
-      status: 403,
-      headers: { "Cache-Control": "private, no-store" },
-    });
-  }
-
   const { eventId } = await params;
   const valid = z.uuid().safeParse(eventId);
   const event = valid.success
-    ? await prisma.event.findFirst({
-        where: { id: valid.data, organizerId: organizer.id },
-        select: { id: true },
-      })
+    ? await authorizeEventActor(
+        prisma,
+        valid.data,
+        authorized.userId,
+        "event.context.read",
+      )
     : null;
 
   if (!event) {
@@ -43,9 +34,5 @@ export async function GET(
     });
   }
 
-  return applicationStreamResponse(
-    request,
-    { eventId: event.id },
-    authorized.deadline,
-  );
+  return applicationStreamResponse(request, { eventId }, authorized.deadline);
 }

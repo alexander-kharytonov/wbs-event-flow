@@ -10,6 +10,7 @@ import {
   eventLifecycle,
   workspaceReadOnly,
 } from "@/features/events/event-lifecycle";
+import { requireEventPermission } from "@/features/events/server/require-event-permission";
 import { updateEvent } from "@/features/events/update-event";
 import { requireOrganizer } from "@/features/organizer/server/require-organizer";
 import { prisma } from "@/lib/prisma";
@@ -43,6 +44,7 @@ export async function EditEventView({
   eventId: string;
   modal?: boolean;
 }) {
+  await requireEventPermission(id, "event.edit");
   const organizer = await requireOrganizer();
 
   if (!z.uuid().safeParse(id).success) {

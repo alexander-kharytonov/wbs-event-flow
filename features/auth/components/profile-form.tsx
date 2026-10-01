@@ -1,6 +1,6 @@
 "use client";
 
-import { Alert, Button, Stack, TextField, Typography } from "@mui/material";
+import { Button, Stack, TextField, Typography } from "@mui/material";
 import { useActionState, useState } from "react";
 import {
   type ProfileFormState,
@@ -20,6 +20,13 @@ export function ProfileForm({ name, email }: { name: string; email: string }) {
         setValue(next.name);
         notifications.show("Profile updated.", {
           severity: "success",
+          key: "profile-update",
+        });
+      }
+
+      if (next.message) {
+        notifications.show(next.message, {
+          severity: "error",
           key: "profile-update",
         });
       }
@@ -45,7 +52,6 @@ export function ProfileForm({ name, email }: { name: string; email: string }) {
           Manage your Event Flow account details.
         </Typography>
       </Stack>
-      {state.message && <Alert severity="error">{state.message}</Alert>}
       <TextField
         label="Name"
         name="name"

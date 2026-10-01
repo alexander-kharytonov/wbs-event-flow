@@ -15,6 +15,13 @@ export async function ApplicationHeader() {
       })
     : null;
 
+  const assigned = session
+    ? await prisma.eventStaff.findFirst({
+        where: { userId: session.user.id },
+        select: { eventId: true },
+      })
+    : null;
+
   return (
     <Box
       component="header"
@@ -46,7 +53,7 @@ export async function ApplicationHeader() {
           >
             <PrimaryNavigation
               signedIn={Boolean(session)}
-              organizer={Boolean(organizer)}
+              organizer={Boolean(organizer || assigned)}
             />
           </Box>
           <Stack
@@ -58,6 +65,7 @@ export async function ApplicationHeader() {
               <AccountMenu
                 name={session.user.name}
                 organizerProfileId={organizer?.id}
+                hasAssignedEvents={Boolean(assigned)}
               />
             ) : (
               <Button href="/sign-in" variant="outlined">

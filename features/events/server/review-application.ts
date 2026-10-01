@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { applicationsFrozen } from "@/features/events/event-lifecycle";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
+import { authorizeEventActor } from "@/features/events/server/event-access";
 import { lockEventForUpdate } from "@/features/events/server/lock-event-for-update";
 import { issueTicket } from "@/features/tickets/server/issue-ticket";
 import {
@@ -28,8 +29,8 @@ export type ReviewResult = {
   message?: string;
 };
 
-export async function reviewOwnedApplication(
-  organizerId: string,
+export async function reviewEventApplication(
+  actorUserId: string,
   input: unknown,
   decision: "APPROVED" | "REJECTED",
 ): Promise<ReviewResult> {
@@ -50,10 +51,19 @@ export async function reviewOwnedApplication(
       async (tx) => {
         const locked = await lockEventForUpdate(tx, {
           id: eventId,
-          organizerId,
         });
 
+        const access =
+          locked &&
+          (await authorizeEventActor(
+            tx,
+            eventId,
+            actorUserId,
+            "applications.review",
+          ));
+
         if (
+          !access ||
           !locked ||
           locked.archivedAt ||
           applicationsFrozen(locked, locked.decisionNow)
@@ -73,7 +83,7 @@ export async function reviewOwnedApplication(
           },
         });
 
-        if (!application) {
+        if (!application || application.userId === actorUserId) {
           return unavailable;
         }
 
@@ -127,7 +137,8 @@ export async function reviewOwnedApplication(
           data: {
             status: decision,
             reviewedAt,
-            // Review changes only status and reviewedAt, not submitted data.
+            reviewedByUserId: actorUserId,
+            // Review changes decision/provenance, never submitted data.
             updatedAt: application.updatedAt,
           },
         });

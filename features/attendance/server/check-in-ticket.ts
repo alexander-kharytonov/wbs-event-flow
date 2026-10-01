@@ -3,6 +3,10 @@ import { z } from "zod";
 import type { CheckInResult } from "@/features/attendance/check-in-result";
 import { checkInAttendee } from "@/features/attendance/server/check-in-attendee";
 import { parseTicketQr } from "@/features/attendance/server/parse-ticket-qr";
+import {
+  authorizeEventActor,
+  hasEventPermission,
+} from "@/features/events/server/event-access";
 import { lockEventForUpdate } from "@/features/events/server/lock-event-for-update";
 import { prisma } from "@/lib/prisma";
 import { hashTicketSecret } from "@/lib/ticket-crypto";
@@ -14,7 +18,7 @@ const inputSchema = z.strictObject({
 
 // Actor IDs are supplied only by the verified-session action adapter.
 export async function checkInTicket(
-  actor: { userId: string; organizerId: string },
+  actor: { userId: string },
   input: unknown,
 ): Promise<CheckInResult> {
   const parsed = inputSchema.safeParse(input);
@@ -48,10 +52,13 @@ export async function checkInTicket(
       async (tx): Promise<CheckInResult> => {
         const event = await lockEventForUpdate(tx, {
           id: parsed.data.eventId,
-          organizerId: actor.organizerId,
         });
 
-        if (!event) {
+        const access =
+          event &&
+          (await authorizeEventActor(tx, event.id, actor.userId, "checkIn.qr"));
+
+        if (!event || !access) {
           return { code: "UNAVAILABLE", message: "This event is unavailable." };
         }
 
@@ -67,7 +74,9 @@ export async function checkInTicket(
                 id: true,
                 kind: true,
                 name: true,
-                email: true,
+                ...(hasEventPermission(access.role, "attendees.read.full")
+                  ? { email: true }
+                  : {}),
                 revokedAt: true,
                 attendance: { select: { checkedInAt: true } },
                 registration: {
@@ -91,7 +100,9 @@ export async function checkInTicket(
         const attendee = {
           kind: ticket.attendee.kind,
           attendeeName: ticket.attendee.name,
-          attendeeEmail: ticket.attendee.email,
+          ...(hasEventPermission(access.role, "attendees.read.full")
+            ? { attendeeEmail: ticket.attendee.email }
+            : {}),
           ticketNumber: ticket.number,
         };
 
@@ -107,7 +118,11 @@ export async function checkInTicket(
           },
         );
 
-        return { ...decision, attendee };
+        const showIdentity =
+          hasEventPermission(access.role, "attendees.read.full") ||
+          (!ticket.attendee.revokedAt && !registration.revokedAt);
+
+        return { ...decision, ...(showIdentity ? { attendee } : {}) };
       },
       { isolationLevel: "ReadCommitted" },
     );

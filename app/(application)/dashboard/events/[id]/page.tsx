@@ -1,26 +1,125 @@
-import { Box, Button, Chip, Paper, Stack, Typography } from "@mui/material";
+import {
+  Alert,
+  Box,
+  Button,
+  Chip,
+  Paper,
+  Stack,
+  Typography,
+} from "@mui/material";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import { DateTime } from "@/components/ui/date-time";
 import { EventHeader } from "@/features/events/components/event-header";
 import { formatEventTime } from "@/features/events/format-event-time";
-import { requireOrganizer } from "@/features/organizer/server/require-organizer";
+import { hasEventPermission } from "@/features/events/server/event-access";
+import { requireEventPermission } from "@/features/events/server/require-event-permission";
 import { prisma } from "@/lib/prisma";
 
 export default async function EventPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ access?: string }>;
 }) {
-  const organizer = await requireOrganizer();
   const { id } = await params;
+  const accessChanged = (await searchParams).access === "changed";
 
   if (!z.uuid().safeParse(id).success) {
     notFound();
   }
 
+  const access = await requireEventPermission(id, "event.context.read");
+
+  if (!hasEventPermission(access.role, "event.edit")) {
+    const event = await prisma.event.findUniqueOrThrow({
+      where: { id },
+      select: { cancelledAt: true, description: true },
+    });
+
+    return (
+      <Stack spacing={3}>
+        {accessChanged && (
+          <Alert severity="info">Your access to this event has changed.</Alert>
+        )}
+        <EventHeader eventId={id} active="overview" />
+        <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
+          <Stack spacing={2}>
+            <Typography
+              variant="h6"
+              component="h2"
+              sx={{ minHeight: 42, display: "flex", alignItems: "center" }}
+            >
+              Event operations
+            </Typography>
+            <Typography color="text.secondary">
+              View admitted attendees and manage check-in. Check-in follows the
+              event schedule shown above.
+            </Typography>
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{ flexWrap: "wrap", gap: 1 }}
+            >
+              {hasEventPermission(access.role, "applications.read") && (
+                <Button
+                  href={`/dashboard/events/${id}/applications`}
+                  variant="outlined"
+                >
+                  Review applications
+                </Button>
+              )}
+              <Button
+                href={`/dashboard/events/${id}/attendees`}
+                variant="outlined"
+              >
+                View attendees
+              </Button>
+              <Button
+                href={`/dashboard/events/${id}/check-in`}
+                variant="contained"
+              >
+                Open check-in
+              </Button>
+            </Stack>
+            {event.cancelledAt && (
+              <Typography color="text.secondary">
+                New check-ins are unavailable.
+              </Typography>
+            )}
+            {event.description && (
+              <Stack
+                component="section"
+                spacing={2}
+                sx={{ pt: 3, borderTop: 1, borderColor: "divider" }}
+              >
+                <Typography
+                  variant="h6"
+                  component="h2"
+                  sx={{ minHeight: 42, display: "flex", alignItems: "center" }}
+                >
+                  Description
+                </Typography>
+                <Typography
+                  sx={{
+                    whiteSpace: "pre-wrap",
+                    overflowWrap: "anywhere",
+                    maxWidth: "75ch",
+                  }}
+                >
+                  {event.description}
+                </Typography>
+              </Stack>
+            )}
+          </Stack>
+        </Paper>
+      </Stack>
+    );
+  }
+
   const event = await prisma.event.findFirst({
-    where: { id, organizerId: organizer.id },
+    where: { id },
     include: {
       _count: {
         select: {
@@ -38,19 +137,12 @@ export default async function EventPage({
     notFound();
   }
 
-  const attendeeCount = await prisma.attendee.count({
-    where: { registration: { eventId: id }, revokedAt: null },
-  });
-
   return (
     <Stack spacing={3}>
-      <EventHeader
-        eventId={id}
-        event={event}
-        active="overview"
-        applicationCount={event._count.applications}
-        attendeeCount={attendeeCount}
-      />
+      {accessChanged && (
+        <Alert severity="info">Your access to this event has changed.</Alert>
+      )}
+      <EventHeader eventId={id} active="overview" />
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
         <Box
           sx={{
@@ -60,7 +152,11 @@ export default async function EventPage({
           }}
         >
           <Stack component="section" spacing={2}>
-            <Typography variant="h6" component="h2">
+            <Typography
+              variant="h6"
+              component="h2"
+              sx={{ minHeight: 42, display: "flex", alignItems: "center" }}
+            >
               Schedule
             </Typography>
             <DateTime
@@ -70,7 +166,11 @@ export default async function EventPage({
             />
           </Stack>
           <Stack component="section" spacing={2}>
-            <Typography variant="h6" component="h2">
+            <Typography
+              variant="h6"
+              component="h2"
+              sx={{ minHeight: 42, display: "flex", alignItems: "center" }}
+            >
               Registration
             </Typography>
             <Box
@@ -112,7 +212,11 @@ export default async function EventPage({
             </Typography>
           </Stack>
           <Stack component="section" spacing={2}>
-            <Typography variant="h6" component="h2">
+            <Typography
+              variant="h6"
+              component="h2"
+              sx={{ minHeight: 42, display: "flex", alignItems: "center" }}
+            >
               Access
             </Typography>
             <Stack
@@ -137,7 +241,11 @@ export default async function EventPage({
             spacing={1}
             sx={{ alignItems: "flex-start" }}
           >
-            <Typography variant="h6" component="h2">
+            <Typography
+              variant="h6"
+              component="h2"
+              sx={{ minHeight: 42, display: "flex", alignItems: "center" }}
+            >
               Applications
             </Typography>
             <Typography color="text.secondary">
@@ -161,7 +269,11 @@ export default async function EventPage({
                 borderColor: "divider",
               }}
             >
-              <Typography variant="h6" component="h2">
+              <Typography
+                variant="h6"
+                component="h2"
+                sx={{ minHeight: 42, display: "flex", alignItems: "center" }}
+              >
                 Description
               </Typography>
               <Typography

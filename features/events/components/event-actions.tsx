@@ -79,7 +79,6 @@ export function EventActions({
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [action, setAction] = useState<Action | null>(null);
   const [reason, setReason] = useState("");
-  const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
 
   const menuId = useId();
@@ -186,7 +185,7 @@ export function EventActions({
               onClick={() => {
                 setAnchor(null);
                 setAction(value);
-                setError("");
+                notifications.close(`event-action:${eventId}`);
                 setReason("");
               }}
             >
@@ -239,11 +238,6 @@ export function EventActions({
               sx={{ mt: 3 }}
             />
           )}
-          {error && (
-            <Alert severity="error" sx={{ mt: 2 }}>
-              {error}
-            </Alert>
-          )}
         </DialogContent>
         <DialogActions>
           <Button disabled={pending} onClick={() => setAction(null)}>
@@ -269,7 +263,10 @@ export function EventActions({
                   });
 
                   if (!result.success) {
-                    setError(result.message ?? "Could not update this event.");
+                    notifications.show(
+                      result.message ?? "Could not update this event.",
+                      { severity: "error", key: `event-action:${eventId}` },
+                    );
 
                     return;
                   }
@@ -286,8 +283,9 @@ export function EventActions({
 
                   router.refresh();
                 } catch {
-                  setError(
+                  notifications.show(
                     "Could not confirm this action. Reload to check the event.",
+                    { severity: "error", key: `event-action:${eventId}` },
                   );
                 }
               })
