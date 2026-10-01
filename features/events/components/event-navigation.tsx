@@ -1,21 +1,26 @@
 import { Badge, Button, Stack } from "@mui/material";
 
+type Section =
+  | "overview"
+  | "registration-form"
+  | "preview"
+  | "staff"
+  | "applications"
+  | "attendees"
+  | "check-in";
+
 export function EventNavigation({
   eventId,
   active,
+  sections,
   applicationCount,
   attendeeCount,
 }: {
   eventId: string;
-  applicationCount: number;
+  active: Section;
+  sections: { id: Section; label: string }[];
+  applicationCount?: number;
   attendeeCount: number;
-  active:
-    | "overview"
-    | "registration-form"
-    | "preview"
-    | "applications"
-    | "attendees"
-    | "check-in";
 }) {
   return (
     <Stack
@@ -29,73 +34,45 @@ export function EventNavigation({
         borderColor: "divider",
         pb: 1,
         flexWrap: "wrap",
-        "& .MuiButton-root": { flexShrink: 0, whiteSpace: "nowrap" },
+        "& .MuiButton-root": { flexShrink: 0 },
         "& [aria-current=page]": {
           bgcolor: "action.selected",
           boxShadow: "inset 0 -2px var(--mui-palette-primary-main)",
         },
       }}
     >
-      <Button
-        href={`/dashboard/events/${eventId}`}
-        color={active === "overview" ? "primary" : "inherit"}
-        aria-current={active === "overview" ? "page" : undefined}
-      >
-        Overview
-      </Button>
-      <Button
-        href={`/dashboard/events/${eventId}/registration-form`}
-        color={active === "registration-form" ? "primary" : "inherit"}
-        aria-current={active === "registration-form" ? "page" : undefined}
-      >
-        Registration form
-      </Button>
-      <Button
-        href={`/dashboard/events/${eventId}/preview`}
-        color={active === "preview" ? "primary" : "inherit"}
-        aria-current={active === "preview" ? "page" : undefined}
-      >
-        Preview
-      </Button>
-      <Button
-        href={`/dashboard/events/${eventId}/applications`}
-        color={active === "applications" ? "primary" : "inherit"}
-        aria-current={active === "applications" ? "page" : undefined}
-        aria-label={`Applications (${applicationCount})`}
-        sx={{ pr: 3 }}
-      >
-        <Badge
-          badgeContent={applicationCount}
-          color="primary"
-          showZero
-          sx={{ "& .MuiBadge-badge": { right: -12 } }}
-        >
-          Applications
-        </Badge>
-      </Button>
-      <Button
-        href={`/dashboard/events/${eventId}/attendees`}
-        color={active === "attendees" ? "primary" : "inherit"}
-        aria-current={active === "attendees" ? "page" : undefined}
-        aria-label={`Attendees (${attendeeCount})`}
-        sx={{ pr: 3 }}
-      >
-        <Badge
-          badgeContent={attendeeCount}
-          color="primary"
-          showZero
-          sx={{ "& .MuiBadge-badge": { right: -12 } }}
-        >
-          Attendees
-        </Badge>
-      </Button>
-      <Button
-        href={`/dashboard/events/${eventId}/check-in`}
-        color={active === "check-in" ? "primary" : "inherit"}
-        aria-current={active === "check-in" ? "page" : undefined}
-      >
-        Check-in
-      </Button>
+      {sections.map(({ id, label }) => {
+        const count =
+          id === "applications"
+            ? applicationCount
+            : id === "attendees"
+              ? attendeeCount
+              : undefined;
+
+        return (
+          <Button
+            key={id}
+            href={`/dashboard/events/${eventId}${id === "overview" ? "" : `/${id}`}`}
+            color={active === id ? "primary" : "inherit"}
+            aria-current={active === id ? "page" : undefined}
+            aria-label={count === undefined ? label : `${label} (${count})`}
+            sx={{ pr: count === undefined ? undefined : 3 }}
+          >
+            {count === undefined ? (
+              label
+            ) : (
+              <Badge
+                badgeContent={count}
+                color="primary"
+                showZero
+                sx={{ "& .MuiBadge-badge": { right: -12 } }}
+              >
+                {label}
+              </Badge>
+            )}
+          </Button>
+        );
+      })}
     </Stack>
   );
 }

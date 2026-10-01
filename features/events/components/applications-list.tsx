@@ -28,10 +28,10 @@ import { ApplicationListItemButton } from "@/features/events/components/applicat
 import { ApplicationStatus } from "@/features/events/components/application-status";
 import { RegistrationAdmission } from "@/features/events/components/registration-admission";
 import { formatEventTime } from "@/features/events/format-event-time";
-import type { getOwnedApplications } from "@/features/events/server/organizer-applications";
+import type { getEventApplications } from "@/features/events/server/organizer-applications";
 
 type Applications = NonNullable<
-  Awaited<ReturnType<typeof getOwnedApplications>>
+  Awaited<ReturnType<typeof getEventApplications>>
 >["applications"];
 type StatusFilter = "ALL" | Applications[number]["status"];
 

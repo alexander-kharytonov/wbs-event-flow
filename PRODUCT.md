@@ -36,7 +36,7 @@ Organizers can:
   or reject a pending application.
 - Open Attendees to read Active and Revoked admitted people, with submitted name,
   email and grant/revocation dates. Search name/email/Ticket number, filter admission
-  and attendance, and open person details with owner-only Manual check-in.
+  and attendance, and open person details with authorized Manual check-in.
 
 ## Public events
 
@@ -223,7 +223,7 @@ regenerable, and PDF and Wallet are not implemented.
 
 Attendance is the immutable historical fact of a successful check-in, separate
 from Application review, Registration admission and Ticket credentials. Verified
-Event owner-organizers can scan Ticket QR codes online from Check-in beside
+Event owners, Managers and Reception staff can scan Ticket QR codes online from Check-in beside
 Attendees. Camera access starts on request and stays on between scans. Each scan
 blocks further ticket submissions until the result arrives and the organizer
 chooses Scan next. Stop scanner or leaving Check-in releases the camera.
@@ -234,7 +234,7 @@ not require a present or active Ticket. The server uses persisted Event dates an
 DB time: start inclusive, end exclusive. Publication and archive state do not independently gate check-in.
 Ticket validity is not check-in eligibility.
 
-Each Attendee can be checked in once through QR or owner-only Manual check-in.
+Each Attendee can be checked in once through QR or authorized Manual check-in.
 Both record the authorized actor User. Repeat attempts show Already checked in
 with the original time, including after later withdrawal or cancellation.
 Attendance survives admission/Ticket revocation, cancellation, archive and
@@ -280,3 +280,29 @@ guests remain history and consume no seats. Whole-party withdrawal keeps its
 existing lifecycle rules and revokes all active people and Tickets; reapplication
 starts with a new PRIMARY only. Adding/removing Guests sends no email. Cancellation
 recipients remain pending applicants and Registration/PRIMARY owners.
+
+
+## Event staff
+
+The owner remains the Event's organizer. Owners can directly assign existing verified
+Event Flow users as Manager or Reception from the Staff tab, without invitations or
+acceptance. Staff do not need an OrganizerProfile. Only owners add, change roles or
+remove access; owners cannot assign themselves. Duplicate assignments with the same
+role are harmless; changing a role is an explicit action. Removal deletes membership,
+not past reviews or Attendance. Draft, cancelled, completed and archived Events keep
+memberships; normal lifecycle guards still apply.
+
+One Dashboard shows owned and assigned Events using the same cards with compact
+Owner/Manager/Reception context. One Event workspace supplies permission-specific
+navigation. Managers read applications and historical answers, review applications,
+read full Attendees and perform QR/Manual check-in. Reception sees operational Event
+context, active attendees and check-in, without email, applications/answers/counts,
+revoked browsing or Attendance actor identity. Only owners edit Event/forms, preview
+the draft, publish, change lifecycle and manage Staff. Manager and Reception can also
+read the current Event description in Overview, using the same description as the owner.
+
+Staff may apply to an Event, but cannot review their own linked Application. New
+reviews record the acting User; historical unknown reviewers remain unknown. Membership
+changes refresh open workspaces; revoked users see “Your access to this event has
+changed.” and return to Dashboard. Role changes discard previous-role client state.
+Direct visits to inaccessible Events or sections return neutral not-found responses.

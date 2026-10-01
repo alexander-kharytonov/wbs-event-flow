@@ -1,19 +1,28 @@
 import "server-only";
 import { z } from "zod";
+import { authorizeEventActor } from "@/features/events/server/event-access";
 import { prisma } from "@/lib/prisma";
 
-export async function getOwnedApplications(
-  organizerId: string,
-  eventId: string,
-) {
+export async function getEventApplications(userId: string, eventId: string) {
   if (!z.uuid().safeParse(eventId).success) {
     return null;
   }
 
   return prisma.$transaction(
     async (tx) => {
+      const access = await authorizeEventActor(
+        tx,
+        eventId,
+        userId,
+        "applications.read",
+      );
+
+      if (!access) {
+        return null;
+      }
+
       const event = await tx.event.findFirst({
-        where: { id: eventId, organizerId },
+        where: { id: eventId },
         select: {
           startsAt: true,
           endsAt: true,
@@ -80,8 +89,8 @@ export async function getOwnedApplications(
   );
 }
 
-export async function getOwnedApplication(
-  organizerId: string,
+export async function getEventApplication(
+  userId: string,
   eventId: string,
   applicationId: string,
 ) {
@@ -94,8 +103,19 @@ export async function getOwnedApplication(
 
   return prisma.$transaction(
     async (tx) => {
+      const access = await authorizeEventActor(
+        tx,
+        eventId,
+        userId,
+        "applications.read",
+      );
+
+      if (!access) {
+        return null;
+      }
+
       const application = await tx.application.findFirst({
-        where: { id: applicationId, eventId, event: { organizerId } },
+        where: { id: applicationId, eventId },
         select: {
           id: true,
           fullName: true,
@@ -103,6 +123,8 @@ export async function getOwnedApplication(
           status: true,
           createdAt: true,
           reviewedAt: true,
+          userId: true,
+          reviewedByUser: { select: { name: true } },
           withdrawnAt: true,
           eventRevisionId: true,
           registrations: { select: { createdAt: true, revokedAt: true } },

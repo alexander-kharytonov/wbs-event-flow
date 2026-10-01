@@ -1,19 +1,18 @@
 import { Stack, Typography } from "@mui/material";
 import { notFound } from "next/navigation";
-import { ApplicationRealtime } from "@/features/events/components/application-realtime";
 import { ApplicationsList } from "@/features/events/components/applications-list";
 import { EventHeader } from "@/features/events/components/event-header";
-import { getOwnedApplications } from "@/features/events/server/organizer-applications";
-import { requireOrganizer } from "@/features/organizer/server/require-organizer";
+import { getEventApplications } from "@/features/events/server/organizer-applications";
+import { requireVerifiedUser } from "@/lib/session";
 
 export default async function ApplicationsPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const organizer = await requireOrganizer();
+  const user = await requireVerifiedUser();
   const { id } = await params;
-  const event = await getOwnedApplications(organizer.id, id);
+  const event = await getEventApplications(user.id, id);
 
   if (!event) {
     notFound();
@@ -25,25 +24,20 @@ export default async function ApplicationsPage({
 
   return (
     <Stack spacing={3}>
-      <ApplicationRealtime
-        streamUrl={`/api/events/${id}/applications/stream`}
-      />
-      <EventHeader
-        eventId={id}
-        event={event}
-        active="applications"
-        applicationCount={event.applications.length}
-        attendeeCount={event.occupied}
-      />
+      <EventHeader eventId={id} active="applications" />
       <Stack
         direction={{ xs: "column", sm: "row" }}
         sx={{
           gap: 1,
           justifyContent: "space-between",
-          alignItems: { sm: "baseline" },
+          alignItems: { sm: "center" },
         }}
       >
-        <Typography variant="h6" component="h2">
+        <Typography
+          variant="h6"
+          component="h2"
+          sx={{ minHeight: 42, display: "flex", alignItems: "center" }}
+        >
           Applications
         </Typography>
         <Typography variant="body2" color="text.secondary">

@@ -8,7 +8,6 @@ import PeopleOutlined from "@mui/icons-material/PeopleOutlined";
 import RadioButtonUncheckedOutlined from "@mui/icons-material/RadioButtonUncheckedOutlined";
 import SearchOutlined from "@mui/icons-material/SearchOutlined";
 import {
-  Alert,
   Avatar,
   Box,
   Button,
@@ -37,6 +36,7 @@ import { checkInManuallyAction } from "@/features/attendance/check-in-manually-a
 import type { ManualCheckInResult } from "@/features/attendance/check-in-result";
 import { formatEventTime } from "@/features/events/format-event-time";
 import type { OrganizerAttendee } from "@/features/events/server/organizer-attendees";
+import { useNotifications } from "@/hooks/use-notifications";
 
 function isActive(attendee: OrganizerAttendee) {
   return !attendee.revokedAt && !attendee.registration.revokedAt;
@@ -67,13 +67,16 @@ export function AttendeesList({
   attendees,
   timezone,
   lifecycle,
+  full = true,
 }: {
+  full?: boolean;
   eventId: string;
   attendees: OrganizerAttendee[];
   timezone: string;
   lifecycle: "Upcoming" | "Ongoing" | "Completed" | "Cancelled";
 }) {
   const router = useRouter();
+  const notifications = useNotifications();
   const [search, setSearch] = useState("");
   const [admission, setAdmission] = useState<"all" | "active" | "revoked">(
     "all",
@@ -143,13 +146,33 @@ export function AttendeesList({
     }
 
     const attendeeId = selected.id;
+    notifications.close(`check-in:${attendeeId}`);
     setResult(null);
     startTransition(async () => {
       try {
         const response = await checkInManuallyAction({ eventId, attendeeId });
         setResult(response);
+
+        notifications.show(resultMessage(response, timezone), {
+          severity:
+            response.code === "CHECKED_IN"
+              ? "success"
+              : response.code === "FAILED"
+                ? "error"
+                : "info",
+          autoHideDuration: 4000,
+          key: `check-in:${attendeeId}`,
+        });
+
         router.refresh();
       } catch {
+        notifications.show(
+          "Could not check in this attendee. Please try again.",
+          {
+            severity: "error",
+            key: `check-in:${attendeeId}`,
+          },
+        );
         setResult({
           code: "FAILED",
           message: "Could not check in this attendee. Please try again.",
@@ -318,7 +341,9 @@ export function AttendeesList({
       >
         <TextField
           label="Search attendees"
-          placeholder="Name, email or ticket number"
+          placeholder={
+            full ? "Name, email or ticket number" : "Name or ticket number"
+          }
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           slotProps={{
@@ -335,59 +360,63 @@ export function AttendeesList({
         <Box
           sx={{
             display: "grid",
-            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+            gridTemplateColumns: full
+              ? "repeat(2, minmax(0, 1fr))"
+              : "minmax(0, 1fr)",
             gap: 1.5,
             minWidth: 0,
           }}
         >
-          <TextField
-            select
-            label="Admission"
-            value={admission}
-            onChange={(event) =>
-              setAdmission(
-                event.target.value === "all"
-                  ? "all"
-                  : event.target.value === "revoked"
-                    ? "revoked"
-                    : "active",
-              )
-            }
-            sx={{ minWidth: 0 }}
-          >
-            <MenuItem value="all">
-              <Box
-                component="span"
-                sx={{ display: "inline-flex", alignItems: "center", gap: 1 }}
-              >
-                <PeopleOutlined fontSize="small" />
-                All
-              </Box>
-            </MenuItem>
-            <MenuItem value="active">
-              <Box
-                component="span"
-                sx={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 1,
-                  color: "success.main",
-                }}
-              >
-                <CheckCircleOutlined fontSize="small" />
-                Active
-              </Box>
-            </MenuItem>
-            <MenuItem value="revoked">
-              <Box
-                component="span"
-                sx={{ display: "inline-flex", alignItems: "center", gap: 1 }}
-              >
-                <BlockOutlined fontSize="small" />
-                Revoked
-              </Box>
-            </MenuItem>
-          </TextField>
+          {full && (
+            <TextField
+              select
+              label="Admission"
+              value={admission}
+              onChange={(event) =>
+                setAdmission(
+                  event.target.value === "all"
+                    ? "all"
+                    : event.target.value === "revoked"
+                      ? "revoked"
+                      : "active",
+                )
+              }
+              sx={{ minWidth: 0 }}
+            >
+              <MenuItem value="all">
+                <Box
+                  component="span"
+                  sx={{ display: "inline-flex", alignItems: "center", gap: 1 }}
+                >
+                  <PeopleOutlined fontSize="small" />
+                  All
+                </Box>
+              </MenuItem>
+              <MenuItem value="active">
+                <Box
+                  component="span"
+                  sx={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 1,
+                    color: "success.main",
+                  }}
+                >
+                  <CheckCircleOutlined fontSize="small" />
+                  Active
+                </Box>
+              </MenuItem>
+              <MenuItem value="revoked">
+                <Box
+                  component="span"
+                  sx={{ display: "inline-flex", alignItems: "center", gap: 1 }}
+                >
+                  <BlockOutlined fontSize="small" />
+                  Revoked
+                </Box>
+              </MenuItem>
+            </TextField>
+          )}
           <TextField
             select
             label="Attendance"
@@ -524,9 +553,11 @@ export function AttendeesList({
                       <Typography variant="h5" component="h3">
                         {selected.name}
                       </Typography>
-                      <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-                        {selected.email ?? "No email provided"}
-                      </Typography>
+                      {full && (
+                        <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+                          {selected.email ?? "No email provided"}
+                        </Typography>
+                      )}
                       <Typography
                         variant="body2"
                         color="text.secondary"
@@ -602,14 +633,17 @@ export function AttendeesList({
                         "& dd": { m: 0, typography: "body2" },
                       }}
                     >
-                      <Box>
-                        <Typography component="dt">
-                          Admission granted
-                        </Typography>
-                        <Typography component="dd">
-                          {formatEventTime(selected.createdAt, timezone)}
-                        </Typography>
-                      </Box>
+                      {selected.createdAt && (
+                        <Box>
+                          <Typography component="dt">
+                            Admission granted
+                          </Typography>
+                          <Typography component="dd">
+                            {selected.createdAt &&
+                              formatEventTime(selected.createdAt, timezone)}
+                          </Typography>
+                        </Box>
+                      )}
                       {(selected.revokedAt ||
                         selected.registration.revokedAt) && (
                         <Box>
@@ -696,13 +730,15 @@ export function AttendeesList({
                             : "Manual"}
                         </Typography>
                       </Box>
-                      <Box>
-                        <Typography component="dt">Checked in by</Typography>
-                        <Typography component="dd">
-                          {selected.attendance.checkedInByUser?.name ||
-                            "Unavailable"}
-                        </Typography>
-                      </Box>
+                      {full && (
+                        <Box>
+                          <Typography component="dt">Checked in by</Typography>
+                          <Typography component="dd">
+                            {selected.attendance.checkedInByUser?.name ||
+                              "Unavailable"}
+                          </Typography>
+                        </Box>
+                      )}
                     </Box>
                   ) : (
                     <Typography variant="body2" color="text.secondary">
@@ -716,20 +752,6 @@ export function AttendeesList({
                     </Typography>
                   )}
                 </Stack>
-                {result && (
-                  <Alert
-                    severity={
-                      success
-                        ? "success"
-                        : result.code === "FAILED"
-                          ? "error"
-                          : "info"
-                    }
-                    role="status"
-                  >
-                    {resultMessage(result, timezone)}
-                  </Alert>
-                )}
               </Stack>
             </DialogContent>
             {canCheckIn && (

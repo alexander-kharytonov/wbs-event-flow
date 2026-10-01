@@ -1,7 +1,7 @@
 type AttendeePresentation = {
   kind: "PRIMARY" | "GUEST";
   attendeeName: string;
-  attendeeEmail: string | null;
+  attendeeEmail?: string | null;
   ticketNumber: string;
 };
 
@@ -15,6 +15,6 @@ type CheckInFailure = { code: "UNAVAILABLE" | "FAILED"; message: string };
 export type ManualCheckInResult = CheckInDecision | CheckInFailure;
 
 export type CheckInResult =
-  | (CheckInDecision & { attendee: AttendeePresentation })
+  | (CheckInDecision & { attendee?: AttendeePresentation })
   | { code: "INVALID_CREDENTIAL" | "WRONG_EVENT" }
   | CheckInFailure;

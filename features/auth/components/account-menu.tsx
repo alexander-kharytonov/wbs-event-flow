@@ -24,9 +24,11 @@ import { authClient } from "@/lib/auth-client";
 export function AccountMenu({
   name,
   organizerProfileId,
+  hasAssignedEvents = false,
 }: {
   name: string;
   organizerProfileId?: string;
+  hasAssignedEvents?: boolean;
 }) {
   const pathname = usePathname();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
@@ -42,9 +44,8 @@ export function AccountMenu({
     },
     { href: "/account/profile", label: "Profile", icon: PersonOutlined },
   ];
-  const workspaceHref = organizerProfileId
-    ? "/dashboard"
-    : "/onboarding/organizer";
+  const hasWorkspace = Boolean(organizerProfileId || hasAssignedEvents);
+  const workspaceHref = hasWorkspace ? "/dashboard" : "/onboarding/organizer";
   const workspaceActive =
     pathname === workspaceHref || pathname.startsWith(`${workspaceHref}/`);
   const parts = name.trim().split(/\s+/u).filter(Boolean);
@@ -196,14 +197,14 @@ export function AccountMenu({
           onClick={() => setAnchor(null)}
         >
           <ListItemIcon sx={{ color: "inherit" }}>
-            {organizerProfileId ? (
+            {hasWorkspace ? (
               <DashboardOutlined fontSize="small" />
             ) : (
               <EventAvailableOutlined fontSize="small" />
             )}
           </ListItemIcon>
           <ListItemText>
-            {organizerProfileId ? "Dashboard" : "Become an organizer"}
+            {hasWorkspace ? "Dashboard" : "Become an organizer"}
           </ListItemText>
         </MenuItem>
         <Divider />

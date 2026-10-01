@@ -172,7 +172,7 @@ Source: [submission](features/events/server/submit-application.ts).
 
 An Application is one historical submission attempt, not the person's mutable
 registration record. Its submitted payload is eventRevisionId, fullName, email,
-answers, and selected option IDs. Its lifecycle state is status, reviewedAt, and
+answers, and selected option IDs. Its lifecycle state is status, reviewedAt, reviewedByUserId, and
 withdrawnAt. userId is a nullable identity link, not a replacement for historical
 name/email. Verified sessions supply userId/email; names remain applicant input.
 Emails are trimmed and lowercased by submission code.
@@ -236,10 +236,10 @@ REJECTED is terminal and blocks another attempt for the same email/userId.
 WITHDRAWN never transitions back to PENDING. Repeating withdrawal of an already
 WITHDRAWN own application returns success without changing it only while the
 Event lifecycle still permits application operations.
-Review accepts only PENDING, writes reviewedAt, and uses a conditional update.
+Review accepts only PENDING, writes reviewedAt/reviewedByUserId, and uses a conditional update.
 Approval creates Registration, PRIMARY Attendee and Ticket before EmailOutbox/NOTIFY in the same transaction;
 rejection never creates Registration.
-Withdrawal writes withdrawnAt and retains any previous reviewedAt. For an initially
+Withdrawal writes withdrawnAt and retains previous reviewedAt/reviewedByUserId. For an initially
 APPROVED attempt, exactly one active Registration must be conditionally revoked
 using the same decisionNow; any other count throws and rolls back withdrawal.
 
@@ -332,9 +332,10 @@ historical answer contract. Sources: [resolver](features/events/historical-answe
 
 ## 14. Ownership
 
-Organizer routes/actions require a verified User and OrganizerProfile. Owned Event
-lookups and mutations constrain organizerId server-side. Review verifies Event
-ownership while taking the lock. Withdrawal verifies the application's linked
+Owner authoring/lifecycle routes and actions require a verified User and OrganizerProfile.
+Operational routes authorize the verified User as owner or EventStaff through the fixed
+server-only permission boundary. Review rechecks permission after the Event lock.
+Withdrawal verifies the application's linked
 userId; knowledge of publicId or matching email alone is insufficient.
 
 Authenticated Event owners cannot create a new application on their own Event:
@@ -441,7 +442,7 @@ locally to authorized Event/User subscribers. Reconnect repeats LISTEN; the
 broker retains no missed notifications. Slow streams are closed rather than
 accumulating an unbounded queue.
 
-Organizer streams require a verified User, OrganizerProfile, and owned Event;
+Event streams require a verified User with current Event context permission;
 malformed, foreign, and missing Event IDs share a neutral 404. Attendee routing
 uses only the verified authoritative session User ID. Every request rechecks
 authorization without refreshing the session. Stream lifetime is limited to
@@ -634,7 +635,7 @@ withdrawnAt backfills revoked admission at those exact times. Other attempts hav
 no Registration. Correspondence is checked before commit. Application writers
 must be stopped during migration and resumed only with the matching implementation.
 
-Organizer Attendees reads only owned Event Attendees through Registration, with All/Active/Revoked
+Owner/Manager Attendees reads authorized Event Attendees through Registration, with All/Active/Revoked
 filters and identity/grant/revocation snapshots. The Attendees navigation badge
 counts active Attendees, excluding revoked history. Application filters and counts
 continue to count attempts. Organizer Applications searches the loaded safe name/email
@@ -740,15 +741,14 @@ Existing QR history is validated without rewriting it. User deletion SET NULLs
 the actor; it does not remove the fact. No update/delete/revoke/undo writer exists.
 The additive migration intentionally creates no historical Attendance.
 
-The owner-only Server Action derives verified User and OrganizerProfile from the
-authoritative session. Its only client fields are eventId and full qrPayload.
+The check-in Server Action derives the verified User from the authoritative session. Its only client fields are eventId and full qrPayload.
 The server-only parser accepts exactly eventflow:ticket:v1:<credential>, using
 the existing canonical 32-byte/43-character base64url secret validation. It does
 not trim, normalize or accept alternate formats. SHA-256 credentialHash lookup
 requires no decrypt. Invalid/unknown credentials return before an Event lock.
 
-Candidate lookup is not authority. ReadCommitted transaction order is owned
-Event FOR UPDATE, one DB clock_timestamp(), then authoritative Ticket by hash,
+Candidate lookup is not authority. ReadCommitted transaction order is
+Event FOR UPDATE, one DB clock_timestamp(), current actor permission, then authoritative Ticket by hash,
 Attendee, Registration and Attendance reread. Foreign Event returns WRONG_EVENT without
 identity, Ticket number or Event details. After matching the Event, checks are:
 existing Attendance -> ALREADY_CHECKED_IN; cancellation -> EVENT_CANCELLED;
@@ -761,9 +761,9 @@ Publication/archive are not check-in guards. Existing Event locks serialize
 scans with approved Withdraw, Cancel and schedule edits; UNIQUE attendeeId
 is the final duplicate protection, with no generic idempotency or savepoint retry.
 
-Manual's owner-only action derives the verified User/Organizer from the session;
+Manual's action derives the verified User from the session;
 eventId and attendeeId are selectors only. Its ReadCommitted transaction locks the
-owned Event, takes the same post-lock DB decisionNow and rereads Attendee with
+Event, takes the same post-lock DB decisionNow, rechecks permission and rereads Attendee with
 Registration/Attendance. Unknown or foreign attendees return neutral UNAVAILABLE
 without identity. It does not read or require Ticket. The shared server-only core
 applies existing Attendance, cancellation, start, end, then admission revocation
@@ -773,8 +773,8 @@ then the same transactional attendance.changed routed by Registration.userId.
 Infrastructure failures return FAILED, not a domain validation result.
 
 checkedInByUserId means authorized actor User, not Event owner as a domain concept.
-Owner-only authorization remains outside the shared decision/write core but within
-the operation's locked transaction boundary. Iteration 22 grants no Staff access.
+Actor authorization remains outside the shared decision/write core but within
+the operation's locked transaction boundary. Owner, Manager and Reception can check in.
 The shared Event lock and UNIQUE attendeeId serialize Manual/Manual, Manual/QR,
 Withdraw and Cancel; only the first successful insertion records history.
 
@@ -900,3 +900,71 @@ transactional attendees.changed with only eventId and nullable Registration.user
 The existing broker/SSE invalidates Event and linked account views; anonymous pages
 refresh after mutation without SSE. No-op Remove emits nothing. Guest operations
 send no email; cancellation recipients remain Registration/PRIMARY-owner based.
+
+
+## 26. Event Staff / fixed permissions
+
+OWNER remains Event.organizerId -> OrganizerProfile -> User, never an EventStaff row.
+EventStaff has composite primary key (eventId, userId), StaffRole MANAGER/RECEPTION,
+createdAt/updatedAt and a userId index. Event/User deletion CASCADEs memberships.
+Only the owner manages membership, including in draft/archived/terminal Events.
+The service rejects owner self-assignment. Same-role Add and repeated Remove are
+no-ops; different-role Add requires explicit Change Role. Removal is physical DELETE;
+there is no membership or role history. Lifecycle transitions retain membership.
+
+Add uses exact email after trimming/lowercasing, resolves only an existing verified
+User and returns the same unavailable result for nonexistent/unverified/ineligible
+accounts. No autocomplete/directory/invitations/acceptance exists. Successful direct
+assignment discloses eligibility; this is accepted. Add has a bounded in-process
+10-attempt/minute/actor limit (per process, resets on restart); it is not a distributed
+abuse-prevention guarantee. No OrganizerProfile is created for Staff.
+
+The server-only fixed matrix grants OWNER every Event permission. MANAGER has
+context, application/answer/email read and review, full attendee/history/actor read,
+and QR/Manual. RECEPTION has context, minimal active attendee read and QR/Manual.
+Editing Event/forms, draft Preview, publication/lifecycle and Staff management remain
+owner-only. Client role/navigation is presentation, never authority. Every direct
+section checks access independently, including intercepted detail/edit routes.
+Registration/Guest party ownership is unchanged by Staff membership.
+
+Read authorization and projections use current actor identity. All review/check-in
+and membership writers lock Event first with ReadCommitted, then read authoritative
+owner/membership permissions in that transaction. Revoke/role-change committed first
+denies subsequent operations; an already authorized lock holder may finish before
+revoke. No membership lock/version is added. Existing lifecycle, capacity, outbox,
+Ticket issuance and transaction rollback rules remain in force.
+
+Application.reviewedByUserId is nullable User FK with ON DELETE SET NULL. A successful
+Approve/Reject atomically records actor.userId and reviewedAt=decisionNow; withdrawal
+preserves both. Legacy reviewers remain null, with no inferred backfill or retained
+snapshot. A linked Application.userId equal to actor.userId cannot be reviewed;
+anonymous identity is never inferred by email. Staff may otherwise be applicants.
+
+Manager and Reception Overview may read the current Event.description, matching the
+owner Overview even before publication. This explicit description-only exception does
+not expose the workspace snapshot, registration form or other draft fields.
+
+Reception otherwise selects only operational Event identity/schedule/state and active admission
+Attendees with name/kind, grouping/PRIMARY context, Ticket number and Attendance
+time/method. Email, application data/counts, registration form, revoked browsing,
+Attendance actor and Ticket secret/hash/encrypted fields never enter its read DTOs.
+QR results omit email for Reception and omit historical identity for revoked admission,
+while retaining the shared ALREADY_CHECKED_IN priority. Attendance schema, protocol,
+credential/AAD and immutable facts are unchanged.
+
+Owned and assigned Events share Dashboard cards; Staff without OrganizerProfile can
+navigate directly to their assignments. The Event workspace/header/navigation is shared,
+with owner controls and metadata separated from operational projections. Owner sections
+include Staff; Manager sees Overview/Applications/Attendees/Check-in; Reception sees
+Overview/Attendees/Check-in. Reception counters are active/checked-in/not-arrived.
+
+Membership writes emit event.access.changed on the existing transactional NOTIFY
+channel. The strict envelope remains routing-only and browser frames remain empty
+invalidations. Workspace invalidation/connected signals trigger authoritative access
+recheck before refresh. Access loss discards old UI and navigates to Dashboard with a
+short access-changed message; role change reloads the common overview, discarding the
+previous role's client state/cache. Old direct URLs return neutral not-found. Stream
+errors trigger access recheck, never infer revoke from network failure. Existing stream
+expiry/session reauthorization bounds lost-signal delivery to roughly 60 seconds; no
+periodic DB polling or new realtime transport is introduced. Already delivered data
+cannot be erased from a client by revocation.
