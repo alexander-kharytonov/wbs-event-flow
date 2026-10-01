@@ -25,6 +25,11 @@ export async function getEventAttendees(userId: string, eventId: string) {
         return null;
       }
 
+      const canPrintBadges = hasEventPermission(
+        access.role,
+        "badges.print.individual",
+      );
+
       if (!hasEventPermission(access.role, "attendees.read.full")) {
         const event = await getOperationalEvent(tx, eventId);
         const people = await tx.attendee.findMany({
@@ -76,7 +81,7 @@ export async function getEventAttendees(userId: string, eventId: string) {
           attendance: attendanceById.get(person.id) ?? null,
         }));
 
-        return { event, attendees, full: false };
+        return { event, attendees, full: false, canPrintBadges };
       }
 
       const event = await tx.event.findFirst({
@@ -162,6 +167,7 @@ export async function getEventAttendees(userId: string, eventId: string) {
         event: { ...eventDetails, publishedRevision },
         attendees,
         full: true,
+        canPrintBadges,
       };
     },
     { isolationLevel: "RepeatableRead" },

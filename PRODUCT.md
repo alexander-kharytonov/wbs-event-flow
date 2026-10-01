@@ -340,5 +340,17 @@ Designer previews prefer a real active PRIMARY, otherwise use semantic labels wi
 demo records. Preview QR areas are placeholders, not admission credentials. A print
 document is a snapshot at load time and prints only after an explicit Print click.
 Browser/OS paper and scaling settings remain the operator's responsibility. There is
-no Badge issuance or print history. Scanner/manual/Attendees shortcuts, bulk and team
-printing are not implemented in 24A.
+no Badge issuance or print history. Bulk and team printing are not implemented.
+
+Individual operational printing (24B1): successful QR check-in offers Print badge;
+Already checked in offers Reprint badge only when the server supplies a current
+print target. Reprint describes the attendance context, not a recorded previous print.
+The target is only an opaque selector hint; the separate print document rechecks
+access and current eligibility. Opening it stops the scanner/camera but preserves
+the result. Returning to the scanner does not restart the camera: only explicit
+Scan next starts a new scan. No automatic printing or advancement occurs.
+
+Owners, Managers and Reception can open Print badge from attendee detail, including
+after Manual check-in refreshes Attendance. Notifications remain confirmations;
+printing is a persistent detail action. Reception's attendee data is unchanged;
+approved badge content is loaded only in the authorized print document.

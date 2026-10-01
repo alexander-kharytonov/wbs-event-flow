@@ -5,6 +5,7 @@ import CheckCircleOutlined from "@mui/icons-material/CheckCircleOutlined";
 import Close from "@mui/icons-material/Close";
 import HowToRegOutlined from "@mui/icons-material/HowToRegOutlined";
 import PeopleOutlined from "@mui/icons-material/PeopleOutlined";
+import PrintOutlined from "@mui/icons-material/PrintOutlined";
 import RadioButtonUncheckedOutlined from "@mui/icons-material/RadioButtonUncheckedOutlined";
 import SearchOutlined from "@mui/icons-material/SearchOutlined";
 import {
@@ -68,7 +69,9 @@ export function AttendeesList({
   timezone,
   lifecycle,
   full = true,
+  canPrintBadges,
 }: {
+  canPrintBadges: boolean;
   full?: boolean;
   eventId: string;
   attendees: OrganizerAttendee[];
@@ -754,11 +757,29 @@ export function AttendeesList({
                 </Stack>
               </Stack>
             </DialogContent>
-            {canCheckIn && (
+            {(canCheckIn || canPrintBadges) && (
               <DialogActions>
-                <Button variant="contained" loading={pending} onClick={checkIn}>
-                  Manual check-in
-                </Button>
+                {canPrintBadges && (
+                  <Button
+                    variant="outlined"
+                    startIcon={<PrintOutlined />}
+                    href={`/print/events/${eventId}/badges/${selected.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    disabled={pending}
+                  >
+                    Print badge
+                  </Button>
+                )}
+                {canCheckIn && (
+                  <Button
+                    variant="contained"
+                    loading={pending}
+                    onClick={checkIn}
+                  >
+                    Manual check-in
+                  </Button>
+                )}
               </DialogActions>
             )}
           </>

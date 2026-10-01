@@ -15,6 +15,7 @@ import {
   badgeText,
 } from "@/features/badges/badge-presentation";
 import { resolveBadgeField } from "@/features/badges/server/historical-field";
+import { canPrintIndividualBadge } from "@/features/badges/server/individual-print-eligibility";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 import {
   authorizeEventActor,
@@ -167,14 +168,14 @@ export async function buildBadgePresentation(
 
       const event = await tx.event.findUniqueOrThrow({
         where: { id: eventId },
-        select: { title: true, cancelledAt: true, badgeLayout: true },
+        select: { id: true, title: true, cancelledAt: true, badgeLayout: true },
       });
       const parsed =
         options.draftLayout === undefined
           ? readBadgeLayout(event.badgeLayout)
           : badgeLayoutSchema.safeParse(options.draftLayout);
 
-      if (!parsed.success || (options.mode === "PRINT" && event.cancelledAt)) {
+      if (!parsed.success) {
         return null;
       }
 
@@ -200,11 +201,26 @@ export async function buildBadgePresentation(
           id: true,
           name: true,
           kind: true,
-          registration: { select: { sourceApplicationId: true } },
+          revokedAt: true,
+          registration: {
+            select: {
+              sourceApplicationId: true,
+              eventId: true,
+              revokedAt: true,
+            },
+          },
         },
       });
 
       if (!person && (options.mode === "PRINT" || attendeeId)) {
+        return null;
+      }
+
+      const canPrint = Boolean(
+        person && canPrintIndividualBadge(access.role, event, person),
+      );
+
+      if (options.mode === "PRINT" && !canPrint) {
         return null;
       }
 
@@ -341,7 +357,7 @@ export async function buildBadgePresentation(
       return {
         presentation,
         attendeeId: person?.id ?? null,
-        canPrint: Boolean(person && !event.cancelledAt),
+        canPrint,
         // Reception gets neither config references nor catalog/issues about Applications.
         ...(options.mode === "PREVIEW"
           ? {

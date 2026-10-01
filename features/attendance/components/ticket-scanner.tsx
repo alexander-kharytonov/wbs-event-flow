@@ -1,5 +1,6 @@
 "use client";
 
+import PrintOutlined from "@mui/icons-material/PrintOutlined";
 import QrCodeScannerOutlined from "@mui/icons-material/QrCodeScannerOutlined";
 import {
   Alert,
@@ -67,6 +68,7 @@ export function TicketScanner({
   const mounted = useRef(false);
   const phase = useRef<ScannerState>("IDLE");
   const generation = useRef(0);
+  const printCleanupPending = useRef(false);
   const discardPendingResult = useRef(false);
   const [state, setState] = useState<ScannerState>("IDLE");
   const [result, setResult] = useState<CheckInResult | null>(null);
@@ -74,6 +76,11 @@ export function TicketScanner({
   const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
   const [cameraId, setCameraId] = useState("");
   const [cameraOn, setCameraOn] = useState(false);
+  const printTarget =
+    result &&
+    (result.code === "CHECKED_IN" || result.code === "ALREADY_CHECKED_IN")
+      ? result.printTarget
+      : undefined;
   const stopCamera = useCallback(() => {
     if (mounted.current) {
       setCameraOn(false);
@@ -491,7 +498,7 @@ export function TicketScanner({
           >
             Stop scanner
           </Button>
-        ) : (
+        ) : state !== "RESULT" ? (
           <Button
             fullWidth
             variant="contained"
@@ -501,7 +508,7 @@ export function TicketScanner({
           >
             Start scanner
           </Button>
-        )}
+        ) : null}
       </Paper>
 
       {!result && !error ? (
@@ -561,15 +568,52 @@ export function TicketScanner({
               </Alert>
             )}
           </Stack>
-          {cameraOn && (state === "RESULT" || state === "ERROR") && (
-            <Button
-              fullWidth
-              variant="contained"
-              startIcon={<QrCodeScannerOutlined />}
-              onClick={scanNext}
-            >
-              Scan next
-            </Button>
+          {(state === "RESULT" || (cameraOn && state === "ERROR")) && (
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
+              {state === "RESULT" && printTarget && (
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  startIcon={<PrintOutlined />}
+                  type="button"
+                  onClick={() => {
+                    if (
+                      phase.current !== "RESULT" ||
+                      printCleanupPending.current
+                    ) {
+                      return;
+                    }
+
+                    printCleanupPending.current = true;
+                    // Preserve RESULT and drain the old decoder before Scan next.
+                    generation.current += 1;
+                    void stopCamera()
+                      .finally(() => {
+                        printCleanupPending.current = false;
+                      })
+                      .catch(() => {});
+                    // Stay within user activation; never await cleanup before opening.
+                    window.open(
+                      `/print/events/${eventId}/badges/${printTarget.attendeeId}`,
+                      "_blank",
+                      "noopener,noreferrer",
+                    );
+                  }}
+                >
+                  {result?.code === "ALREADY_CHECKED_IN"
+                    ? "Reprint badge"
+                    : "Print badge"}
+                </Button>
+              )}
+              <Button
+                fullWidth
+                variant="contained"
+                startIcon={<QrCodeScannerOutlined />}
+                onClick={scanNext}
+              >
+                Scan next
+              </Button>
+            </Stack>
           )}
         </Paper>
       )}

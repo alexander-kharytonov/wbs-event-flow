@@ -807,7 +807,14 @@ is unavailable, initially prefers an environment camera after user interaction,
 and offers camera selection after permission. Switching cameras awaits the previous
 scanner cleanup. After a decode, the camera/decoder stays active but further
 decode results are ignored during processing and until explicit Scan next;
-Scan next reopens the submission gate without restarting the camera. Stop scanner
+Scan next reopens the submission gate without restarting an active camera. Opening
+Print/Reprint invalidates the decoder generation and releases camera/decoder through
+the existing cleanup path, preserving RESULT. Scanner Print/Reprint is a button action,
+not a navigable link. It opens a new tab synchronously within user activation with
+noopener/noreferrer, without awaiting cleanup; repeated clicks during cleanup are ignored.
+Destroy removes visibility listeners; returning focus does not restart
+the camera. Scan next remains available with camera off and awaits pending cleanup
+before starting a fresh generation. Stop scanner
 and unmount release media/decoder. Stopping during a pending check-in releases the
 camera without cancelling the request or allowing another before its result.
 Explicit Stop clears the displayed result/error and suppresses the pending
@@ -1028,3 +1035,20 @@ controls are excluded by print CSS. The document is a snapshot at load time: no 
 polling or promise to retract previously delivered HTML/PDF/paper. New documents reread
 current state. Revoked paper QR cannot create new Attendance; the existing historical
 ALREADY_CHECKED_IN priority is unchanged. Browser/OS scaling is outside application control.
+
+Individual operational printing (24B1) adds only an optional opaque
+printTarget.attendeeId to QR CHECKED_IN/ALREADY_CHECKED_IN results, after Event
+authorization and match. A shared server-only individual eligibility helper checks
+permission, Event relation, cancellation and active Registration/Attendee. It does
+not require a Ticket or inspect Attendance, layout, answers or crypto. Other QR
+outcomes never receive a print target. Historical Attendance still wins before
+current admission checks; ALREADY_CHECKED_IN is not print authorization.
+The target is a non-authoritative UX hint and may become stale. The existing print
+route always reauthorizes and rebuilds the document from current saved state.
+
+Attendee detail exposes a persistent permission-gated Print badge link using only
+Event/Attendee IDs. Manual result notifications and refresh remain unchanged.
+Reception attendee records are not expanded; a section-level permission boolean
+only controls action visibility. No badge content crosses these operational DTOs.
+Scanner Reprint is attendance-context language, not evidence of earlier printing.
+No print history, bulk/team endpoint or new credential lifecycle is introduced.
