@@ -1,7 +1,8 @@
 import type { BadgeLayout } from "@/features/badges/badge-layout";
 
 // Only rendered values and constrained visual settings cross the UI boundary.
-export type BadgePresentation = {
+type AttendeeBadgePresentation = {
+  variant: "ATTENDEE";
   name: string;
   eventName: string | null;
   attendeeType: "PRIMARY" | "GUEST" | null;
@@ -15,6 +16,49 @@ export type BadgePresentation = {
     "preset" | "size" | "orientation" | "nameSize" | "alignment"
   >;
 };
+
+export type TeamBadgePresentation = Omit<
+  AttendeeBadgePresentation,
+  | "variant"
+  | "attendeeType"
+  | "secondary"
+  | "tertiary"
+  | "ticketNumber"
+  | "qrDataUrl"
+  | "qrPlaceholder"
+> & {
+  variant: "TEAM";
+  role: "Organizer" | "Manager" | "Reception";
+  attendeeType: null;
+  secondary: null;
+  tertiary: null;
+  ticketNumber: null;
+  qrDataUrl: null;
+  qrPlaceholder: false;
+};
+
+export type BadgePresentation =
+  | AttendeeBadgePresentation
+  | TeamBadgePresentation;
+
+export function attendeeBadgePresentation(
+  layout: BadgeLayout,
+  person: { name: string; kind: "PRIMARY" | "GUEST" },
+  eventTitle: string,
+): AttendeeBadgePresentation {
+  return {
+    variant: "ATTENDEE",
+    name: badgeText(person.name),
+    eventName: layout.showEventName ? badgeText(eventTitle) : null,
+    attendeeType: layout.showAttendeeType ? person.kind : null,
+    secondary: null,
+    tertiary: null,
+    ticketNumber: null,
+    qrDataUrl: null,
+    qrPlaceholder: false,
+    style: badgeStyle(layout),
+  };
+}
 
 export type BadgeIssue = {
   slot: "secondary" | "tertiary";

@@ -1004,9 +1004,8 @@ or automatic remapping. The designer also warns about incompatible active histor
 registrations beyond its selected preview attendee.
 
 The fixed matrix grants badges.configure to OWNER; badges.print.individual to OWNER,
-MANAGER and RECEPTION; badges.print.bulk/team to OWNER and MANAGER. Only configure and
-individual rendering are implemented in 24A; the bulk permission gates workspace
-visibility for OWNER/MANAGER, not a bulk operation. No team/bulk endpoints exist.
+MANAGER and RECEPTION; badges.print.bulk/team to OWNER and MANAGER. The bulk permission
+gates workspace visibility for OWNER/MANAGER; 24B2 implements bulk/team operations.
 Reception's existing read DTO restrictions remain, with this explicit exception:
 an authorized individual BadgePresentation may contain name/type, Event title,
 owner-selected custom values, Ticket number and decodable QR image. It never includes
@@ -1021,7 +1020,7 @@ The existing server-only Ticket renderer uses the unchanged Attendee AAD and
 eventflow:ticket:v1 protocol. No secret is issued or rotated by printing.
 
 Designer draft previews require owner authority, validate catalog bindings and use
-only safe presentation values; Manager previews use the saved layout. Preview never
+only safe presentation values; Manager operational printing uses the saved layout. Preview never
 exposes a real admission QR. Without an active attendee, semantic labels are rendered
 without records or fake identities. All text uses escaped React nodes, presentation-only
 control-character normalization, word wrapping and two-line clipping. QR has a reserved
@@ -1051,4 +1050,61 @@ Event/Attendee IDs. Manual result notifications and refresh remain unchanged.
 Reception attendee records are not expanded; a section-level permission boolean
 only controls action visibility. No badge content crosses these operational DTOs.
 Scanner Reprint is attendance-context language, not evidence of earlier printing.
-No print history, bulk/team endpoint or new credential lifecycle is introduced.
+24B1 introduces no print history, bulk/team endpoint or new credential lifecycle.
+
+
+24B2 adds operational Attendees and Event team workspace sections for OWNER/MANAGER;
+Design remains OWNER-only and Reception has no workspace, bulk or team access. The
+selection read model projects only attendee ID/name/kind and, for GUEST only, the
+PRIMARY name from the same Registration's Attendees. This Guest-of context is only
+for OWNER/MANAGER browsing/selection, never badge presentation or printed content;
+PRIMARY rows have no Guest-of context. The team read model projects only name/role,
+never the owner-only Staff management DTO or email. Operational printing
+always rereads saved/default layout; unsaved client design is never submitted.
+
+Selected printing is session-authenticated native POST with selectors only, targeting
+a new tab. It requires verified fresh session, badges.print.bulk, authorized Event scope,
+exact configured application Origin (and same-origin Fetch Metadata when supplied),
+strict URL-encoded input, a 16 KiB streamed body limit and 1–200 unique UUIDs. Invalid,
+foreign, inactive or revoked selected attendees reject the entire request without
+identifying which selector failed. Browser POST refresh may resubmit and produces a
+new snapshot; no state/history is written. Successful HTML is fully resolved and
+buffered before delivery, so partial credential-bearing documents are not returned.
+
+All-active GET selects active Registration + non-revoked Attendee, both PRIMARY/GUEST,
+ordered by (createdAt ASC, id ASC). It reads at most 201 selectors and builds at most
+200 presentations. Continuation uses a shape-validated (lastCreatedAt, lastId) predicate
+inside the authorized Event query; it is not authority and need not match a live row.
+No offsets, client-provided full list, fixed historical ranges or automatic batch tabs
+are used. Next batch is an explicit action in the print document, with a new live
+snapshot. Search and selection only affect workspace browsing/selected printing.
+
+Each bulk/team document uses one RepeatableRead snapshot for actor authorization,
+Event/current layout and all required domain reads. Limits are enforced before loading
+historical answers or Ticket crypto, and again on final presentation count. Attendee,
+source Application/answer and active Ticket reads are batched, never an individual
+builder per attendee. Shared 24A normalization/historical resolution and Ticket AAD/hash
+verification remain authoritative; sequential QR generation occurs after transaction
+completion. Missing/revoked Tickets omit Ticket content. Bulk crypto/QR/render failure
+returns a generic retry state for the whole document. Cancellation or permission loss
+at the next authoritative request denies access. Already delivered documents remain
+snapshots, without SSE or polling.
+
+TEAM is an explicit visual presentation variant. Event.organizer.user is first with
+Organizer label; current EventStaff follow (createdAt ASC, userId ASC), with Manager or
+Reception labels. Only User.name and controlled role labels are exposed. The same
+saved layout supplies dimensions/style and optional Event title; TEAM ignores showQr,
+showTicketNumber, secondary/tertiary bindings and attendee type, always showing role.
+It never contains Ticket/QR/authentication or registration/application content. The
+team endpoint independently authorizes badges.print.team and rejects cancelled Events.
+At most 200 people including Organizer are allowed; larger teams fail before presentation
+materialization. There is no team batching UI.
+
+Individual and batch documents share one React badge markup and physical print CSS:
+one badge per page, no split, breaks only between pages, controls hidden in print.
+All user text remains normalized, grapheme-limited and React-escaped; no raw user HTML
+or arbitrary CSS is accepted. Route Handler HTML (including errors) has private/no-store,
+noindex/nofollow/noarchive, no-referrer and HTML content type, without ApplicationShell.
+No request body, credentials or crypto failures are logged. No schema/migration,
+Badge/TeamBadge/PrintJob/PrintSelection entity, print history, A4 sheets, vendor printer
+or automatic printing is introduced; Ticket/Attendance/protocol semantics are unchanged.

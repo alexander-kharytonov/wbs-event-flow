@@ -1,6 +1,5 @@
 import { badgeDimensions } from "@/features/badges/badge-layout";
 import type { BadgePresentation } from "@/features/badges/badge-presentation";
-import styles from "@/features/badges/components/badge.module.css";
 
 export function Badge({ badge }: { badge: BadgePresentation }) {
   const dimensions = badgeDimensions(badge.style);
@@ -9,7 +8,7 @@ export function Badge({ badge }: { badge: BadgePresentation }) {
   return (
     <article
       aria-label="Badge"
-      className={styles.badge}
+      className="ef-badge-badge"
       data-preset={badge.style.preset}
       data-orientation={badge.style.orientation}
       data-alignment={badge.style.alignment}
@@ -20,28 +19,33 @@ export function Badge({ badge }: { badge: BadgePresentation }) {
         height: `${dimensions.height}mm`,
       }}
     >
-      <div className={styles.text}>
+      <div className="ef-badge-text">
         {badge.eventName && (
-          <div className={styles.event}>{badge.eventName}</div>
+          <div className="ef-badge-event">{badge.eventName}</div>
         )}
-        <div className={styles.name}>{badge.name}</div>
+        <div className="ef-badge-name">{badge.name}</div>
+        {badge.variant === "TEAM" && (
+          <div className="ef-badge-type">{badge.role}</div>
+        )}
         {badge.attendeeType && (
-          <div className={styles.type}>
+          <div className="ef-badge-type">
             {badge.attendeeType === "GUEST" ? "Guest" : "Attendee"}
           </div>
         )}
         {badge.secondary && (
-          <div className={styles.field}>{badge.secondary}</div>
+          <div className="ef-badge-field">{badge.secondary}</div>
         )}
-        {badge.tertiary && <div className={styles.field}>{badge.tertiary}</div>}
+        {badge.tertiary && (
+          <div className="ef-badge-field">{badge.tertiary}</div>
+        )}
       </div>
       {(qr || badge.ticketNumber) && (
-        <div className={styles.ticket}>
+        <div className="ef-badge-ticket">
           {badge.qrDataUrl && (
             // The generated data URL already contains the QR quiet zone. No optimizer or remote URL.
             // biome-ignore lint/performance/noImgElement: local QR data presentation at physical print size
             <img
-              className={styles.qr}
+              className="ef-badge-qr"
               src={badge.qrDataUrl}
               alt="Ticket QR"
               width={240}
@@ -49,12 +53,10 @@ export function Badge({ badge }: { badge: BadgePresentation }) {
             />
           )}
           {badge.qrPlaceholder && (
-            <div className={`${styles.qr} ${styles.placeholder}`}>
-              QR preview
-            </div>
+            <div className="ef-badge-qr ef-badge-placeholder">QR preview</div>
           )}
           {badge.ticketNumber && (
-            <div className={styles.number}>{badge.ticketNumber}</div>
+            <div className="ef-badge-number">{badge.ticketNumber}</div>
           )}
         </div>
       )}

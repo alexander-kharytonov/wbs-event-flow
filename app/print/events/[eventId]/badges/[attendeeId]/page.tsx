@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { badgeDimensions } from "@/features/badges/badge-layout";
-import { Badge } from "@/features/badges/components/badge";
 import { PrintBadgeButton } from "@/features/badges/components/print-button";
+import { BadgePrintPages } from "@/features/badges/components/print-pages";
 import { buildBadgePresentation } from "@/features/badges/server/badges";
 import { requireVerifiedUser } from "@/lib/session";
-import styles from "./print.module.css";
 
 export const dynamic = "force-dynamic";
 
@@ -30,17 +28,12 @@ export default async function BadgePrintPage({
     notFound();
   }
 
-  const dimensions = badgeDimensions(result.presentation.style);
-
   return (
-    <main className={styles.document} data-badge-document>
-      <style>{`@page { size: ${dimensions.width}mm ${dimensions.height}mm; margin: 0; }`}</style>
-      <div className={styles.controls}>
+    <main className="ef-print-document" data-badge-document>
+      <div className="ef-print-controls">
         <PrintBadgeButton />
       </div>
-      <div className={styles.page}>
-        <Badge badge={result.presentation} />
-      </div>
+      <BadgePrintPages badges={[result.presentation]} />
     </main>
   );
 }

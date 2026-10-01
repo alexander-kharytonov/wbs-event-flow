@@ -340,7 +340,7 @@ Designer previews prefer a real active PRIMARY, otherwise use semantic labels wi
 demo records. Preview QR areas are placeholders, not admission credentials. A print
 document is a snapshot at load time and prints only after an explicit Print click.
 Browser/OS paper and scaling settings remain the operator's responsibility. There is
-no Badge issuance or print history. Bulk and team printing are not implemented.
+no Badge issuance or print history.
 
 Individual operational printing (24B1): successful QR check-in offers Print badge;
 Already checked in offers Reprint badge only when the server supplies a current
@@ -354,3 +354,30 @@ Owners, Managers and Reception can open Print badge from attendee detail, includ
 after Manual check-in refreshes Attendance. Notifications remain confirmations;
 printing is a persistent detail action. Reception's attendee data is unchanged;
 approved badge content is loaded only in the authorized print document.
+
+
+Operational batch printing (24B2): OWNER has Design / Attendees / Event team sections;
+MANAGER has Attendees / Event team, without Designer/settings/save. RECEPTION remains
+individual-only and has no Badges workspace. Operational lists contain only attendee
+ID/name/kind or team name/role. Printing always uses the current saved/default design,
+never unsaved Designer changes.
+
+Print selected accepts 1–200 unique active attendees (PRIMARY and GUEST), ordered by
+Attendee.createdAt then id, independently of selection order. Any unavailable selector
+rejects the entire document neutrally; selection does not reserve admission. A native
+POST opens a separate tab. Refresh may resubmit POST and builds a new snapshot without
+writing domain state. Print all active ignores search/selection and selects up to 200
+current active attendees server-side. More results expose an explicit Print next batch
+in the document, using live (createdAt, id) keyset continuation, never fixed historical
+ranges or offset. Each document has one authoritative snapshot; the active set may
+change between batches. Cancelled Events deny printing; Attendance is irrelevant.
+Missing/revoked Tickets leave visual attendee badges without Ticket content.
+
+Print event team uses Organizer first, then current staff in createdAt/userId order,
+with controlled Organizer / Manager / Reception labels and authoritative User.name.
+Team badges use the same design but always include role and never Ticket, QR,
+authentication content or registration fields. More than 200 team members is refused;
+there is no team batching or individual/selected team printing. All documents use one
+badge per physical page with explicit printing. No schema migration, persistent Badge,
+TeamBadge, PrintJob, print history, A4 sheets, vendor printer integration or automatic
+printing is introduced.

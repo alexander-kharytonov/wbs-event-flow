@@ -9,9 +9,9 @@ import {
   sameBadgeField,
 } from "@/features/badges/badge-layout";
 import {
+  attendeeBadgePresentation,
   type BadgeIssue,
   type BadgePresentation,
-  badgeStyle,
   badgeText,
 } from "@/features/badges/badge-presentation";
 import { resolveBadgeField } from "@/features/badges/server/historical-field";
@@ -224,19 +224,12 @@ export async function buildBadgePresentation(
         return null;
       }
 
-      const presentation: BadgePresentation = {
-        name: person ? badgeText(person.name) : "Attendee name",
-        eventName: layout.showEventName ? badgeText(event.title) : null,
-        attendeeType: layout.showAttendeeType
-          ? (person?.kind ?? "PRIMARY")
-          : null,
-        secondary: null,
-        tertiary: null,
-        ticketNumber: null,
-        qrDataUrl: null,
-        qrPlaceholder: options.mode === "PREVIEW" && layout.showQr,
-        style: badgeStyle(layout),
-      };
+      const presentation: BadgePresentation = attendeeBadgePresentation(
+        layout,
+        person ?? { name: "Attendee name", kind: "PRIMARY" },
+        event.title,
+      );
+      presentation.qrPlaceholder = options.mode === "PREVIEW" && layout.showQr;
       const issues: BadgeIssue[] = [];
 
       if (!person) {

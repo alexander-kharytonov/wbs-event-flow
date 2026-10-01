@@ -22,6 +22,7 @@ import {
   sameBadgeField,
 } from "@/features/badges/badge-layout";
 import { Badge } from "@/features/badges/components/badge";
+import { badgeCss } from "@/features/badges/components/badge-styles";
 import type { buildBadgePresentation } from "@/features/badges/server/badges";
 
 type Preview = NonNullable<Awaited<ReturnType<typeof buildBadgePresentation>>>;
@@ -396,6 +397,7 @@ export function BadgeWorkspace({
                     boxShadow: 1,
                   }}
                 >
+                  <style>{badgeCss}</style>
                   <Badge badge={preview.presentation} />
                 </Box>
               </Box>

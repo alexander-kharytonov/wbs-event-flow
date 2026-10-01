@@ -1,4 +1,6 @@
-.badge {
+// Fixed application CSS shared by React preview and all print transports.
+export const badgeCss = `
+.ef-badge-badge {
   box-sizing: border-box;
   flex-shrink: 0;
   padding: 3mm;
@@ -16,7 +18,7 @@
   -webkit-print-color-adjust: exact;
 }
 
-.text {
+.ef-badge-text {
   display: flex;
   flex-direction: column;
   gap: 1mm;
@@ -25,9 +27,9 @@
   overflow: hidden;
 }
 
-.event,
-.name,
-.field {
+.ef-badge-event,
+.ef-badge-name,
+.ef-badge-field {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -37,30 +39,30 @@
   flex-shrink: 0;
 }
 
-.event {
+.ef-badge-event {
   font-size: 3mm;
   max-height: 6.9mm;
 }
 
-.name {
+.ef-badge-name {
   font-size: 5mm;
   font-weight: 700;
   max-height: 11.5mm;
 }
 
-.field {
+.ef-badge-field {
   font-size: 3mm;
   max-height: 6.9mm;
 }
 
-.type {
+.ef-badge-type {
   font-size: 2.6mm;
   line-height: 1.2;
   text-transform: uppercase;
   letter-spacing: 0.3mm;
 }
 
-.ticket {
+.ef-badge-ticket {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -70,7 +72,7 @@
   overflow: hidden;
 }
 
-.qr {
+.ef-badge-qr {
   display: block;
   width: 24mm;
   height: 24mm;
@@ -79,7 +81,7 @@
   background: #fff;
 }
 
-.placeholder {
+.ef-badge-placeholder {
   display: grid;
   place-items: center;
   border: 0.3mm dashed #888;
@@ -88,56 +90,57 @@
   color: #555;
 }
 
-.number {
+.ef-badge-number {
   font: 2.6mm / 1.2 monospace;
   white-space: nowrap;
 }
 
-.badge[data-preset="CLASSIC"] .event {
+.ef-badge-badge[data-preset="CLASSIC"] .ef-badge-event {
   font-weight: 700;
 }
 
-.badge[data-preset="MINIMAL"] .type {
+.ef-badge-badge[data-preset="MINIMAL"] .ef-badge-type {
   text-transform: none;
   letter-spacing: normal;
 }
 
-.badge[data-preset="CHECK_IN"] .type {
+.ef-badge-badge[data-preset="CHECK_IN"] .ef-badge-type {
   font-weight: 700;
 }
 
-.badge[data-preset="CHECK_IN"] .ticket {
+.ef-badge-badge[data-preset="CHECK_IN"] .ef-badge-ticket {
   grid-column: 1;
   grid-row: 1;
 }
 
-.badge[data-preset="CHECK_IN"]:has(.ticket) {
+.ef-badge-badge[data-preset="CHECK_IN"]:has(.ef-badge-ticket) {
   grid-template-columns: auto minmax(0, 1fr);
 }
 
-.badge[data-orientation="PORTRAIT"],
-.badge[data-orientation="PORTRAIT"][data-preset="CHECK_IN"]:has(.ticket) {
+.ef-badge-badge[data-orientation="PORTRAIT"],
+.ef-badge-badge[data-orientation="PORTRAIT"][data-preset="CHECK_IN"]:has(.ef-badge-ticket) {
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr) auto;
   gap: 2mm;
 }
 
-.badge[data-orientation="PORTRAIT"] .ticket {
+.ef-badge-badge[data-orientation="PORTRAIT"] .ef-badge-ticket {
   grid-column: 1;
   grid-row: 2;
   justify-self: center;
 }
 
-.badge[data-alignment="CENTER"] {
+.ef-badge-badge[data-alignment="CENTER"] {
   text-align: center;
 }
 
-.badge[data-name-size="SMALL"] .name {
+.ef-badge-badge[data-name-size="SMALL"] .ef-badge-name {
   font-size: 4mm;
   max-height: 9.2mm;
 }
 
-.badge[data-name-size="LARGE"] .name {
+.ef-badge-badge[data-name-size="LARGE"] .ef-badge-name {
   font-size: 6mm;
   max-height: 13.8mm;
 }
+`;
