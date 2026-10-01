@@ -968,3 +968,63 @@ errors trigger access recheck, never infer revoke from network failure. Existing
 expiry/session reauthorization bounds lost-signal delivery to roughly 60 seconds; no
 periodic DB polling or new realtime transport is introduced. Already delivered data
 cannot be erased from a client by revocation.
+
+## 27. Derived badges / operational layout (24A)
+
+Badge has no persistent entity, issuance, credential or print history. Its presentation
+is derived from Attendee, Event operational layout, available active Ticket and, only
+for PRIMARY, submitted Application answers. Printing does not write Attendance or
+change admission. Guest answers are never inferred from their Registration PRIMARY.
+
+Event.badgeLayout is nullable JSON: SQL null means the built-in Classic default.
+A strict formatVersion=1 schema permits only fixed presets, physical size presets,
+orientation, display switches, two optional field descriptors, name size and alignment.
+No arbitrary HTML/CSS/coordinates or custom dimensions are accepted. One authoritative
+size mapping serves preview and print. Owner Save locks Event, rereads badges.configure
+permission after the lock and validates descriptors against the Event's catalog.
+It writes only badgeLayout, preserving contentVersion, publishedRevisionId and
+publication timestamps. Badge config is excluded from public EventRevision snapshots.
+
+The catalog combines draft fields, validated immutable EventRevision fields and saved
+bindings, deduplicated by ID/type/label. Historical bindings have no FK to mutable
+RegistrationField. Resolution uses Attendee -> Registration.sourceApplication ->
+Application.eventRevision.snapshot plus ApplicationAnswer, never current draft options.
+Exact fieldId/type/label compatibility is required. Only SHORT_TEXT, LONG_TEXT and
+SINGLE_CHOICE are supported; choice labels come from that submitted snapshot. Missing
+fields/answers are omitted. Incompatibility or malformed data omits the value and
+produces structured owner preview diagnostics, never string-based status comparisons
+or automatic remapping. The designer also warns about incompatible active historical
+registrations beyond its selected preview attendee.
+
+The fixed matrix grants badges.configure to OWNER; badges.print.individual to OWNER,
+MANAGER and RECEPTION; badges.print.bulk/team to OWNER and MANAGER. Only configure and
+individual rendering are implemented in 24A; the bulk permission gates workspace
+visibility for OWNER/MANAGER, not a bulk operation. No team/bulk endpoints exist.
+Reception's existing read DTO restrictions remain, with this explicit exception:
+an authorized individual BadgePresentation may contain name/type, Event title,
+owner-selected custom values, Ticket number and decodable QR image. It never includes
+Application/answers/snapshot/email/catalog or raw/hash/encrypted Ticket fields.
+
+The server builder checks current session-derived actor permissions and Event-scoped
+Attendee/Registration activity in a consistent read transaction. Cancelled Events deny
+print; publication, schedule completion and archive do not independently deny it.
+Check-in is irrelevant. Missing/revoked Ticket yields a visual badge without Ticket
+content; QR rendering failure also suppresses Ticket content without exposing errors.
+The existing server-only Ticket renderer uses the unchanged Attendee AAD and
+eventflow:ticket:v1 protocol. No secret is issued or rotated by printing.
+
+Designer draft previews require owner authority, validate catalog bindings and use
+only safe presentation values; Manager previews use the saved layout. Preview never
+exposes a real admission QR. Without an active attendee, semantic labels are rendered
+without records or fake identities. All text uses escaped React nodes, presentation-only
+control-character normalization, word wrapping and two-line clipping. QR has a reserved
+physical area and quiet zone independent of text length.
+
+The separate dynamic individual print page has fresh authorization, opaque Event/
+Attendee selectors, private/no-store, no-referrer and noindex headers, and no application
+or workspace chrome. It rechecks eligibility and loads current saved/default config.
+One badge uses one physical page. Printing is explicit after fonts/images are ready;
+controls are excluded by print CSS. The document is a snapshot at load time: no SSE,
+polling or promise to retract previously delivered HTML/PDF/paper. New documents reread
+current state. Revoked paper QR cannot create new Attendance; the existing historical
+ALREADY_CHECKED_IN priority is unchanged. Browser/OS scaling is outside application control.

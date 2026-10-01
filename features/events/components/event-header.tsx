@@ -18,6 +18,7 @@ const eventSections: {
     | "registration-form"
     | "preview"
     | "staff"
+    | "badges"
     | "applications"
     | "attendees"
     | "check-in";
@@ -43,6 +44,7 @@ const eventSections: {
     permission: "attendees.read.reception",
   },
   { id: "check-in", label: "Check-in", permission: "checkIn.qr" },
+  { id: "badges", label: "Badges", permission: "badges.print.bulk" },
 ];
 
 import { BackLink } from "@/components/ui/back-link";

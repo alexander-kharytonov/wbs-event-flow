@@ -306,3 +306,39 @@ reviews record the acting User; historical unknown reviewers remain unknown. Mem
 changes refresh open workspaces; revoked users see “Your access to this event has
 changed.” and return to Dashboard. Role changes discard previous-role client state.
 Direct visits to inaccessible Events or sections return neutral not-found responses.
+
+## Badges (24A)
+
+A badge is a derived presentation of one active Attendee, not a new admission,
+credential or stored Badge entity. Printing never changes Attendance and can happen
+before check-in. Owners and Managers have a Badges workspace; only owners configure
+its layout. Reception has individual print access without a Badges tab.
+
+Each Event has one operational layout, independent of Publish/Republish. A null layout
+uses Classic defaults. Classic, Minimal and Check-in presets support 90 × 60, 85 × 54
+and 100 × 70 mm, either orientation, limited text settings and optional Event/type/
+Ticket/QR fields. Save affects newly opened print documents.
+
+Owners explicitly select up to two SHORT_TEXT, LONG_TEXT or SINGLE_CHOICE questions.
+PRIMARY values come from the submitted Application revision only when field ID, type
+and label match the selected descriptor. Missing values are omitted; incompatible
+values are omitted with owner preview warnings. Guests never inherit PRIMARY answers.
+Text is limited to two visible lines per field.
+
+Reception may see the owner-approved individual BadgePresentation, including selected
+custom values and the existing, decodable Ticket QR. This narrow exception does not
+expose Applications, answer models, revision snapshots, email, the field catalog or
+raw Ticket crypto fields. Printed/PDF data is not secret from its recipient.
+
+Individual print opens explicitly in a separate tab without workspace chrome, using
+fresh authorization, active Registration/Attendee checks and the current saved layout.
+Cancelled Events deny printing. Draft, upcoming, ongoing, completed and archived Events
+otherwise allow it. Missing, revoked or unavailable Tickets leave a visual badge
+without a QR/available Ticket number. There is no new QR protocol or credential.
+
+Designer previews prefer a real active PRIMARY, otherwise use semantic labels without
+demo records. Preview QR areas are placeholders, not admission credentials. A print
+document is a snapshot at load time and prints only after an explicit Print click.
+Browser/OS paper and scaling settings remain the operator's responsibility. There is
+no Badge issuance or print history. Scanner/manual/Attendees shortcuts, bulk and team
+printing are not implemented in 24A.

@@ -1,0 +1,143 @@
+.badge {
+  box-sizing: border-box;
+  flex-shrink: 0;
+  padding: 3mm;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 3mm;
+  overflow: hidden;
+  background: #fff;
+  color: #111;
+  font-family: Arial, sans-serif;
+  text-align: left;
+  break-inside: avoid;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 1mm;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.event,
+.name,
+.field {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  line-height: 1.15;
+  flex-shrink: 0;
+}
+
+.event {
+  font-size: 3mm;
+  max-height: 6.9mm;
+}
+
+.name {
+  font-size: 5mm;
+  font-weight: 700;
+  max-height: 11.5mm;
+}
+
+.field {
+  font-size: 3mm;
+  max-height: 6.9mm;
+}
+
+.type {
+  font-size: 2.6mm;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.3mm;
+}
+
+.ticket {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1mm;
+  width: 24mm;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.qr {
+  display: block;
+  width: 24mm;
+  height: 24mm;
+  flex-shrink: 0;
+  object-fit: contain;
+  background: #fff;
+}
+
+.placeholder {
+  display: grid;
+  place-items: center;
+  border: 0.3mm dashed #888;
+  box-sizing: border-box;
+  font-size: 2.8mm;
+  color: #555;
+}
+
+.number {
+  font: 2.6mm / 1.2 monospace;
+  white-space: nowrap;
+}
+
+.badge[data-preset="CLASSIC"] .event {
+  font-weight: 700;
+}
+
+.badge[data-preset="MINIMAL"] .type {
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.badge[data-preset="CHECK_IN"] .type {
+  font-weight: 700;
+}
+
+.badge[data-preset="CHECK_IN"] .ticket {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.badge[data-preset="CHECK_IN"]:has(.ticket) {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.badge[data-orientation="PORTRAIT"],
+.badge[data-orientation="PORTRAIT"][data-preset="CHECK_IN"]:has(.ticket) {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 2mm;
+}
+
+.badge[data-orientation="PORTRAIT"] .ticket {
+  grid-column: 1;
+  grid-row: 2;
+  justify-self: center;
+}
+
+.badge[data-alignment="CENTER"] {
+  text-align: center;
+}
+
+.badge[data-name-size="SMALL"] .name {
+  font-size: 4mm;
+  max-height: 9.2mm;
+}
+
+.badge[data-name-size="LARGE"] .name {
+  font-size: 6mm;
+  max-height: 13.8mm;
+}
