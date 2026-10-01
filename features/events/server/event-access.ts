@@ -17,8 +17,15 @@ const permissions = {
     "event.publish",
     "event.lifecycle.manage",
     "staff.manage",
+    "badges.configure",
+    "badges.print.individual",
+    "badges.print.bulk",
+    "badges.print.team",
   ],
   MANAGER: [
+    "badges.print.individual",
+    "badges.print.bulk",
+    "badges.print.team",
     "event.context.read",
     "applications.read",
     "applications.review",
@@ -28,6 +35,7 @@ const permissions = {
     "checkIn.manual",
   ],
   RECEPTION: [
+    "badges.print.individual",
     "event.context.read",
     "attendees.read.reception",
     "checkIn.qr",

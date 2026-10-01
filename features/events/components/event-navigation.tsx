@@ -5,6 +5,7 @@ type Section =
   | "registration-form"
   | "preview"
   | "staff"
+  | "badges"
   | "applications"
   | "attendees"
   | "check-in";

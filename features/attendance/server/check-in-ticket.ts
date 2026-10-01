@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { CheckInResult } from "@/features/attendance/check-in-result";
 import { checkInAttendee } from "@/features/attendance/server/check-in-attendee";
 import { parseTicketQr } from "@/features/attendance/server/parse-ticket-qr";
+import { canPrintIndividualBadge } from "@/features/badges/server/individual-print-eligibility";
 import {
   authorizeEventActor,
   hasEventPermission,
@@ -122,7 +123,18 @@ export async function checkInTicket(
           hasEventPermission(access.role, "attendees.read.full") ||
           (!ticket.attendee.revokedAt && !registration.revokedAt);
 
-        return { ...decision, ...(showIdentity ? { attendee } : {}) };
+        const offerPrint =
+          (decision.code === "CHECKED_IN" ||
+            decision.code === "ALREADY_CHECKED_IN") &&
+          canPrintIndividualBadge(access.role, event, ticket.attendee);
+
+        return {
+          ...decision,
+          ...(showIdentity ? { attendee } : {}),
+          ...(offerPrint
+            ? { printTarget: { attendeeId: ticket.attendee.id } }
+            : {}),
+        };
       },
       { isolationLevel: "ReadCommitted" },
     );

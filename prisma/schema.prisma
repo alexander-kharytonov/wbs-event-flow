@@ -61,6 +61,7 @@ model Event {
   visibility           EventVisibility         @default(PRIVATE)
   accountRequirement   EventAccountRequirement @default(OPTIONAL)
   maxGuestsPerRegistration Int @default(0)
+  badgeLayout          Json?
   capacity             Int?
   registrationOpensAt  DateTime?               @db.Timestamptz(3)
   registrationClosesAt DateTime?               @db.Timestamptz(3)

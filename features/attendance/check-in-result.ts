@@ -15,6 +15,9 @@ type CheckInFailure = { code: "UNAVAILABLE" | "FAILED"; message: string };
 export type ManualCheckInResult = CheckInDecision | CheckInFailure;
 
 export type CheckInResult =
-  | (CheckInDecision & { attendee?: AttendeePresentation })
+  | (CheckInDecision & {
+      attendee?: AttendeePresentation;
+      printTarget?: { attendeeId: string };
+    })
   | { code: "INVALID_CREDENTIAL" | "WRONG_EVENT" }
   | CheckInFailure;

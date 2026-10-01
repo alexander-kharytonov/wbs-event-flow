@@ -306,3 +306,78 @@ reviews record the acting User; historical unknown reviewers remain unknown. Mem
 changes refresh open workspaces; revoked users see “Your access to this event has
 changed.” and return to Dashboard. Role changes discard previous-role client state.
 Direct visits to inaccessible Events or sections return neutral not-found responses.
+
+## Badges (24A)
+
+A badge is a derived presentation of one active Attendee, not a new admission,
+credential or stored Badge entity. Printing never changes Attendance and can happen
+before check-in. Owners and Managers have a Badges workspace; only owners configure
+its layout. Reception has individual print access without a Badges tab.
+
+Each Event has one operational layout, independent of Publish/Republish. A null layout
+uses Classic defaults. Classic, Minimal and Check-in presets support 90 × 60, 85 × 54
+and 100 × 70 mm, either orientation, limited text settings and optional Event/type/
+Ticket/QR fields. Save affects newly opened print documents.
+
+Owners explicitly select up to two SHORT_TEXT, LONG_TEXT or SINGLE_CHOICE questions.
+PRIMARY values come from the submitted Application revision only when field ID, type
+and label match the selected descriptor. Missing values are omitted; incompatible
+values are omitted with owner preview warnings. Guests never inherit PRIMARY answers.
+Text is limited to two visible lines per field.
+
+Reception may see the owner-approved individual BadgePresentation, including selected
+custom values and the existing, decodable Ticket QR. This narrow exception does not
+expose Applications, answer models, revision snapshots, email, the field catalog or
+raw Ticket crypto fields. Printed/PDF data is not secret from its recipient.
+
+Individual print opens explicitly in a separate tab without workspace chrome, using
+fresh authorization, active Registration/Attendee checks and the current saved layout.
+Cancelled Events deny printing. Draft, upcoming, ongoing, completed and archived Events
+otherwise allow it. Missing, revoked or unavailable Tickets leave a visual badge
+without a QR/available Ticket number. There is no new QR protocol or credential.
+
+Designer previews prefer a real active PRIMARY, otherwise use semantic labels without
+demo records. Preview QR areas are placeholders, not admission credentials. A print
+document is a snapshot at load time and prints only after an explicit Print click.
+Browser/OS paper and scaling settings remain the operator's responsibility. There is
+no Badge issuance or print history.
+
+Individual operational printing (24B1): successful QR check-in offers Print badge;
+Already checked in offers Reprint badge only when the server supplies a current
+print target. Reprint describes the attendance context, not a recorded previous print.
+The target is only an opaque selector hint; the separate print document rechecks
+access and current eligibility. Opening it stops the scanner/camera but preserves
+the result. Returning to the scanner does not restart the camera: only explicit
+Scan next starts a new scan. No automatic printing or advancement occurs.
+
+Owners, Managers and Reception can open Print badge from attendee detail, including
+after Manual check-in refreshes Attendance. Notifications remain confirmations;
+printing is a persistent detail action. Reception's attendee data is unchanged;
+approved badge content is loaded only in the authorized print document.
+
+
+Operational batch printing (24B2): OWNER has Design / Attendees / Event team sections;
+MANAGER has Attendees / Event team, without Designer/settings/save. RECEPTION remains
+individual-only and has no Badges workspace. Operational lists contain only attendee
+ID/name/kind or team name/role. Printing always uses the current saved/default design,
+never unsaved Designer changes.
+
+Print selected accepts 1–200 unique active attendees (PRIMARY and GUEST), ordered by
+Attendee.createdAt then id, independently of selection order. Any unavailable selector
+rejects the entire document neutrally; selection does not reserve admission. A native
+POST opens a separate tab. Refresh may resubmit POST and builds a new snapshot without
+writing domain state. Print all active ignores search/selection and selects up to 200
+current active attendees server-side. More results expose an explicit Print next batch
+in the document, using live (createdAt, id) keyset continuation, never fixed historical
+ranges or offset. Each document has one authoritative snapshot; the active set may
+change between batches. Cancelled Events deny printing; Attendance is irrelevant.
+Missing/revoked Tickets leave visual attendee badges without Ticket content.
+
+Print event team uses Organizer first, then current staff in createdAt/userId order,
+with controlled Organizer / Manager / Reception labels and authoritative User.name.
+Team badges use the same design but always include role and never Ticket, QR,
+authentication content or registration fields. More than 200 team members is refused;
+there is no team batching or individual/selected team printing. All documents use one
+badge per physical page with explicit printing. No schema migration, persistent Badge,
+TeamBadge, PrintJob, print history, A4 sheets, vendor printer integration or automatic
+printing is introduced.

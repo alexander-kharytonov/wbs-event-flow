@@ -34,6 +34,13 @@ async function ticketQrSvg(ticket: TicketDisplay) {
   });
 }
 
+// Shared server-only QR boundary. Callers must authorize and check active admission.
+export async function ticketQrDataUrl(ticket: TicketDisplay) {
+  const svg = await ticketQrSvg(ticket);
+
+  return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
+}
+
 export type TicketPresentation = {
   number: string;
   issuedAt: Date;
@@ -67,7 +74,8 @@ export async function presentTicket(
   completed: boolean,
 ): Promise<TicketPresentation> {
   const revoked = Boolean(ticket.revokedAt || admission.revokedAt);
-  const svg = !revoked && !cancelledAt ? await ticketQrSvg(ticket) : null;
+  const qrDataUrl =
+    !revoked && !cancelledAt ? await ticketQrDataUrl(ticket) : null;
 
   return {
     number: ticket.number,
@@ -87,8 +95,6 @@ export async function presentTicket(
     revoked,
     cancelled: Boolean(cancelledAt),
     completed,
-    qrDataUrl: svg
-      ? `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`
-      : null,
+    qrDataUrl,
   };
 }

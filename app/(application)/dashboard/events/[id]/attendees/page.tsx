@@ -60,6 +60,7 @@ export default async function AttendeesPage({
         eventId={id}
         attendees={attendees}
         full={data.full}
+        canPrintBadges={data.canPrintBadges}
         timezone={event.timezone}
         lifecycle={eventLifecycle(event, new Date())}
       />
