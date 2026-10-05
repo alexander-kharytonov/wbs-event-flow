@@ -1,6 +1,7 @@
 "use client";
 
 import ArchiveOutlined from "@mui/icons-material/ArchiveOutlined";
+import BadgeOutlined from "@mui/icons-material/BadgeOutlined";
 import BlockOutlined from "@mui/icons-material/BlockOutlined";
 import EventOutlined from "@mui/icons-material/EventOutlined";
 import FolderOpenOutlined from "@mui/icons-material/FolderOpenOutlined";
@@ -28,6 +29,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { CreateEventButton } from "@/features/events/components/create-event-button";
 import { EventLifecycleStatus } from "@/features/events/components/event-lifecycle-status";
+import { EventStatusChip } from "@/features/events/components/event-status-chip";
 import { PublicationStatus } from "@/features/events/components/publication-status";
 import { accessLabels } from "@/features/events/event-access-labels";
 import { eventLifecycle } from "@/features/events/event-lifecycle";
@@ -406,9 +408,9 @@ export function OrganizerEventResults({
                       direction="row"
                       sx={{ gap: 1, alignItems: "center", flexWrap: "wrap" }}
                     >
-                      <Chip
-                        size="small"
-                        variant="outlined"
+                      <EventStatusChip
+                        icon={<BadgeOutlined />}
+                        color="default"
                         label={accessLabels[event.role]}
                       />
                       <EventLifecycleStatus event={event} now={now} />

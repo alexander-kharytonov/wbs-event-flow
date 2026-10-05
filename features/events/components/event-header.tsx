@@ -43,8 +43,8 @@ const eventSections: {
     label: "Attendees",
     permission: "attendees.read.reception",
   },
-  { id: "check-in", label: "Check-in", permission: "checkIn.qr" },
   { id: "badges", label: "Badges", permission: "badges.print.bulk" },
+  { id: "check-in", label: "Check-in", permission: "checkIn.qr" },
 ];
 
 import { BackLink } from "@/components/ui/back-link";
