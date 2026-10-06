@@ -426,8 +426,9 @@ second application read model.
 Submit/reapply, approve/reject, and withdrawal emit `pg_notify` inside the same
 transaction after an actual write. Duplicate, no-op, and error paths do not emit.
 The internal envelope contains only type, Event ID, and nullable linked User ID.
-Anonymous submissions invalidate only organizer subscribers; linked changes also
-invalidate that User's subscribers. Event editing/publication does not emit.
+Anonymous submissions invalidate only Event subscribers; linked changes also
+invalidate that User's subscribers. Event editing/publication, unpublish and archive/restore emit routing-only
+`event.changed` with null userId for Event subscribers; personal routing is unchanged.
 
 NOTIFY becomes visible only after successful commit; rollback delivers nothing.
 Transactional NOTIFY or commit failure may roll back the entire mutation: this
@@ -1108,3 +1109,63 @@ noindex/nofollow/noarchive, no-referrer and HTML content type, without Applicati
 No request body, credentials or crypto failures are logged. No schema/migration,
 Badge/TeamBadge/PrintJob/PrintSelection entity, print history, A4 sheets, vendor printer
 or automatic printing is introduced; Ticket/Attendance/protocol semantics are unchanged.
+
+
+## 28. Event Overview / operational dashboard (25)
+
+The server-only Overview loader checks verified session identity, authorizes Event
+access and reads header/context/aggregates in one RepeatableRead snapshot, using
+one DB clock_timestamp() value for presentation. It does not lock Event or write
+statistics. Header counts and published capacity share this snapshot on Overview;
+other sections retain the standalone header read. No new permissions are introduced.
+
+A = Attendees through this Event's Registrations, with both revokedAt values NULL.
+C = A with Attendance. Active = |A|, checked in = |C|, not arrived = |A|-|C|,
+rate = |C|/|A| (null/display em dash for |A|=0). PRIMARY/GUEST have equal weight.
+QR+MANUAL counts over C equal checked in. Ticket status is not a filter.
+Applications are all attempts for the Event grouped by current status, not people.
+Current valid published snapshot alone supplies capacity and registration policy:
+remaining=max(0,capacity-|A|), over=max(0,|A|-capacity), null=Unlimited.
+No publication and invalid publication are distinct unavailable states.
+
+Reception exits before application groups, methods, published policy or timeline
+queries, returning only active/checked-in/not-arrived and existing operational
+context. OWNER/MANAGER receive full operational metrics; raw owner state remains
+server-side for existing owner controls. No revoked attendance analytics is exposed.
+For OWNER/MANAGER, revision history determines never-published presentation independently
+of the existing temporal lifecycle. Never-published Events remain readiness-first in
+Upcoming/Ongoing/Completed, retain basic counts, and skip method aggregates and timeline
+queries; methods, rate and timeline are null. Clearing the current publication pointer
+does not erase revision history or switch an operational Event to this presentation.
+Reception keeps its limited projection and a neutral Event operations heading.
+
+Timeline authority is Attendance.checkedInAt. Origin is startOfDay in Event.timezone
+for the local date containing persisted startsAt, converted to an instant. Step is
+30 elapsed minutes, repeatedly doubled until the number of buckets intersecting
+[startsAt,endsAt) is <=192. Bucket k is [origin+k*step,origin+(k+1)*step).
+Step uses the full scheduled range, not now or arrival volume. SQL groups C by
+instant within [startsAt,endsAt) and <= the read's DB time; output rows are bounded.
+Missing started buckets are zero-filled. Future buckets are omitted; the current
+ongoing bucket is marked incomplete. Full bucket boundaries are retained even at
+partial Event edges. Sum of buckets equals active arrivals in that displayed range.
+
+DST skipped hours are not synthesized; repeated hours remain distinct instants,
+with local date and UTC offset in labels/table. Multi-day Events use the same
+elapsed-time contract. Editing Event timezone changes alignment/labels, not stored
+Attendance. Peak is the highest of these buckets; earliest wins ties, all-zero
+has no peak. Ongoing uses Peak so far, completed uses Peak arrival; bucket duration
+is explicit, including multi-hour intervals and incomplete ongoing peaks.
+
+The existing broker accepts event.changed on its existing channel; browser events
+remain empty connected/invalidate frames. Successful publish/republish, unpublish,
+archive/restore and Event edits emit transactionally; no-op publication/restore
+and failed writes do not. Existing cancellation/application/Guest/Attendance/access
+signals remain intact. The Overview has one timeout for the next start/end boundary
+stored as an absolute instant and compared with Date.now() on every callback.
+Visibility, focus and pageshow also check the boundary when the document is visible.
+An elapsed boundary triggers one refresh; a future boundary schedules its remaining
+duration, chunked at the browser timeout limit. A ref prevents duplicate refreshes for
+the same boundary even when refreshed server props retain it. Event-keyed mounting,
+effect disposal and listener/timeout cleanup prevent stale callbacks after changes.
+There is no polling or new transport. Browser wall time only requests a fresh server
+read; lifecycle and mutation guards remain server-authoritative.

@@ -150,7 +150,9 @@ after application changes.
 Realtime is a progressive enhancement: pages still render authoritative server
 data, and a normal reload remains available if the connection is interrupted.
 Anonymous applicants do not receive a personal status stream. Cancellation also invalidates affected linked attendees through this stream.
-Catalog and other Event editing/publication updates are outside this realtime scope.
+Event workspace editing, publication, unpublish, archive and restore also invalidate
+open Event workspaces. Catalog and personal attendee streams do not receive these
+workspace-only signals.
 
 The product does not provide email changes or password reset, anonymous
 application claiming.
@@ -381,3 +383,39 @@ there is no team batching or individual/selected team printing. All documents us
 badge per physical page with explicit printing. No schema migration, persistent Badge,
 TeamBadge, PrintJob, print history, A4 sheets, vendor printer integration or automatic
 printing is introduced.
+
+
+## Event Overview (25)
+
+The existing Overview adapts to the persisted Event lifecycle: readiness and
+applications before start, attendance during the Event, and an operational
+attendance summary after completion. Cancelled/archived workspaces retain their
+read-only context. No separate Analytics tab or stored statistics exists.
+Never-published Events remain preparation/readiness-first even after their scheduled
+start or end, without rate, method breakdown, timeline or peak. Previously-published
+Events retain lifecycle-appropriate operations/history when currently unpublished.
+Reception retains its limited counters under a neutral Event operations heading.
+
+All counts, method totals, timeline and peak use current active Attendees whose
+Registration is also active, including PRIMARY and GUEST equally. Checked in means
+an Attendance exists; not arrived is active minus checked in. Attendance rate is
+checked in / active, or an em dash when no attendees are active. Revoked Attendance
+remains immutable history but is excluded from Overview, even after completion.
+The summary is not a count of all historical visits or unique physical people.
+
+Owners and Managers see application status counts (submitted attempts), current
+published capacity in the shared header, registration availability, attendance,
+QR/Manual totals and the timeline. Capacity never falls back to draft values;
+unpublished/invalid publication is unavailable and null capacity is Unlimited.
+Reception receives only active/checked-in/not-arrived counters, existing operational
+context/description and Attendees/Check-in links. Owner controls remain owner-only.
+
+Attendance rate and timeline become prominent only during/after the Event.
+Timeline intervals start at 30 elapsed minutes and double for long Events to keep
+at most 192 scheduled buckets. Labels use Event timezone and UTC offset, including
+DST repeated times. Peak uses those same buckets, with earliest winning ties;
+zero arrivals have no peak. A table provides all interval values alongside the chart.
+Open Overviews refresh on existing Event invalidations and once at the next lifecycle
+boundary, without polling. Absolute boundary checks on timer callbacks and return to
+a visible/active page handle delayed callbacks and device sleep; the server still
+determines lifecycle. Cards open existing sections without implied URL filters.

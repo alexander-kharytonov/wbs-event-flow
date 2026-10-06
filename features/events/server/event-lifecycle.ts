@@ -7,7 +7,10 @@ import { Prisma } from "@/generated/prisma/client";
 import { emailOutboxChannel } from "@/lib/email-outbox/enqueue";
 import { eventCancelledPayload } from "@/lib/email-outbox/payload";
 import { prisma } from "@/lib/prisma";
-import { applicationNotificationChannel } from "@/lib/realtime/application-notifications";
+import {
+  applicationNotificationChannel,
+  notifyEventChanged,
+} from "@/lib/realtime/application-notifications";
 
 const commandSchema = z.discriminatedUnion("action", [
   z.strictObject({
@@ -56,10 +59,16 @@ export async function changeOwnedEventLifecycle(
         const lifecycle = eventLifecycle(event, event.decisionNow);
 
         if (command.action === "restore") {
+          if (!event.archivedAt) {
+            return { success: true };
+          }
+
           await tx.event.update({
             where: { id: event.id },
             data: { archivedAt: null, updatedAt: event.updatedAt },
           });
+
+          await notifyEventChanged(tx, event.id);
 
           return { success: true };
         }
@@ -83,6 +92,8 @@ export async function changeOwnedEventLifecycle(
             data: { archivedAt: event.decisionNow, updatedAt: event.updatedAt },
           });
 
+          await notifyEventChanged(tx, event.id);
+
           return { success: true };
         }
 
@@ -99,6 +110,8 @@ export async function changeOwnedEventLifecycle(
             where: { id: event.id },
             data: { publishedRevisionId: null, updatedAt: event.updatedAt },
           });
+
+          await notifyEventChanged(tx, event.id);
 
           return { success: true };
         }

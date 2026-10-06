@@ -15,6 +15,7 @@ import {
 import { lockEventForUpdate } from "@/features/events/server/lock-event-for-update";
 import { requireOrganizer } from "@/features/organizer/server/require-organizer";
 import { prisma } from "@/lib/prisma";
+import { notifyEventChanged } from "@/lib/realtime/application-notifications";
 
 export async function updateEvent(
   _previous: EventFormState,
@@ -106,6 +107,8 @@ export async function updateEvent(
             message: "This event changed. Reload and try again.",
           };
         }
+
+        await notifyEventChanged(tx, id);
 
         return null;
       },
