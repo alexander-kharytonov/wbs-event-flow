@@ -4,11 +4,13 @@ import type { ComponentProps } from "react";
 import { DateTime } from "@/components/ui/date-time";
 import { EventAccessStatus } from "@/features/events/components/event-access-status";
 import {
-  authorizeEventActor,
   type EventPermission,
   hasEventPermission,
 } from "@/features/events/server/event-access";
-import { getOperationalEvent } from "@/features/events/server/event-context";
+import {
+  type EventHeaderProjection,
+  readEventHeader,
+} from "@/features/events/server/event-header";
 import { prisma } from "@/lib/prisma";
 import { requireVerifiedUser } from "@/lib/session";
 
@@ -81,12 +83,13 @@ function OwnerEventControls({
   eventId: id,
   event,
   applicationCount,
+  now,
 }: {
   eventId: string;
   applicationCount: number;
+  now: Date;
   event: EventHeaderData;
 }) {
-  const now = new Date();
   const readOnly = workspaceReadOnly(event, now);
   const state = publicationState(event);
   const lifecycle = eventLifecycle(event, now);
@@ -151,68 +154,24 @@ function OwnerEventControls({
 export async function EventHeader({
   eventId,
   active,
+  data: suppliedData,
+  now = new Date(),
 }: {
   eventId: string;
   active: ComponentProps<typeof EventNavigation>["active"];
+  data?: EventHeaderProjection;
+  now?: Date;
 }) {
-  const user = await requireVerifiedUser();
-  const data = await prisma.$transaction(
-    async (tx) => {
-      const access = await authorizeEventActor(
-        tx,
-        eventId,
-        user.id,
-        "event.context.read",
-      );
+  let data = suppliedData;
 
-      if (!access) {
-        return null;
-      }
-
-      const context = await getOperationalEvent(tx, eventId);
-      const attendeeCount = await tx.attendee.count({
-        where: { revokedAt: null, registration: { eventId, revokedAt: null } },
-      });
-      const applicationCount = hasEventPermission(
-        access.role,
-        "applications.read",
-      )
-        ? await tx.application.count({ where: { eventId } })
-        : undefined;
-      const ownerEvent = hasEventPermission(access.role, "event.edit")
-        ? await tx.event.findUniqueOrThrow({
-            where: { id: eventId },
-            include: {
-              _count: { select: { revisions: true } },
-              publishedRevision: {
-                select: { contentVersion: true, number: true, snapshot: true },
-              },
-            },
-          })
-        : null;
-      const published =
-        hasEventPermission(access.role, "attendees.read.full") && !ownerEvent
-          ? await tx.event.findUniqueOrThrow({
-              where: { id: eventId },
-              select: { publishedRevision: { select: { snapshot: true } } },
-            })
-          : null;
-      const sections = eventSections.filter(({ permission }) =>
-        hasEventPermission(access.role, permission),
-      );
-
-      return {
-        access,
-        context,
-        attendeeCount,
-        applicationCount,
-        ownerEvent,
-        published,
-        sections,
-      };
-    },
-    { isolationLevel: "RepeatableRead" },
-  );
+  if (!data) {
+    const user = await requireVerifiedUser();
+    data =
+      (await prisma.$transaction(
+        (tx) => readEventHeader(tx, eventId, user.id),
+        { isolationLevel: "RepeatableRead" },
+      )) ?? undefined;
+  }
 
   if (!data) {
     notFound();
@@ -250,6 +209,7 @@ export async function EventHeader({
             eventId={eventId}
             event={ownerEvent}
             applicationCount={applicationCount ?? 0}
+            now={now}
           />
         )}
       </Stack>
@@ -269,7 +229,7 @@ export async function EventHeader({
         sx={{ gap: 1, alignItems: "center", flexWrap: "wrap" }}
       >
         <EventAccessStatus role={access.role} />
-        <EventLifecycleStatus event={context} now={new Date()} />
+        <EventLifecycleStatus event={context} now={now} />
         {ownerEvent && (
           <PublicationStatus state={publicationState(ownerEvent)} />
         )}
@@ -286,7 +246,11 @@ export async function EventHeader({
       <EventNavigation
         eventId={eventId}
         active={active}
-        sections={data.sections.map(({ id, label }) => ({ id, label }))}
+        sections={eventSections
+          .filter(({ permission }) =>
+            hasEventPermission(access.role, permission),
+          )
+          .map(({ id, label }) => ({ id, label }))}
         applicationCount={applicationCount}
         attendeeCount={attendeeCount}
       />

@@ -9,6 +9,7 @@ import {
 import { lockEventForUpdate } from "@/features/events/server/lock-event-for-update";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { notifyEventChanged } from "@/lib/realtime/application-notifications";
 
 const publishInput = z.strictObject({
   eventId: z.uuid(),
@@ -128,6 +129,8 @@ export async function publishOwnedEvent(
             updatedAt: event.updatedAt,
           },
         });
+
+        await notifyEventChanged(tx, eventId);
 
         return { success: true };
       },
