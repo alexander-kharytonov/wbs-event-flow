@@ -1181,3 +1181,65 @@ the same boundary even when refreshed server props retain it. Event-keyed mounti
 effect disposal and listener/timeout cleanup prevent stale callbacks after changes.
 There is no polling or new transport. Browser wall time only requests a fresh server
 read; lifecycle and mutation guards remain server-authoritative.
+
+## 29. CSV data export (26A)
+
+Authenticated GET /api/events/[eventId]/exports/[dataset] accepts applications,
+attendees, attendance or staff. Each request verifies a fresh verified unexpired
+session without cookie cache/refresh, then authorizes inside one RepeatableRead
+transaction. Applications requires applications.read; Attendees requires both
+attendees.read.full and applications.read; Attendance requires attendees.read.full;
+Staff requires staff.manage. No new permissions exist. Reception is denied before
+dataset reads. Missing/foreign/unauthorized Events share a neutral unavailable
+response. Lifecycle does not independently forbid these read-only exports.
+
+Exports always cover the entire Event dataset, never client search/filter state.
+Applications order by createdAt/id ascending and include all attempts/statuses.
+Attendees order by createdAt/id ascending and include revoked records. Admission
+is ACTIVE only when both Attendee and Registration revokedAt are null; otherwise
+REVOKED. PRIMARY answers use Registration.sourceApplication; GUEST values are empty,
+state and Answers scope NOT_APPLICABLE, with the same Registration's PRIMARY name.
+Attendance orders by checkedInAt/id ascending and includes immutable QR/MANUAL facts
+after later revocation. Actor/reviewer names use current User.name; null links yield
+empty names and UNAVAILABLE, never an inferred owner. Present links yield AVAILABLE.
+Staff exports owner first with OWNER role, then EventStaff ordered createdAt/userId
+ascending with MANAGER/RECEPTION roles. Projections never query Tickets or auth data.
+
+Historical column identity is (eventRevisionId, fieldId). Only referenced revisions
+are read; each frozen v1/v2 snapshot is parsed once. Columns order by revision number
+then snapshot question order; headers are <Label> [v<revision> Q<position> <TYPE>],
+followed immediately by <header> — state. Duplicate labels and recreated questions
+remain separate. Nonmatching revisions and Guest cells have NOT_APPLICABLE state.
+CSV marks missing expected answers NOT_PROVIDED. Duplicate or incompatible answers
+for known fields are UNAVAILABLE; optional empty answers are NOT_PROVIDED. Before
+building Application or PRIMARY answer cells, every stored fieldId must belong to
+that submission's snapshot. An unknown fieldId rejects the entire export with a
+generic error, without exposing the identifier or guessing a column. The historical
+detail UI retains its existing missing-answer presentation. Choice labels come
+exclusively from that snapshot; multiple choice is
+a JSON label array in snapshot option order. Invalid snapshots reject the dataset.
+The existing detail UI retains its text presentation and stored selection order.
+
+Row reads stop at the limit plus one before historical answer materialization;
+Staff reserves one row for OWNER. Revision JSON and answers are loaded in batches,
+without per-row detail loaders. Historical columns are bounded before answers load.
+All serialization is buffered and checked before a successful response: 10,000 data
+rows, 500 final columns including state columns, 20 MiB UTF-8 including BOM/header/
+quoting/CRLF. Exceeding any bound rejects the whole export, never silently truncates.
+Empty datasets produce fixed headers only. Transaction/DB errors produce a generic
+failure with no partial CSV; the read transaction has a 30-second timeout.
+
+CSV has UTF-8 BOM, comma delimiter, CRLF records, all cells quoted with doubled
+quotes, null as empty and dates as UTC ISO milliseconds. Spreadsheet safety is a
+separate export-only transform for headers and values: a leading apostrophe guards
+= + - @ and full-width equivalents, leading tab/CR/LF and dangerous prefixes behind
+whitespace/control/format characters. It never modifies stored values or emits
+formula-based text wrappers. This mitigation cannot guarantee safety after external
+spreadsheet save/reopen transformations.
+
+Downloads have deterministic ASCII-safe title/dataset filenames, attachment
+Content-Disposition, text/csv UTF-8, private/no-store/max-age=0, nosniff, no-referrer
+and noindex/nofollow/noarchive. Errors also have privacy headers, but plain-text
+content and no attachment. The menu uses ordinary anchors without Next prefetch.
+CSV content/PII is not logged. There are no persistent files, export history/jobs,
+new schema, migrations, dependencies, Template export or Import flows.

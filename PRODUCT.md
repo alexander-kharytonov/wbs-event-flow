@@ -427,3 +427,30 @@ Open Overviews refresh on existing Event invalidations and once at the next life
 boundary, without polling. Absolute boundary checks on timer callbacks and return to
 a visible/active page handle delayed callbacks and device sleep; the server still
 determines lifecycle. Cards open existing sections without implied URL filters.
+
+## CSV data exports (26A)
+
+The Event header Export menu downloads whole-Event datasets, independent of local
+search and filters. Owners export Applications, Attendees, Attendance and Staff;
+Managers export the first three; Reception has no export access. Exports remain
+readable for completed, cancelled and archived Events while access is retained.
+
+Applications include every attempt, including withdrawn submissions. Attendees
+include PRIMARY/GUEST and revoked admission. Only PRIMARY rows contain source
+Application answers; Guests have empty answers with NOT_APPLICABLE states and
+PRIMARY name context. Attendance includes every recorded arrival, even after
+admission revocation, with QR/Manual and available actor name. Staff includes the
+owner first, then current Managers/Reception. Reviewer and actor names reflect
+current linked accounts; unavailable identities are never replaced by the owner.
+
+Historical answer columns are separated by submitted revision and question, with
+human labels and adjacent VALUE/NOT_PROVIDED/NOT_APPLICABLE/UNAVAILABLE states.
+Question and choice meanings come from the submitted snapshot, never today's form.
+Invalid historical snapshots reject the whole export.
+
+CSV uses UTF-8 with BOM, comma separators and quoted cells. Spreadsheet formula
+mitigation may prefix dangerous text with an apostrophe, changing only the exported
+representation. Spreadsheet applications may alter this protection when saving and
+reopening files. Exports are complete or fail: at most 10,000 data rows, 500 total
+columns and 20 MiB serialized output. Empty datasets produce headers only. No
+partial file, persistent export file, export history or background job is created.

@@ -11,6 +11,7 @@ import {
   type EventHeaderProjection,
   readEventHeader,
 } from "@/features/events/server/event-header";
+import { ExportMenu } from "@/features/exports/export-menu";
 import { prisma } from "@/lib/prisma";
 import { requireVerifiedUser } from "@/lib/session";
 
@@ -204,14 +205,26 @@ export async function EventHeader({
             timezone={context.timezone}
           />
         </Stack>
-        {ownerEvent && (
-          <OwnerEventControls
-            eventId={eventId}
-            event={ownerEvent}
-            applicationCount={applicationCount ?? 0}
-            now={now}
-          />
-        )}
+        <Stack
+          direction="row"
+          sx={{ gap: 1, alignItems: "center", flexWrap: "wrap" }}
+        >
+          {hasEventPermission(access.role, "applications.read") &&
+            hasEventPermission(access.role, "attendees.read.full") && (
+              <ExportMenu
+                eventId={eventId}
+                staff={hasEventPermission(access.role, "staff.manage")}
+              />
+            )}
+          {ownerEvent && (
+            <OwnerEventControls
+              eventId={eventId}
+              event={ownerEvent}
+              applicationCount={applicationCount ?? 0}
+              now={now}
+            />
+          )}
+        </Stack>
       </Stack>
       {context.cancelledAt && (
         <Alert severity="error">
