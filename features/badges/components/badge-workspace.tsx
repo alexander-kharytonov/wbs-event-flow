@@ -1,27 +1,12 @@
 "use client";
 
 import PrintOutlined from "@mui/icons-material/PrintOutlined";
-import {
-  Alert,
-  Box,
-  Button,
-  Checkbox,
-  FormControlLabel,
-  MenuItem,
-  Paper,
-  Stack,
-  TextField,
-  Typography,
-} from "@mui/material";
+import { Alert, Box, Button, Paper, Stack, Typography } from "@mui/material";
 import { useEffect, useRef, useState } from "react";
 import { previewBadge, updateBadgeLayout } from "@/features/badges/actions";
-import {
-  type BadgeLayout,
-  badgeDimensions,
-  badgeSizes,
-  sameBadgeField,
-} from "@/features/badges/badge-layout";
+import { badgeDimensions } from "@/features/badges/badge-layout";
 import { Badge } from "@/features/badges/components/badge";
+import { BadgeLayoutControls } from "@/features/badges/components/badge-layout-controls";
 import { badgeCss } from "@/features/badges/components/badge-styles";
 import type { buildBadgePresentation } from "@/features/badges/server/badges";
 import { useNotifications } from "@/hooks/use-notifications";
@@ -115,11 +100,6 @@ export function BadgeWorkspace({
     };
   }, [eventId, layout, notifications]);
 
-  function change<K extends keyof BadgeLayout>(key: K, value: BadgeLayout[K]) {
-    setLayout((current) => (current ? { ...current, [key]: value } : current));
-    notifications.close(`badge-layout:${eventId}`);
-  }
-
   async function save() {
     if (!layout || busy) {
       return;
@@ -154,58 +134,6 @@ export function BadgeWorkspace({
     }
   }
 
-  function fieldSelect(key: "secondaryField" | "tertiaryField", label: string) {
-    if (!layout) {
-      return null;
-    }
-
-    const binding = layout[key];
-    const index = binding
-      ? catalog.findIndex((field) => sameBadgeField(field, binding))
-      : -1;
-
-    return (
-      <TextField
-        select
-        fullWidth
-        label={label}
-        value={index < 0 ? "" : String(index)}
-        onChange={(event) => {
-          if (event.target.value === "") {
-            change(key, null);
-
-            return;
-          }
-
-          const { fieldId, type, label } = catalog[Number(event.target.value)];
-          change(key, { fieldId, type, label });
-        }}
-      >
-        <MenuItem value="">None</MenuItem>
-        {catalog.map((field, position) => (
-          <MenuItem
-            key={`${field.fieldId}:${field.type}:${field.label}`}
-            value={String(position)}
-            sx={{ whiteSpace: "normal" }}
-          >
-            {field.label} ·{" "}
-            {field.type === "SHORT_TEXT"
-              ? "Short text"
-              : field.type === "LONG_TEXT"
-                ? "Long text"
-                : "Single choice"}
-            {catalog.some(
-              (other) =>
-                other.fieldId !== field.fieldId &&
-                other.label === field.label &&
-                other.type === field.type,
-            ) && ` · ${field.context}`}
-          </MenuItem>
-        ))}
-      </TextField>
-    );
-  }
-
   return (
     <Stack spacing={3}>
       <Alert severity="info">
@@ -237,130 +165,14 @@ export function BadgeWorkspace({
               <Typography variant="h6" component="legend">
                 Settings
               </Typography>
-              <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                <TextField
-                  fullWidth
-                  select
-                  label="Size"
-                  value={layout.size}
-                  onChange={(event) =>
-                    change("size", event.target.value as BadgeLayout["size"])
-                  }
-                >
-                  {Object.entries(badgeSizes).map(([value, size]) => (
-                    <MenuItem key={value} value={value}>
-                      {size.label}
-                    </MenuItem>
-                  ))}
-                </TextField>
-                <TextField
-                  fullWidth
-                  select
-                  label="Padding (mm)"
-                  value={layout.paddingMm}
-                  onChange={(event) =>
-                    change("paddingMm", Number(event.target.value))
-                  }
-                >
-                  {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((value) => (
-                    <MenuItem key={value} value={value}>
-                      {value} mm
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Stack>
-              <Box
-                sx={{
-                  display: "grid",
-                  gap: 2,
-                  gridTemplateColumns: {
-                    xs: "minmax(0, 1fr)",
-                    md: "repeat(2, minmax(0, 1fr))",
-                    lg: "repeat(3, minmax(0, 1fr))",
-                  },
-                  "& .MuiTextField-root": { minWidth: 0 },
+              <BadgeLayoutControls
+                layout={layout}
+                catalog={catalog}
+                onChange={(next) => {
+                  setLayout(next);
+                  notifications.close(`badge-layout:${eventId}`);
                 }}
-              >
-                <TextField
-                  fullWidth
-                  select
-                  label="Orientation"
-                  sx={{ gridColumn: { md: "1 / -1", lg: "auto" } }}
-                  value={layout.orientation}
-                  onChange={(event) =>
-                    change(
-                      "orientation",
-                      event.target.value as BadgeLayout["orientation"],
-                    )
-                  }
-                >
-                  <MenuItem value="LANDSCAPE">Landscape</MenuItem>
-                  <MenuItem value="PORTRAIT">Portrait</MenuItem>
-                </TextField>
-                <TextField
-                  fullWidth
-                  select
-                  label="Name size"
-                  value={layout.nameSize}
-                  onChange={(event) =>
-                    change(
-                      "nameSize",
-                      event.target.value as BadgeLayout["nameSize"],
-                    )
-                  }
-                >
-                  <MenuItem value="SMALL">Small</MenuItem>
-                  <MenuItem value="MEDIUM">Medium</MenuItem>
-                  <MenuItem value="LARGE">Large</MenuItem>
-                </TextField>
-                <TextField
-                  fullWidth
-                  select
-                  label="Alignment"
-                  value={layout.alignment}
-                  onChange={(event) =>
-                    change(
-                      "alignment",
-                      event.target.value as BadgeLayout["alignment"],
-                    )
-                  }
-                >
-                  <MenuItem value="LEFT">Left</MenuItem>
-                  <MenuItem value="CENTER">Center</MenuItem>
-                </TextField>
-              </Box>
-              <Box
-                sx={{
-                  display: "grid",
-                  gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-                }}
-              >
-                {(
-                  [
-                    ["showEventName", "Event name"],
-                    ["showAttendeeType", "Attendee type"],
-                    ["showQr", "QR"],
-                    ["showTicketNumber", "Ticket number"],
-                  ] as const
-                ).map(([key, label]) => (
-                  <FormControlLabel
-                    key={key}
-                    label={label}
-                    control={
-                      <Checkbox
-                        checked={layout[key]}
-                        onChange={(_, checked) => change(key, checked)}
-                      />
-                    }
-                  />
-                ))}
-              </Box>
-              {fieldSelect("secondaryField", "Secondary field")}
-              {fieldSelect("tertiaryField", "Tertiary field")}
-              <Alert severity="info">
-                Selected values are visible to staff who can print badges,
-                including Reception. Guests never inherit these answers.
-              </Alert>
+              />
               <Button
                 variant="contained"
                 loading={busy}

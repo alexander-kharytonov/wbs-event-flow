@@ -1,16 +1,25 @@
 "use client";
 
 import Close from "@mui/icons-material/Close";
-import { Dialog, DialogContent, DialogTitle, IconButton } from "@mui/material";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  Stack,
+  Typography,
+} from "@mui/material";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 
 export function EventFormDialog({
   children,
   title,
+  headerActions,
 }: {
   children: ReactNode;
   title: string;
+  headerActions?: ReactNode;
 }) {
   const router = useRouter();
 
@@ -33,16 +42,22 @@ export function EventFormDialog({
     >
       <DialogTitle
         id="event-form-dialog-title"
-        sx={{ pr: 7, overflowWrap: "anywhere" }}
+        component="div"
+        sx={{ overflowWrap: "anywhere" }}
       >
-        {title}
-        <IconButton
-          aria-label="Close event form"
-          onClick={() => router.back()}
-          sx={{ position: "absolute", right: 12, top: 12 }}
-        >
-          <Close />
-        </IconButton>
+        <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+          <Typography component="h2" variant="h6" sx={{ flex: 1, minWidth: 0 }}>
+            {title}
+          </Typography>
+          {headerActions}
+          <IconButton
+            aria-label="Close event form"
+            onClick={() => router.back()}
+            sx={{ flexShrink: 0 }}
+          >
+            <Close />
+          </IconButton>
+        </Stack>
       </DialogTitle>
       <DialogContent dividers>{children}</DialogContent>
     </Dialog>

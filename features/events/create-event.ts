@@ -7,6 +7,7 @@ import {
   eventInputSchema,
   eventValidationError,
 } from "@/features/events/event-input-schema";
+import { createEventCore } from "@/features/events/server/create-event-core";
 import { requireOrganizer } from "@/features/organizer/server/require-organizer";
 import { prisma } from "@/lib/prisma";
 
@@ -24,16 +25,9 @@ export async function createEvent(
   let eventId: string;
 
   try {
-    const event = await prisma.event.create({
-      data: {
-        ...parsed.data,
-        organizerId: organizer.id,
-        publishedAt: null,
-        registrationForm: { create: {} },
-      },
-      select: { id: true },
-    });
-    eventId = event.id;
+    eventId = await prisma.$transaction((tx) =>
+      createEventCore(tx, organizer.id, parsed.data),
+    );
   } catch {
     return { message: "We couldn’t save your event. Please try again." };
   }

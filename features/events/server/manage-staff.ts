@@ -2,15 +2,24 @@ import "server-only";
 import { z } from "zod";
 import { authorizeEventActor } from "@/features/events/server/event-access";
 import { lockEventForUpdate } from "@/features/events/server/lock-event-for-update";
+import {
+  reserveStaffResolution,
+  resolveStaff,
+  staffBudgetMessage,
+} from "@/features/events/server/staff-resolution";
+import {
+  staffEmailSchema,
+  staffRoleSchema,
+} from "@/features/events/staff-input";
 import { prisma } from "@/lib/prisma";
 import { notifyEventAccessChanged } from "@/lib/realtime/application-notifications";
 
-const role = z.enum(["MANAGER", "RECEPTION"]);
+const role = staffRoleSchema;
 const commandSchema = z.discriminatedUnion("action", [
   z.strictObject({
     action: z.literal("add"),
     eventId: z.uuid(),
-    email: z.string().trim().toLowerCase().pipe(z.email()),
+    email: staffEmailSchema,
     role,
   }),
   z.strictObject({
@@ -25,36 +34,6 @@ const commandSchema = z.discriminatedUnion("action", [
     userId: z.uuid(),
   }),
 ]);
-const attempts = new Map<string, { count: number; expiresAt: number }>();
-
-// Deliberately local to Add Staff: 10 attempts/minute per owner per process.
-// Expired entries are discarded; a full map fails closed instead of evicting limits.
-function allowAddAttempt(userId: string) {
-  const now = Date.now();
-
-  for (const [key, value] of attempts) {
-    if (value.expiresAt <= now) {
-      attempts.delete(key);
-    }
-  }
-
-  const current = attempts.get(userId);
-
-  if (current) {
-    current.count += 1;
-
-    return current.count <= 10;
-  }
-
-  if (attempts.size >= 10000) {
-    return false;
-  }
-
-  attempts.set(userId, { count: 1, expiresAt: now + 60000 });
-
-  return true;
-}
-
 export async function manageEventStaff(
   actorUserId: string,
   input: unknown,
@@ -68,8 +47,11 @@ export async function manageEventStaff(
 
   const command = parsed.data;
 
-  if (command.action === "add" && !allowAddAttempt(actorUserId)) {
-    return { message: "Too many attempts. Please try again in a minute." };
+  if (
+    command.action === "add" &&
+    !reserveStaffResolution(actorUserId, [command.email])
+  ) {
+    return { message: staffBudgetMessage };
   }
 
   try {
@@ -92,17 +74,17 @@ export async function manageEventStaff(
         let changed = false;
 
         if (command.action === "add") {
-          const user = await tx.user.findUnique({
-            where: { email: command.email },
-            select: { id: true, emailVerified: true },
-          });
+          const { resolved } = await resolveStaff(tx, actorUserId, [command]);
+          const user = resolved[0];
 
-          if (!user?.emailVerified || user.id === actorUserId) {
+          if (!user) {
             return unavailable;
           }
 
           const existing = await tx.eventStaff.findUnique({
-            where: { eventId_userId: { eventId: event.id, userId: user.id } },
+            where: {
+              eventId_userId: { eventId: event.id, userId: user.userId },
+            },
           });
 
           if (existing) {
@@ -115,7 +97,11 @@ export async function manageEventStaff(
           }
 
           await tx.eventStaff.create({
-            data: { eventId: event.id, userId: user.id, role: command.role },
+            data: {
+              eventId: event.id,
+              userId: user.userId,
+              role: command.role,
+            },
           });
           changed = true;
         } else if (command.action === "remove") {

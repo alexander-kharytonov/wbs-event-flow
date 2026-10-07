@@ -3,13 +3,16 @@ import { notFound } from "next/navigation";
 import { z } from "zod";
 import { BackLink } from "@/components/ui/back-link";
 import { EventFormDialog } from "@/features/events/components/event-form-dialog";
-import { createEvent } from "@/features/events/create-event";
 import { EventForm } from "@/features/events/event-form";
-import { eventFormValues } from "@/features/events/event-form-values";
+import {
+  eventDateSource,
+  eventFormValues,
+} from "@/features/events/event-form-values";
 import {
   eventLifecycle,
   workspaceReadOnly,
 } from "@/features/events/event-lifecycle";
+import { CreateEventModes } from "@/features/events/import/create-event-modes";
 import { requireEventPermission } from "@/features/events/server/require-event-permission";
 import { updateEvent } from "@/features/events/update-event";
 import { requireOrganizer } from "@/features/organizer/server/require-organizer";
@@ -18,23 +21,7 @@ import { prisma } from "@/lib/prisma";
 export async function CreateEventView({ modal = false }: { modal?: boolean }) {
   await requireOrganizer();
 
-  const content = (
-    <Stack spacing={3} sx={{ width: "100%" }}>
-      {!modal && <BackLink href="/dashboard">My events</BackLink>}
-      {!modal && (
-        <Typography variant="h4" component="h1">
-          Create event
-        </Typography>
-      )}
-      <EventForm serverAction={createEvent} />
-    </Stack>
-  );
-
-  return modal ? (
-    <EventFormDialog title="Create event">{content}</EventFormDialog>
-  ) : (
-    content
-  );
+  return <CreateEventModes modal={modal} />;
 }
 
 export async function EditEventView({
@@ -84,6 +71,7 @@ export async function EditEventView({
           serverAction={updateEvent}
           edit={{
             id: event.id,
+            dates: eventDateSource(event),
             version: Buffer.from(event.updatedAt.toISOString()).toString(
               "base64url",
             ),

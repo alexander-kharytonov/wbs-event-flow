@@ -1,14 +1,13 @@
 import {
+  resolveHistoricalAnswer,
+  type StoredAnswer,
+} from "@/features/events/resolve-historical-answer";
+import {
   type EventSnapshot,
   eventSnapshotSchema,
 } from "@/features/events/schemas/event-snapshot";
 
-type Answer = {
-  fieldId: string;
-  textValue: string | null;
-  booleanValue: boolean | null;
-  selectedOptions: { optionId: string }[];
-};
+type Answer = StoredAnswer;
 type HistoricalAnswer = {
   fieldId: string;
   label: string;
@@ -21,59 +20,33 @@ function formatAnswer(
   field: EventSnapshot["registrationForm"]["fields"][number],
   answer: Answer | undefined,
 ) {
-  if (!answer) {
+  const resolved = resolveHistoricalAnswer(field, answer ? [answer] : []);
+
+  if (resolved.state === "UNAVAILABLE") {
     return unavailable;
   }
 
-  if (field.type === "SHORT_TEXT" || field.type === "LONG_TEXT") {
-    if (answer.booleanValue !== null || answer.selectedOptions.length > 0) {
-      return unavailable;
-    }
-
-    return answer.textValue?.trim()
-      ? answer.textValue
-      : field.required
-        ? unavailable
-        : "Not provided";
+  if (resolved.state === "NOT_PROVIDED") {
+    return "Not provided";
   }
 
-  if (field.type === "CHECKBOX") {
-    if (
-      answer.textValue !== null ||
-      answer.selectedOptions.length > 0 ||
-      answer.booleanValue === null ||
-      (field.required && !answer.booleanValue)
-    ) {
-      return unavailable;
-    }
-
-    return answer.booleanValue ? "Yes" : "No";
+  if (typeof resolved.value === "boolean") {
+    return resolved.value ? "Yes" : "No";
   }
 
-  const ids = answer.selectedOptions.map(({ optionId }) => optionId);
-
-  if (
-    answer.textValue !== null ||
-    answer.booleanValue !== null ||
-    new Set(ids).size !== ids.length ||
-    (field.type === "SINGLE_CHOICE" && ids.length > 1)
-  ) {
-    return unavailable;
+  if (Array.isArray(resolved.value)) {
+    // Preserve the existing detail UI's stored selection order.
+    return (
+      answer?.selectedOptions
+        .map(
+          ({ optionId }) =>
+            field.options.find(({ id }) => id === optionId)?.label,
+        )
+        .join(", ") ?? unavailable
+    );
   }
 
-  if (ids.length === 0) {
-    return field.required ? unavailable : "Not provided";
-  }
-
-  const labels = ids.map(
-    (id) => field.options.find((option) => option.id === id)?.label,
-  );
-
-  if (labels.some((label) => label === undefined)) {
-    return unavailable;
-  }
-
-  return labels.join(", ");
+  return resolved.value;
 }
 
 export function historicalAnswers(

@@ -110,3 +110,19 @@ export type RegistrationResult =
       message: string;
       conflict?: boolean;
     };
+
+// Shared normalized workspace mapping for individual edits and template creation.
+export function registrationFieldData(input: RegistrationFieldInput) {
+  const field = registrationFieldSchema.parse(input);
+
+  return {
+    type: field.type,
+    label: field.label,
+    description: field.description || null,
+    required: field.required,
+    options: (field.options ?? []).map((option, position) => ({
+      label: option.label,
+      position,
+    })),
+  };
+}

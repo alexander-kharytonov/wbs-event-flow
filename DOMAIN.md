@@ -47,12 +47,22 @@ Sources: [activation](app/(application)/onboarding/organizer/actions.ts),
 ## 2. Event workspace
 
 `Event` and its `RegistrationForm`, fields, and options are mutable organizer
-workspace. Event creation also creates an empty registration form. Workspace
+workspace. Manual Event creation also creates an empty registration form; template creation
+atomically initializes it from validated configuration (section 31). Workspace
 edits increment contentVersion; version checks reject conflicting edits.
 Unpublished changes are visible to the organizer and Preview, not public content.
 
 Dates are stored as instants with an IANA timezone for input/display. Authoring
-rejects ambiguous/nonexistent local DST times. Event end must be after start.
+rejects ambiguous/nonexistent edited local DST times. Event end must be after start.
+Minute-resolution Event Edit preserves untouched dates, including nullable registration
+boundaries, from the locked authoritative Event row with exact seconds/milliseconds.
+Client edit markers never supply preserved timestamps; changed local values or timezone
+are also detected against the stored row. A timezone edit reinterprets local dates in
+the new zone, except the immutable Ongoing start, whose exact instant only changes
+its display zone. Existing lifecycle/version/contentVersion guards remain unchanged.
+Local HTML min/max are UX hints: import review omits cross-field wall-clock bounds,
+and Edit omits a conflicting hint when its authoritative-source absolute interval is
+valid across a DST fold. The shared absolute relationship validation remains authority.
 
 Sources: [create](features/events/create-event.ts),
 [edit](features/events/update-event.ts),
@@ -923,9 +933,9 @@ there is no membership or role history. Lifecycle transitions retain membership.
 Add uses exact email after trimming/lowercasing, resolves only an existing verified
 User and returns the same unavailable result for nonexistent/unverified/ineligible
 accounts. No autocomplete/directory/invitations/acceptance exists. Successful direct
-assignment discloses eligibility; this is accepted. Add has a bounded in-process
-10-attempt/minute/actor limit (per process, resets on restart); it is not a distributed
-abuse-prevention guarantee. No OrganizerProfile is created for Staff.
+assignment discloses eligibility; this is accepted. Add shares the bounded in-process Staff resolution budget with template creation:
+100 unique normalized email attempts per actor per ten-minute window (section 31).
+It resets on process restart and is not a distributed abuse-prevention guarantee. No OrganizerProfile is created for Staff.
 
 The server-only fixed matrix grants OWNER every Event permission. MANAGER has
 context, application/answer/email read and review, full attendee/history/actor read,
@@ -1181,3 +1191,202 @@ the same boundary even when refreshed server props retain it. Event-keyed mounti
 effect disposal and listener/timeout cleanup prevent stale callbacks after changes.
 There is no polling or new transport. Browser wall time only requests a fresh server
 read; lifecycle and mutation guards remain server-authoritative.
+
+## 29. CSV data export (26A)
+
+Authenticated GET /api/events/[eventId]/exports/[dataset] accepts applications,
+attendees, attendance or staff. Each request verifies a fresh verified unexpired
+session without cookie cache/refresh, then authorizes inside one RepeatableRead
+transaction. Applications requires applications.read; Attendees requires both
+attendees.read.full and applications.read; Attendance requires attendees.read.full;
+Staff requires staff.manage. No new permissions exist. Reception is denied before
+dataset reads. Missing/foreign/unauthorized Events share a neutral unavailable
+response. Lifecycle does not independently forbid these read-only exports.
+
+Exports always cover the entire Event dataset, never client search/filter state.
+Applications order by createdAt/id ascending and include all attempts/statuses.
+Attendees order by createdAt/id ascending and include revoked records. Admission
+is ACTIVE only when both Attendee and Registration revokedAt are null; otherwise
+REVOKED. PRIMARY answers use Registration.sourceApplication; GUEST values are empty,
+state and Answers scope NOT_APPLICABLE, with the same Registration's PRIMARY name.
+Attendance orders by checkedInAt/id ascending and includes immutable QR/MANUAL facts
+after later revocation. Actor/reviewer names use current User.name; null links yield
+empty names and UNAVAILABLE, never an inferred owner. Present links yield AVAILABLE.
+Staff exports owner first with OWNER role, then EventStaff ordered createdAt/userId
+ascending with MANAGER/RECEPTION roles. Projections never query Tickets or auth data.
+
+Historical column identity is (eventRevisionId, fieldId). Only referenced revisions
+are read; each frozen v1/v2 snapshot is parsed once. Columns order by revision number
+then snapshot question order; headers are <Label> [v<revision> Q<position> <TYPE>],
+followed immediately by <header> — state. Duplicate labels and recreated questions
+remain separate. Nonmatching revisions and Guest cells have NOT_APPLICABLE state.
+CSV marks missing expected answers NOT_PROVIDED. Duplicate or incompatible answers
+for known fields are UNAVAILABLE; optional empty answers are NOT_PROVIDED. Before
+building Application or PRIMARY answer cells, every stored fieldId must belong to
+that submission's snapshot. An unknown fieldId rejects the entire export with a
+generic error, without exposing the identifier or guessing a column. The historical
+detail UI retains its existing missing-answer presentation. Choice labels come
+exclusively from that snapshot; multiple choice is
+a JSON label array in snapshot option order. Invalid snapshots reject the dataset.
+The existing detail UI retains its text presentation and stored selection order.
+
+Row reads stop at the limit plus one before historical answer materialization;
+Staff reserves one row for OWNER. Revision JSON and answers are loaded in batches,
+without per-row detail loaders. Historical columns are bounded before answers load.
+All serialization is buffered and checked before a successful response: 10,000 data
+rows, 500 final columns including state columns, 20 MiB UTF-8 including BOM/header/
+quoting/CRLF. Exceeding any bound rejects the whole export, never silently truncates.
+Empty datasets produce fixed headers only. Transaction/DB errors produce a generic
+failure with no partial CSV; the read transaction has a 30-second timeout.
+
+CSV has UTF-8 BOM, comma delimiter, CRLF records, all cells quoted with doubled
+quotes, null as empty and dates as UTC ISO milliseconds. Spreadsheet safety is a
+separate export-only transform for headers and values: a leading apostrophe guards
+= + - @ and full-width equivalents, leading tab/CR/LF and dangerous prefixes behind
+whitespace/control/format characters. It never modifies stored values or emits
+formula-based text wrappers. This mitigation cannot guarantee safety after external
+spreadsheet save/reopen transformations.
+
+Downloads have deterministic ASCII-safe title/dataset filenames, attachment
+Content-Disposition, text/csv UTF-8, private/no-store/max-age=0, nosniff, no-referrer
+and noindex/nofollow/noarchive. Errors also have privacy headers, but plain-text
+content and no attachment. The menu uses ordinary anchors without Next prefetch.
+CSV content/PII is not logged. There are no persistent files, export history/jobs,
+new schema, migrations, dependencies, Template export or Import flows.
+
+## 30. Portable EventTemplateV1 / export (26B)
+
+The transport-independent strict envelope is {format: "event-flow-template",
+version: 1, event: {...}}. The explicit event DTO has exactly title, description,
+startsAt, endsAt, timezone, visibility, accountRequirement, capacity,
+maxGuestsPerRegistration, registrationOpensAt, registrationClosesAt,
+registrationForm, staff and badgeLayout. Nullable values are required explicit
+nulls. Dates are original UTC ISO instants with milliseconds, without shifting
+past Events or copying Completed/Cancelled/Archived state.
+
+registrationForm is {fields: [...]}. Each field contains key, type, label,
+description, required and options; each option contains only label. Array order
+is current position order. Field keys are exactly field_1 through field_N in
+that order. No field/form/option/revision IDs or built-in full name/email fields
+are serialized. Validation reuses current registrationFieldSchema semantics;
+Template v1 limits are additional portability constraints, not authoring limits.
+
+badgeLayout is null or the constrained current badge format with secondaryField
+and tertiaryField descriptors {fieldKey, type, label}. Bindings map only by exact
+current fieldId/type/label. Missing, historical, deleted/recreated or mismatched
+bindings reject the entire export with a generic request to update Badge Design.
+No label-only mapping, silent removal or historical-question insertion occurs.
+The stored-layout parser remains authority: missing padding normalizes to 3 mm,
+obsolete preset is discarded and invalid layouts fail without a default fallback.
+Portable padding is explicit. Arbitrary HTML/CSS/custom dimensions are forbidden.
+
+staff contains current EventStaff only, ordered createdAt ASC/userId ASC, with
+{email, role: MANAGER|RECEPTION}. Emails are trimmed/lowercased using existing
+Staff semantics. OWNER, user IDs, names, verification status and assignment
+metadata are omitted. Export does not perform eligibility/account lookup.
+
+The server-only projector is independent of HTTP and Prisma serialization. The
+reader authorizes event.edit from fresh verified session identity and loads
+Event/current Form/Staff/Badge in one RepeatableRead transaction (30-second
+timeout). It has no edit lifecycle guard, locks or domain writes. Counts are
+checked before question text/options/staff materialization. No operational data,
+revisions, Ticket credentials or auth relations are loaded into the projection.
+
+Limits are 100 fields, 100 options per field, 1,000 options total, 100 staff and
+512 KiB of actual serialized UTF-8 response including trailing newline. Output
+has deterministic schema property order, two-space indentation and no BOM.
+Every limit and validation failure rejects the whole export; no partial content
+or truncation is returned. No persistent files, export records or jobs exist.
+
+GET /api/events/[eventId]/exports/template is a static sibling of the unchanged
+CSV dataset route. It checks a fresh verified unexpired session with cookie cache
+and refresh disabled. Unknown/foreign/unauthorized Events share a neutral 404.
+OWNER alone has event.edit; Manager/Reception cannot download or see the menu item.
+Success has application/json; charset=utf-8, attachment filename
+`<sanitized-event-title>-template-v1.json` (up to 80 Unicode letters/numbers and
+hyphens in the title slug, or `event` if empty), with UTF-8 `filename*` and an ASCII
+`filename`, private/no-store/max-age=0, nosniff, no-referrer and
+noindex/nofollow/noarchive. Errors retain privacy headers, use generic plain text
+and contain no emails, internal IDs or partial template. Content/PII is not logged.
+The menu uses an explicit ordinary anchor without prefetch.
+
+The artifact contains no database identities, organizer/publicId, timestamps of
+creation/modification, publication pointers/contentVersion/revisions, cancellation/
+archive state, Applications/Registrations/Attendees/Guests, Tickets/QR/credentials,
+Attendance, notifications/outbox or runtime/lock/history data. It is private
+configuration because staff emails are present. No schema/dependency changes,
+Import/Create flow (26C), template preview/editor or Duplicate Event are included.
+
+
+## 31. Event template import / atomic create (26C)
+
+Create page and intercepted modal share manual/import modes. Upload and Paste use
+one UTF-8 byte-limit -> JSON parse -> format/version -> strict EventTemplateV1 ->
+create-domain validation pipeline. Version other than 1 is explicitly unsupported;
+unknown fields and database identity properties fail. Limits remain 512 KiB,
+100 fields, 100 options/field, 1,000 total options and 100 Staff, including after
+review edits. Errors expose only code/known path/safe message, never raw parser,
+Zod or database errors. No payload/email logging or untrusted deep merge occurs.
+The 26A CSV and 26B export contracts are unchanged.
+
+No Event write or account eligibility query occurs before explicit Create.
+Review state is local and not authority. The server rechecks fresh verified
+Organizer authority and all final values; organizerId comes only from the session
+adapter. No new permission is introduced. Object validation and creation remain
+independent of JSON transport for a future projector consumer; Duplicate is absent.
+
+Imported UTC instants retain milliseconds until that date is edited. Changing the
+review timezone interprets local date inputs using the new zone. Edited values use
+the same Temporal disambiguation=reject path as manual authoring. Untouched instants
+are not round-tripped through minute-resolution inputs. Shared date relationships
+require end > start, close > open when both exist, and registration boundaries <=
+end. Past dates remain valid, with a warning; endsAt <= now yields Completed and
+read-only after creation under existing lifecycle rules, without shifting dates.
+Browser timezone initialization applies only when Create has no supplied timezone.
+Replacing a template remounts all review state.
+
+Review question keys are stable through reorder/edit. Before canonicalizing keys,
+bindings must match existing local identity/type/label. Deleted or changed bindings
+block Create; no label matching, replacement guessing or silent removal occurs.
+New field IDs come from batch insertion, mapped through returned position rather
+than result order; options receive fresh IDs in a separate batch. Keys never become
+persistent IDs. Portable Badge bindings remap server-side to new fieldId/type/label,
+then pass badgeLayoutSchema and exact compatibility against only the new current
+fields. Historical/saved catalog behavior of the existing Badge Designer remains
+unchanged. Null BadgeLayout stays SQL null/default.
+
+The shared transaction-aware core creates Event + RegistrationForm, batch fields,
+batch options, remapped BadgeLayout and batch resolved memberships in one bounded
+transaction. Manual Create calls this core with empty fields/staff and null layout,
+retaining its redirect. The new Event starts with the ordinary contentVersion=1
+and null publication/publicId/cancellation/archive state. No EventRevision or
+operational/history rows are written. Any invariant or DB/integrity failure throws
+out of the transaction and rolls back all Event data; no partial success return or
+skipDuplicates masks such failures. Existing update locks/version/contentVersion
+and lifecycle rules remain in their existing adapters.
+
+Staff validation trims/lowercases email, combines same-role duplicates with a
+warning, and rejects conflicting roles before reserving budget. Add Staff and
+Import share one process-global actor budget: 100 email attempts per fixed
+600,000 ms window starting at the first successful reservation. Count is unique
+normalized emails within each operation, not unique addresses across the window.
+The synchronous check+reserve has no await, so concurrent operations in one
+process cannot overspend. Denied reservation consumes nothing, allows no partial
+lookup, and occurs before Event creation. Successful reservations are not refunded
+on later failures. Expired actors are removed; at 10,000 live actor entries the map
+fails closed for new actors. No Redis/distributed guarantee is added.
+
+After reservation, one bounded query selects id/email only from verified Users.
+Self, missing and unverified targets all yield neutral unavailable assignments;
+no reason, userId or account metadata reaches the result. Resolved memberships are
+written in the create transaction without skipDuplicates; deletion/integrity races
+fail and roll back the Event. No invitations/profile creation occurs. Existing
+Add Staff uses the same eligibility resolver and budget while retaining its owner
+lock/reauthorization, role-change and notification behavior.
+
+After commit, Import returns only eventId, addedCount, skipped template emails and
+duplicate email warnings. The client replaces the review with a success result and
+Open event navigation, preventing repeat submission in that review. Result state
+is ephemeral; no URL/cookie/persistent storage or ImportJob is used. No destructive
+import, CSV import, publication import, backup/restore, automatic date shifting,
+background job, schema migration or dependency is introduced.

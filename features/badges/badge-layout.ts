@@ -71,3 +71,10 @@ export function readBadgeLayout(value: unknown) {
 export function sameBadgeField(a: BadgeField, b: BadgeField) {
   return a.fieldId === b.fieldId && a.type === b.type && a.label === b.label;
 }
+
+export function validBadgeBindings(layout: BadgeLayout, fields: BadgeField[]) {
+  return [layout.secondaryField, layout.tertiaryField].every(
+    (binding) =>
+      !binding || fields.some((field) => sameBadgeField(field, binding)),
+  );
+}

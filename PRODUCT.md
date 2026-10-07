@@ -170,6 +170,12 @@ while Upcoming or Ongoing. Unpublish preserves the URL identity, all revisions,
 and applications, but removes public access. Publishing again creates a new
 revision even when content has not changed. Completed events cannot publish.
 
+Event Edit keeps the exact stored instants of untouched dates even though inputs
+show minutes. Editing a date uses the existing local-time/DST rules. Changing timezone
+reinterprets local dates, except an ongoing event's locked start, which keeps its
+instant and follows the new display zone. Valid exact intervals across a DST fold
+are not blocked by local browser min/max hints, including during template review.
+
 Upcoming workspaces are editable. During an ongoing event, the start is immutable
 and a changed end must remain in the future. Completed, cancelled, and archived
 workspaces are read-only. Applications freeze on completion or cancellation;
@@ -427,3 +433,110 @@ Open Overviews refresh on existing Event invalidations and once at the next life
 boundary, without polling. Absolute boundary checks on timer callbacks and return to
 a visible/active page handle delayed callbacks and device sleep; the server still
 determines lifecycle. Cards open existing sections without implied URL filters.
+
+## CSV data exports (26A)
+
+The Event header Export menu downloads whole-Event datasets, independent of local
+search and filters. Owners export Applications, Attendees, Attendance and Staff;
+Managers export the first three; Reception has no export access. Exports remain
+readable for completed, cancelled and archived Events while access is retained.
+
+Applications include every attempt, including withdrawn submissions. Attendees
+include PRIMARY/GUEST and revoked admission. Only PRIMARY rows contain source
+Application answers; Guests have empty answers with NOT_APPLICABLE states and
+PRIMARY name context. Attendance includes every recorded arrival, even after
+admission revocation, with QR/Manual and available actor name. Staff includes the
+owner first, then current Managers/Reception. Reviewer and actor names reflect
+current linked accounts; unavailable identities are never replaced by the owner.
+
+Historical answer columns are separated by submitted revision and question, with
+human labels and adjacent VALUE/NOT_PROVIDED/NOT_APPLICABLE/UNAVAILABLE states.
+Question and choice meanings come from the submitted snapshot, never today's form.
+Invalid historical snapshots reject the whole export.
+
+CSV uses UTF-8 with BOM, comma separators and quoted cells. Spreadsheet formula
+mitigation may prefix dangerous text with an apostrophe, changing only the exported
+representation. Spreadsheet applications may alter this protection when saving and
+reopening files. Exports are complete or fail: at most 10,000 data rows, 500 total
+columns and 20 MiB serialized output. Empty datasets produce headers only. No
+partial file, persistent export file, export history or background job is created.
+
+## Event template export (26B)
+
+Owners can download **Export template** from the Event header Export menu.
+The menu groups CSV datasets and JSON configuration separately. Template filenames
+include a sanitized Event title followed by `-template-v1.json`, preserving Unicode.
+EventTemplateV1 is portable configuration, not a backup or a public artifact:
+it contains current staff emails. It uses current saved workspace configuration,
+including unpublished Event, Registration Form and Badge Design changes.
+
+The JSON contains title, nullable description, start/end, timezone, visibility,
+account requirement, nullable capacity, maximum guests per registration, nullable
+registration open/close dates, registration form, staff and nullable badge layout.
+Dates retain their original instants, including past dates. Completed, cancelled
+and archived Events can be exported without copying their lifecycle state.
+
+Custom questions retain their array order, type, label, nullable description,
+required flag and ordered option labels. Full name/email are built-in inputs,
+not custom fields. Questions receive local keys field_1, field_2, etc.; database
+identities are excluded. Badge bindings use those keys only when the saved
+field ID, type and label exactly match a current question. A historical, deleted,
+recreated or changed binding rejects the whole export and asks the owner to
+update Badge Design. Invalid saved layouts also fail; null remains null and
+legacy missing padding becomes 3 mm. Physical badge constraints remain unchanged.
+
+Staff contains only current Manager/Reception assignments, ordered by assignment
+creation time then user ID, with normalized email and role. The owner is excluded.
+There are no Applications, Registrations, Attendees, Guests, Tickets, QR credentials,
+Attendance, internal IDs, publication history, lifecycle state or notifications.
+
+Template v1 allows at most 100 questions, 100 options per question, 1,000 options
+in total, 100 staff and 512 KiB of serialized UTF-8 JSON. Exports are complete or
+fail; these limits do not restrict manual editing. Downloads are private and
+uncached. The v1 export contract remains unchanged by Import/Create (26C).
+Duplicate Event is not implemented.
+
+
+## Event template import / create (26C)
+
+Create event defaults to manual entry in both the page and modal. A **Use template**
+switch in the header opens template import.
+Upload a UTF-8 JSON file or paste JSON, then Validate. Both use the same strict
+parser, reject unsupported versions/unknown properties/internal identity fields,
+and enforce the existing v1 limits. Preview performs no writes or account lookup.
+
+Review allows editing Event settings, local questions/options, staff email/role,
+and Badge Design before an explicit Create event. Loading another template resets
+all review state. Manual Create retains its browser timezone default; imported
+configuration retains its supplied timezone. Untouched imported dates keep their
+exact instants, including seconds/milliseconds. Editing a date (or its timezone)
+uses the existing local-time/DST validation. Dates are never shifted automatically.
+Past dates are valid and warned about; a past end creates a Completed, read-only
+Event under the existing lifecycle. Correct dates before Create if later editing
+is needed.
+
+Questions retain local identity through reorder/edit. Every created question and
+option receives a new database identity. Badge bindings follow exact question
+identity/type/label; removing or changing a referenced question blocks Create until
+the owner explicitly fixes the binding or restores compatibility. Null design
+remains the default. No operational badge preview/save action runs during review.
+
+Create atomically saves a new unpublished Event owned by the current verified
+Organizer, its Form, Badge Design and resolved Staff. Missing/unverified/self Staff
+are neutral skips; same-role duplicate emails are combined and reported, while
+conflicting roles fail validation. Unexpected database/integrity failure rolls
+back the entire Event. No publication, history, Applications, Registrations,
+Attendees, Tickets or Attendance are imported. Existing Events are never modified.
+
+Add Staff and Import share an in-process budget of 100 unique normalized email
+attempts per actor per ten-minute window. An import reserves its entire unique
+email count before any lookup or creation; insufficient budget rejects the whole
+attempt. Repeated operations consume budget again. This is not a distributed
+abuse-prevention guarantee. Successful assignment reveals eligibility as with
+existing Add Staff; unavailable reasons and account metadata are never returned.
+
+After creation, the import result shows added Staff count and neutral skipped/
+duplicate email warnings, followed by Open event. Results stay in memory and may
+vanish on reload; no emails are placed in navigation URLs, cookies or persistent
+browser storage. There is no ImportJob, invitation, destructive import or Duplicate
+Event flow.
