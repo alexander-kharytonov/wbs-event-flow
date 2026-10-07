@@ -984,9 +984,13 @@ is derived from Attendee, Event operational layout, available active Ticket and,
 for PRIMARY, submitted Application answers. Printing does not write Attendance or
 change admission. Guest answers are never inferred from their Registration PRIMARY.
 
-Event.badgeLayout is nullable JSON: SQL null means the built-in Classic default.
-A strict formatVersion=1 schema permits only fixed presets, physical size presets,
-orientation, display switches, two optional field descriptors, name size and alignment.
+Event.badgeLayout is nullable JSON: SQL null means the built-in default.
+A strict formatVersion=1 schema permits only physical size presets,
+orientation, display switches, two optional field descriptors, name size, alignment
+and paddingMm (integer 0–10). Missing paddingMm in existing layouts defaults to 3 mm.
+Padding applies equally on all sides within the fixed physical dimensions.
+Presets are removed: existing stored preset values are accepted only when reading
+and discarded. All badges use one layout; new saves omit preset.
 No arbitrary HTML/CSS/coordinates or custom dimensions are accepted. One authoritative
 size mapping serves preview and print. Owner Save locks Event, rereads badges.configure
 permission after the lock and validates descriptors against the Event's catalog.
@@ -1054,13 +1058,14 @@ Scanner Reprint is attendance-context language, not evidence of earlier printing
 24B1 introduces no print history, bulk/team endpoint or new credential lifecycle.
 
 
-24B2 adds operational Attendees and Event team workspace sections for OWNER/MANAGER;
+24B2 adds operational Staff and Attendees workspace sections for OWNER/MANAGER;
 Design remains OWNER-only and Reception has no workspace, bulk or team access. The
 selection read model projects only attendee ID/name/kind and, for GUEST only, the
 PRIMARY name from the same Registration's Attendees. This Guest-of context is only
 for OWNER/MANAGER browsing/selection, never badge presentation or printed content;
-PRIMARY rows have no Guest-of context. The team read model projects only name/role,
-never the owner-only Staff management DTO or email. Operational printing
+PRIMARY rows have no Guest-of context. The team read model projects only current
+User.name/email and access role for OWNER/MANAGER browsing, never the owner-only Staff management DTO. Email is not
+part of BadgePresentation or printed content. Operational printing
 always rereads saved/default layout; unsaved client design is never submitted.
 
 Selected printing is session-authenticated native POST with selectors only, targeting

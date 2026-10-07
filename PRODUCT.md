@@ -317,9 +317,11 @@ before check-in. Owners and Managers have a Badges workspace; only owners config
 its layout. Reception has individual print access without a Badges tab.
 
 Each Event has one operational layout, independent of Publish/Republish. A null layout
-uses Classic defaults. Classic, Minimal and Check-in presets support 90 × 60, 85 × 54
-and 100 × 70 mm, either orientation, limited text settings and optional Event/type/
-Ticket/QR fields. Save affects newly opened print documents.
+uses the built-in defaults. One layout supports 90 × 60, 85 × 54 and 100 × 70 mm,
+either orientation, limited text settings and optional Event/type/
+Ticket/QR fields. Padding sets the inner spacing on all sides from 0 to 10 mm
+in whole millimeters (default 3 mm), shared by preview and print. Save affects newly
+opened print documents.
 
 Owners explicitly select up to two SHORT_TEXT, LONG_TEXT or SINGLE_CHOICE questions.
 PRIMARY values come from the submitted Application revision only when field ID, type
@@ -341,6 +343,8 @@ without a QR/available Ticket number. There is no new QR protocol or credential.
 Designer previews prefer a real active PRIMARY, otherwise use semantic labels without
 demo records. Preview QR areas are placeholders, not admission credentials. A print
 document is a snapshot at load time and prints only after an explicit Print click.
+Print documents include a thin dashed cutting guide inside each badge edge, without
+changing its physical dimensions or content padding.
 Browser/OS paper and scaling settings remain the operator's responsibility. There is
 no Badge issuance or print history.
 
@@ -358,11 +362,12 @@ printing is a persistent detail action. Reception's attendee data is unchanged;
 approved badge content is loaded only in the authorized print document.
 
 
-Operational batch printing (24B2): OWNER has Design / Attendees / Event team sections;
-MANAGER has Attendees / Event team, without Designer/settings/save. RECEPTION remains
+Operational batch printing (24B2): OWNER has Design / Staff / Attendees sections;
+MANAGER has Staff / Attendees, without Designer/settings/save. RECEPTION remains
 individual-only and has no Badges workspace. Operational lists contain only attendee
-ID/name/kind or team name/role. Printing always uses the current saved/default design,
-never unsaved Designer changes.
+ID/name/kind with Guest-of context, or team name/email/role. The Staff list uses
+the shared Owner / Manager / Reception role labels; email is browsing-only. Printing
+always uses the current saved/default design, never unsaved Designer changes.
 
 Print selected accepts 1–200 unique active attendees (PRIMARY and GUEST), ordered by
 Attendee.createdAt then id, independently of selection order. Any unavailable selector

@@ -13,7 +13,7 @@ type AttendeeBadgePresentation = {
   qrPlaceholder: boolean;
   style: Pick<
     BadgeLayout,
-    "preset" | "size" | "orientation" | "nameSize" | "alignment"
+    "size" | "orientation" | "nameSize" | "alignment" | "paddingMm"
   >;
 };
 
@@ -86,10 +86,10 @@ export function badgeText(value: string) {
 
 export function badgeStyle(layout: BadgeLayout): BadgePresentation["style"] {
   return {
-    preset: layout.preset,
     size: layout.size,
     orientation: layout.orientation,
     nameSize: layout.nameSize,
     alignment: layout.alignment,
+    paddingMm: layout.paddingMm,
   };
 }

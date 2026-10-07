@@ -8,7 +8,6 @@ export const badgeFieldSchema = z.strictObject({
 
 export const badgeLayoutSchema = z.strictObject({
   formatVersion: z.literal(1),
-  preset: z.enum(["CLASSIC", "MINIMAL", "CHECK_IN"]),
   size: z.enum(["STANDARD", "CARD", "LARGE"]),
   orientation: z.enum(["PORTRAIT", "LANDSCAPE"]),
   showEventName: z.boolean(),
@@ -19,6 +18,7 @@ export const badgeLayoutSchema = z.strictObject({
   tertiaryField: badgeFieldSchema.nullable(),
   nameSize: z.enum(["SMALL", "MEDIUM", "LARGE"]),
   alignment: z.enum(["LEFT", "CENTER"]),
+  paddingMm: z.number().int().min(0).max(10).default(3),
 });
 
 export type BadgeLayout = z.infer<typeof badgeLayoutSchema>;
@@ -26,7 +26,6 @@ export type BadgeField = z.infer<typeof badgeFieldSchema>;
 
 export const defaultBadgeLayout: BadgeLayout = {
   formatVersion: 1,
-  preset: "CLASSIC",
   size: "STANDARD",
   orientation: "LANDSCAPE",
   showEventName: true,
@@ -37,6 +36,7 @@ export const defaultBadgeLayout: BadgeLayout = {
   tertiaryField: null,
   nameSize: "MEDIUM",
   alignment: "LEFT",
+  paddingMm: 3,
 };
 
 export const badgeSizes = {
@@ -56,7 +56,14 @@ export function badgeDimensions(
 }
 
 export function readBadgeLayout(value: unknown) {
-  return badgeLayoutSchema.safeParse(
+  // Existing saved layouts may still contain the removed preset setting.
+  const storedLayoutSchema = badgeLayoutSchema
+    .extend({
+      preset: z.enum(["CLASSIC", "MINIMAL", "CHECK_IN"]).optional(),
+    })
+    .transform(({ preset: _preset, ...layout }) => layout);
+
+  return storedLayoutSchema.safeParse(
     value === null ? defaultBadgeLayout : value,
   );
 }

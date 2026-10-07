@@ -1,13 +1,21 @@
 "use client";
 
+import PeopleOutlined from "@mui/icons-material/PeopleOutlined";
 import PrintOutlined from "@mui/icons-material/PrintOutlined";
+import SearchOutlined from "@mui/icons-material/SearchOutlined";
 import {
   Alert,
+  Avatar,
   Box,
   Button,
   Checkbox,
   Chip,
-  FormControlLabel,
+  InputAdornment,
+  List,
+  ListItem,
+  ListItemAvatar,
+  ListItemButton,
+  ListItemText,
   Paper,
   Stack,
   Tab,
@@ -15,15 +23,82 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { useRouter } from "next/navigation";
 import { type ReactNode, useState } from "react";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   MAX_BADGES_PER_DOCUMENT,
   nextBadgeBatchUrl,
 } from "@/features/badges/print-request";
 import type { readBadgeWorkspace } from "@/features/badges/server/bulk";
+import { EventAccessStatus } from "@/features/events/components/event-access-status";
 
 type Workspace = NonNullable<Awaited<ReturnType<typeof readBadgeWorkspace>>>;
+
+function BadgePersonContent({
+  name,
+  role,
+  secondary,
+}: {
+  name: string;
+  role: ReactNode;
+  secondary?: string;
+}) {
+  const nameParts = name.trim().split(/\s+/u).filter(Boolean);
+  const initials = [
+    nameParts[0],
+    ...(nameParts.length > 1 ? [nameParts[nameParts.length - 1]] : []),
+  ]
+    .map((part) => Array.from(part ?? "")[0] ?? "")
+    .join("")
+    .toUpperCase();
+  let colorHash = 0;
+
+  for (const character of initials) {
+    colorHash = (colorHash * 31 + (character.codePointAt(0) ?? 0)) % 360;
+  }
+
+  return (
+    <>
+      <ListItemAvatar sx={{ minWidth: 0 }}>
+        <Avatar
+          sx={{
+            bgcolor: `hsl(${colorHash}, 55%, 32%)`,
+            color: "#fff",
+            fontWeight: 600,
+            fontSize: 14,
+          }}
+        >
+          {initials}
+        </Avatar>
+      </ListItemAvatar>
+      <Box
+        sx={{
+          flex: 1,
+          minWidth: 0,
+          display: "flex",
+          flexDirection: { xs: "column", md: "row" },
+          gap: 2,
+          alignItems: { md: "center" },
+        }}
+      >
+        <ListItemText
+          sx={{ m: 0, minWidth: 0, overflowWrap: "anywhere" }}
+          primary={name}
+          secondary={secondary}
+          slotProps={{
+            primary: { component: "div", sx: { fontWeight: 600 } },
+            secondary: { component: "div", sx: { mt: 0.5 } },
+          }}
+        />
+        <Box
+          sx={{ flexShrink: 0, alignSelf: { xs: "flex-start", md: "center" } }}
+        >
+          {role}
+        </Box>
+      </Box>
+    </>
+  );
+}
 
 export function OperationalBadgeWorkspace({
   eventId,
@@ -34,7 +109,6 @@ export function OperationalBadgeWorkspace({
   data: Workspace;
   designer: ReactNode;
 }) {
-  const router = useRouter();
   const [section, setSection] = useState(
     data.configure ? "design" : "attendees",
   );
@@ -53,11 +127,6 @@ export function OperationalBadgeWorkspace({
     );
   }
 
-  function refresh() {
-    setSelected([]);
-    router.refresh();
-  }
-
   return (
     <Stack spacing={3}>
       <Tabs
@@ -74,16 +143,16 @@ export function OperationalBadgeWorkspace({
           />
         )}
         <Tab
+          value="team"
+          label="Staff"
+          id="badge-team-tab"
+          aria-controls="badge-team-panel"
+        />
+        <Tab
           value="attendees"
           label="Attendees"
           id="badge-attendees-tab"
           aria-controls="badge-attendees-panel"
-        />
-        <Tab
-          value="team"
-          label="Event team"
-          id="badge-team-tab"
-          aria-controls="badge-team-panel"
         />
       </Tabs>
       {data.configure && (
@@ -97,10 +166,10 @@ export function OperationalBadgeWorkspace({
         </Box>
       )}
       {section !== "design" && (
-        <Typography variant="body2" color="text.secondary">
+        <Alert severity="info">
           Printing always uses the current saved badge design. Unsaved Designer
           changes are not printed.
-        </Typography>
+        </Alert>
       )}
       {data.cancelled && section !== "design" && (
         <Alert severity="info">
@@ -114,20 +183,39 @@ export function OperationalBadgeWorkspace({
           id="badge-attendees-panel"
           aria-labelledby="badge-attendees-tab"
         >
-          <Stack
-            direction={{ xs: "column", sm: "row" }}
-            spacing={2}
-            sx={{ alignItems: { sm: "center" } }}
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1fr)",
+              "& .MuiOutlinedInput-notchedOutline": {
+                transition: "border-color 150ms ease",
+              },
+              "& .MuiOutlinedInput-root:not(.Mui-focused):not(.Mui-error):not(.Mui-disabled) .MuiOutlinedInput-notchedOutline":
+                { borderColor: "divider" },
+              "& .MuiOutlinedInput-root:hover:not(.Mui-focused):not(.Mui-error):not(.Mui-disabled) .MuiOutlinedInput-notchedOutline":
+                {
+                  borderColor:
+                    "color-mix(in srgb, var(--mui-palette-divider), var(--mui-palette-text-secondary) 25%)",
+                },
+            }}
           >
             <TextField
-              size="small"
               label="Search attendees"
+              placeholder="Name"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              sx={{ flex: 1 }}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchOutlined />
+                    </InputAdornment>
+                  ),
+                },
+              }}
+              sx={{ minWidth: 0 }}
             />
-            <Button onClick={refresh}>Refresh list</Button>
-          </Stack>
+          </Box>
           <Box
             component="form"
             method="post"
@@ -185,65 +273,80 @@ export function OperationalBadgeWorkspace({
               </Button>
             </Stack>
           </Box>
-          <Paper variant="outlined" sx={{ maxHeight: 480, overflow: "auto" }}>
-            {visible.length ? (
-              visible.map((attendee) => (
-                <Stack
-                  key={attendee.id}
-                  direction="row"
-                  spacing={1}
-                  sx={{
-                    px: 2,
-                    py: 0.5,
-                    alignItems: "center",
-                    borderBottom: 1,
-                    borderColor: "divider",
-                  }}
-                >
-                  <FormControlLabel
-                    sx={{ flex: 1, minWidth: 0, overflowWrap: "anywhere" }}
-                    control={
+          {visible.length ? (
+            <Paper variant="outlined" sx={{ maxHeight: 480, overflow: "auto" }}>
+              <List disablePadding aria-label="Badge attendees">
+                {visible.map((attendee, index) => (
+                  <ListItem
+                    key={attendee.id}
+                    disablePadding
+                    divider={index < visible.length - 1}
+                  >
+                    <ListItemButton
+                      role="checkbox"
+                      aria-checked={selectedSet.has(attendee.id)}
+                      aria-label={`Select ${attendee.name}`}
+                      disabled={
+                        !selectedSet.has(attendee.id) &&
+                        selected.length >= MAX_BADGES_PER_DOCUMENT
+                      }
+                      onClick={() =>
+                        toggle(attendee.id, !selectedSet.has(attendee.id))
+                      }
+                      alignItems="center"
+                      sx={{
+                        px: { xs: 2, sm: 3 },
+                        py: 2.5,
+                        gap: { xs: 1.5, sm: 2 },
+                        minWidth: 0,
+                      }}
+                    >
                       <Checkbox
                         checked={selectedSet.has(attendee.id)}
-                        disabled={
-                          !selectedSet.has(attendee.id) &&
-                          selected.length >= MAX_BADGES_PER_DOCUMENT
-                        }
-                        onChange={(_, checked) => toggle(attendee.id, checked)}
+                        tabIndex={-1}
+                        disableRipple
+                        slotProps={{ input: { "aria-hidden": true } }}
+                        sx={{ pointerEvents: "none", p: 0 }}
                       />
-                    }
-                    label={
-                      <Box component="span">
-                        {attendee.name}
-                        {attendee.kind === "GUEST" &&
-                          attendee.primaryAttendeeName !== null && (
-                            <Typography
-                              component="span"
-                              variant="body2"
-                              color="text.secondary"
-                              sx={{ display: "block" }}
-                            >
-                              Guest of {attendee.primaryAttendeeName}
-                            </Typography>
-                          )}
-                      </Box>
-                    }
-                  />
-                  <Chip
-                    label={attendee.kind === "GUEST" ? "Guest" : "Primary"}
-                    size="small"
-                    variant="outlined"
-                  />
-                </Stack>
-              ))
-            ) : (
-              <Typography sx={{ p: 3 }} color="text.secondary">
-                {data.attendees.length
-                  ? "No attendees match your search."
-                  : "No active attendees are available."}
-              </Typography>
-            )}
-          </Paper>
+                      <BadgePersonContent
+                        name={attendee.name}
+                        role={
+                          <Chip
+                            label={
+                              attendee.kind === "GUEST" ? "Guest" : "Primary"
+                            }
+                            size="small"
+                            variant="outlined"
+                            sx={{ borderRadius: 1, fontWeight: 600 }}
+                          />
+                        }
+                        secondary={
+                          attendee.kind === "GUEST" &&
+                          attendee.primaryAttendeeName !== null
+                            ? `Guest of ${attendee.primaryAttendeeName}`
+                            : undefined
+                        }
+                      />
+                    </ListItemButton>
+                  </ListItem>
+                ))}
+              </List>
+            </Paper>
+          ) : (
+            <EmptyState
+              icon={<PeopleOutlined />}
+              title={
+                data.attendees.length
+                  ? "No matching attendees"
+                  : "No active attendees"
+              }
+              description={
+                data.attendees.length
+                  ? "Try another search."
+                  : "No active attendees are available."
+              }
+            />
+          )}
           <Paper variant="outlined" sx={{ p: 2 }}>
             <Stack spacing={1.5} sx={{ alignItems: "flex-start" }}>
               <Typography variant="subtitle1">All active attendees</Typography>
@@ -274,29 +377,38 @@ export function OperationalBadgeWorkspace({
           id="badge-team-panel"
           aria-labelledby="badge-team-tab"
         >
-          <Typography variant="body2" color="text.secondary">
+          <Alert severity="info">
             Visual badges for the current event team: name and role, with the
             event name when enabled. No Ticket, QR or registration answers.
-          </Typography>
+          </Alert>
           {data.teamTooLarge ? (
             <Alert severity="info">
               This event team is too large to print in one document.
             </Alert>
           ) : (
-            <Paper variant="outlined">
-              {data.team.map((person, index) => (
-                <Stack
-                  // biome-ignore lint/suspicious/noArrayIndexKey: read-only roster deliberately has no staff identifiers
-                  key={index}
-                  direction="row"
-                  sx={{ p: 2, justifyContent: "space-between", gap: 2 }}
-                >
-                  <Typography sx={{ overflowWrap: "anywhere", minWidth: 0 }}>
-                    {person.name}
-                  </Typography>
-                  <Chip size="small" label={person.role} variant="outlined" />
-                </Stack>
-              ))}
+            <Paper variant="outlined" sx={{ overflow: "hidden" }}>
+              <List disablePadding aria-label="Badge event team">
+                {data.team.map((person, index) => (
+                  <ListItem
+                    // biome-ignore lint/suspicious/noArrayIndexKey: read-only roster deliberately has no staff identifiers
+                    key={index}
+                    divider={index < data.team.length - 1}
+                    alignItems="center"
+                    sx={{
+                      px: { xs: 2, sm: 3 },
+                      py: 2.5,
+                      gap: { xs: 1.5, sm: 2 },
+                      minWidth: 0,
+                    }}
+                  >
+                    <BadgePersonContent
+                      name={person.name}
+                      secondary={person.email}
+                      role={<EventAccessStatus role={person.role} />}
+                    />
+                  </ListItem>
+                ))}
+              </List>
             </Paper>
           )}
           <Button

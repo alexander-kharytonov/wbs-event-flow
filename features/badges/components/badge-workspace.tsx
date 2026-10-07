@@ -24,6 +24,7 @@ import {
 import { Badge } from "@/features/badges/components/badge";
 import { badgeCss } from "@/features/badges/components/badge-styles";
 import type { buildBadgePresentation } from "@/features/badges/server/badges";
+import { useNotifications } from "@/hooks/use-notifications";
 
 type Preview = NonNullable<Awaited<ReturnType<typeof buildBadgePresentation>>>;
 
@@ -34,6 +35,7 @@ export function BadgeWorkspace({
   eventId: string;
   initial: Preview;
 }) {
+  const notifications = useNotifications();
   const [preview, setPreview] = useState(initial);
   const [layout, setLayout] = useState(initial.editor?.layout ?? null);
   const [savedLayout, setSavedLayout] = useState(
@@ -41,10 +43,6 @@ export function BadgeWorkspace({
   );
   const [busy, setBusy] = useState(false);
   const [previewBusy, setPreviewBusy] = useState(false);
-  const [message, setMessage] = useState<{
-    text: string;
-    error: boolean;
-  } | null>(null);
   const sequence = useRef(0);
   const dirty = JSON.stringify(layout) !== JSON.stringify(savedLayout);
   const catalog = initial.editor?.fields ?? [];
@@ -77,6 +75,7 @@ export function BadgeWorkspace({
 
     const request = ++sequence.current;
     setPreviewBusy(true);
+    notifications.close(`badge-preview:${eventId}`);
     const timer = setTimeout(() => {
       void previewBadge(eventId, layout)
         .then((result) => {
@@ -89,19 +88,22 @@ export function BadgeWorkspace({
           if (result) {
             setPreview(result);
           } else {
-            setMessage({
-              text: "Preview unavailable. Reload to check your access and current settings.",
-              error: true,
-            });
+            notifications.show(
+              "Preview unavailable. Reload to check your access and current settings.",
+              { severity: "error", key: `badge-preview:${eventId}` },
+            );
           }
         })
         .catch(() => {
           if (request === sequence.current) {
             setPreviewBusy(false);
-            setMessage({
-              text: "Could not refresh the preview. Please try again.",
-              error: true,
-            });
+            notifications.show(
+              "Could not refresh the preview. Please try again.",
+              {
+                severity: "error",
+                key: `badge-preview:${eventId}`,
+              },
+            );
           }
         });
     }, 300);
@@ -109,12 +111,13 @@ export function BadgeWorkspace({
     return () => {
       clearTimeout(timer);
       sequence.current += 1;
+      notifications.close(`badge-preview:${eventId}`);
     };
-  }, [eventId, layout]);
+  }, [eventId, layout, notifications]);
 
   function change<K extends keyof BadgeLayout>(key: K, value: BadgeLayout[K]) {
     setLayout((current) => (current ? { ...current, [key]: value } : current));
-    setMessage(null);
+    notifications.close(`badge-layout:${eventId}`);
   }
 
   async function save() {
@@ -123,16 +126,29 @@ export function BadgeWorkspace({
     }
 
     setBusy(true);
+    notifications.close(`badge-layout:${eventId}`);
 
     try {
       const result = await updateBadgeLayout({ eventId, layout });
-      setMessage({ text: result.message, error: !result.success });
 
       if (result.success) {
         setSavedLayout(layout);
+        notifications.show(result.message, {
+          severity: "success",
+          autoHideDuration: 4000,
+          key: `badge-layout:${eventId}`,
+        });
+      } else {
+        notifications.show(result.message, {
+          severity: "error",
+          key: `badge-layout:${eventId}`,
+        });
       }
     } catch {
-      setMessage({ text: "Could not save. Please try again.", error: true });
+      notifications.show("Could not save. Please try again.", {
+        severity: "error",
+        key: `badge-layout:${eventId}`,
+      });
     } finally {
       setBusy(false);
     }
@@ -192,9 +208,6 @@ export function BadgeWorkspace({
 
   return (
     <Stack spacing={3}>
-      <Typography variant="h5" component="h2">
-        Badges
-      </Typography>
       <Alert severity="info">
         {layout
           ? "Layout changes apply to new print documents after saving; publishing is not required."
@@ -202,11 +215,6 @@ export function BadgeWorkspace({
         Preview QR areas are placeholders. Actual print documents may contain a
         private Ticket QR.
       </Alert>
-      {message && (
-        <Alert severity={message.error ? "error" : "success"}>
-          {message.text}
-        </Alert>
-      )}
       <Box
         sx={{
           display: "grid",
@@ -229,18 +237,6 @@ export function BadgeWorkspace({
               <Typography variant="h6" component="legend">
                 Settings
               </Typography>
-              <TextField
-                select
-                label="Preset"
-                value={layout.preset}
-                onChange={(event) =>
-                  change("preset", event.target.value as BadgeLayout["preset"])
-                }
-              >
-                <MenuItem value="CLASSIC">Classic</MenuItem>
-                <MenuItem value="MINIMAL">Minimal</MenuItem>
-                <MenuItem value="CHECK_IN">Check-in</MenuItem>
-              </TextField>
               <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                 <TextField
                   fullWidth
@@ -260,7 +256,36 @@ export function BadgeWorkspace({
                 <TextField
                   fullWidth
                   select
+                  label="Padding (mm)"
+                  value={layout.paddingMm}
+                  onChange={(event) =>
+                    change("paddingMm", Number(event.target.value))
+                  }
+                >
+                  {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((value) => (
+                    <MenuItem key={value} value={value}>
+                      {value} mm
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Stack>
+              <Box
+                sx={{
+                  display: "grid",
+                  gap: 2,
+                  gridTemplateColumns: {
+                    xs: "minmax(0, 1fr)",
+                    md: "repeat(2, minmax(0, 1fr))",
+                    lg: "repeat(3, minmax(0, 1fr))",
+                  },
+                  "& .MuiTextField-root": { minWidth: 0 },
+                }}
+              >
+                <TextField
+                  fullWidth
+                  select
                   label="Orientation"
+                  sx={{ gridColumn: { md: "1 / -1", lg: "auto" } }}
                   value={layout.orientation}
                   onChange={(event) =>
                     change(
@@ -272,40 +297,6 @@ export function BadgeWorkspace({
                   <MenuItem value="LANDSCAPE">Landscape</MenuItem>
                   <MenuItem value="PORTRAIT">Portrait</MenuItem>
                 </TextField>
-              </Stack>
-              <Box
-                sx={{
-                  display: "grid",
-                  gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-                }}
-              >
-                {(
-                  [
-                    ["showEventName", "Event name"],
-                    ["showAttendeeType", "Attendee type"],
-                    ["showQr", "QR"],
-                    ["showTicketNumber", "Ticket number"],
-                  ] as const
-                ).map(([key, label]) => (
-                  <FormControlLabel
-                    key={key}
-                    label={label}
-                    control={
-                      <Checkbox
-                        checked={layout[key]}
-                        onChange={(_, checked) => change(key, checked)}
-                      />
-                    }
-                  />
-                ))}
-              </Box>
-              {fieldSelect("secondaryField", "Secondary field")}
-              {fieldSelect("tertiaryField", "Tertiary field")}
-              <Typography variant="caption" color="text.secondary">
-                Selected values are visible to staff who can print badges,
-                including Reception. Guests never inherit these answers.
-              </Typography>
-              <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                 <TextField
                   fullWidth
                   select
@@ -337,7 +328,39 @@ export function BadgeWorkspace({
                   <MenuItem value="LEFT">Left</MenuItem>
                   <MenuItem value="CENTER">Center</MenuItem>
                 </TextField>
-              </Stack>
+              </Box>
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                }}
+              >
+                {(
+                  [
+                    ["showEventName", "Event name"],
+                    ["showAttendeeType", "Attendee type"],
+                    ["showQr", "QR"],
+                    ["showTicketNumber", "Ticket number"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <FormControlLabel
+                    key={key}
+                    label={label}
+                    control={
+                      <Checkbox
+                        checked={layout[key]}
+                        onChange={(_, checked) => change(key, checked)}
+                      />
+                    }
+                  />
+                ))}
+              </Box>
+              {fieldSelect("secondaryField", "Secondary field")}
+              {fieldSelect("tertiaryField", "Tertiary field")}
+              <Alert severity="info">
+                Selected values are visible to staff who can print badges,
+                including Reception. Guests never inherit these answers.
+              </Alert>
               <Button
                 variant="contained"
                 loading={busy}
@@ -402,13 +425,14 @@ export function BadgeWorkspace({
                 </Box>
               </Box>
             </Box>
-            <Typography variant="body2" color="text.secondary">
+            <Alert severity="info">
               {previewBusy
                 ? "Updating preview…"
                 : preview.attendeeId
                   ? "Preview uses an active attendee. Text is limited to two lines per field."
                   : "No active attendee is available. This preview uses field labels only."}
-            </Typography>
+              {dirty && " Save changes before opening the print document."}
+            </Alert>
             {preview.canPrint && preview.attendeeId ? (
               <Button
                 variant="outlined"
@@ -424,11 +448,6 @@ export function BadgeWorkspace({
             ) : (
               <Typography variant="body2" color="text.secondary">
                 Printing requires an active attendee and a non-cancelled event.
-              </Typography>
-            )}
-            {dirty && (
-              <Typography variant="caption" color="text.secondary">
-                Save changes before opening the print document.
               </Typography>
             )}
           </Stack>

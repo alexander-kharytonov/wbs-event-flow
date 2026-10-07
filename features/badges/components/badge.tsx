@@ -9,7 +9,6 @@ export function Badge({ badge }: { badge: BadgePresentation }) {
     <article
       aria-label="Badge"
       className="ef-badge-badge"
-      data-preset={badge.style.preset}
       data-orientation={badge.style.orientation}
       data-alignment={badge.style.alignment}
       data-name-size={badge.style.nameSize}
@@ -17,6 +16,7 @@ export function Badge({ badge }: { badge: BadgePresentation }) {
       style={{
         width: `${dimensions.width}mm`,
         height: `${dimensions.height}mm`,
+        padding: `${badge.style.paddingMm}mm`,
       }}
     >
       <div className="ef-badge-text">

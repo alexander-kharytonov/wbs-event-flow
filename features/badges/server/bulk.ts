@@ -78,7 +78,9 @@ export async function readBadgeWorkspace(
         ? await tx.event.findUniqueOrThrow({
             where: { id: eventId },
             select: {
-              organizer: { select: { user: { select: { name: true } } } },
+              organizer: {
+                select: { user: { select: { name: true, email: true } } },
+              },
             },
           })
         : null;
@@ -87,7 +89,10 @@ export async function readBadgeWorkspace(
             where: { eventId },
             take: MAX_BADGES_PER_DOCUMENT,
             orderBy: [{ createdAt: "asc" }, { userId: "asc" }],
-            select: { role: true, user: { select: { name: true } } },
+            select: {
+              role: true,
+              user: { select: { name: true, email: true } },
+            },
           })
         : [];
 
@@ -107,10 +112,15 @@ export async function readBadgeWorkspace(
         team:
           owner && staff.length < MAX_BADGES_PER_DOCUMENT
             ? [
-                { name: owner.organizer.user.name, role: "Organizer" },
+                {
+                  name: owner.organizer.user.name,
+                  email: owner.organizer.user.email,
+                  role: "OWNER" as const,
+                },
                 ...staff.map((member) => ({
                   name: member.user.name,
-                  role: member.role === "MANAGER" ? "Manager" : "Reception",
+                  email: member.user.email,
+                  role: member.role,
                 })),
               ]
             : [],

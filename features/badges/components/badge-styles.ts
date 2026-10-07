@@ -3,7 +3,6 @@ export const badgeCss = `
 .ef-badge-badge {
   box-sizing: border-box;
   flex-shrink: 0;
-  padding: 3mm;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
@@ -40,6 +39,7 @@ export const badgeCss = `
 }
 
 .ef-badge-event {
+  font-weight: 700;
   font-size: 3mm;
   max-height: 6.9mm;
 }
@@ -95,30 +95,7 @@ export const badgeCss = `
   white-space: nowrap;
 }
 
-.ef-badge-badge[data-preset="CLASSIC"] .ef-badge-event {
-  font-weight: 700;
-}
-
-.ef-badge-badge[data-preset="MINIMAL"] .ef-badge-type {
-  text-transform: none;
-  letter-spacing: normal;
-}
-
-.ef-badge-badge[data-preset="CHECK_IN"] .ef-badge-type {
-  font-weight: 700;
-}
-
-.ef-badge-badge[data-preset="CHECK_IN"] .ef-badge-ticket {
-  grid-column: 1;
-  grid-row: 1;
-}
-
-.ef-badge-badge[data-preset="CHECK_IN"]:has(.ef-badge-ticket) {
-  grid-template-columns: auto minmax(0, 1fr);
-}
-
-.ef-badge-badge[data-orientation="PORTRAIT"],
-.ef-badge-badge[data-orientation="PORTRAIT"][data-preset="CHECK_IN"]:has(.ef-badge-ticket) {
+.ef-badge-badge[data-orientation="PORTRAIT"] {
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr) auto;
   gap: 2mm;
