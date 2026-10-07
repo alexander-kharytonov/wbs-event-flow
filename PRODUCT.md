@@ -464,6 +464,8 @@ partial file, persistent export file, export history or background job is create
 ## Event template export (26B)
 
 Owners can download **Export template** from the Event header Export menu.
+The menu groups CSV datasets and JSON configuration separately. Template filenames
+include a sanitized Event title followed by `-template-v1.json`, preserving Unicode.
 EventTemplateV1 is portable configuration, not a backup or a public artifact:
 it contains current staff emails. It uses current saved workspace configuration,
 including unpublished Event, Registration Form and Badge Design changes.
@@ -497,7 +499,8 @@ Duplicate Event is not implemented.
 
 ## Event template import / create (26C)
 
-Create event offers Create manually and Import template in both the page and modal.
+Create event defaults to manual entry in both the page and modal. A **Use template**
+switch in the header opens template import.
 Upload a UTF-8 JSON file or paste JSON, then Validate. Both use the same strict
 parser, reject unsupported versions/unknown properties/internal identity fields,
 and enforce the existing v1 limits. Preview performs no writes or account lookup.

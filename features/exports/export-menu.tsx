@@ -1,7 +1,19 @@
 "use client";
 
+import CodeOutlined from "@mui/icons-material/CodeOutlined";
 import DownloadOutlined from "@mui/icons-material/DownloadOutlined";
-import { Button, Menu, MenuItem, Typography } from "@mui/material";
+import TableChartOutlined from "@mui/icons-material/TableChartOutlined";
+import {
+  Alert,
+  Box,
+  Button,
+  Divider,
+  ListItemIcon,
+  ListItemText,
+  ListSubheader,
+  Menu,
+  MenuItem,
+} from "@mui/material";
 import { useId, useState } from "react";
 
 export function ExportMenu({
@@ -16,19 +28,38 @@ export function ExportMenu({
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const id = useId();
   const datasets = [
-    "applications",
-    "attendees",
-    "attendance",
-    ...(staff ? ["staff"] : []),
+    {
+      key: "applications",
+      label: "Applications",
+      description: "All submission attempts and answers",
+    },
+    {
+      key: "attendees",
+      label: "Attendees",
+      description: "Primary attendees and guests, including revoked",
+    },
+    {
+      key: "attendance",
+      label: "Attendance",
+      description: "All recorded arrivals",
+    },
+    ...(staff
+      ? [
+          {
+            key: "staff",
+            label: "Staff",
+            description: "Owner, managers and reception",
+          },
+        ]
+      : []),
   ];
 
   return (
     <>
       <Button
-        size="small"
         startIcon={<DownloadOutlined />}
         aria-controls={anchor ? id : undefined}
-        aria-haspopup="true"
+        aria-haspopup="menu"
         aria-expanded={Boolean(anchor)}
         onClick={(event) => setAnchor(event.currentTarget)}
       >
@@ -39,28 +70,42 @@ export function ExportMenu({
         anchorEl={anchor}
         open={Boolean(anchor)}
         onClose={() => setAnchor(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+        slotProps={{
+          paper: { sx: { width: 360, maxWidth: "calc(100vw - 32px)" } },
+        }}
       >
+        <ListSubheader disableSticky>Event data · CSV</ListSubheader>
         {datasets.map((dataset) => (
           <MenuItem
-            key={dataset}
+            key={dataset.key}
             component="a"
-            href={`/api/events/${eventId}/exports/${dataset}`}
+            href={`/api/events/${eventId}/exports/${dataset.key}`}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => setAnchor(null)}
+            sx={{ whiteSpace: "normal" }}
           >
-            {dataset[0].toUpperCase() + dataset.slice(1)} CSV
+            <ListItemIcon>
+              <TableChartOutlined fontSize="small" />
+            </ListItemIcon>
+            <ListItemText
+              primary={dataset.label}
+              secondary={dataset.description}
+            />
           </MenuItem>
         ))}
-        <Typography
-          component="li"
-          variant="caption"
-          color="text.secondary"
-          sx={{ px: 2, py: 1, maxWidth: 280, listStyle: "none" }}
-        >
-          Whole event, regardless of filters. Spreadsheet-safe files may prefix
-          values with an apostrophe.
-        </Typography>
+        <Box component="li" sx={{ px: 2, py: 1, listStyle: "none" }}>
+          <Alert severity="info" sx={{ fontSize: "0.75rem" }}>
+            Exports include the whole event, regardless of filters.
+            Spreadsheet-safe files may prefix values with an apostrophe.
+          </Alert>
+        </Box>
+        {template && <Divider />}
+        {template && (
+          <ListSubheader disableSticky>Event template · JSON</ListSubheader>
+        )}
         {template && (
           <MenuItem
             component="a"
@@ -68,20 +113,24 @@ export function ExportMenu({
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => setAnchor(null)}
+            sx={{ whiteSpace: "normal" }}
           >
-            Export template
+            <ListItemIcon>
+              <CodeOutlined fontSize="small" />
+            </ListItemIcon>
+            <ListItemText
+              primary="Export template"
+              secondary="Reuse current settings, form and badge design"
+            />
           </MenuItem>
         )}
         {template && (
-          <Typography
-            component="li"
-            variant="caption"
-            color="text.secondary"
-            sx={{ px: 2, py: 1, maxWidth: 280, listStyle: "none" }}
-          >
-            Current configuration, including unpublished changes and staff
-            emails. No applications, attendees or attendance.
-          </Typography>
+          <Box component="li" sx={{ px: 2, py: 1, listStyle: "none" }}>
+            <Alert severity="warning" sx={{ fontSize: "0.75rem" }}>
+              Includes private staff emails and unpublished changes. No
+              applications, attendees or attendance.
+            </Alert>
+          </Box>
         )}
       </Menu>
     </>

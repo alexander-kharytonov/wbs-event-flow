@@ -4,13 +4,16 @@ import UploadFileOutlined from "@mui/icons-material/UploadFileOutlined";
 import {
   Alert,
   Button,
+  FormControlLabel,
   Stack,
-  Tab,
-  Tabs,
+  Switch,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import { useRef, useState } from "react";
+import { BackLink } from "@/components/ui/back-link";
+import { EventFormDialog } from "@/features/events/components/event-form-dialog";
 import { createEvent } from "@/features/events/create-event";
 import { EventForm } from "@/features/events/event-form";
 import {
@@ -24,7 +27,7 @@ import {
 } from "@/features/events/import/template-review";
 import { TEMPLATE_V1_LIMITS } from "@/features/exports/event-template";
 
-export function CreateEventModes() {
+export function CreateEventModes({ modal = false }: { modal?: boolean }) {
   const [mode, setMode] = useState("manual");
   const [text, setText] = useState("");
   const [issues, setIssues] = useState<TemplateIssue[]>([]);
@@ -37,32 +40,32 @@ export function CreateEventModes() {
   const uploadSequence = useRef(0);
   const generation = useRef(0);
 
-  return (
+  const modeSwitch = (
+    <Tooltip title="Create an event from a JSON template">
+      <FormControlLabel
+        sx={{ m: 0, flexShrink: 0 }}
+        label={<Typography variant="body2">Use template</Typography>}
+        control={
+          <Switch
+            size="small"
+            checked={mode === "import"}
+            disabled={busy || reading}
+            onChange={(_, checked) => setMode(checked ? "import" : "manual")}
+          />
+        }
+      />
+    </Tooltip>
+  );
+  const content = (
     <Stack spacing={3}>
-      <Tabs
-        value={mode}
-        onChange={(_, value) => setMode(value)}
-        aria-label="Create event method"
-      >
-        <Tab
-          value="manual"
-          label="Create manually"
-          disabled={busy || reading}
-        />
-        <Tab
-          value="import"
-          label="Import template"
-          disabled={busy || reading}
-        />
-      </Tabs>
       {mode === "manual" ? (
         <EventForm serverAction={createEvent} />
       ) : (
         <Stack spacing={3}>
-          <Typography color="text.secondary">
+          <Alert severity="info">
             Upload an Event Flow JSON template or paste its contents. Review and
             edit it before creating a new unpublished event.
-          </Typography>
+          </Alert>
           <Button
             component="label"
             variant="outlined"
@@ -180,6 +183,31 @@ export function CreateEventModes() {
           )}
         </Stack>
       )}
+    </Stack>
+  );
+
+  return modal ? (
+    <EventFormDialog title="Create event" headerActions={modeSwitch}>
+      {content}
+    </EventFormDialog>
+  ) : (
+    <Stack spacing={3} sx={{ width: "100%" }}>
+      <BackLink href="/dashboard">My events</BackLink>
+      <Stack
+        direction="row"
+        sx={{
+          alignItems: "center",
+          gap: 2,
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+        }}
+      >
+        <Typography variant="h4" component="h1">
+          Create event
+        </Typography>
+        {modeSwitch}
+      </Stack>
+      {content}
     </Stack>
   );
 }

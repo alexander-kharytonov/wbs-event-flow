@@ -54,11 +54,25 @@ export async function GET(
       return errorResponse("Export unavailable.", 404);
     }
 
+    const slug =
+      Array.from(
+        template.event.title
+          .normalize("NFKC")
+          .toLowerCase()
+          .replace(/[^\p{L}\p{N}]+/gu, "-"),
+      )
+        .slice(0, 80)
+        .join("")
+        .replace(/^-|-$/g, "") || "event";
+    const filename = `${slug}-template-v1.json`;
+    const asciiSlug =
+      slug.replace(/[^a-z0-9-]+/g, "").replace(/^-+|-+$/g, "") || "event";
+
     return new Response(serializeEventTemplate(template), {
       headers: {
         ...responseHeaders,
         "Content-Type": "application/json; charset=utf-8",
-        "Content-Disposition": 'attachment; filename="event-template-v1.json"',
+        "Content-Disposition": `attachment; filename="${asciiSlug}-template-v1.json"; filename*=UTF-8''${encodeURIComponent(filename)}`,
       },
     });
   } catch (error) {

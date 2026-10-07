@@ -1303,7 +1303,9 @@ CSV dataset route. It checks a fresh verified unexpired session with cookie cach
 and refresh disabled. Unknown/foreign/unauthorized Events share a neutral 404.
 OWNER alone has event.edit; Manager/Reception cannot download or see the menu item.
 Success has application/json; charset=utf-8, attachment filename
-"event-template-v1.json", private/no-store/max-age=0, nosniff, no-referrer and
+`<sanitized-event-title>-template-v1.json` (up to 80 Unicode letters/numbers and
+hyphens in the title slug, or `event` if empty), with UTF-8 `filename*` and an ASCII
+`filename`, private/no-store/max-age=0, nosniff, no-referrer and
 noindex/nofollow/noarchive. Errors retain privacy headers, use generic plain text
 and contain no emails, internal IDs or partial template. Content/PII is not logged.
 The menu uses an explicit ordinary anchor without prefetch.

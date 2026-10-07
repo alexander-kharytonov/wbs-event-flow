@@ -21,23 +21,7 @@ import { prisma } from "@/lib/prisma";
 export async function CreateEventView({ modal = false }: { modal?: boolean }) {
   await requireOrganizer();
 
-  const content = (
-    <Stack spacing={3} sx={{ width: "100%" }}>
-      {!modal && <BackLink href="/dashboard">My events</BackLink>}
-      {!modal && (
-        <Typography variant="h4" component="h1">
-          Create event
-        </Typography>
-      )}
-      <CreateEventModes />
-    </Stack>
-  );
-
-  return modal ? (
-    <EventFormDialog title="Create event">{content}</EventFormDialog>
-  ) : (
-    content
-  );
+  return <CreateEventModes modal={modal} />;
 }
 
 export async function EditEventView({
