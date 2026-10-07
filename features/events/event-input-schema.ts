@@ -22,48 +22,111 @@ function isIanaTimezone(value: string) {
   }
 }
 
-export const eventInputSchema = z
-  .object({
-    title: z
+const eventInputFields = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(1, "Enter an event name.")
+    .max(200, "Use at most 200 characters."),
+  description: z.string().trim().max(20000, "Use at most 20,000 characters."),
+  startsAt: localDateTime,
+  endsAt: localDateTime,
+  timezone: z.string().refine(isIanaTimezone, "Choose a valid IANA timezone."),
+  visibility: z.enum(["PRIVATE", "PUBLIC"], {
+    error: "Choose Private or Public.",
+  }),
+  accountRequirement: z.enum(["OPTIONAL", "REQUIRED"], {
+    error: "Choose Optional or Required.",
+  }),
+  maxGuestsPerRegistration: z
+    .string()
+    .regex(/^\d+$/)
+    .transform(Number)
+    .pipe(z.number().int().min(0).max(10)),
+  capacity: z.union([
+    z.literal("").transform(() => null),
+    z
       .string()
-      .trim()
-      .min(1, "Enter an event name.")
-      .max(200, "Use at most 200 characters."),
-    description: z.string().trim().max(20000, "Use at most 20,000 characters."),
-    startsAt: localDateTime,
-    endsAt: localDateTime,
-    timezone: z
-      .string()
-      .refine(isIanaTimezone, "Choose a valid IANA timezone."),
-    visibility: z.enum(["PRIVATE", "PUBLIC"], {
-      error: "Choose Private or Public.",
-    }),
-    accountRequirement: z.enum(["OPTIONAL", "REQUIRED"], {
-      error: "Choose Optional or Required.",
-    }),
-    maxGuestsPerRegistration: z
-      .string()
-      .regex(/^\d+$/)
+      .regex(/^\d+$/, "Enter a whole number of at least 1.")
       .transform(Number)
-      .pipe(z.number().int().min(0).max(10)),
-    capacity: z.union([
-      z.literal("").transform(() => null),
-      z
-        .string()
-        .regex(/^\d+$/, "Enter a whole number of at least 1.")
-        .transform(Number)
-        .pipe(
-          z
-            .number()
-            .int()
-            .min(1, "Capacity must be at least 1.")
-            .max(2147483647, "Capacity is too large."),
-        ),
-    ]),
-    registrationOpensAt: optionalDateTime,
-    registrationClosesAt: optionalDateTime,
-  })
-  .transform((input, ctx) => {
+      .pipe(
+        z
+          .number()
+          .int()
+          .min(1, "Capacity must be at least 1.")
+          .max(2147483647, "Capacity is too large."),
+      ),
+  ]),
+  registrationOpensAt: optionalDateTime,
+  registrationClosesAt: optionalDateTime,
+});
+
+export const eventDateFields = [
+  "startsAt",
+  "endsAt",
+  "registrationOpensAt",
+  "registrationClosesAt",
+] as const;
+
+export type EventDateField = (typeof eventDateFields)[number];
+
+export type PreservedEventDates = Partial<
+  Record<EventDateField, string | null>
+>;
+
+export function validateEventDateRelationships(
+  dates: {
+    startsAt: Date;
+    endsAt: Date;
+    registrationOpensAt: Date | null;
+    registrationClosesAt: Date | null;
+  },
+  ctx: {
+    addIssue: (issue: {
+      code: "custom";
+      path: string[];
+      message: string;
+    }) => void;
+  },
+) {
+  const { startsAt, endsAt, registrationOpensAt, registrationClosesAt } = dates;
+
+  if (startsAt >= endsAt) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["endsAt"],
+      message: "End must be after start.",
+    });
+  }
+
+  if (
+    registrationOpensAt &&
+    registrationClosesAt &&
+    registrationOpensAt >= registrationClosesAt
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["registrationClosesAt"],
+      message: "Registration close must be after registration open.",
+    });
+  }
+
+  for (const [field, value] of [
+    ["registrationOpensAt", registrationOpensAt],
+    ["registrationClosesAt", registrationClosesAt],
+  ] as const) {
+    if (value && value > endsAt) {
+      ctx.addIssue({
+        code: "custom",
+        path: [field],
+        message: "Registration must not extend beyond the event end.",
+      });
+    }
+  }
+}
+
+function inputSchema(preserved: PreservedEventDates = {}) {
+  return eventInputFields.transform((input, ctx) => {
     function toInstant(
       field:
         | "startsAt"
@@ -71,6 +134,12 @@ export const eventInputSchema = z
         | "registrationOpensAt"
         | "registrationClosesAt",
     ) {
+      if (Object.hasOwn(preserved, field)) {
+        const instant = preserved[field];
+
+        return instant ? new Date(instant) : null;
+      }
+
       if (!input[field]) {
         return null;
       }
@@ -105,38 +174,10 @@ export const eventInputSchema = z
       return z.NEVER;
     }
 
-    if (startsAt >= endsAt) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["endsAt"],
-        message: "End must be after start.",
-      });
-    }
-
-    if (
-      registrationOpensAt &&
-      registrationClosesAt &&
-      registrationOpensAt >= registrationClosesAt
-    ) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["registrationClosesAt"],
-        message: "Registration close must be after registration open.",
-      });
-    }
-
-    for (const [field, value] of [
-      ["registrationOpensAt", registrationOpensAt],
-      ["registrationClosesAt", registrationClosesAt],
-    ] as const) {
-      if (value && value > endsAt) {
-        ctx.addIssue({
-          code: "custom",
-          path: [field],
-          message: "Registration must not extend beyond the event end.",
-        });
-      }
-    }
+    validateEventDateRelationships(
+      { startsAt, endsAt, registrationOpensAt, registrationClosesAt },
+      ctx,
+    );
 
     return {
       ...input,
@@ -147,6 +188,18 @@ export const eventInputSchema = z
       registrationClosesAt,
     };
   });
+}
+
+export const eventInputSchema = inputSchema();
+
+// Preserved instants come from the validated template or the locked Event row.
+
+export function parseEventWithPreservedDates(
+  input: unknown,
+  preserved: PreservedEventDates,
+) {
+  return inputSchema(preserved).safeParse(input);
+}
 
 export type EventFormValues = z.input<typeof eventInputSchema>;
 

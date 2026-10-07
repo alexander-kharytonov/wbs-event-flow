@@ -47,12 +47,22 @@ Sources: [activation](app/(application)/onboarding/organizer/actions.ts),
 ## 2. Event workspace
 
 `Event` and its `RegistrationForm`, fields, and options are mutable organizer
-workspace. Event creation also creates an empty registration form. Workspace
+workspace. Manual Event creation also creates an empty registration form; template creation
+atomically initializes it from validated configuration (section 31). Workspace
 edits increment contentVersion; version checks reject conflicting edits.
 Unpublished changes are visible to the organizer and Preview, not public content.
 
 Dates are stored as instants with an IANA timezone for input/display. Authoring
-rejects ambiguous/nonexistent local DST times. Event end must be after start.
+rejects ambiguous/nonexistent edited local DST times. Event end must be after start.
+Minute-resolution Event Edit preserves untouched dates, including nullable registration
+boundaries, from the locked authoritative Event row with exact seconds/milliseconds.
+Client edit markers never supply preserved timestamps; changed local values or timezone
+are also detected against the stored row. A timezone edit reinterprets local dates in
+the new zone, except the immutable Ongoing start, whose exact instant only changes
+its display zone. Existing lifecycle/version/contentVersion guards remain unchanged.
+Local HTML min/max are UX hints: import review omits cross-field wall-clock bounds,
+and Edit omits a conflicting hint when its authoritative-source absolute interval is
+valid across a DST fold. The shared absolute relationship validation remains authority.
 
 Sources: [create](features/events/create-event.ts),
 [edit](features/events/update-event.ts),
@@ -923,9 +933,9 @@ there is no membership or role history. Lifecycle transitions retain membership.
 Add uses exact email after trimming/lowercasing, resolves only an existing verified
 User and returns the same unavailable result for nonexistent/unverified/ineligible
 accounts. No autocomplete/directory/invitations/acceptance exists. Successful direct
-assignment discloses eligibility; this is accepted. Add has a bounded in-process
-10-attempt/minute/actor limit (per process, resets on restart); it is not a distributed
-abuse-prevention guarantee. No OrganizerProfile is created for Staff.
+assignment discloses eligibility; this is accepted. Add shares the bounded in-process Staff resolution budget with template creation:
+100 unique normalized email attempts per actor per ten-minute window (section 31).
+It resets on process restart and is not a distributed abuse-prevention guarantee. No OrganizerProfile is created for Staff.
 
 The server-only fixed matrix grants OWNER every Event permission. MANAGER has
 context, application/answer/email read and review, full attendee/history/actor read,
@@ -1304,3 +1314,77 @@ archive state, Applications/Registrations/Attendees/Guests, Tickets/QR/credentia
 Attendance, notifications/outbox or runtime/lock/history data. It is private
 configuration because staff emails are present. No schema/dependency changes,
 Import/Create flow (26C), template preview/editor or Duplicate Event are included.
+
+
+## 31. Event template import / atomic create (26C)
+
+Create page and intercepted modal share manual/import modes. Upload and Paste use
+one UTF-8 byte-limit -> JSON parse -> format/version -> strict EventTemplateV1 ->
+create-domain validation pipeline. Version other than 1 is explicitly unsupported;
+unknown fields and database identity properties fail. Limits remain 512 KiB,
+100 fields, 100 options/field, 1,000 total options and 100 Staff, including after
+review edits. Errors expose only code/known path/safe message, never raw parser,
+Zod or database errors. No payload/email logging or untrusted deep merge occurs.
+The 26A CSV and 26B export contracts are unchanged.
+
+No Event write or account eligibility query occurs before explicit Create.
+Review state is local and not authority. The server rechecks fresh verified
+Organizer authority and all final values; organizerId comes only from the session
+adapter. No new permission is introduced. Object validation and creation remain
+independent of JSON transport for a future projector consumer; Duplicate is absent.
+
+Imported UTC instants retain milliseconds until that date is edited. Changing the
+review timezone interprets local date inputs using the new zone. Edited values use
+the same Temporal disambiguation=reject path as manual authoring. Untouched instants
+are not round-tripped through minute-resolution inputs. Shared date relationships
+require end > start, close > open when both exist, and registration boundaries <=
+end. Past dates remain valid, with a warning; endsAt <= now yields Completed and
+read-only after creation under existing lifecycle rules, without shifting dates.
+Browser timezone initialization applies only when Create has no supplied timezone.
+Replacing a template remounts all review state.
+
+Review question keys are stable through reorder/edit. Before canonicalizing keys,
+bindings must match existing local identity/type/label. Deleted or changed bindings
+block Create; no label matching, replacement guessing or silent removal occurs.
+New field IDs come from batch insertion, mapped through returned position rather
+than result order; options receive fresh IDs in a separate batch. Keys never become
+persistent IDs. Portable Badge bindings remap server-side to new fieldId/type/label,
+then pass badgeLayoutSchema and exact compatibility against only the new current
+fields. Historical/saved catalog behavior of the existing Badge Designer remains
+unchanged. Null BadgeLayout stays SQL null/default.
+
+The shared transaction-aware core creates Event + RegistrationForm, batch fields,
+batch options, remapped BadgeLayout and batch resolved memberships in one bounded
+transaction. Manual Create calls this core with empty fields/staff and null layout,
+retaining its redirect. The new Event starts with the ordinary contentVersion=1
+and null publication/publicId/cancellation/archive state. No EventRevision or
+operational/history rows are written. Any invariant or DB/integrity failure throws
+out of the transaction and rolls back all Event data; no partial success return or
+skipDuplicates masks such failures. Existing update locks/version/contentVersion
+and lifecycle rules remain in their existing adapters.
+
+Staff validation trims/lowercases email, combines same-role duplicates with a
+warning, and rejects conflicting roles before reserving budget. Add Staff and
+Import share one process-global actor budget: 100 email attempts per fixed
+600,000 ms window starting at the first successful reservation. Count is unique
+normalized emails within each operation, not unique addresses across the window.
+The synchronous check+reserve has no await, so concurrent operations in one
+process cannot overspend. Denied reservation consumes nothing, allows no partial
+lookup, and occurs before Event creation. Successful reservations are not refunded
+on later failures. Expired actors are removed; at 10,000 live actor entries the map
+fails closed for new actors. No Redis/distributed guarantee is added.
+
+After reservation, one bounded query selects id/email only from verified Users.
+Self, missing and unverified targets all yield neutral unavailable assignments;
+no reason, userId or account metadata reaches the result. Resolved memberships are
+written in the create transaction without skipDuplicates; deletion/integrity races
+fail and roll back the Event. No invitations/profile creation occurs. Existing
+Add Staff uses the same eligibility resolver and budget while retaining its owner
+lock/reauthorization, role-change and notification behavior.
+
+After commit, Import returns only eventId, addedCount, skipped template emails and
+duplicate email warnings. The client replaces the review with a success result and
+Open event navigation, preventing repeat submission in that review. Result state
+is ephemeral; no URL/cookie/persistent storage or ImportJob is used. No destructive
+import, CSV import, publication import, backup/restore, automatic date shifting,
+background job, schema migration or dependency is introduced.

@@ -5,7 +5,10 @@ import type {
   BuilderForm,
   RegistrationResult,
 } from "@/features/events/schemas/registration-form";
-import { registrationMutationSchema } from "@/features/events/schemas/registration-form";
+import {
+  registrationFieldData,
+  registrationMutationSchema,
+} from "@/features/events/schemas/registration-form";
 import { lockEventForUpdate } from "@/features/events/server/lock-event-for-update";
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -192,17 +195,8 @@ export async function mutateRegistrationForm(
       });
 
       if (command.kind === "add" || command.kind === "edit") {
-        const { options, description, ...field } = command.field;
-        const data = {
-          ...field,
-          description: description || null,
-          options: {
-            create: (options ?? []).map((option, position) => ({
-              label: option.label,
-              position,
-            })),
-          },
-        };
+        const { options, ...field } = registrationFieldData(command.field);
+        const data = { ...field, options: { create: options } };
 
         if (command.kind === "add") {
           await tx.registrationField.create({

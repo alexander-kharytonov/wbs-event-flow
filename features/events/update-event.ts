@@ -4,8 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import {
+  eventDateSource,
+  parseEventEdit,
+} from "@/features/events/event-form-values";
+import {
   type EventFormState,
-  eventInputSchema,
+  eventDateFields,
   eventValidationError,
 } from "@/features/events/event-input-schema";
 import {
@@ -49,11 +53,18 @@ export async function updateEvent(
     };
   }
 
-  const parsed = eventInputSchema.safeParse(Object.fromEntries(formData));
+  const editedDates = z
+    .array(z.enum(eventDateFields))
+    .max(4)
+    .safeParse(formData.getAll("editedDate"));
 
-  if (!parsed.success) {
-    return eventValidationError(parsed.error);
+  if (!editedDates.success) {
+    return {
+      message: "We couldn’t save this event. Reload the page and try again.",
+    };
   }
+
+  const input = Object.fromEntries(formData);
 
   try {
     const outcome = await prisma.$transaction(
@@ -77,6 +88,17 @@ export async function updateEvent(
             message:
               "This event changed while you were editing it. Reload the latest version and try again.",
           };
+        }
+
+        const parsed = parseEventEdit(
+          input,
+          eventDateSource(event),
+          editedDates.data,
+          eventLifecycle(event, event.decisionNow) === "Ongoing",
+        );
+
+        if (!parsed.success) {
+          return eventValidationError(parsed.error);
         }
 
         if (

@@ -2,11 +2,11 @@ import "server-only";
 import { z } from "zod";
 import {
   type BadgeField,
-  type BadgeLayout,
   badgeFieldSchema,
   badgeLayoutSchema,
   readBadgeLayout,
   sameBadgeField,
+  validBadgeBindings,
 } from "@/features/badges/badge-layout";
 import {
   attendeeBadgePresentation,
@@ -16,6 +16,7 @@ import {
 } from "@/features/badges/badge-presentation";
 import { resolveBadgeField } from "@/features/badges/server/historical-field";
 import { canPrintIndividualBadge } from "@/features/badges/server/individual-print-eligibility";
+import { writeBadgeLayout } from "@/features/badges/server/write-badge-layout";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 import {
   authorizeEventActor,
@@ -120,13 +121,6 @@ async function fieldCatalog(tx: Prisma.TransactionClient, eventId: string) {
   };
 }
 
-function validBindings(layout: BadgeLayout, fields: BadgeField[]) {
-  return [layout.secondaryField, layout.tertiaryField].every(
-    (binding) =>
-      !binding || fields.some((field) => sameBadgeField(field, binding)),
-  );
-}
-
 // Authenticated actor identity comes from the server session adapter, never client input.
 // A draft layout is accepted only by the owner-authorized preview path.
 export async function buildBadgePresentation(
@@ -185,7 +179,7 @@ export async function buildBadgePresentation(
           ? await fieldCatalog(tx, eventId)
           : null;
 
-      if (catalog && !validBindings(layout, catalog.fields)) {
+      if (catalog && !validBadgeBindings(layout, catalog.fields)) {
         return null;
       }
 
@@ -400,7 +394,7 @@ export async function saveBadgeLayout(
 
     const catalog = await fieldCatalog(tx, event.id);
 
-    if (!validBindings(parsed.data.layout, catalog.fields)) {
+    if (!validBadgeBindings(parsed.data.layout, catalog.fields)) {
       return {
         success: false,
         message:
@@ -408,10 +402,13 @@ export async function saveBadgeLayout(
       };
     }
 
-    await tx.event.update({
-      where: { id: event.id },
-      data: { badgeLayout: parsed.data.layout, updatedAt: event.updatedAt },
-    });
+    await writeBadgeLayout(
+      tx,
+      event.id,
+      parsed.data.layout,
+      catalog.fields,
+      event.updatedAt,
+    );
 
     return {
       success: true,

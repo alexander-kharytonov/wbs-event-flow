@@ -1,6 +1,5 @@
 "use client";
 
-import { Temporal } from "@js-temporal/polyfill";
 import {
   Alert,
   Autocomplete,
@@ -13,10 +12,17 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { useActionState, useEffect, useState } from "react";
-import type {
-  EventFormState,
-  EventFormValues,
+import { type ReactNode, useActionState, useEffect, useState } from "react";
+import {
+  type EventDateSource,
+  eventLocalDate,
+  parseEventEdit,
+} from "@/features/events/event-form-values";
+import {
+  type EventDateField,
+  type EventFormState,
+  type EventFormValues,
+  eventDateFields,
 } from "@/features/events/event-input-schema";
 import { formatTimezone } from "@/features/events/format-timezone";
 import { useNotifications } from "@/hooks/use-notifications";
@@ -40,14 +46,24 @@ export function EventForm({
   serverAction,
   edit,
   startLocked = false,
+  children,
+  disabled = false,
+  onDateEdit,
+  scheduleNotice,
+  exactInstantMode = false,
 }: {
   startLocked?: boolean;
+  exactInstantMode?: boolean;
+  children?: ReactNode;
+  scheduleNotice?: (values: EventFormValues) => ReactNode;
+  disabled?: boolean;
+  onDateEdit?: (field: keyof EventFormValues) => void;
   initialValues?: EventFormValues;
   serverAction: (
     previous: EventFormState,
     formData: FormData,
   ) => Promise<EventFormState>;
-  edit?: { id: string; version: string };
+  edit?: { id: string; version: string; dates: EventDateSource };
 }) {
   const notifications = useNotifications();
   const [state, action, pending] = useActionState(
@@ -67,6 +83,22 @@ export function EventForm({
     {},
   );
   const [values, setValues] = useState(initialValues);
+  const [editedDates, setEditedDates] = useState<EventDateField[]>([]);
+  const validExactSchedule = edit
+    ? parseEventEdit(values, edit.dates, editedDates, startLocked).success
+    : false;
+
+  // Keep normal Edit hints, but never reject a valid absolute interval at a fold.
+  const endMin =
+    exactInstantMode || (validExactSchedule && values.endsAt < values.startsAt)
+      ? undefined
+      : values.startsAt || undefined;
+  const registrationMax = (
+    field: "registrationOpensAt" | "registrationClosesAt",
+  ) =>
+    exactInstantMode || (validExactSchedule && values[field] > values.endsAt)
+      ? undefined
+      : values.endsAt || undefined;
   const [openedVersion] = useState(edit?.version);
   const [timezones, setTimezones] = useState<string[]>([]);
 
@@ -78,10 +110,26 @@ export function EventForm({
       ].sort(),
     );
 
-    if (!edit) {
+    if (!edit && !initialValues.timezone) {
       setValues((current) => ({ ...current, timezone }));
     }
-  }, [edit]);
+  }, [edit, initialValues.timezone]);
+
+  function markDateEdited(name: keyof EventFormValues) {
+    onDateEdit?.(name);
+
+    if (!edit) {
+      return;
+    }
+
+    const fields =
+      name === "timezone"
+        ? eventDateFields.filter(
+            (field) => !(startLocked && field === "startsAt"),
+          )
+        : eventDateFields.filter((field) => field === name);
+    setEditedDates((current) => [...new Set([...current, ...fields])]);
+  }
 
   function field(name: keyof typeof values) {
     return {
@@ -89,7 +137,10 @@ export function EventForm({
       value: values[name],
       onChange: (
         event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-      ) => setValues((current) => ({ ...current, [name]: event.target.value })),
+      ) => {
+        markDateEdited(name);
+        setValues((current) => ({ ...current, [name]: event.target.value }));
+      },
       error: Boolean(state.errors?.[name]),
       helperText: state.errors?.[name]?.[0],
       fullWidth: true,
@@ -116,6 +167,9 @@ export function EventForm({
         <>
           <input type="hidden" name="eventId" value={edit.id} />
           <input type="hidden" name="version" value={openedVersion} />
+          {editedDates.map((field) => (
+            <input key={field} type="hidden" name="editedDate" value={field} />
+          ))}
         </>
       )}
       {state.message && (state.errors || state.conflict) && (
@@ -193,7 +247,7 @@ export function EventForm({
               required
               slotProps={{
                 inputLabel: { shrink: true },
-                htmlInput: { min: values.startsAt || undefined },
+                htmlInput: { min: endMin },
               }}
             />
           </Box>
@@ -211,20 +265,19 @@ export function EventForm({
             }}
             inputValue={formatTimezone(values.timezone)}
             onInputChange={(_, input) => {
+              if (input.replaceAll(" ", "_") === values.timezone) {
+                return;
+              }
+
+              markDateEdited("timezone");
               const timezone = input.replaceAll(" ", "_");
               setValues((current) => {
                 let startsAt = current.startsAt;
 
-                if (startLocked) {
+                if (startLocked && edit) {
                   try {
-                    // The instant is immutable, but its local display follows the timezone.
-                    startsAt = Temporal.PlainDateTime.from(
-                      initialValues.startsAt,
-                    )
-                      .toZonedDateTime(initialValues.timezone)
-                      .withTimeZone(timezone)
-                      .toPlainDateTime()
-                      .toString({ smallestUnit: "minute" });
+                    // Use the exact instant, including an unambiguous DST fold offset.
+                    startsAt = eventLocalDate(edit.dates.startsAt, timezone);
                   } catch {
                     // Incomplete timezone input is validated on submit.
                   }
@@ -250,6 +303,7 @@ export function EventForm({
             Times skipped or repeated during daylight saving changes must be
             replaced with an unambiguous time.
           </Typography>
+          {scheduleNotice?.(values)}
         </Stack>
       </Box>
       <Box
@@ -316,7 +370,7 @@ export function EventForm({
               type="datetime-local"
               slotProps={{
                 inputLabel: { shrink: true },
-                htmlInput: { max: values.endsAt || undefined },
+                htmlInput: { max: registrationMax("registrationOpensAt") },
               }}
               helperText={
                 state.errors?.registrationOpensAt?.[0] ??
@@ -329,7 +383,7 @@ export function EventForm({
               type="datetime-local"
               slotProps={{
                 inputLabel: { shrink: true },
-                htmlInput: { max: values.endsAt || undefined },
+                htmlInput: { max: registrationMax("registrationClosesAt") },
               }}
               helperText={
                 state.errors?.registrationClosesAt?.[0] ??
@@ -377,6 +431,7 @@ export function EventForm({
           </TextField>
         </Stack>
       </Box>
+      {children}
       <Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {edit
@@ -388,7 +443,11 @@ export function EventForm({
           spacing={2}
           sx={{ "& > a": { alignSelf: { xs: "flex-start", sm: "center" } } }}
         >
-          <Button type="submit" variant="contained" disabled={pending}>
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={pending || disabled}
+          >
             {pending
               ? edit
                 ? "Saving…"

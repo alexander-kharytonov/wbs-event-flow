@@ -1,0 +1,625 @@
+"use client";
+
+import Add from "@mui/icons-material/Add";
+import ArrowDownward from "@mui/icons-material/ArrowDownward";
+import ArrowUpward from "@mui/icons-material/ArrowUpward";
+import DeleteOutlined from "@mui/icons-material/DeleteOutlined";
+import EditOutlined from "@mui/icons-material/EditOutlined";
+import {
+  Alert,
+  Box,
+  Button,
+  Chip,
+  Dialog,
+  DialogTitle,
+  IconButton,
+  MenuItem,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
+import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
+import {
+  type BadgeLayout,
+  badgeFieldSchema,
+  defaultBadgeLayout,
+} from "@/features/badges/badge-layout";
+import { BadgeLayoutControls } from "@/features/badges/components/badge-layout-controls";
+import { RegistrationFieldForm } from "@/features/events/components/registration-field-form";
+import { EventForm } from "@/features/events/event-form";
+import {
+  type EventDateField,
+  eventDateFields,
+  eventValidationError,
+  type PreservedEventDates,
+  parseEventWithPreservedDates,
+} from "@/features/events/event-input-schema";
+import {
+  canonicalizeReview,
+  portableBindingIssues,
+  type TemplateEvent,
+  type TemplateField,
+  type TemplateIssue,
+  templateEventValues,
+} from "@/features/events/import/template-input";
+import { importTemplate } from "@/features/events/import-template";
+import {
+  fieldTypeLabels,
+  registrationFieldSchema,
+} from "@/features/events/schemas/registration-form";
+import type { TemplateCreateResult } from "@/features/events/server/create-template-event";
+
+export function TemplateIssues({ issues }: { issues: TemplateIssue[] }) {
+  return (
+    issues.length > 0 && (
+      <Alert severity="error">
+        <Stack spacing={0.5}>
+          {[
+            ...new Map(
+              issues.map((issue) => [
+                `${issue.path}:${issue.code}:${issue.message}`,
+                issue,
+              ]),
+            ).values(),
+          ].map((issue) => (
+            <Typography
+              variant="body2"
+              key={`${issue.path}:${issue.code}:${issue.message}`}
+            >
+              <strong>{issue.path}</strong>: {issue.message}
+            </Typography>
+          ))}
+        </Stack>
+      </Alert>
+    )
+  );
+}
+
+function ReviewBadge({
+  event,
+  onChange,
+}: {
+  event: TemplateEvent;
+  onChange: (layout: TemplateEvent["badgeLayout"]) => void;
+}) {
+  const portable = event.badgeLayout;
+  const toField = (binding: NonNullable<typeof portable>["secondaryField"]) =>
+    binding
+      ? { fieldId: binding.fieldKey, type: binding.type, label: binding.label }
+      : null;
+  const layout: BadgeLayout | null = portable
+    ? {
+        ...portable,
+        secondaryField: toField(portable.secondaryField),
+        tertiaryField: toField(portable.tertiaryField),
+      }
+    : null;
+  const catalog = event.registrationForm.fields.flatMap((field, index) => {
+    const parsed = badgeFieldSchema.safeParse({
+      fieldId: field.key,
+      type: field.type,
+      label: field.label,
+    });
+
+    return parsed.success
+      ? [{ ...parsed.data, context: `Question ${index + 1}` }]
+      : [];
+  });
+
+  return (
+    <Stack spacing={2}>
+      <Typography variant="h6" component="h2">
+        Badge Design
+      </Typography>
+      <Typography variant="body2" color="text.secondary">
+        {layout
+          ? "Imported design. Changes apply when the event is created."
+          : "Default badge design. No custom layout will be saved."}
+      </Typography>
+      {layout ? (
+        <>
+          <BadgeLayoutControls
+            layout={layout}
+            catalog={catalog}
+            onChange={(next) => {
+              const binding = (field: BadgeLayout["secondaryField"]) =>
+                field
+                  ? {
+                      fieldKey: field.fieldId,
+                      type: field.type,
+                      label: field.label,
+                    }
+                  : null;
+              onChange({
+                ...next,
+                secondaryField: binding(next.secondaryField),
+                tertiaryField: binding(next.tertiaryField),
+              });
+            }}
+          />
+          <Button
+            sx={{ alignSelf: "flex-start" }}
+            onClick={() => onChange(null)}
+          >
+            Use default design
+          </Button>
+        </>
+      ) : (
+        <Button
+          sx={{ alignSelf: "flex-start" }}
+          onClick={() =>
+            onChange({
+              ...defaultBadgeLayout,
+              secondaryField: null,
+              tertiaryField: null,
+            })
+          }
+        >
+          Customize design
+        </Button>
+      )}
+    </Stack>
+  );
+}
+
+export function TemplateReview({
+  initial,
+  onBusyChange,
+}: {
+  initial: TemplateEvent;
+  onBusyChange: (busy: boolean) => void;
+}) {
+  const router = useRouter();
+  const [event, setEvent] = useState(initial);
+  const [staffKeys, setStaffKeys] = useState(() =>
+    initial.staff.map((_, index) => String(index)),
+  );
+  const nextStaffKey = useRef(initial.staff.length);
+  const [issues, setIssues] = useState<TemplateIssue[]>([]);
+  const [editor, setEditor] = useState<{ field?: TemplateField } | null>(null);
+  const [fieldMessage, setFieldMessage] = useState<string>();
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] =
+    useState<Extract<TemplateCreateResult, { success: true }>>();
+  const editedDates = useRef(new Set<EventDateField>());
+  const nextKey = useRef(initial.registrationForm.fields.length + 1);
+  const initialValues = useRef(templateEventValues(initial)).current;
+  const fields = event.registrationForm.fields;
+  const bindings = portableBindingIssues(event);
+
+  function setFields(next: TemplateField[]) {
+    setEvent((current) => ({ ...current, registrationForm: { fields: next } }));
+    setIssues([]);
+  }
+
+  function move(index: number, offset: number) {
+    const next = [...fields];
+    [next[index], next[index + offset]] = [next[index + offset], next[index]];
+    setFields(next);
+  }
+
+  if (result) {
+    return (
+      <Stack spacing={2}>
+        <Alert severity="success">
+          Event created. Staff added: {result.addedCount}.
+        </Alert>
+        {result.skippedEmails.length > 0 && (
+          <Alert severity="warning">
+            <Typography>These staff assignments were not added:</Typography>
+            {result.skippedEmails.map((email) => (
+              <Typography
+                variant="body2"
+                key={email}
+                sx={{ overflowWrap: "anywhere" }}
+              >
+                {email}
+              </Typography>
+            ))}
+          </Alert>
+        )}
+        {result.duplicateWarnings.length > 0 && (
+          <Alert severity="info">
+            Duplicate entries were combined:{" "}
+            {result.duplicateWarnings.join(", ")}
+          </Alert>
+        )}
+        <Button
+          variant="contained"
+          sx={{ alignSelf: "flex-start" }}
+          onClick={() => router.replace(`/dashboard/events/${result.eventId}`)}
+        >
+          Open event
+        </Button>
+      </Stack>
+    );
+  }
+
+  return (
+    <>
+      <Box
+        component="fieldset"
+        disabled={busy}
+        sx={{ border: 0, p: 0, m: 0, minWidth: 0 }}
+      >
+        <EventForm
+          exactInstantMode
+          initialValues={initialValues}
+          disabled={bindings.length > 0}
+          scheduleNotice={(values) => {
+            const preserved: PreservedEventDates = {};
+
+            for (const field of eventDateFields) {
+              if (!editedDates.current.has(field)) {
+                preserved[field] = initial[field];
+              }
+            }
+
+            const parsed = parseEventWithPreservedDates(values, preserved);
+
+            if (!parsed.success) {
+              return null;
+            }
+
+            if (parsed.data.endsAt.getTime() <= Date.now()) {
+              return (
+                <Alert severity="warning">
+                  This event has already ended. With these dates it will be
+                  Completed and read-only after Create. Change the dates now if
+                  you want to edit it later.
+                </Alert>
+              );
+            }
+
+            return parsed.data.startsAt.getTime() < Date.now() ? (
+              <Alert severity="warning">
+                The start is in the past. Imported dates are kept exactly unless
+                you edit them.
+              </Alert>
+            ) : null;
+          }}
+          onDateEdit={(field) => {
+            if (field === "timezone") {
+              for (const name of eventDateFields) {
+                editedDates.current.add(name);
+              }
+            } else if (eventDateFields.includes(field as EventDateField)) {
+              editedDates.current.add(field as EventDateField);
+            }
+          }}
+          serverAction={async (_previous, formData) => {
+            setIssues([]);
+            const preserved: PreservedEventDates = {};
+
+            for (const field of eventDateFields) {
+              if (!editedDates.current.has(field)) {
+                preserved[field] = initial[field];
+              }
+            }
+
+            const parsed = parseEventWithPreservedDates(
+              Object.fromEntries(formData),
+              preserved,
+            );
+
+            if (!parsed.success) {
+              return eventValidationError(parsed.error);
+            }
+
+            const values = parsed.data;
+            const reviewed = canonicalizeReview({
+              ...event,
+              ...values,
+              startsAt: values.startsAt.toISOString(),
+              endsAt: values.endsAt.toISOString(),
+              registrationOpensAt:
+                values.registrationOpensAt?.toISOString() ?? null,
+              registrationClosesAt:
+                values.registrationClosesAt?.toISOString() ?? null,
+            });
+
+            if (!reviewed.success) {
+              setIssues(reviewed.issues);
+
+              return {};
+            }
+
+            setBusy(true);
+            onBusyChange(true);
+
+            try {
+              const payload = new FormData();
+              payload.set("template", JSON.stringify(reviewed.template));
+              const outcome = await importTemplate(payload);
+
+              if (outcome.success) {
+                setResult(outcome);
+              } else {
+                setIssues(outcome.issues);
+                onBusyChange(false);
+              }
+            } catch {
+              setIssues([
+                {
+                  code: "request_failed",
+                  path: "template",
+                  message:
+                    "We couldn’t confirm creation. Check My events before trying again.",
+                },
+              ]);
+              onBusyChange(false);
+            } finally {
+              setBusy(false);
+            }
+
+            return {};
+          }}
+        >
+          <TemplateIssues issues={issues} />
+          <Stack spacing={2}>
+            <Typography variant="h6" component="h2">
+              Registration Form
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Full name and email are always collected. Questions below remain
+              local until Create.
+            </Typography>
+            {fields.length === 0 && (
+              <Typography color="text.secondary">
+                No custom questions.
+              </Typography>
+            )}
+            {fields.map((field, index) => (
+              <Box
+                key={field.key}
+                sx={{
+                  border: 1,
+                  borderColor: "divider",
+                  borderRadius: 1,
+                  p: 2,
+                }}
+              >
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  sx={{ alignItems: "flex-start" }}
+                >
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography sx={{ overflowWrap: "anywhere" }}>
+                      {index + 1}. {field.label}
+                    </Typography>
+                    <Chip
+                      size="small"
+                      label={fieldTypeLabels[field.type]}
+                      sx={{ my: 1, mr: 1 }}
+                    />
+                    {field.required && (
+                      <Chip size="small" label="Required" variant="outlined" />
+                    )}
+                    {field.description && (
+                      <Typography variant="body2" color="text.secondary">
+                        {field.description}
+                      </Typography>
+                    )}
+                    {field.options.map((option) => (
+                      <Typography variant="body2" key={option.label}>
+                        • {option.label}
+                      </Typography>
+                    ))}
+                  </Box>
+                  <Stack>
+                    <IconButton
+                      aria-label={`Edit question ${index + 1}`}
+                      onClick={() => {
+                        setFieldMessage(undefined);
+                        setEditor({ field });
+                      }}
+                    >
+                      <EditOutlined />
+                    </IconButton>
+                    <IconButton
+                      aria-label={`Delete question ${index + 1}`}
+                      onClick={() =>
+                        setFields(
+                          fields.filter((item) => item.key !== field.key),
+                        )
+                      }
+                    >
+                      <DeleteOutlined />
+                    </IconButton>
+                  </Stack>
+                </Stack>
+                <IconButton
+                  size="small"
+                  aria-label={`Move question ${index + 1} up`}
+                  disabled={index === 0}
+                  onClick={() => move(index, -1)}
+                >
+                  <ArrowUpward />
+                </IconButton>
+                <IconButton
+                  size="small"
+                  aria-label={`Move question ${index + 1} down`}
+                  disabled={index === fields.length - 1}
+                  onClick={() => move(index, 1)}
+                >
+                  <ArrowDownward />
+                </IconButton>
+              </Box>
+            ))}
+            <Button
+              startIcon={<Add />}
+              disabled={fields.length >= 100}
+              sx={{ alignSelf: "flex-start" }}
+              onClick={() => {
+                setFieldMessage(undefined);
+                setEditor({});
+              }}
+            >
+              Add question
+            </Button>
+          </Stack>
+          <Stack spacing={2}>
+            <Typography variant="h6" component="h2">
+              Staff
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Staff accounts will be resolved when the event is created.
+            </Typography>
+            {event.staff.length === 0 && (
+              <Typography color="text.secondary">
+                No staff assignments.
+              </Typography>
+            )}
+            {event.staff.map((member, index) => (
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={1}
+                key={staffKeys[index]}
+              >
+                <TextField
+                  label={`Staff email ${index + 1}`}
+                  type="email"
+                  required
+                  fullWidth
+                  value={member.email}
+                  onChange={(change) =>
+                    setEvent({
+                      ...event,
+                      staff: event.staff.map((item, i) =>
+                        i === index
+                          ? { ...item, email: change.target.value }
+                          : item,
+                      ),
+                    })
+                  }
+                />
+                <TextField
+                  select
+                  label="Role"
+                  value={member.role}
+                  sx={{ minWidth: 150 }}
+                  onChange={(change) =>
+                    setEvent({
+                      ...event,
+                      staff: event.staff.map((item, i) =>
+                        i === index
+                          ? {
+                              ...item,
+                              role: change.target.value as typeof member.role,
+                            }
+                          : item,
+                      ),
+                    })
+                  }
+                >
+                  <MenuItem value="MANAGER">Manager</MenuItem>
+                  <MenuItem value="RECEPTION">Reception</MenuItem>
+                </TextField>
+                <IconButton
+                  aria-label={`Remove staff ${index + 1}`}
+                  onClick={() => {
+                    setStaffKeys(staffKeys.filter((_, i) => i !== index));
+                    setEvent({
+                      ...event,
+                      staff: event.staff.filter((_, i) => i !== index),
+                    });
+                  }}
+                >
+                  <DeleteOutlined />
+                </IconButton>
+              </Stack>
+            ))}
+            <Button
+              startIcon={<Add />}
+              disabled={event.staff.length >= 100}
+              sx={{ alignSelf: "flex-start" }}
+              onClick={() => {
+                setStaffKeys([...staffKeys, String(nextStaffKey.current++)]);
+                setEvent({
+                  ...event,
+                  staff: [...event.staff, { email: "", role: "RECEPTION" }],
+                });
+              }}
+            >
+              Add staff
+            </Button>
+          </Stack>
+          <TemplateIssues issues={bindings} />
+          <ReviewBadge
+            event={event}
+            onChange={(badgeLayout) => {
+              setEvent({ ...event, badgeLayout });
+              setIssues([]);
+            }}
+          />
+        </EventForm>
+      </Box>
+      {editor && (
+        <Dialog open fullWidth maxWidth="sm" onClose={() => setEditor(null)}>
+          <DialogTitle>
+            {editor.field ? "Edit question" : "Add question"}
+          </DialogTitle>
+          <RegistrationFieldForm
+            initial={
+              editor.field
+                ? {
+                    ...editor.field,
+                    id: editor.field.key,
+                    description: editor.field.description ?? "",
+                  }
+                : undefined
+            }
+            pending={false}
+            message={fieldMessage}
+            reloadHref="/dashboard/events/new"
+            onCancel={() => setEditor(null)}
+            onSave={(input) => {
+              const parsed = registrationFieldSchema.safeParse(input);
+
+              if (!parsed.success) {
+                setFieldMessage(
+                  "Check the question and option labels. Choice questions need at least two distinct options.",
+                );
+
+                return;
+              }
+
+              const options = parsed.data.options ?? [];
+              const otherOptions = fields
+                .filter((field) => field.key !== editor.field?.key)
+                .reduce((sum, field) => sum + field.options.length, 0);
+
+              if (
+                options.length > 100 ||
+                otherOptions + options.length > 1000
+              ) {
+                setFieldMessage(
+                  "Use at most 100 options per question and 1,000 options in total.",
+                );
+
+                return;
+              }
+
+              const field: TemplateField = {
+                ...parsed.data,
+                key: editor.field?.key ?? `field_${nextKey.current++}`,
+                description: parsed.data.description || null,
+                options,
+              };
+              setFields(
+                editor.field
+                  ? fields.map((item) =>
+                      item.key === editor.field?.key ? field : item,
+                    )
+                  : [...fields, field],
+              );
+              setEditor(null);
+            }}
+          />
+        </Dialog>
+      )}
+    </>
+  );
+}
