@@ -40,8 +40,8 @@ export const defaultBadgeLayout: BadgeLayout = {
 };
 
 export const badgeSizes = {
-  STANDARD: { label: "90 × 60 mm", width: 90, height: 60 },
   CARD: { label: "85 × 54 mm", width: 85, height: 54 },
+  STANDARD: { label: "90 × 60 mm", width: 90, height: 60 },
   LARGE: { label: "100 × 70 mm", width: 100, height: 70 },
 } as const;
 

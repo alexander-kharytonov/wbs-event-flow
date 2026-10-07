@@ -1031,10 +1031,12 @@ without records or fake identities. All text uses escaped React nodes, presentat
 control-character normalization, word wrapping and two-line clipping. QR has a reserved
 physical area and quiet zone independent of text length.
 
-The separate dynamic individual print page has fresh authorization, opaque Event/
+The separate dynamic individual print Route Handler has fresh authorization, opaque Event/
 Attendee selectors, private/no-store, no-referrer and noindex headers, and no application
 or workspace chrome. It rechecks eligibility and loads current saved/default config.
-One badge uses one physical page. Printing is explicit after fonts/images are ready;
+Individual printing uses the same A4 HTML renderer and print controls as bulk/team
+printing, while retaining badges.print.individual authorization. Printing is explicit
+after fonts/images are ready;
 controls are excluded by print CSS. The document is a snapshot at load time: no SSE,
 polling or promise to retract previously delivered HTML/PDF/paper. New documents reread
 current state. Revoked paper QR cannot create new Attendance; the existing historical
@@ -1107,12 +1109,17 @@ At most 200 people including Organizer are allowed; larger teams fail before pre
 materialization. There is no team batching UI.
 
 Individual and batch documents share one React badge markup and physical print CSS:
-one badge per page, no split, breaks only between pages, controls hidden in print.
+individual, bulk attendee and TEAM documents all use the shared HTML renderer and
+A4 portrait sheets with 10 mm page margins and 3 mm gaps. Columns and rows are computed
+from the fixed badge dimensions within the 190 × 277 mm printable area; snapshots are
+chunked into sheets without reordering, scaling or splitting badges. Breaks occur only
+between sheets, and controls are hidden in print. The document limit remains 200 badges,
+independent of sheet count; all-active continuation remains unchanged.
 All user text remains normalized, grapheme-limited and React-escaped; no raw user HTML
 or arbitrary CSS is accepted. Route Handler HTML (including errors) has private/no-store,
 noindex/nofollow/noarchive, no-referrer and HTML content type, without ApplicationShell.
 No request body, credentials or crypto failures are logged. No schema/migration,
-Badge/TeamBadge/PrintJob/PrintSelection entity, print history, A4 sheets, vendor printer
+Badge/TeamBadge/PrintJob/PrintSelection entity, print history, vendor printer
 or automatic printing is introduced; Ticket/Attendance/protocol semantics are unchanged.
 
 

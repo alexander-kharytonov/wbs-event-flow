@@ -384,10 +384,13 @@ Print event team uses Organizer first, then current staff in createdAt/userId or
 with controlled Organizer / Manager / Reception labels and authoritative User.name.
 Team badges use the same design but always include role and never Ticket, QR,
 authentication content or registration fields. More than 200 team members is refused;
-there is no team batching or individual/selected team printing. All documents use one
-badge per physical page with explicit printing. No schema migration, persistent Badge,
-TeamBadge, PrintJob, print history, A4 sheets, vendor printer integration or automatic
-printing is introduced.
+there is no team batching or individual/selected team printing. Individual, bulk attendee and team
+printing uses A4 portrait sheets with 10 mm margins and 3 mm gaps. Badges retain their
+physical dimensions and orientation, with dashed cutting guides and automatic sheet
+breaks (eight 90 × 60 mm badges per sheet). Individual printing uses the same document
+with one badge. Printing remains explicit; choose A4 and 100% scale.
+No schema migration, persistent Badge, TeamBadge, PrintJob, print history, vendor
+printer integration or automatic printing is introduced.
 
 
 ## Event Overview (25)

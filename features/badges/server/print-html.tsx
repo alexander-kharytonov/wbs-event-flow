@@ -36,10 +36,12 @@ export async function badgeHtmlResponse(
             ) : (
               <>
                 <p>
-                  {result.presentations.length} badges. One badge per physical
-                  page. This document uses the saved design and admission state
-                  from when it was opened. Check paper size and scaling in the
-                  print dialog.
+                  {result.presentations.length}{" "}
+                  {result.presentations.length === 1 ? "badge" : "badges"}{" "}
+                  arranged on A4 sheets at their actual size, with cutting
+                  guides. This document uses the saved design and admission
+                  state from when it was opened. Choose A4 paper and 100% scale
+                  in the print dialog; disable browser headers and footers.
                 </p>
                 <button id="print-badges" type="button">
                   Print
