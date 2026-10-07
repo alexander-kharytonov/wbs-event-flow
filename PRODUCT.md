@@ -454,3 +454,35 @@ representation. Spreadsheet applications may alter this protection when saving a
 reopening files. Exports are complete or fail: at most 10,000 data rows, 500 total
 columns and 20 MiB serialized output. Empty datasets produce headers only. No
 partial file, persistent export file, export history or background job is created.
+
+## Event template export (26B)
+
+Owners can download **Export template** from the Event header Export menu.
+EventTemplateV1 is portable configuration, not a backup or a public artifact:
+it contains current staff emails. It uses current saved workspace configuration,
+including unpublished Event, Registration Form and Badge Design changes.
+
+The JSON contains title, nullable description, start/end, timezone, visibility,
+account requirement, nullable capacity, maximum guests per registration, nullable
+registration open/close dates, registration form, staff and nullable badge layout.
+Dates retain their original instants, including past dates. Completed, cancelled
+and archived Events can be exported without copying their lifecycle state.
+
+Custom questions retain their array order, type, label, nullable description,
+required flag and ordered option labels. Full name/email are built-in inputs,
+not custom fields. Questions receive local keys field_1, field_2, etc.; database
+identities are excluded. Badge bindings use those keys only when the saved
+field ID, type and label exactly match a current question. A historical, deleted,
+recreated or changed binding rejects the whole export and asks the owner to
+update Badge Design. Invalid saved layouts also fail; null remains null and
+legacy missing padding becomes 3 mm. Physical badge constraints remain unchanged.
+
+Staff contains only current Manager/Reception assignments, ordered by assignment
+creation time then user ID, with normalized email and role. The owner is excluded.
+There are no Applications, Registrations, Attendees, Guests, Tickets, QR credentials,
+Attendance, internal IDs, publication history, lifecycle state or notifications.
+
+Template v1 allows at most 100 questions, 100 options per question, 1,000 options
+in total, 100 staff and 512 KiB of serialized UTF-8 JSON. Exports are complete or
+fail; these limits do not restrict manual editing. Downloads are private and
+uncached. Import/Create, preview/editor and Duplicate Event are not implemented.

@@ -1243,3 +1243,64 @@ and noindex/nofollow/noarchive. Errors also have privacy headers, but plain-text
 content and no attachment. The menu uses ordinary anchors without Next prefetch.
 CSV content/PII is not logged. There are no persistent files, export history/jobs,
 new schema, migrations, dependencies, Template export or Import flows.
+
+## 30. Portable EventTemplateV1 / export (26B)
+
+The transport-independent strict envelope is {format: "event-flow-template",
+version: 1, event: {...}}. The explicit event DTO has exactly title, description,
+startsAt, endsAt, timezone, visibility, accountRequirement, capacity,
+maxGuestsPerRegistration, registrationOpensAt, registrationClosesAt,
+registrationForm, staff and badgeLayout. Nullable values are required explicit
+nulls. Dates are original UTC ISO instants with milliseconds, without shifting
+past Events or copying Completed/Cancelled/Archived state.
+
+registrationForm is {fields: [...]}. Each field contains key, type, label,
+description, required and options; each option contains only label. Array order
+is current position order. Field keys are exactly field_1 through field_N in
+that order. No field/form/option/revision IDs or built-in full name/email fields
+are serialized. Validation reuses current registrationFieldSchema semantics;
+Template v1 limits are additional portability constraints, not authoring limits.
+
+badgeLayout is null or the constrained current badge format with secondaryField
+and tertiaryField descriptors {fieldKey, type, label}. Bindings map only by exact
+current fieldId/type/label. Missing, historical, deleted/recreated or mismatched
+bindings reject the entire export with a generic request to update Badge Design.
+No label-only mapping, silent removal or historical-question insertion occurs.
+The stored-layout parser remains authority: missing padding normalizes to 3 mm,
+obsolete preset is discarded and invalid layouts fail without a default fallback.
+Portable padding is explicit. Arbitrary HTML/CSS/custom dimensions are forbidden.
+
+staff contains current EventStaff only, ordered createdAt ASC/userId ASC, with
+{email, role: MANAGER|RECEPTION}. Emails are trimmed/lowercased using existing
+Staff semantics. OWNER, user IDs, names, verification status and assignment
+metadata are omitted. Export does not perform eligibility/account lookup.
+
+The server-only projector is independent of HTTP and Prisma serialization. The
+reader authorizes event.edit from fresh verified session identity and loads
+Event/current Form/Staff/Badge in one RepeatableRead transaction (30-second
+timeout). It has no edit lifecycle guard, locks or domain writes. Counts are
+checked before question text/options/staff materialization. No operational data,
+revisions, Ticket credentials or auth relations are loaded into the projection.
+
+Limits are 100 fields, 100 options per field, 1,000 options total, 100 staff and
+512 KiB of actual serialized UTF-8 response including trailing newline. Output
+has deterministic schema property order, two-space indentation and no BOM.
+Every limit and validation failure rejects the whole export; no partial content
+or truncation is returned. No persistent files, export records or jobs exist.
+
+GET /api/events/[eventId]/exports/template is a static sibling of the unchanged
+CSV dataset route. It checks a fresh verified unexpired session with cookie cache
+and refresh disabled. Unknown/foreign/unauthorized Events share a neutral 404.
+OWNER alone has event.edit; Manager/Reception cannot download or see the menu item.
+Success has application/json; charset=utf-8, attachment filename
+"event-template-v1.json", private/no-store/max-age=0, nosniff, no-referrer and
+noindex/nofollow/noarchive. Errors retain privacy headers, use generic plain text
+and contain no emails, internal IDs or partial template. Content/PII is not logged.
+The menu uses an explicit ordinary anchor without prefetch.
+
+The artifact contains no database identities, organizer/publicId, timestamps of
+creation/modification, publication pointers/contentVersion/revisions, cancellation/
+archive state, Applications/Registrations/Attendees/Guests, Tickets/QR/credentials,
+Attendance, notifications/outbox or runtime/lock/history data. It is private
+configuration because staff emails are present. No schema/dependency changes,
+Import/Create flow (26C), template preview/editor or Duplicate Event are included.

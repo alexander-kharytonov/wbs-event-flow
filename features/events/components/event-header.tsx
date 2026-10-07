@@ -214,6 +214,7 @@ export async function EventHeader({
               <ExportMenu
                 eventId={eventId}
                 staff={hasEventPermission(access.role, "staff.manage")}
+                template={hasEventPermission(access.role, "event.edit")}
               />
             )}
           {ownerEvent && (
