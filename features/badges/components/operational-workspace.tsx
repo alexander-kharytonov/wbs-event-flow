@@ -187,16 +187,6 @@ export function OperationalBadgeWorkspace({
             sx={{
               display: "grid",
               gridTemplateColumns: "minmax(0, 1fr)",
-              "& .MuiOutlinedInput-notchedOutline": {
-                transition: "border-color 150ms ease",
-              },
-              "& .MuiOutlinedInput-root:not(.Mui-focused):not(.Mui-error):not(.Mui-disabled) .MuiOutlinedInput-notchedOutline":
-                { borderColor: "divider" },
-              "& .MuiOutlinedInput-root:hover:not(.Mui-focused):not(.Mui-error):not(.Mui-disabled) .MuiOutlinedInput-notchedOutline":
-                {
-                  borderColor:
-                    "color-mix(in srgb, var(--mui-palette-divider), var(--mui-palette-text-secondary) 25%)",
-                },
             }}
           >
             <TextField
@@ -218,6 +208,7 @@ export function OperationalBadgeWorkspace({
           </Box>
           <Box
             component="form"
+            noValidate
             method="post"
             target="_blank"
             rel="noopener"

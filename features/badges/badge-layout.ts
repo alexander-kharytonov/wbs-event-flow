@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const badgeFieldSchema = z.strictObject({
   fieldId: z.string().min(1).max(200),
-  type: z.enum(["SHORT_TEXT", "LONG_TEXT", "SINGLE_CHOICE"]),
+  type: z.enum(["SHORT_TEXT", "LONG_TEXT", "SINGLE_CHOICE", "MULTIPLE_CHOICE"]),
   label: z.string().min(1).max(200),
 });
 

@@ -1,4 +1,5 @@
 import "server-only";
+import { loadManualCommunicationEmail } from "@/features/communications/server/render";
 import type { EmailOutboxType } from "@/generated/prisma/client";
 import {
   applicationApprovedPayload,
@@ -6,6 +7,7 @@ import {
   applicationRejectedPayload,
   eventCancelledPayload,
   newApplicationPayload,
+  transactionalEmailSubjects,
 } from "@/lib/email-outbox/payload";
 import { renderEmailTemplate } from "@/lib/email-template";
 import { getServerEnv } from "@/lib/env";
@@ -15,7 +17,16 @@ import { decryptTicketSecret } from "@/lib/ticket-crypto";
 export async function renderOutboxEmail(
   type: EmailOutboxType,
   payload: unknown,
+  communicationId: string | null = null,
 ) {
+  if (type === "MANUAL_EVENT_MESSAGE") {
+    if (!communicationId) {
+      throw new Error("Manual delivery has no Communication.");
+    }
+
+    return loadManualCommunicationEmail(prisma, communicationId);
+  }
+
   const origin = getServerEnv().BETTER_AUTH_URL;
   const absoluteUrl = (path: string) => new URL(path, origin).href;
   let subject: string;
@@ -33,7 +44,7 @@ export async function renderOutboxEmail(
       timeStyle: "short",
       timeZone: data.event.timezone,
     });
-    subject = "Event cancelled";
+    subject = transactionalEmailSubjects.EVENT_CANCELLED;
     greeting = `Hello ${data.applicantName},`;
     introduction = `The event you applied to has been cancelled. ${data.cancellationReason}`;
     eventTitle = data.event.title;
@@ -42,7 +53,7 @@ export async function renderOutboxEmail(
     action = eventUrl ? { label: "View event", url: eventUrl } : undefined;
   } else if (type === "APPLICATION_REJECTED") {
     const data = applicationRejectedPayload.parse(payload);
-    subject = "An update on your application";
+    subject = transactionalEmailSubjects.APPLICATION_REJECTED;
     greeting = data.applicantName ? `Hello ${data.applicantName},` : "Hello,";
     introduction =
       "Thank you for your interest. Your application was not approved.";
@@ -66,7 +77,7 @@ export async function renderOutboxEmail(
     schedule = `${formatter.format(new Date(data.event.startsAt))} – ${formatter.format(new Date(data.event.endsAt))} (${data.event.timezone})`;
 
     if (type === "NEW_APPLICATION" && "eventId" in data) {
-      subject = "A new application for your event";
+      subject = transactionalEmailSubjects.NEW_APPLICATION;
       greeting = "Hello,";
       introduction = `${data.applicantName} has applied to attend your event. The application is pending review.`;
       action = {
@@ -74,7 +85,7 @@ export async function renderOutboxEmail(
         url: absoluteUrl(`/dashboard/events/${data.eventId}/applications`),
       };
     } else if (type === "APPLICATION_RECEIVED") {
-      subject = "We received your application";
+      subject = transactionalEmailSubjects.APPLICATION_RECEIVED;
       greeting = `Hello ${data.applicantName},`;
       introduction =
         "Your application has been received and is pending review. We will email you when the organizer makes a decision.";
@@ -86,7 +97,7 @@ export async function renderOutboxEmail(
             }
           : { label: "View event", url: eventUrl };
     } else {
-      subject = "Your application is approved";
+      subject = transactionalEmailSubjects.APPLICATION_APPROVED;
       greeting = `Hello ${data.applicantName},`;
       introduction =
         "Your application has been approved. We look forward to seeing you at the event.";

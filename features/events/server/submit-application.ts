@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { enqueueTransactionalCommunication } from "@/features/communications/server/enqueue";
 import {
   type ApplicationFormState,
   applicationAnswersSchema,
@@ -10,10 +11,8 @@ import { registrationAvailability } from "@/features/events/registration-availab
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 import { lockEventForUpdate } from "@/features/events/server/lock-event-for-update";
 import { Prisma } from "@/generated/prisma/client";
-import {
-  emailEventSnapshot,
-  enqueueApplicationEmail,
-} from "@/lib/email-outbox/enqueue";
+import { emailEventSnapshot } from "@/lib/email-outbox/enqueue";
+import { transactionalEmailSubjects } from "@/lib/email-outbox/payload";
 import { prisma } from "@/lib/prisma";
 import { notifyApplicationChanged } from "@/lib/realtime/application-notifications";
 import { getSession } from "@/lib/session";
@@ -239,27 +238,61 @@ export async function submitEventApplication(
             currentEvent?.publishedRevision?.snapshot,
           );
           const emailEvent = emailEventSnapshot(currentSnapshot, publicId);
-          await enqueueApplicationEmail(tx, {
-            applicationId: application.id,
-            type: "APPLICATION_RECEIVED",
-            recipientEmail: email,
-            payload: {
+          // Public/applicant flow never exposes the applicant as a history actor.
+          const actor = {
+            actorUserId: null,
+            actorNameSnapshot: null,
+            actorRoleSnapshot: null,
+          };
+          await enqueueTransactionalCommunication(tx, {
+            eventId: revision.eventId,
+            trigger: "APPLICATION_RECEIVED",
+            subject: transactionalEmailSubjects.APPLICATION_RECEIVED,
+            actor,
+            contextSnapshot: {
               schemaVersion: 1,
-              applicantName: fullName,
-              event: emailEvent,
-              linkedApplicant: user !== null,
+              kind: "TRANSACTIONAL",
+              trigger: "APPLICATION_RECEIVED",
+              eventTitle: emailEvent.title,
             },
+            idempotencyKey: `${application.id}:APPLICATION_RECEIVED`,
+            recipients: [
+              {
+                recipientEmail: email,
+                deduplicationKey: `${application.id}:APPLICATION_RECEIVED`,
+                payload: {
+                  schemaVersion: 1,
+                  applicantName: fullName,
+                  event: emailEvent,
+                  linkedApplicant: user !== null,
+                },
+              },
+            ],
           });
-          await enqueueApplicationEmail(tx, {
-            applicationId: application.id,
-            type: "NEW_APPLICATION",
-            recipientEmail: currentEvent.organizer.user.email,
-            payload: {
+          await enqueueTransactionalCommunication(tx, {
+            eventId: revision.eventId,
+            trigger: "NEW_APPLICATION",
+            subject: transactionalEmailSubjects.NEW_APPLICATION,
+            actor,
+            contextSnapshot: {
               schemaVersion: 1,
-              applicantName: fullName,
-              event: emailEvent,
-              eventId: revision.eventId,
+              kind: "TRANSACTIONAL",
+              trigger: "NEW_APPLICATION",
+              eventTitle: emailEvent.title,
             },
+            idempotencyKey: `${application.id}:NEW_APPLICATION`,
+            recipients: [
+              {
+                recipientEmail: currentEvent.organizer.user.email,
+                deduplicationKey: `${application.id}:NEW_APPLICATION`,
+                payload: {
+                  schemaVersion: 1,
+                  applicantName: fullName,
+                  event: emailEvent,
+                  eventId: revision.eventId,
+                },
+              },
+            ],
           });
 
           await notifyApplicationChanged(tx, {

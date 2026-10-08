@@ -5,10 +5,12 @@ import { requireEventPermission } from "@/features/events/server/require-event-p
 export default async function EventLayout({
   children,
   applicationModal,
+  communicationModal,
   params,
 }: {
   children: ReactNode;
   applicationModal: ReactNode;
+  communicationModal: ReactNode;
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
@@ -18,6 +20,7 @@ export default async function EventLayout({
     <EventWorkspace eventId={id} role={access.role}>
       {children}
       {applicationModal}
+      {communicationModal}
     </EventWorkspace>
   );
 }

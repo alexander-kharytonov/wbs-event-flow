@@ -29,6 +29,17 @@ export const eventPublicationSnapshotSchema = eventSnapshotV2Schema.superRefine(
       }
     }
 
+    if (
+      event.registrationOpensAt &&
+      Date.parse(event.registrationOpensAt) > Date.parse(event.startsAt)
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["registrationOpensAt"],
+        message: "Registration must open no later than the event start.",
+      });
+    }
+
     for (const field of [
       "registrationOpensAt",
       "registrationClosesAt",

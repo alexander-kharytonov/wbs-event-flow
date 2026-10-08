@@ -133,7 +133,17 @@ async function manageGuest(
         const parsed = guestInput.safeParse(command.input);
 
         if (!parsed.success) {
-          return { code: "INVALID_INPUT" };
+          return {
+            code: "INVALID_INPUT",
+            fieldErrors: Object.fromEntries(
+              parsed.error.issues
+                .filter(
+                  (issue) =>
+                    issue.path[0] === "name" || issue.path[0] === "email",
+                )
+                .map((issue) => [String(issue.path[0]), issue.message]),
+            ),
+          };
         }
 
         if (!event.publishedRevisionId) {

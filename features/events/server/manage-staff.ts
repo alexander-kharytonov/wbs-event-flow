@@ -37,12 +37,25 @@ const commandSchema = z.discriminatedUnion("action", [
 export async function manageEventStaff(
   actorUserId: string,
   input: unknown,
-): Promise<{ success?: true; message?: string }> {
+): Promise<{
+  success?: true;
+  message?: string;
+  fieldErrors?: Record<string, string>;
+}> {
   const parsed = commandSchema.safeParse(input);
   const unavailable = { message: "This staff assignment is unavailable." };
 
   if (!parsed.success) {
-    return unavailable;
+    const emailError = parsed.error.issues.find(
+      (issue) => issue.path[0] === "email",
+    );
+
+    return emailError
+      ? {
+          ...unavailable,
+          fieldErrors: { email: "Enter a valid email address." },
+        }
+      : unavailable;
   }
 
   const command = parsed.data;

@@ -1,4 +1,5 @@
 export type GuestResult = {
+  fieldErrors?: Record<string, string>;
   code:
     | "ADDED"
     | "REMOVED"

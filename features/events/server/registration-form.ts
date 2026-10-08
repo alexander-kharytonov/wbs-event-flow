@@ -123,8 +123,15 @@ export async function mutateRegistrationForm(
   const parsed = registrationMutationSchema.safeParse(input);
 
   if (!parsed.success) {
+    const fieldErrors = Object.fromEntries(
+      parsed.error.issues
+        .filter((issue) => issue.path[0] === "field")
+        .map((issue) => [issue.path.slice(1).join("."), issue.message]),
+    );
+
     return {
-      message: parsed.error.issues.map((issue) => issue.message).join(" "),
+      message: "Please check the question and try again.",
+      ...(Object.keys(fieldErrors).length ? { fieldErrors } : {}),
     };
   }
 

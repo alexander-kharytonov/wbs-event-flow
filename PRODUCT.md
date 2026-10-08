@@ -65,7 +65,11 @@ reapplication rule below. A new account requirement applies to old open forms to
 Registration is Not open yet, Open, or Closed. It closes at the earlier of the
 configured close time and event end, or at event end if no close time was set.
 It may remain open after the event starts, but never after it ends. New event
-settings cannot place registration opening or closing after event end.
+settings require registration opening no later than event start and closing no
+later than event end. When both registration boundaries are set, closing must be
+after opening. Event end must be after event start. Create/Edit and template review
+date fields provide linked calendar min/max bounds; explicit validation explains
+invalid date combinations.
 
 Only active Attendees occupy places. A full event can still receive pending
 applications; approval waits until a place is available. Capacity may be unlimited.
@@ -125,7 +129,7 @@ dates, admission grant/revocation context, and answers from each attempt's submi
 is unavailable, the detail remains readable using safe submitted event context,
 without unpublished workspace content or a View event action.
 
-Registration leads to `/verify-email`. Only the latest successfully sent
+Account registration leads to `/verify-email`. Only the latest successfully sent
 verification link is accepted; it is single-use and expires after one hour.
 An email delivery failure preserves the previous link. Successful
 verification signs the user in. Successful sign-in or verification returns to a
@@ -133,6 +137,27 @@ safe local contextual destination, or `/account` by default. An unverified sign-
 leads to the verification screen; requesting another email is an explicit action,
 with a 60-second resend cooldown that also starts after successful registration.
 Sign out is available in the shared account menu.
+
+## Form feedback and shared UI
+
+Text fields and selects use the shared theme's outlined appearance, including
+focus, error and disabled states. Empty collection views reuse EmptyState with
+an icon, title, description and an optional action.
+
+Form submission actions are disabled while required values are missing or their
+request is pending. Once required values are filled, formatting errors do not
+disable submission: client validation runs on submit and explains them without
+native browser validation popups. Invalid fields show inline errors until their
+value is edited; editing one field preserves errors on unrelated fields. Server
+field errors use the same presentation. Errors without a matching field appear
+in an Alert above the submission action.
+An empty or unmapped server field-error object must not hide the server message.
+Version-conflict feedback and its reload action remain visible while editing.
+
+Existing authorization, lifecycle and workflow guards still apply. Independent
+actions, such as updating the recipient estimate, require only their own inputs;
+they do not require unrelated message fields to be complete.
+Server validation, authorization and lifecycle rules remain authoritative.
 
 ## Current boundaries
 
@@ -177,8 +202,10 @@ instant and follows the new display zone. Valid exact intervals across a DST fol
 are not blocked by local browser min/max hints, including during template review.
 
 Upcoming workspaces are editable. During an ongoing event, the start is immutable
-and a changed end must remain in the future. Completed, cancelled, and archived
-workspaces are read-only. Applications freeze on completion or cancellation;
+and a changed end must remain in the future. Configuration of completed, cancelled,
+and archived Events is read-only. Operational actions, including Staff management,
+Badge printing and Communications, retain their separately documented eligibility
+rules. Applications freeze on completion or cancellation;
 their statuses and historical answers are preserved. Cancellation, completion,
 archive and restore do not revoke or rewrite Registration history.
 
@@ -210,8 +237,9 @@ The Archived filter offers no Create event action.
 Registration holds the approved party’s ownership and lifecycle. Attendee is the
 concrete admitted person and capacity seat; its Ticket is the immutable credential.
 Registrations contain a PRIMARY and optional GUEST Attendees. Registration ownership and Attendee account association have separate
-responsibilities, even though they currently match. The structural migration
-preserves existing QR credentials, anonymous access tokens/URLs and Ticket history. Verified linked attendees see current and historical Tickets on their
+responsibilities; the PRIMARY account association matches party ownership, while
+GUEST has no linked account. QR credentials, anonymous access tokens/URLs and
+Ticket history remain immutable. Verified linked attendees see current and historical Tickets on their
 Registration Detail. Applicants who were anonymous at Ticket issue receive a
 separate private bearer link in approval email; no account is required. Anyone
 holding that link can view this party’s Tickets and add/remove its Guests. It never grants whole-party withdrawal or claiming.
@@ -329,7 +357,9 @@ Ticket/QR fields. Padding sets the inner spacing on all sides from 0 to 10 mm
 in whole millimeters (default 3 mm), shared by preview and print. Save affects newly
 opened print documents.
 
-Owners explicitly select up to two SHORT_TEXT, LONG_TEXT or SINGLE_CHOICE questions.
+Owners explicitly select up to two SHORT_TEXT, LONG_TEXT, SINGLE_CHOICE or
+MULTIPLE_CHOICE questions. Multiple-choice values list selected option labels
+separated by a comma and space, in the submitted form's option order.
 PRIMARY values come from the submitted Application revision only when field ID, type
 and label match the selected descriptor. Missing values are omitted; incompatible
 values are omitted with owner preview warnings. Guests never inherit PRIMARY answers.
@@ -535,8 +565,210 @@ attempt. Repeated operations consume budget again. This is not a distributed
 abuse-prevention guarantee. Successful assignment reveals eligibility as with
 existing Add Staff; unavailable reasons and account metadata are never returned.
 
-After creation, the import result shows added Staff count and neutral skipped/
-duplicate email warnings, followed by Open event. Results stay in memory and may
-vanish on reload; no emails are placed in navigation URLs, cookies or persistent
+After successful manual or template creation, the app immediately opens the new
+Event page. Import shows added Staff count and neutral skipped/duplicate email
+warnings in a notification that remains visible after navigation. Results stay in
+memory and may vanish on reload; no emails are placed in navigation URLs, cookies or persistent
 browser storage. There is no ImportJob, invitation, destructive import or Duplicate
 Event flow.
+
+## Communications foundation (27A)
+
+Communication stores one immutable logical send for one Event, with kind
+(MANUAL/TRANSACTIONAL), optional transactional trigger, actor name/role snapshot,
+manual audience, subject/message, versioned semantic context, recipient count,
+and Event-scoped idempotency key/request digest. EmailOutbox is its only
+per-recipient delivery authority; each associated row freezes a normalized email.
+There is no third delivery table. History retention is the lifetime of the Event:
+Event/Communication deletion is restricted by history/delivery references. Actor
+account deletion clears only its FK, preserving the name/role snapshot; Staff
+removal never rewrites history.
+
+Owner and Manager have explicit communications.read and communications.send;
+Reception has neither. Manual sending requires send permission, at least
+one historical EventRevision and an unarchived Event. Thus never-published Draft
+and Archived are history-only; published Upcoming, Ongoing, Completed, previously
+published Cancelled, and restored previously published Events allow sending.
+Unpublish does not erase publication history. Archive/Restore preserve history
+and queued deliveries, never restart old sends or generate new emails.
+
+Manual audience v1 is All active attendees, Primary attendees, Checked in, Not
+arrived, Pending applications, or Event staff. Approved applications are not an
+audience. Subject is 1–200 Unicode code points on one safe line; message is
+1–10,000, with normalized CRLF, ordinary newlines/tabs and no unsafe controls.
+Manual rendering uses the shared Event Flow shell, escaped text and a plain-text
+alternative, server-owned From, and no custom HTML, Reply-To, CTA or tracking.
+Semantic history never copies Ticket credentials or anonymous capability URLs;
+the existing approval delivery still supplies its private access link when eligible.
+
+Delivery status means queued (PENDING), claimed (PROCESSING), accepted by SMTP
+(SENT), or automatic attempts exhausted (FAILED). SENT does not prove mailbox
+delivery or opening. One logical recipient intent can result in at-least-once
+physical SMTP delivery. Existing five attempts and delays of 1 minute, 5 minutes,
+30 minutes and 2 hours remain unchanged.
+
+Manual admission limits are 1,000 unique recipients per communication,
+5 sends per Event/hour, 10 per actor/hour, and 2,000 outstanding recipients per
+Event / 10,000 globally. Outstanding means PENDING or PROCESSING. DB transaction
+locking primitives prepare concurrent enforcement; these limits never apply to
+transactional emails, including Event cancellation.
+
+27A adds persistence, contracts, rendering/delivery support, safe history DTOs,
+transactional enqueue and manual admission primitives only. The foundation alone exposes no Manual Send action or Communications UI. 27B integrates new transactional
+Event emails as described below; legacy Outbox rows are not backfilled or inferred
+into history. 27C activates manual Send and minimal History as described below.
+27D supplies unified history and details as described below. No cleanup/retention job or new
+background infrastructure is introduced.
+
+
+## Transactional Communications integration (27B)
+
+Every new APPLICATION_RECEIVED, NEW_APPLICATION, APPLICATION_APPROVED,
+APPLICATION_REJECTED and EVENT_CANCELLED intent belongs to a Communication.
+Submission creates two logical Communications: applicant confirmation and current
+Event owner notification. Reapplication has a new Application identity and its own
+pair. Approval/rejection each create one Communication for the actual transition.
+Cancellation creates one grouped Communication for the existing normalized unique
+pending Application and active Registration contact addresses, without Guest or
+extra Staff recipients. Empty cancellation audiences record recipientCount=0,
+with no Outbox rows and no delivery claim; the cancellation still happened.
+
+Mutation, Communication, frozen Outbox recipients/payloads and notification commit
+atomically. An enqueue error rolls back the domain action; a subsequent delivery
+failure does not. Existing subjects, email text/HTML, Ticket CTA/private anonymous
+access, dynamic delivery eligibility, retries and at-least-once guarantee are
+unchanged. A shared subject map keeps semantic history aligned with the renderer.
+
+History stores only the trigger and safely available frozen Event title, never
+applicant identity/answers, Ticket references, credentials or capability URLs.
+Public/applicant submission notifications have no actor identity in history.
+Review records the actual Owner/Manager reviewer; cancellation records the verified
+owner who invoked the owner-only action. Name/role snapshots survive Staff removal
+and account deletion. A damaged submitted rejection snapshot still permits Reject
+and omits the optional history title, matching existing email fallback behavior.
+
+Deterministic Event-scoped keys use Application id plus type for submission,
+Application id plus PENDING-to-decision transition and type for review, and Event
+id plus EVENT_CANCELLED for the irreversible one-time cancellation. Existing Outbox
+deduplication keys are preserved. Same key/digest reuses the intent; conflicting
+content fails. History contains associated sends; null-linked legacy deliveries
+remain deliverable. No Manual Send, History UI, migration, dependency or background
+infrastructure is added by 27B.
+
+
+## Manual Communications Center (27C)
+
+The Event workspace has a Communications section for Owner and Manager, with New
+message and minimal History for all Communications in that Event, regardless of
+initiator. Reception has no navigation, page access, preview, send, or history DTO.
+
+Compose selects exactly one audience: All active attendees (PRIMARY + GUEST),
+Primary attendees, Checked in, Not arrived, Pending applications, or Event staff
+(current owner plus Managers and Reception). Attendee audiences require both
+Attendee and Registration to be unrevoked. Checked in means Attendance exists;
+Not arrived means none exists. Only current PENDING attempts are selected.
+Addresses come from Attendee.email, Application.email, or team User.email.
+Missing/invalid emails are skipped; a Guest never falls back to the Primary's
+email. Trim/lowercase deduplication yields one intent per unique deliverable
+address, without provider-specific alias rules.
+
+Subject is 1–200 Unicode code points; plain-text message is 1–10,000, with the
+foundation's text safety/CRLF normalization. There is no rich editor, attachment,
+custom CTA, arbitrary recipient list, sender override or persisted Manual Draft.
+Compose is memory-only; no message, email or body goes into URLs, cookies or
+localStorage.
+
+Preview is read-only and displays “Estimated recipients: N”, with an explanation
+that the actual count can change. Changing audience invalidates it. Every new Send
+requires a fresh estimate and a confirmation Dialog showing audience, subject and
+estimated count. Cancel preserves the text. “Queue message” recomputes the current
+audience under server authority and freezes its emails atomically with the
+Communication and durable Outbox intents. Opening confirmation creates nothing.
+Success says “Queued for N recipients”, clears compose, updates History and links
+to it; it never claims delivery.
+
+Each send intent has an opaque request key scoped to Event and verified actor.
+An unchanged retry returns the existing Communication; changed content with the
+same key is rejected. Network ambiguity retains the exact attempted payload and
+key, with editing locked until recovery or explicit abandonment. “Retry same send”
+opens confirmation without refreshing Preview. It can recover a committed result
+or complete the original send if it was not queued; server authorization and all
+applicable guards remain authoritative. Starting a new message warns that the
+previous message may already be queued. A new intent receives a new key. Keys
+survive retries within the mounted compose, not a page reload. Cancel, Escape and
+backdrop close preserve text and return visible focus to the initiating action.
+
+Sending requires communications.send, any historical publication and no archive.
+Upcoming/Ongoing/Completed, previously published Cancelled, restored and currently
+unpublished Events qualify. Never-published Draft and Archived remain history-only.
+Archive/Restore neither cancels queued deliveries nor resends old messages.
+
+All manual limits apply atomically: 1,000 unique addresses/send, 5 sends/Event/hour,
+10 sends/actor/hour, 2,000 outstanding/Event and 10,000 outstanding globally.
+Outstanding means Pending or Processing. Empty audiences and over-limit sends
+fail entirely. Audience resolution reads at most 10,001 matching email records;
+more than 10,000 is a safety refusal, including when duplication/missing addresses
+might reduce the final unique count. It never sends a truncated audience.
+
+History shows Manual/Transactional, subject, time, audience/trigger, recipient
+count and Pending/Processing/Sent/Failed counts, newest first, 20 per page.
+Sent means SMTP transport accepted, not mailbox delivery or opening. Enqueue
+reuses routing-only Event SSE invalidation; History also has an explicit refresh.
+27D extends this same History with delivery-status invalidation and safe details;
+historical transactional content is never reconstructed. No new transactional trigger, delivery
+worker, polling mechanism or background infrastructure is introduced.
+
+
+## Unified History and Delivery Visibility (27D)
+
+The existing Communications History unifies Manual and Transactional messages,
+with subject, trigger/audience, creation time, frozen actor name/role, recipient
+count, four delivery counts and an overall status. Newest-first keyset pages
+contain 20 records. History supports case-insensitive subject search and an
+All/Manual/Transactional type filter across the full Event history, with Manual
+selected on initial load. Clear filters shows All types. Changing a
+filter returns to the latest matching page. Search stays in memory and is sent
+only in a read request body, never in URLs or browser storage. Type chips use
+consistent distinct colors and icons in History and details. Actor roles reuse
+the shared EventAccessStatus chip. History rows group subject/type/time, audience
+and actor, then a compact delivery summary with all four counts.
+Clicking a History row opens details in a dialog and updates the URL. Closing,
+Escape or Back restores History with its filters; Forward reopens the dialog.
+Reloading or directly opening that URL renders the full communication details
+page. Recipient pagination within the dialog replaces the current history entry,
+so closing still returns to History in one step.
+Zero-recipient communications say “No recipients”; mixed
+results distinguish in-progress partial failures from completed failures.
+Invalid counts or a delivery total different from the frozen recipient count
+show the neutral “Status unavailable”, including inconsistent zero-recipient rows.
+
+Owner and Manager can open an Event-scoped details page in every lifecycle state,
+including Draft, Completed, Cancelled and Archived. Each read verifies the session,
+communications.read and Event membership. Reception and foreign selectors receive
+neutral denial without content, recipient addresses or delivery counts.
+
+Details show the saved plain-text Manual message with escaped text and preserved
+line breaks. Transactional details show only the frozen semantic trigger/Event
+name and “Message content is not stored in communication history.” They never
+reconstruct an old email from current Event/Application/Ticket state or show raw
+payload, HTML/MIME, SMTP errors, credentials or private capability links.
+
+Recipient deliveries use frozen EmailOutbox addresses, with current status,
+attempts, queued time and SMTP acceptance time. Pages contain at most 50 addresses,
+ordered by immutable email, using validated Event/Communication-scoped opaque ID
+cursors. V1 shows All statuses, without email search or a status filter; status
+changes cannot move recipients across page boundaries. Recipient lists never enter
+the general History DTO or URLs.
+
+Pending means queued and awaiting an attempt; Processing means claimed by the
+dispatcher; Sent means SMTP accepted; Failed means automatic attempts exhausted.
+SMTP acceptance is not mailbox delivery confirmation, opening or click tracking.
+Status changes trigger routing-only invalidation through existing Event SSE after
+the DB commit. Updates are best-effort; reconnect and explicit Refresh recover a
+missed signal. Notification failure cannot change delivery results or cause a
+resend. No polling, new worker or transport is added.
+
+History retention remains the Event lifetime. Content, audience, actor snapshots,
+recipient counts and addresses stay frozen; only delivery operational fields are
+live. Archive/Restore preserve history and the queue. There is no manual resend,
+retry-failed, cancel-delivery or delivery override UI; Send eligibility is unchanged.

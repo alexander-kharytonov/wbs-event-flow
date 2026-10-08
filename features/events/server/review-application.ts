@@ -1,15 +1,17 @@
 import "server-only";
 import { z } from "zod";
+import { captureCommunicationActor } from "@/features/communications/server/eligibility";
+import { enqueueTransactionalCommunication } from "@/features/communications/server/enqueue";
 import { applicationsFrozen } from "@/features/events/event-lifecycle";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 import { authorizeEventActor } from "@/features/events/server/event-access";
 import { lockEventForUpdate } from "@/features/events/server/lock-event-for-update";
 import { issueTicket } from "@/features/tickets/server/issue-ticket";
+import { emailEventSnapshot } from "@/lib/email-outbox/enqueue";
 import {
-  emailEventSnapshot,
-  enqueueApplicationEmail,
-} from "@/lib/email-outbox/enqueue";
-import { rejectionEventTitle } from "@/lib/email-outbox/payload";
+  rejectionEventTitle,
+  transactionalEmailSubjects,
+} from "@/lib/email-outbox/payload";
 import { prisma } from "@/lib/prisma";
 import { notifyApplicationChanged } from "@/lib/realtime/application-notifications";
 
@@ -149,20 +151,36 @@ export async function reviewEventApplication(
           );
         }
 
+        const actor = await captureCommunicationActor(tx, access);
+
         if (decision === "REJECTED") {
           const eventTitle = rejectionEventTitle(
             application.eventRevision.snapshot,
           );
-          await enqueueApplicationEmail(tx, {
-            applicationId,
-            type: "APPLICATION_REJECTED",
-            recipientEmail: application.email,
-            payload: {
+          await enqueueTransactionalCommunication(tx, {
+            eventId,
+            trigger: "APPLICATION_REJECTED",
+            subject: transactionalEmailSubjects.APPLICATION_REJECTED,
+            actor,
+            contextSnapshot: {
               schemaVersion: 1,
-              applicantName: application.fullName,
+              kind: "TRANSACTIONAL",
+              trigger: "APPLICATION_REJECTED",
               ...(eventTitle ? { eventTitle } : {}),
-              ...(event.publicId ? { publicId: event.publicId } : {}),
             },
+            idempotencyKey: `${applicationId}:PENDING_TO_REJECTED:APPLICATION_REJECTED`,
+            recipients: [
+              {
+                recipientEmail: application.email,
+                deduplicationKey: `${applicationId}:APPLICATION_REJECTED`,
+                payload: {
+                  schemaVersion: 1,
+                  applicantName: application.fullName,
+                  ...(eventTitle ? { eventTitle } : {}),
+                  ...(event.publicId ? { publicId: event.publicId } : {}),
+                },
+              },
+            ],
           });
         } else {
           const registration = await tx.registration.create({
@@ -193,16 +211,30 @@ export async function reviewEventApplication(
             throw new Error("Published event email snapshot unavailable.");
           }
 
-          await enqueueApplicationEmail(tx, {
-            applicationId,
-            type: "APPLICATION_APPROVED",
-            recipientEmail: application.email,
-            payload: {
-              schemaVersion: 2,
-              ticketId: ticket.id,
-              applicantName: application.fullName,
-              event: emailEventSnapshot(snapshot.data, event.publicId),
+          await enqueueTransactionalCommunication(tx, {
+            eventId,
+            trigger: "APPLICATION_APPROVED",
+            subject: transactionalEmailSubjects.APPLICATION_APPROVED,
+            actor,
+            contextSnapshot: {
+              schemaVersion: 1,
+              kind: "TRANSACTIONAL",
+              trigger: "APPLICATION_APPROVED",
+              eventTitle: snapshot.data.title,
             },
+            idempotencyKey: `${applicationId}:PENDING_TO_APPROVED:APPLICATION_APPROVED`,
+            recipients: [
+              {
+                recipientEmail: application.email,
+                deduplicationKey: `${applicationId}:APPLICATION_APPROVED`,
+                payload: {
+                  schemaVersion: 2,
+                  ticketId: ticket.id,
+                  applicantName: application.fullName,
+                  event: emailEventSnapshot(snapshot.data, event.publicId),
+                },
+              },
+            ],
           });
         }
 

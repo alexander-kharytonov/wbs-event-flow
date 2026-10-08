@@ -54,15 +54,20 @@ Unpublished changes are visible to the organizer and Preview, not public content
 
 Dates are stored as instants with an IANA timezone for input/display. Authoring
 rejects ambiguous/nonexistent edited local DST times. Event end must be after start.
+New authoring/publication requires registration opening <= Event start, closing <=
+Event end, and closing > opening when both boundaries are configured. Empty
+registration boundaries remain allowed; historical snapshots retain their frozen rules.
 Minute-resolution Event Edit preserves untouched dates, including nullable registration
 boundaries, from the locked authoritative Event row with exact seconds/milliseconds.
 Client edit markers never supply preserved timestamps; changed local values or timezone
 are also detected against the stored row. A timezone edit reinterprets local dates in
 the new zone, except the immutable Ongoing start, whose exact instant only changes
 its display zone. Existing lifecycle/version/contentVersion guards remain unchanged.
-Local HTML min/max are UX hints: import review omits cross-field wall-clock bounds,
-and Edit omits a conflicting hint when its authoritative-source absolute interval is
-valid across a DST fold. The shared absolute relationship validation remains authority.
+Forms use noValidate and explicit client feedback; the server remains authoritative.
+Local HTML min/max constrain the calendar in Create, Edit and template review.
+Edit and template review omit a conflicting wall-clock hint only when the interval
+preserved from the source instants is valid across a DST fold. The shared absolute
+relationship validation remains authority.
 
 Sources: [create](features/events/create-event.ts),
 [edit](features/events/update-event.ts),
@@ -112,8 +117,8 @@ Future authoring changes must not silently redefine that compatibility contract.
 
 `buildEventSnapshot` constructs v2 from workspace and applies the current
 publication validator, also for Preview. New publication forbids registration
-opens/closes after event end. Historical v1 still reads older snapshots containing
-a later close time; effective availability caps it at end.
+opening after Event start or closing after Event end. Historical snapshots still
+read older registration windows; effective availability caps closing at Event end.
 
 Public Event, metadata, catalog, historical detail, prefill, and policy consumers
 use validated historical snapshots. Invalid snapshots fail closed or produce an
@@ -477,11 +482,13 @@ Sources: [emission](lib/realtime/application-notifications.ts),
 Each committed new Application (including reapply) creates APPLICATION_RECEIVED
 for its historical Application.email and NEW_APPLICATION for the organizer's
 User.email. Actual PENDING -> APPROVED/REJECTED transitions create the matching
-applicant notification. Mutation, EmailOutbox rows, and wake-up NOTIFY share the
-same transaction. Duplicate/no-op/error paths create no delivery intent; rollback
-removes both mutation and outbox. Withdrawal creates no email.
+applicant notification. Since 27B, each type creates its own Communication
+(section 33). Mutation, Communication, EmailOutbox rows, and wake-up NOTIFY share
+the same transaction. Duplicate/no-op/error paths create no delivery intent; rollback
+removes the mutation, Communication and outbox. Withdrawal creates no email.
 
-EmailOutbox has no Event/Application foreign keys. Its unique deduplicationKey is
+Legacy EmailOutbox has no direct Event/Application foreign keys; 27A adds an optional
+Communication relation (section 32). Its unique deduplicationKey is
 Application.id + purpose. Recipient and versioned JSON payload are immutable
 delivery snapshots (v1 contracts; APPLICATION_APPROVED additionally supports v2
 with a Ticket reference, described below). They contain only the fields needed by that
@@ -528,7 +535,7 @@ closes the listener, and awaits in-flight delivery. The dispatcher makes no doma
 decisions. Persistent Node runtimes remain required, as for realtime; there is
 no separate Docker worker, generic bus, Redis, or leader election.
 
-Sources: [creation](lib/email-outbox/enqueue.ts),
+Sources: [creation](features/communications/server/enqueue.ts),
 [contracts](lib/email-outbox/payload.ts), [delivery](lib/email-outbox/delivery.ts),
 [dispatcher](lib/email-outbox/dispatcher.ts), [startup](instrumentation.ts).
 
@@ -541,9 +548,19 @@ Sources: [creation](lib/email-outbox/enqueue.ts),
   approved count while preserving approvals.
 - Public UI can briefly be stale; authoritative mutations recheck conditions.
 
-These are current boundaries, not a roadmap. The initial migration is a deliberate
-pre-production development baseline; replacing applied migration history is not
-a deployment strategy for a database containing persistent production data.
+These are current boundaries, not a roadmap. The single PostgreSQL 18 migration
+`20261008180000_baseline` creates the current schema, including all 17 custom CHECK
+constraints. It replaces disposable local development history without data
+transformation or seeding. Replacing applied history is not a deployment strategy
+for persistent production data. Fresh databases use `prisma migrate deploy`.
+
+`db:check` uses one read-only RepeatableRead snapshot. It reports counts for all
+20 application tables and aggregate violations for Application/Registration
+correspondence, PRIMARY identity/cardinality, party activity, Ticket lifecycle,
+QR/MANUAL Attendance, publication references and Communication/Outbox consistency.
+Strict Communication context validation uses bounded keyset pages and the existing
+versioned contract. Empty databases pass with explicit zero data coverage. No
+repair, credential decryption, raw payload/identity logging or email occurs.
 
 
 ## 20. Event lifecycle
@@ -581,8 +598,9 @@ cancellation columns null, or a non-null cancellation date and a non-null reason
 containing non-whitespace text. No mutation changes a saved cancellation reason.
 Within the Event-locked transaction, Cancel updates the domain fact, selects
 PENDING attempts and active Registrations, deduplicates normalized emails, validates frozen v1
-EVENT_CANCELLED payloads and bulk inserts outbox intents via createMany. A single
-outbox wake-up accompanies a nonempty batch. Each event/address has a unique
+EVENT_CANCELLED payloads and creates one Communication with nested bulk Outbox
+intents (section 33). A single outbox wake-up accompanies a nonempty batch;
+zero recipients still record the cancellation Communication without deliveries. Each event/address has a unique
 cancellation deduplication key. Applicant context is selected deterministically
 from the newest affected attempt for that address. Current published context, or
 last publication when unpublished, supplies email title/schedule/timezone; only a
@@ -615,8 +633,8 @@ token; content writes continue to advance it.
 ## 21. Registration / granted admission
 
 Application is the request/review/answers/attempt-history authority. Registration
-is the approved-party, lifecycle and ownership authority, created only by approval (or historical
-backfill of a proven approval). `revokedAt IS NULL` means active; a timestamp
+is the approved-party, lifecycle and ownership authority, created only by approval.
+`revokedAt IS NULL` means active; a timestamp
 means historical revoked admission. Event cancellation/completion and archive/restore
 do not mutate Registration. Event lifecycle still independently gates actions.
 
@@ -639,12 +657,11 @@ Approved withdrawal updates Application, Registration and all active Attendees/T
 missing admission or Ticket is an invariant violation, not a successful withdrawal. PENDING withdrawal remains Application-only.
 DB constraints or any thrown failure roll back the entire transaction.
 
-The transactional migration rejects inconsistent timestamps, noncanonical email,
-identity collisions and broken history references; it does not repair history.
-APPROVED backfills active admission at reviewedAt. WITHDRAWN with reviewedAt and
-withdrawnAt backfills revoked admission at those exact times. Other attempts have
-no Registration. Correspondence is checked before commit. Application writers
-must be stopped during migration and resumed only with the matching implementation.
+APPROVED has active admission at reviewedAt. WITHDRAWN with reviewedAt retains
+revoked admission with createdAt = reviewedAt and revokedAt = withdrawnAt;
+withdrawal from PENDING has no Registration. PENDING and REJECTED have no
+Registration. The read-only integrity check verifies identity and timestamp
+correspondence without repairing history.
 
 Owner/Manager Attendees reads authorized Event Attendees through Registration, with All/Active/Revoked
 filters and identity/grant/revocation snapshots. The Attendees navigation badge
@@ -666,7 +683,8 @@ number, unique credential hash, encrypted credential, issuedAt and nullable
 revokedAt. No Event id/status is duplicated: Event is reached through Attendee -> Registration.
 DB CHECKs enforce revokedAt >= issuedAt and an all-null/all-present anonymous
 hash/envelope pair. UNIQUE attendeeId gives cardinality 0..1; matching writers
-and backfill ensure every PRIMARY has exactly one Ticket.
+and integrity verification ensure every PRIMARY has exactly one Ticket. Guest
+creation also atomically issues exactly one Ticket.
 
 The QR bearer credential is `randomBytes(32)` encoded base64url (256 random bits).
 SHA-256 is the deterministic lookup hash. AES-256-GCM with a random 96-bit IV and
@@ -729,16 +747,9 @@ pages always recheck current state. No QR credential enters approval payloads.
 Existing applications.changed routing and empty browser invalidation refresh
 linked Ticket issue/revoke without a new protocol or anonymous stream.
 
-Iteration 21A uses the controlled [Attendee rollout](docs/attendee-migration.md).
-Preparation SQL, a table-locked Node data/crypto transaction, and final SQL are
-separate steps with writers, old consumers and email dispatchers stopped throughout.
-The Node step verifies history and hashes before backfilling PRIMARY, rebinds the
-exact same QR/access secrets from Registration AAD to Attendee AAD using fresh IVs,
-and verifies unchanged Ticket IDs/numbers/hashes/timestamps and Attendance history.
-Production crypto accepts only Attendee context; no legacy fallback exists.
-Repeated runs verify a completed no-op; ambiguous/partial states fail. Missing
-historical Tickets are errors, never an instruction to regenerate credentials.
-The old №19 Ticket backfill command is retired after this cutover.
+Production crypto accepts only Attendee context; no Registration-AAD fallback
+exists. Missing historical Tickets are errors, never an instruction to regenerate
+credentials. Fresh databases require no credential or Attendee backfill.
 
 ## 23. Attendance / QR and Manual check-in
 
@@ -750,7 +761,7 @@ composite (attendeeId, ticketId) FK references Ticket (attendeeId, id)
 with RESTRICT. A DB CHECK requires ticketId for QR and NULL ticketId for MANUAL.
 Existing QR history is validated without rewriting it. User deletion SET NULLs
 the actor; it does not remove the fact. No update/delete/revoke/undo writer exists.
-The additive migration intentionally creates no historical Attendance.
+Attendance is created only by a successful check-in, never inferred from admission.
 
 The check-in Server Action derives the verified User from the authoritative session. Its only client fields are eventId and full qrPayload.
 The server-only parser accepts exactly eventflow:ticket:v1:<credential>, using
@@ -837,10 +848,10 @@ errors or SSE. Next development Server Function argument logging is disabled via
 logging.serverFunctions: false; existing Ticket/auth URL logging exclusions remain.
 External infrastructure must not capture action request bodies containing secrets.
 
-## 24. Attendee structural checkpoint (21A)
+## 24. Attendee / admitted person
 
 Registration is an approved party: it retains userId for ownership/routing and
-createdAt/revokedAt for lifecycle. attendeeName/attendeeEmail remain transitional
+createdAt/revokedAt for lifecycle. attendeeName/attendeeEmail retain submitted
 PRIMARY snapshots. Attendee is a concrete admitted person and capacity seat, with
 UUIDv7 id, Registration RESTRICT, optional User SET NULL, name, nullable email,
 createdAt and nullable revokedAt (timestamptz(3)). CHECKs enforce revokedAt >=
@@ -848,10 +859,10 @@ createdAt and GUEST.userId IS NULL. Guest writers and published policy are defin
 
 A partial UNIQUE registrationId WHERE kind = PRIMARY applies across all history,
 including revoked rows. Exactly one PRIMARY per Registration is established by
-Approve, backfill and verification, without a trigger. PRIMARY copies the submitted
-Application identity and decisionNow; its transitional Registration fields stay
+Approve and integrity verification, without a trigger. PRIMARY copies the submitted
+Application identity and decisionNow; its Registration identity fields stay
 synchronous. Registration.userId is party ownership; Attendee.userId is person
-account association, conceptually distinct even though equal today. Deleting User
+account association, equal for PRIMARY; GUEST has no account. Deleting User
 SET NULLs both without inventing anonymous capabilities or rewriting snapshots.
 
 Approve is Event lock -> DB decisionNow -> guards/active Attendee capacity ->
@@ -869,7 +880,7 @@ route realtime notifications; applications.changed and attendance.changed and th
 SSE protocol are unchanged. Anonymous PRIMARY access now authorizes this party’s view and Guest management
 with the same token and URL.
 Active Registration count equals active PRIMARY count; Guests add further capacity seats.
-The structural checkpoint is extended by iteration 21B below.
+Guest policy and party management are defined below.
 
 ## 25. Guests and party management (21B)
 
@@ -1011,8 +1022,11 @@ The catalog combines draft fields, validated immutable EventRevision fields and 
 bindings, deduplicated by ID/type/label. Historical bindings have no FK to mutable
 RegistrationField. Resolution uses Attendee -> Registration.sourceApplication ->
 Application.eventRevision.snapshot plus ApplicationAnswer, never current draft options.
-Exact fieldId/type/label compatibility is required. Only SHORT_TEXT, LONG_TEXT and
-SINGLE_CHOICE are supported; choice labels come from that submitted snapshot. Missing
+Exact fieldId/type/label compatibility is required. SHORT_TEXT, LONG_TEXT,
+SINGLE_CHOICE and MULTIPLE_CHOICE are supported; choice labels come from that
+submitted snapshot. Multiple selections are joined with ", " in snapshot option
+order; duplicate or unknown selected option IDs make the whole value unavailable.
+The same field descriptor schema supports portable template bindings. Missing
 fields/answers are omitted. Incompatibility or malformed data omits the value and
 produces structured owner preview diagnostics, never string-based status comparisons
 or automatic remapping. The designer also warns about incompatible active historical
@@ -1251,8 +1265,10 @@ Downloads have deterministic ASCII-safe title/dataset filenames, attachment
 Content-Disposition, text/csv UTF-8, private/no-store/max-age=0, nosniff, no-referrer
 and noindex/nofollow/noarchive. Errors also have privacy headers, but plain-text
 content and no attachment. The menu uses ordinary anchors without Next prefetch.
-CSV content/PII is not logged. There are no persistent files, export history/jobs,
-new schema, migrations, dependencies, Template export or Import flows.
+CSV content/PII is not logged. Iteration 26A introduced no persistent files,
+export history/jobs, schema changes, migrations or dependencies. Template export
+and Import/Create were outside 26A; they are now implemented in 26B and 26C
+(sections 30 and 31).
 
 ## 30. Portable EventTemplateV1 / export (26B)
 
@@ -1314,8 +1330,10 @@ The artifact contains no database identities, organizer/publicId, timestamps of
 creation/modification, publication pointers/contentVersion/revisions, cancellation/
 archive state, Applications/Registrations/Attendees/Guests, Tickets/QR/credentials,
 Attendance, notifications/outbox or runtime/lock/history data. It is private
-configuration because staff emails are present. No schema/dependency changes,
-Import/Create flow (26C), template preview/editor or Duplicate Event are included.
+configuration because staff emails are present. Iteration 26B introduced no
+schema/dependency changes and covered export only. Import/Create and its local
+review editor are now implemented in 26C (section 31). Duplicate Event remains
+outside the implemented scope.
 
 
 ## 31. Event template import / atomic create (26C)
@@ -1339,9 +1357,10 @@ Imported UTC instants retain milliseconds until that date is edited. Changing th
 review timezone interprets local date inputs using the new zone. Edited values use
 the same Temporal disambiguation=reject path as manual authoring. Untouched instants
 are not round-tripped through minute-resolution inputs. Shared date relationships
-require end > start, close > open when both exist, and registration boundaries <=
-end. Past dates remain valid, with a warning; endsAt <= now yields Completed and
-read-only after creation under existing lifecycle rules, without shifting dates.
+require end > start, close > open when both exist, registration open <= start and
+registration close <= end. Past dates remain valid, with a warning; endsAt <= now
+yields Completed and read-only after creation under existing lifecycle rules,
+without shifting dates.
 Browser timezone initialization applies only when Create has no supplied timezone.
 Replacing a template remounts all review state.
 
@@ -1385,8 +1404,375 @@ Add Staff uses the same eligibility resolver and budget while retaining its owne
 lock/reauthorization, role-change and notification behavior.
 
 After commit, Import returns only eventId, addedCount, skipped template emails and
-duplicate email warnings. The client replaces the review with a success result and
-Open event navigation, preventing repeat submission in that review. Result state
-is ephemeral; no URL/cookie/persistent storage or ImportJob is used. No destructive
+duplicate email warnings. The client immediately navigates to the new Event page,
+keeping creation disabled until navigation completes. The existing global
+notification displays the import result across navigation. Result state is
+ephemeral; no URL/cookie/persistent storage or ImportJob is used. No destructive
 import, CSV import, publication import, backup/restore, automatic date shifting,
 background job, schema migration or dependency is introduced.
+
+## 32. Communications persistence and delivery foundation (27A)
+
+Communication is one immutable logical send belonging to exactly one Event. It
+contains UUID id, kind MANUAL/TRANSACTIONAL, nullable transactional trigger,
+createdAt, nullable actor User FK and frozen name/role, nullable manual audience,
+subject, nullable message, strict versioned contextSnapshot, nonnegative
+recipientCount, Event-scoped unique idempotencyKey and nullable SHA-256
+requestDigest. Manual records require audience, message, actor snapshots and
+requestDigest; transactional records require trigger, and have no audience/message.
+System-origin transactional records use null actor fields. Human-origin writers
+capture verified server identity/current Event role and DB name under the Event
+lock. No client-supplied sender identity or recipient list is authoritative.
+
+Event -> Communication and Communication -> EmailOutbox use ON DELETE/UPDATE
+RESTRICT. Actor User uses ON DELETE SET NULL / ON UPDATE RESTRICT: historical
+name/role survive account deletion and membership removal. Neither recipients nor
+actor display require live Application/Attendee/User joins. There is no historical
+actor reconstruction. Retention is the lifetime of the Event, with no cleanup job.
+Content immutability is enforced by server code, like EventRevision; only delivery
+operational fields change. No content update API exists.
+
+EmailOutbox adds nullable communicationId, MANUAL_EVENT_MESSAGE, unique
+(communicationId, recipientEmail), (communicationId, status, id) and
+(type, status, communicationId) indexes. PostgreSQL's ordinary NULL-distinct unique
+semantics preserve all legacy rows, including repeated addresses with null FK.
+Associated addresses must be trimmed/lowercased. No third Delivery table exists.
+Communication indexes support Event history, Event/kind/time and actor/kind/time
+admission queries. DB CHECKs enforce content shape/nullability, actor snapshot
+pairing, nonnegative count, bounded subject/message and idempotency key/digest
+shape. Strict server Zod schemas enforce JSON fields/version and text safety.
+
+Context v1 is a small semantic contract: kind, schemaVersion and eventTitle
+(required for manual, optional for transactional to preserve damaged-snapshot
+Reject behavior), plus the transactional trigger. It is separate from Outbox's
+versioned per-recipient payload. No Ticket identifier, credential, anonymous URL,
+auth field, arbitrary object or rendered HTML is accepted as context. Existing
+approval payload v2 and its delivery-time private capability CTA remain unchanged;
+that URL is never copied to Communication. Manual text is escaped, not interpreted
+as HTML/CSS. Subject counts Unicode code points, rejects all header controls,
+format controls and Unicode line separators; message normalizes CRLF and allows
+LF/tab, rejecting other C0/C1 controls, bidi overrides/isolates and BOM. Unpaired
+surrogates are rejected. No user-supplied From, Reply-To, CTA or tracking exists.
+
+The fixed matrix adds communications.read/send for OWNER and MANAGER, neither
+for RECEPTION. They are independent of applications.review/staff.manage. System
+transactional emails do not require manual permissions. Send eligibility is
+communications.send AND existence of EventRevision AND archivedAt IS NULL.
+The current publication pointer, timestamps and cancellation do not veto sending.
+Never-published Draft / Archived are history-only; published Upcoming / Ongoing /
+Completed / previously published Cancelled / restored previously published Events
+allow sends. Event Edit/Form/Badge guards are unchanged. Archive/Restore neither
+cancel queued delivery nor resume/create sends and preserve all history.
+
+The server-only transactional enqueue helper accepts the caller's ReadCommitted
+transaction, reuses Event FOR UPDATE, validates all input before writes, freezes
+and deduplicates normalized recipients, and performs one nested Communication +
+Outbox creation. Conflicting payloads/keys for one normalized address fail rather
+than silently choosing an identity. Existing deduplication keys are caller-provided
+server domain keys and remain globally unique. There is no skipDuplicates.
+A canonical SHA-256 digest covers Event, trigger, subject, safe context, actor and
+sorted normalized delivery intents. A supplied digest must match; repeated
+Event/idempotencyKey with the same digest returns the original id without enqueue;
+a different digest fails. Legacy/null-digest records cannot be replayed by guessing.
+Caller must propagate any error to abort the enclosing domain transaction. SQL
+failures abort it; notification and writes commit together. No nested independent
+transaction or SMTP is opened. 27A supplied the helper; section 33 describes
+its integration into Event writers in 27B.
+Manual content/audience/recipient association contracts prepare 27C, but no manual
+enqueue API, Server Action or production path creates manual Outbox rows in 27A.
+
+Manual admission primitives use a fixed global pg_advisory_xact_lock(27001, 1)
+inside the caller's ReadCommitted transaction. Required lock order:
+Event FOR UPDATE -> current authorization/eligibility -> idempotency replay check
+-> global admission lock -> fresh DB clock/counts -> atomic insertion -> commit.
+Do not lock another Event after acquiring admission. All manual admission writers
+(and any future reactivation) must use this protocol. The global lock serializes
+both same-actor cross-Event sends and the global queue budget. Snapshot isolation
+would retain stale pre-lock counts and is rejected. The primitive alone is not a
+reservation; 27C must insert before releasing the same transaction lock, using the
+returned admittedAt as createdAt, and must complete recipient selection/digest/
+replay orchestration. Dispatcher status transitions only maintain/decrease the
+outstanding total. No separate RateLimit table or in-process limiter exists.
+
+Limits: <=1,000 unique recipients/send, <=5 manual sends/Event/hour, <=10 manual
+sends/actor/hour, <=2,000 PENDING/PROCESSING manual recipients/Event and <=10,000
+globally. Sliding windows use createdAt > post-lock DB time minus one hour; sends
+exactly one hour old have expired. Existing count at the send limit refuses the
+next send; queue counts plus proposed recipients may equal the queue limit.
+Transactional types, especially cancellation, bypass these manual limits.
+
+Worker manual delivery loads immutable Communication by communicationId and uses
+only the frozen Outbox address; it never reevaluates audience, Event eligibility,
+actor membership or archive state. Existing five Event renderers, deduplication,
+LISTEN/NOTIFY, startup/reconnect and 30-second fallback sweep, batch 5, five-minute
+leases, attempt fencing, five attempts, retry delays and failure categories remain
+unchanged (section 18). PENDING = queued, PROCESSING = claimed, SENT = SMTP accepted,
+FAILED = automatic attempts exhausted. No DELIVERED/OPENED claim is supported.
+One logical recipient intent permits at-least-once physical SMTP delivery; exactly
+once is not guaranteed.
+
+History foundation exposes explicit summary/actor selections, delivery counts and
+safe recipient status (id, frozen email, status, attempts, createdAt, sentAt). Queries must check
+communications.read before using them and keep Event scoping; these primitives
+are not public endpoints. No raw payload, SMTP errors, lease metadata, credentials,
+capability URLs or auth/session fields belong to UI DTOs.
+
+The baseline includes the full Communication/Outbox schema. Legacy rows may have
+null communicationId and remain deliverable; history includes associated sends
+without inferring or backfilling legacy history. 27B integrates transactional writers; 27C adds
+manual orchestration; 27D supplies remaining history/details presentation. No
+Communications UI, new background infrastructure or delivery retention is shipped
+by this foundation.
+
+
+## 33. Transactional Communications integration (27B)
+
+The existing submit-application, review-application and event-lifecycle cancellation
+writers now call enqueueTransactionalCommunication inside their original
+ReadCommitted transaction. Existing Event FOR UPDATE, decisionNow, post-lock
+review authorization and owner-scoped lifecycle authorization remain authoritative.
+No domain transition, reviewer provenance, Registration/PRIMARY/Ticket creation,
+Ticket cryptography or application/event SSE routing is changed. No new trigger,
+manual permission precondition, worker, endpoint or background job is introduced.
+
+Submission creates separate APPLICATION_RECEIVED and NEW_APPLICATION Communications
+for Application.email and the current Event OWNER email respectively. Application
+input already trims/lowercases email and Better Auth stores normalized User emails;
+helper normalization preserves these recipients. Review creates one approval or
+rejection Communication for Application.email. Cancellation retains exactly the
+existing PENDING Application + active Registration contact query, normalization,
+deduplication and recipient-context winner order. GUEST, extra Staff, revoked
+Registration and withdrawn/rejected Application contacts are not added.
+
+All new Communication rows have kind TRANSACTIONAL, trigger equal to the delivery
+type, null audience/message and the existing actual subject from the shared
+transactionalEmailSubjects map. Renderers use the same map and retain all other
+text/HTML/CTA and payload parsing behavior. Context is strict semantic v1:
+schemaVersion=1, kind=TRANSACTIONAL, trigger and optional frozen eventTitle only.
+Submission/approval use current published context; cancellation uses the existing
+current-or-last-publication rule; rejection uses its submitted historical title.
+An unreadable rejection snapshot omits the optional title and adds no Reject guard.
+No applicant name/email/answers, Ticket id, credentials, anonymous URL, auth fields,
+raw Outbox payload or rendered HTML enter Communication context/history DTOs.
+Approval Outbox payload v2 keeps ticketId solely as its existing delivery reference.
+Live Ticket/Registration revocation and Event cancellation checks still determine
+the approval CTA at delivery, including anonymous private access; history never
+invokes that live renderer to reconstruct past content.
+
+Both submission notifications use null actor fields: the public/applicant initiator
+is not exposed as a staff history actor. Review captures the currently authorized
+actor's DB name and role after the Event lock, preserving reviewedByUserId semantics.
+Cancellation resolves the actual owner through the locked Event.organizerId and
+existing verified requireOrganizer boundary; OWNER is not a fallback for unknown
+identity. Snapshots persist after membership removal and User SET NULL.
+
+Communication idempotency keys (unique within Event) are:
+
+- Submission: `${applicationId}:APPLICATION_RECEIVED` and
+  `${applicationId}:NEW_APPLICATION`.
+- Review: `${applicationId}:PENDING_TO_APPROVED:APPLICATION_APPROVED` or
+  `${applicationId}:PENDING_TO_REJECTED:APPLICATION_REJECTED`.
+- Cancellation: `${eventId}:EVENT_CANCELLED`.
+
+Cancellation is irreversible and happens at most once. Restore clears archive only;
+it cannot make a cancelled Event cancellable again. No timestamp/random request id
+is needed for its operation identity. Reapplication has a genuinely new Application
+id. Existing Outbox keys remain `${applicationId}:${type}` and
+`${eventId}:EVENT_CANCELLED:${normalizedEmail}`. No independent dedup store exists.
+The helper digest covers the complete parsed immutable intent; same key/digest
+replays the original record and different content conflicts. Domain duplicate/no-op
+paths keep their existing outcomes and do not reach enqueue again.
+
+Cancellation creates ONE Communication, including when there are no recipients.
+The zero-recipient record describes an actual cancellation, not an SMTP intent or
+successful delivery: recipientCount=0, no Outbox rows, no outbox NOTIFY. This extends
+semantic history for the existing EVENT_CANCELLED trigger, not the recipient set
+or email behavior. With recipients, the nested write batches Outbox inserts; it
+never creates one Communication per address and does not apply manual limits,
+including the 1,000-recipient cap. No recipient-specific live queries are added.
+
+The caller's domain mutation, Communication, all recipient rows and routing-only
+NOTIFY commit atomically. Enqueue failure propagates to the original transaction
+boundary; the public/domain error handler runs after rollback. SMTP runs only in
+the unchanged worker after commit. Post-commit failure cannot undo admission,
+review or cancellation. Status/retry/lease/fencing and at-least-once semantics
+remain as in section 18. No manual admission lock is acquired by these writers.
+Existing Event/application invalidations remain unchanged and contain no new
+history content; 27D may complete delivery-status refresh.
+
+Cutover applies only to new successful operations. Previously queued rows with null
+communicationId remain deliverable; legacy history is not inferred/backfilled.
+No schema/migration/dependency changes are required. Section 34 implements 27C;
+27D full History/Details UI remains outside this iteration.
+
+
+## 34. Manual Communications Center (27C)
+
+`/dashboard/events/[id]/communications` reuses EventHeader/navigation and the
+permission-aware EventWorkspace. Fresh verified sessions gate both Server Actions;
+History queries authorize communications.read before selecting Communication data.
+OWNER/MANAGER see all Event Communications regardless of actor; RECEPTION/foreign
+users receive neutral denial and no counts or DTO. History remains readable when
+send lifecycle eligibility fails. No separate layout or Manual Draft model exists.
+
+The shared server-only resolver serves Preview and Send. Active admission means
+Attendee.revokedAt IS NULL and its Registration.eventId matches the Event and
+Registration.revokedAt IS NULL. ALL_ACTIVE_ATTENDEES includes PRIMARY and GUEST;
+PRIMARY_ATTENDEES adds kind=PRIMARY; CHECKED_IN requires Attendance; NOT_ARRIVED
+requires its absence. PENDING_APPLICATIONS selects status=PENDING (withdrawn
+historical attempts cannot remain pending). EVENT_STAFF selects current owner and
+EventStaff users, including RECEPTION recipients. Only email columns are projected,
+from Attendee, Application or User respectively; there is no Primary fallback for
+Guest. Trim/lowercase, Zod email validation and Set deduplication exclude unavailable
+addresses and freeze exactly one intent per normalized email. No provider alias
+normalization, answers, Tickets, credentials or Application snapshots are read.
+
+Each resolver uses one statement, capped at 10,001 rows. The Event schema permits
+unlimited capacity: a sentinel beyond the 10,000-record scan budget rejects the
+entire operation, never truncates it. Unique counts above 1,000 also reject. Queries
+have a 10-second statement timeout in Preview/Send; Send has a 30-second transaction
+timeout and 10-second lock timeout. Preview uses a read-only RepeatableRead
+transaction with authorization, eligibility and strict audience validation. Its
+only audience data is audience/count/unavailable count; it neither reserves
+admission nor writes, snapshots or sends. The estimate is informational.
+
+Send accepts only strict {eventId, requestKey, audience, subject, message}; the
+fresh server session supplies actor identity. The transaction-aware helper checks
+ReadCommitted, then Event FOR UPDATE, fresh post-lock communications.send and
+lifecycle, replay, current audience resolution, actor snapshot, global advisory
+admission, fresh DB counts/time, nested Communication + batch createMany Outbox,
+and Outbox/Event NOTIFY. No skipDuplicates, independent transaction, SMTP, or
+second Event lock after advisory admission exists. All errors propagate out of
+the transaction; a successful action result follows the awaited commit. Unknown
+errors become a neutral retry message, never raw SQL/SMTP error data.
+
+Manual keys are `manual:${verifiedActorUserId}:${clientRandomUUID}` under the
+existing unique (eventId, idempotencyKey) constraint. The SHA-256 digest includes
+version, Event, actor identity, audience, subject, normalized message and safe
+manual context v1. First Send captures the operational Event title; replay uses
+the original immutable context, not current title, actor name/role or audience.
+Therefore live edits and audience changes cannot break same-intent retry.
+Same key/digest returns the original id/count before audience/admission; a
+mismatch fails. Actor namespace plus ownership validation prevents cross-actor
+replay. Client edits after an attempt invalidate the key; ambiguous outcomes keep
+the original key/content and lock editing until explicit abandonment/new message.
+Keys/content are not persisted in browser storage and do not survive page reload.
+
+New Communication stores kind=MANUAL, audience, subject, normalized message,
+verified actor/name/role snapshot, strict contextSnapshot v1, actual recipientCount,
+key/digest and createdAt=admittedAt. Each frozen recipient creates one PENDING
+MANUAL_EVENT_MESSAGE Outbox with empty server-owned payload; the existing renderer
+loads the immutable Communication. Deduplication key is Communication UUID plus
+SHA-256(normalized recipient email). DB/Outbox/NOTIFY failures roll back everything.
+Empty audiences produce no Communication. Admission retains all section 32 limits,
+DB clock semantics and lock order; transactional messages bypass those limits.
+
+Lifecycle eligibility is unchanged: communications.send AND any EventRevision
+AND archivedAt IS NULL. Current publication, completion and cancellation are not
+additional guards. History remains available when Send is denied. Archive/Restore
+does not affect queued delivery or replay old sends.
+
+A new Send refreshes Preview before opening its MUI confirmation Dialog.
+The Dialog shows audience/subject/estimate and warns that Send resolves fresh
+recipients. Ambiguous recovery instead offers “Retry same send”: it opens a
+confirmation without Preview and submits the exact frozen attempted payload/key.
+The recovery Dialog explains that retry returns the original result if committed,
+or may complete the original send under current server guards if not committed.
+Editing stays locked until recovery or explicit abandonment. Both paths require
+confirmation; Cancel/Escape/backdrop close retains text and returns visible focus
+to the initiating action. Pending disables submission; success says “Queued for
+N recipients” using the server result, resets compose/key and refreshes History.
+
+History uses RepeatableRead authorization and narrow summary selection, ordered
+createdAt DESC/id DESC, 20 rows plus one sentinel and an Event-scoped keyset cursor.
+One grouped Outbox query returns the four delivery counts for visible rows; no
+per-recipient lookup or recipient DTO reaches the browser. No payload, body,
+context, credential, SMTP error or internal lease metadata is exposed. Delivery
+terms remain Pending=queued, Processing=claimed, Sent=SMTP accepted, Failed=automatic
+attempts exhausted. Enqueue sends only existing event.changed routing; EventWorkspace
+coalesces invalidations. Explicit History refresh retrieves current counts;
+section 35 adds dispatcher status invalidation and recipient/details presentation.
+There is no new polling, websocket, background worker, transactional trigger,
+schema migration, dependency or change to existing transactional content/recipients.
+
+
+## 35. Unified History and Delivery Visibility (27D)
+
+The same History reader serves MANUAL and TRANSACTIONAL records. Request-facing
+History and Details readers obtain a fresh verified session (cookie cache disabled),
+then execute RepeatableRead authorization and projections. Their server-only query
+primitives take this verified identity and recheck communications.read on the Event.
+OWNER/MANAGER are allowed in all lifecycle states; RECEPTION and foreign users get
+null/neutral not-found before Communication or delivery reads. Details additionally
+require Communication.eventId to equal the requested Event. Invalid/foreign cursors
+also return neutral denial; no fallback to a different page is inferred.
+
+History retains createdAt DESC, id DESC, take 21 (20 plus sentinel), and one grouped
+Outbox status query for visible IDs. Optional subject substring (case-insensitive,
+literal wildcard characters) and MANUAL/TRANSACTIONAL filters apply before the
+keyset limit. A verified read-only Server Action validates filter inputs and
+returns only summary rows and pagination metadata. Filter text remains client
+memory state and travels in the request body, not URLs or storage. Existing SSE
+refreshes re-read the active filters; stale responses cannot overwrite newer
+filters. Initial History reads and the client filter default to MANUAL; clearing
+filters selects all kinds. Changing filters resets the cursor.
+Details use the same authorized reader for full pages and an intercepted dialog
+route. Soft navigation opens the dialog with an opaque Communication ID URL;
+Close/Back restores History, and hard navigation renders the full details page.
+Recipient pagination replaces the dialog entry to preserve one-step dismissal.
+History never selects recipient rows, message or
+context. UI adds immutable actor name/role, an overall derived status and an opaque
+ID link to /dashboard/events/[id]/communications/[communicationId]. No persisted
+Communication status exists. Zero count is “No recipients”, never Sent. All Pending,
+all Sent and all Failed are distinct; mixed outstanding work is In progress,
+including partial failures, and terminal partial failure is Completed with failures.
+Before deriving any status, counts must be nonnegative safe integers and their
+sum must equal the frozen recipientCount; otherwise the status is the neutral
+“Status unavailable”. This does not repair or mutate historical data.
+
+Details select one scoped Communication's summary, message and contextSnapshot.
+Context passes the strict semantic schema before projection; only MANUAL exposes
+message as React-escaped plain text with preserved line breaks. TRANSACTIONAL shows
+only saved trigger/optional Event title and explicitly states that message content
+is not stored. There is no live renderer or Application/Attendee/User reconstruction.
+Actor deletion/removal cannot change snapshot presentation.
+
+Recipient pages project only id, recipientEmail, status, attempts, createdAt and
+sentAt. The cursor contains an opaque Outbox ID, resolved to its immutable email
+only after Event/Communication authorization. The query uses communicationId and
+Event scope, recipientEmail > cursor email, ascending email and take 51 (50 plus
+sentinel). The existing unique (communicationId, recipientEmail) index supplies a
+stable order without schema changes. All statuses share this order; v1 omits status
+filtering and email search. Status changes cannot create pagination duplicates or
+skips. Grouped counts and the recipient page share one RepeatableRead snapshot.
+No raw payload, SMTP error, deduplication key, lease owner/token, Ticket credentials,
+capability URL or auth/session field enters history/details DTOs, SSE or URLs.
+
+After the claim transaction commits, delivery schedules a detached, bounded,
+best-effort Event invalidation for associated Communications, including reclaimed
+PROCESSING and lease-expired exhausted FAILED rows. A process runs at most one
+invalidation transaction at a time, coalescing up to 50 pending Communication IDs;
+overflow is dropped as best-effort. Changes during a flush can schedule a subsequent
+flush. Completion UPDATE keeps the
+existing worker/attempt/status fence and returns only communicationId; notification
+is scheduled only for rows actually updated, after that autocommit statement.
+SENT, retry PENDING and exhausted FAILED all use this path. Lost fencing ownership
+produces no notification. Legacy null associations produce none.
+
+Invalidation resolves only associated Event IDs in a separate bounded transaction
+and calls the existing routing-only event.changed NOTIFY. Notification failures
+are swallowed independently of status persistence: they cannot roll back SENT,
+block SMTP, alter retry classification or enqueue duplicate mail. PostgreSQL emits
+NOTIFY only after its transaction commits. Existing EventWorkspace SSE reauthorizes
+and coalesces refreshes; reconnect and manual Refresh recover missed notifications.
+No recipient, subject/body, payload or error appears in the envelope. No new worker,
+websocket, polling or background persistence is introduced. Retry delays, five
+attempts, leases/fencing, dispatcher LISTEN/startup/fallback sweep and all six
+renderers/deduplication paths are unchanged.
+
+PENDING = queued/awaiting attempt; PROCESSING = claimed; SENT = SMTP accepted;
+FAILED = automatic attempts exhausted. SENT does not mean mailbox delivery or
+open/read/click confirmation. Frozen content/audience/count/addresses and live
+status/attempts/sentAt remain distinct. Retention is the lifetime of the Event.
+Archive/Restore neither changes status nor restarts/cancels mail. There is no new
+send operation or manual resend/retry-failed/override UI.

@@ -4,10 +4,77 @@ import type { EmailOutbox } from "@/generated/prisma/client";
 import { renderOutboxEmail } from "@/lib/email-outbox/render";
 import { sendMail } from "@/lib/mail";
 import { prisma } from "@/lib/prisma";
+import { notifyEventChanged } from "@/lib/realtime/application-notifications";
 
 export const emailBatchSize = 5;
 export const emailLeaseMs = 5 * 60_000;
 const retryDelaysMs = [60_000, 5 * 60_000, 30 * 60_000, 2 * 60 * 60_000];
+const maxPendingInvalidations = 50;
+const globalForDelivery = globalThis as unknown as {
+  deliveryInvalidations?: { pending: Set<string>; running: boolean };
+};
+const invalidations = globalForDelivery.deliveryInvalidations ?? {
+  pending: new Set<string>(),
+  running: false,
+};
+globalForDelivery.deliveryInvalidations = invalidations;
+
+// One transaction at a time per process, including across development reloads.
+// Overflow is deliberately dropped: reconnect/refresh recover missed signals.
+// A change arriving during a flush stays pending for the next flush.
+function invalidateDeliveryHistory(
+  rows: readonly { communicationId: string | null }[],
+) {
+  for (const row of rows) {
+    if (
+      row.communicationId &&
+      invalidations.pending.size < maxPendingInvalidations
+    ) {
+      invalidations.pending.add(row.communicationId);
+    }
+  }
+
+  if (invalidations.running || invalidations.pending.size === 0) {
+    return;
+  }
+
+  invalidations.running = true;
+  void flushDeliveryInvalidations();
+}
+
+async function flushDeliveryInvalidations() {
+  try {
+    while (invalidations.pending.size > 0) {
+      const ids = [...invalidations.pending];
+      invalidations.pending.clear();
+
+      try {
+        await prisma.$transaction(
+          async (tx) => {
+            await tx.$executeRaw`SET LOCAL statement_timeout = '2000ms'`;
+            const communications = await tx.communication.findMany({
+              where: { id: { in: ids } },
+              select: { eventId: true },
+            });
+
+            for (const eventId of new Set(
+              communications.map((row) => row.eventId),
+            )) {
+              await notifyEventChanged(tx, eventId);
+            }
+          },
+          // Allow the shared pool's 5s connection-acquisition timeout to finish
+          // before starting another best-effort transaction.
+          { maxWait: 6000, timeout: 3000 },
+        );
+      } catch {
+        // Drop this batch without retrying or touching delivery state.
+      }
+    }
+  } finally {
+    invalidations.running = false;
+  }
+}
 
 export async function claimEmailBatch(workerId: string) {
   const rows = await prisma.$transaction(
@@ -36,6 +103,8 @@ export async function claimEmailBatch(workerId: string) {
     { isolationLevel: "ReadCommitted" },
   );
 
+  void invalidateDeliveryHistory(rows);
+
   // A crashed fifth attempt expires to FAILED, never to a sixth SMTP attempt.
   return rows;
 }
@@ -46,17 +115,23 @@ export async function finishEmailDelivery(
   error: "Invalid email payload." | "Email delivery failed." | null,
 ) {
   if (error === null) {
-    return prisma.$executeRaw`
+    const updated = await prisma.$queryRaw<
+      { communicationId: string | null }[]
+    >`
       UPDATE "EmailOutbox" SET "status" = 'SENT', "sentAt" = now(),
         "nextAttemptAt" = NULL, "lockedAt" = NULL, "lockedBy" = NULL,
         "lastError" = NULL, "updatedAt" = now()
       WHERE "id" = ${row.id}::uuid AND "status" = 'PROCESSING'
-        AND "lockedBy" = ${workerId}::text AND "attempts" = ${row.attempts}::integer`;
+        AND "lockedBy" = ${workerId}::text AND "attempts" = ${row.attempts}::integer
+      RETURNING "communicationId"`;
+    void invalidateDeliveryHistory(updated);
+
+    return updated.length;
   }
 
   const delayMs = retryDelaysMs[row.attempts - 1] ?? null;
 
-  return prisma.$executeRaw`
+  const updated = await prisma.$queryRaw<{ communicationId: string | null }[]>`
     UPDATE "EmailOutbox" SET
       "status" = CASE WHEN ${delayMs}::double precision IS NULL
         THEN 'FAILED'::"EmailOutboxStatus" ELSE 'PENDING'::"EmailOutboxStatus" END,
@@ -64,7 +139,11 @@ export async function finishEmailDelivery(
       "lockedAt" = NULL, "lockedBy" = NULL,
       "lastError" = ${error}::text, "updatedAt" = now()
     WHERE "id" = ${row.id}::uuid AND "status" = 'PROCESSING'
-      AND "lockedBy" = ${workerId}::text AND "attempts" = ${row.attempts}::integer`;
+      AND "lockedBy" = ${workerId}::text AND "attempts" = ${row.attempts}::integer
+    RETURNING "communicationId"`;
+  void invalidateDeliveryHistory(updated);
+
+  return updated.length;
 }
 
 export async function deliverClaimedEmail(row: EmailOutbox, workerId: string) {
@@ -72,7 +151,11 @@ export async function deliverClaimedEmail(row: EmailOutbox, workerId: string) {
 
   try {
     z.email().parse(row.recipientEmail);
-    message = await renderOutboxEmail(row.type, row.payload);
+    message = await renderOutboxEmail(
+      row.type,
+      row.payload,
+      row.communicationId,
+    );
   } catch {
     await finishEmailDelivery(row, workerId, "Invalid email payload.");
 

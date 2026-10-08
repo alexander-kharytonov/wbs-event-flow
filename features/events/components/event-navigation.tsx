@@ -8,6 +8,7 @@ type Section =
   | "badges"
   | "applications"
   | "attendees"
+  | "communications"
   | "check-in";
 
 export function EventNavigation({

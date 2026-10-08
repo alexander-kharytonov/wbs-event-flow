@@ -5,6 +5,8 @@ import ArrowDownward from "@mui/icons-material/ArrowDownward";
 import ArrowUpward from "@mui/icons-material/ArrowUpward";
 import DeleteOutlined from "@mui/icons-material/DeleteOutlined";
 import EditOutlined from "@mui/icons-material/EditOutlined";
+import PeopleOutlined from "@mui/icons-material/PeopleOutlined";
+import QuizOutlined from "@mui/icons-material/QuizOutlined";
 import {
   Alert,
   Box,
@@ -20,6 +22,7 @@ import {
 } from "@mui/material";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   type BadgeLayout,
   badgeFieldSchema,
@@ -30,6 +33,7 @@ import { RegistrationFieldForm } from "@/features/events/components/registration
 import { EventForm } from "@/features/events/event-form";
 import {
   type EventDateField,
+  type EventFormState,
   eventDateFields,
   eventValidationError,
   type PreservedEventDates,
@@ -49,6 +53,9 @@ import {
   registrationFieldSchema,
 } from "@/features/events/schemas/registration-form";
 import type { TemplateCreateResult } from "@/features/events/server/create-template-event";
+import { staffEmailSchema } from "@/features/events/staff-input";
+import { useFormFeedback } from "@/hooks/use-form-feedback";
+import { useNotifications } from "@/hooks/use-notifications";
 
 export function TemplateIssues({ issues }: { issues: TemplateIssue[] }) {
   return (
@@ -171,7 +178,9 @@ export function TemplateReview({
   onBusyChange: (busy: boolean) => void;
 }) {
   const router = useRouter();
+  const notifications = useNotifications();
   const [event, setEvent] = useState(initial);
+  const staffFeedback = useFormFeedback();
   const [staffKeys, setStaffKeys] = useState(() =>
     initial.staff.map((_, index) => String(index)),
   );
@@ -180,11 +189,37 @@ export function TemplateReview({
   const [editor, setEditor] = useState<{ field?: TemplateField } | null>(null);
   const [fieldMessage, setFieldMessage] = useState<string>();
   const [busy, setBusy] = useState(false);
-  const [result, setResult] =
-    useState<Extract<TemplateCreateResult, { success: true }>>();
+  const [created, setCreated] = useState(false);
   const editedDates = useRef(new Set<EventDateField>());
   const nextKey = useRef(initial.registrationForm.fields.length + 1);
   const initialValues = useRef(templateEventValues(initial)).current;
+
+  function showIssues(nextIssues: TemplateIssue[]): EventFormState {
+    const errors: Record<string, string[]> = {};
+    const staffErrors: Record<string, string> = {};
+    const remaining: TemplateIssue[] = [];
+
+    for (const issue of nextIssues) {
+      const field = issue.path.replace(/^event\./, "");
+      const staffField = /^event\.staff\[(\d+)\]\.(email|role)$/.exec(
+        issue.path,
+      );
+
+      if (Object.hasOwn(initialValues, field)) {
+        errors[field] = [...(errors[field] ?? []), issue.message];
+      } else if (staffField && staffKeys[Number(staffField[1])] !== undefined) {
+        staffErrors[`${staffKeys[Number(staffField[1])]}.${staffField[2]}`] =
+          issue.message;
+      } else {
+        remaining.push(issue);
+      }
+    }
+    staffFeedback.setErrors(staffErrors);
+    setIssues(remaining);
+
+    return { errors };
+  }
+
   const fields = event.registrationForm.fields;
   const bindings = portableBindingIssues(event);
 
@@ -199,41 +234,8 @@ export function TemplateReview({
     setFields(next);
   }
 
-  if (result) {
-    return (
-      <Stack spacing={2}>
-        <Alert severity="success">
-          Event created. Staff added: {result.addedCount}.
-        </Alert>
-        {result.skippedEmails.length > 0 && (
-          <Alert severity="warning">
-            <Typography>These staff assignments were not added:</Typography>
-            {result.skippedEmails.map((email) => (
-              <Typography
-                variant="body2"
-                key={email}
-                sx={{ overflowWrap: "anywhere" }}
-              >
-                {email}
-              </Typography>
-            ))}
-          </Alert>
-        )}
-        {result.duplicateWarnings.length > 0 && (
-          <Alert severity="info">
-            Duplicate entries were combined:{" "}
-            {result.duplicateWarnings.join(", ")}
-          </Alert>
-        )}
-        <Button
-          variant="contained"
-          sx={{ alignSelf: "flex-start" }}
-          onClick={() => router.replace(`/dashboard/events/${result.eventId}`)}
-        >
-          Open event
-        </Button>
-      </Stack>
-    );
+  if (created) {
+    return <Alert severity="info">Opening event…</Alert>;
   }
 
   return (
@@ -244,9 +246,12 @@ export function TemplateReview({
         sx={{ border: 0, p: 0, m: 0, minWidth: 0 }}
       >
         <EventForm
-          exactInstantMode
+          importedDates={initial}
           initialValues={initialValues}
-          disabled={bindings.length > 0}
+          disabled={
+            bindings.length > 0 ||
+            event.staff.some((member) => !member.email.trim())
+          }
           scheduleNotice={(values) => {
             const preserved: PreservedEventDates = {};
 
@@ -290,6 +295,21 @@ export function TemplateReview({
           }}
           serverAction={async (_previous, formData) => {
             setIssues([]);
+            staffFeedback.reset();
+            const staffErrors: Record<string, string> = {};
+
+            for (const [index, member] of event.staff.entries()) {
+              if (!staffEmailSchema.safeParse(member.email).success) {
+                staffErrors[`${staffKeys[index]}.email`] =
+                  "Enter a valid email address.";
+              }
+            }
+            staffFeedback.setErrors(staffErrors);
+
+            if (Object.keys(staffErrors).length) {
+              return {};
+            }
+
             const preserved: PreservedEventDates = {};
 
             for (const field of eventDateFields) {
@@ -320,25 +340,17 @@ export function TemplateReview({
             });
 
             if (!reviewed.success) {
-              setIssues(reviewed.issues);
-
-              return {};
+              return showIssues(reviewed.issues);
             }
 
             setBusy(true);
             onBusyChange(true);
+            let outcome: TemplateCreateResult;
 
             try {
               const payload = new FormData();
               payload.set("template", JSON.stringify(reviewed.template));
-              const outcome = await importTemplate(payload);
-
-              if (outcome.success) {
-                setResult(outcome);
-              } else {
-                setIssues(outcome.issues);
-                onBusyChange(false);
-              }
+              outcome = await importTemplate(payload);
             } catch {
               setIssues([
                 {
@@ -349,14 +361,48 @@ export function TemplateReview({
                 },
               ]);
               onBusyChange(false);
-            } finally {
               setBusy(false);
+
+              return {};
             }
+
+            if (!outcome.success) {
+              onBusyChange(false);
+              setBusy(false);
+
+              return showIssues(outcome.issues);
+            }
+
+            // Keep creation locked until navigation completes.
+            setCreated(true);
+            notifications.show(
+              <Stack spacing={1} sx={{ maxHeight: 240, overflowY: "auto" }}>
+                <Typography>
+                  Event created. Staff added: {outcome.addedCount}.
+                </Typography>
+                {outcome.skippedEmails.length > 0 && (
+                  <Typography>
+                    These staff assignments were not added:{" "}
+                    {outcome.skippedEmails.join(", ")}
+                  </Typography>
+                )}
+                {outcome.duplicateWarnings.length > 0 && (
+                  <Typography>
+                    Duplicate entries were combined:{" "}
+                    {outcome.duplicateWarnings.join(", ")}
+                  </Typography>
+                )}
+              </Stack>,
+              {
+                key: `template-created:${outcome.eventId}`,
+                severity: outcome.skippedEmails.length ? "warning" : "success",
+              },
+            );
+            router.replace(`/dashboard/events/${outcome.eventId}`);
 
             return {};
           }}
         >
-          <TemplateIssues issues={issues} />
           <Stack spacing={2}>
             <Typography variant="h6" component="h2">
               Registration Form
@@ -366,9 +412,11 @@ export function TemplateReview({
               local until Create.
             </Typography>
             {fields.length === 0 && (
-              <Typography color="text.secondary">
-                No custom questions.
-              </Typography>
+              <EmptyState
+                icon={<QuizOutlined />}
+                title="No custom questions"
+                description="Add questions to collect more information from your guests."
+              />
             )}
             {fields.map((field, index) => (
               <Box
@@ -468,9 +516,11 @@ export function TemplateReview({
               Staff accounts will be resolved when the event is created.
             </Typography>
             {event.staff.length === 0 && (
-              <Typography color="text.secondary">
-                No staff assignments.
-              </Typography>
+              <EmptyState
+                icon={<PeopleOutlined />}
+                title="No staff assignments"
+                description="Add existing Event Flow users to help manage this event."
+              />
             )}
             {event.staff.map((member, index) => (
               <Stack
@@ -484,7 +534,9 @@ export function TemplateReview({
                   required
                   fullWidth
                   value={member.email}
-                  onChange={(change) =>
+                  {...staffFeedback.field(`${staffKeys[index]}.email`)}
+                  onChange={(change) => {
+                    staffFeedback.clear(`${staffKeys[index]}.email`);
                     setEvent({
                       ...event,
                       staff: event.staff.map((item, i) =>
@@ -492,15 +544,17 @@ export function TemplateReview({
                           ? { ...item, email: change.target.value }
                           : item,
                       ),
-                    })
-                  }
+                    });
+                  }}
                 />
                 <TextField
                   select
                   label="Role"
                   value={member.role}
+                  {...staffFeedback.field(`${staffKeys[index]}.role`)}
                   sx={{ minWidth: 150 }}
-                  onChange={(change) =>
+                  onChange={(change) => {
+                    staffFeedback.clear(`${staffKeys[index]}.role`);
                     setEvent({
                       ...event,
                       staff: event.staff.map((item, i) =>
@@ -511,8 +565,8 @@ export function TemplateReview({
                             }
                           : item,
                       ),
-                    })
-                  }
+                    });
+                  }}
                 >
                   <MenuItem value="MANAGER">Manager</MenuItem>
                   <MenuItem value="RECEPTION">Reception</MenuItem>
@@ -547,6 +601,7 @@ export function TemplateReview({
             </Button>
           </Stack>
           <TemplateIssues issues={bindings} />
+          <TemplateIssues issues={issues} />
           <ReviewBadge
             event={event}
             onChange={(badgeLayout) => {

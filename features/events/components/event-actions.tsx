@@ -31,6 +31,7 @@ import { useId, useState, useTransition } from "react";
 import { changeEventLifecycle } from "@/features/events/event-lifecycle-action";
 import { publishEvent } from "@/features/events/publish-event-action";
 import type { PublishResult } from "@/features/events/server/publish-event";
+import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { useNotifications } from "@/hooks/use-notifications";
 
 type Action = "cancel" | "unpublish" | "archive" | "restore" | "delete";
@@ -76,6 +77,7 @@ export function EventActions({
 }) {
   const router = useRouter();
   const notifications = useNotifications();
+  const feedback = useFormFeedback();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [action, setAction] = useState<Action | null>(null);
   const [reason, setReason] = useState("");
@@ -187,6 +189,7 @@ export function EventActions({
                 setAction(value);
                 notifications.close(`event-action:${eventId}`);
                 setReason("");
+                feedback.reset();
               }}
             >
               <ListItemIcon sx={{ color: "inherit" }}>
@@ -220,9 +223,15 @@ export function EventActions({
           {action && labels[action]}
         </DialogTitle>
         <DialogContent>
-          <DialogContentText>
-            {action && descriptions[action]}
-          </DialogContentText>
+          {action === "cancel" || action === "unpublish" ? (
+            <Alert severity={action === "cancel" ? "error" : "warning"}>
+              {descriptions[action]}
+            </Alert>
+          ) : (
+            <DialogContentText>
+              {action && descriptions[action]}
+            </DialogContentText>
+          )}
           {action === "cancel" && (
             <TextField
               autoFocus
@@ -232,13 +241,25 @@ export function EventActions({
               minRows={3}
               label="Cancellation reason"
               value={reason}
-              onChange={(event) => setReason(event.target.value)}
+              onChange={(event) => {
+                setReason(event.target.value);
+                feedback.clear("reason");
+              }}
+              error={Boolean(feedback.errors.reason)}
               slotProps={{ htmlInput: { maxLength: 2000 } }}
-              helperText={`${reason.trim().length}/2000 · This reason will be shared with applicants.`}
+              helperText={
+                feedback.errors.reason ??
+                `${reason.trim().length}/2000 · This reason will be shared with applicants.`
+              }
               sx={{ mt: 3 }}
             />
           )}
         </DialogContent>
+        {feedback.message && (
+          <Alert severity="error" sx={{ mx: 3 }}>
+            {feedback.message}
+          </Alert>
+        )}
         <DialogActions>
           <Button disabled={pending} onClick={() => setAction(null)}>
             Keep event
@@ -255,6 +276,19 @@ export function EventActions({
                   return;
                 }
 
+                feedback.reset();
+
+                if (
+                  action === "cancel" &&
+                  (!reason.trim() || reason.trim().length > 2000)
+                ) {
+                  feedback.setErrors({
+                    reason: "Enter a reason of 1–2000 characters.",
+                  });
+
+                  return;
+                }
+
                 try {
                   const result = await changeEventLifecycle({
                     eventId,
@@ -263,9 +297,9 @@ export function EventActions({
                   });
 
                   if (!result.success) {
-                    notifications.show(
+                    feedback.setErrors(result.fieldErrors ?? {});
+                    feedback.setMessage(
                       result.message ?? "Could not update this event.",
-                      { severity: "error", key: `event-action:${eventId}` },
                     );
 
                     return;
@@ -283,9 +317,8 @@ export function EventActions({
 
                   router.refresh();
                 } catch {
-                  notifications.show(
+                  feedback.setMessage(
                     "Could not confirm this action. Reload to check the event.",
-                    { severity: "error", key: `event-action:${eventId}` },
                   );
                 }
               })

@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: ["192.168.2.142"],
   // Auth and anonymous Ticket URLs contain bearer secrets.
   logging: {
     serverFunctions: false,

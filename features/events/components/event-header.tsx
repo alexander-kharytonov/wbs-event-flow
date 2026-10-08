@@ -24,6 +24,7 @@ const eventSections: {
     | "badges"
     | "applications"
     | "attendees"
+    | "communications"
     | "check-in";
   label: string;
   permission: EventPermission;
@@ -48,6 +49,11 @@ const eventSections: {
   },
   { id: "badges", label: "Badges", permission: "badges.print.bulk" },
   { id: "check-in", label: "Check-in", permission: "checkIn.qr" },
+  {
+    id: "communications",
+    label: "Communications",
+    permission: "communications.read",
+  },
 ];
 
 import { BackLink } from "@/components/ui/back-link";

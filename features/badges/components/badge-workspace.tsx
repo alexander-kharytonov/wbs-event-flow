@@ -4,7 +4,11 @@ import PrintOutlined from "@mui/icons-material/PrintOutlined";
 import { Alert, Box, Button, Paper, Stack, Typography } from "@mui/material";
 import { useEffect, useRef, useState } from "react";
 import { previewBadge, updateBadgeLayout } from "@/features/badges/actions";
-import { badgeDimensions } from "@/features/badges/badge-layout";
+import {
+  badgeDimensions,
+  badgeLayoutSchema,
+  validBadgeBindings,
+} from "@/features/badges/badge-layout";
 import { Badge } from "@/features/badges/components/badge";
 import { BadgeLayoutControls } from "@/features/badges/components/badge-layout-controls";
 import { badgeCss } from "@/features/badges/components/badge-styles";
@@ -26,6 +30,7 @@ export function BadgeWorkspace({
   const [savedLayout, setSavedLayout] = useState(
     initial.editor?.layout ?? null,
   );
+  const [saveError, setSaveError] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [previewBusy, setPreviewBusy] = useState(false);
   const sequence = useRef(0);
@@ -105,6 +110,19 @@ export function BadgeWorkspace({
       return;
     }
 
+    setSaveError(undefined);
+
+    if (
+      !badgeLayoutSchema.safeParse(layout).success ||
+      !validBadgeBindings(layout, catalog)
+    ) {
+      setSaveError(
+        "Check the layout settings and select compatible question bindings.",
+      );
+
+      return;
+    }
+
     setBusy(true);
     notifications.close(`badge-layout:${eventId}`);
 
@@ -119,16 +137,10 @@ export function BadgeWorkspace({
           key: `badge-layout:${eventId}`,
         });
       } else {
-        notifications.show(result.message, {
-          severity: "error",
-          key: `badge-layout:${eventId}`,
-        });
+        setSaveError(result.message);
       }
     } catch {
-      notifications.show("Could not save. Please try again.", {
-        severity: "error",
-        key: `badge-layout:${eventId}`,
-      });
+      setSaveError("Could not save. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -170,9 +182,11 @@ export function BadgeWorkspace({
                 catalog={catalog}
                 onChange={(next) => {
                   setLayout(next);
+                  setSaveError(undefined);
                   notifications.close(`badge-layout:${eventId}`);
                 }}
               />
+              {saveError && <Alert severity="error">{saveError}</Alert>}
               <Button
                 variant="contained"
                 loading={busy}

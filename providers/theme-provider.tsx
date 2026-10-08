@@ -168,15 +168,23 @@ const theme = createTheme({
     MuiAlert: {
       styleOverrides: { message: { minWidth: 0, overflowWrap: "anywhere" } },
     },
+    MuiTextField: {
+      defaultProps: { variant: "outlined" },
+    },
+    MuiSelect: {
+      styleOverrides: { select: { display: "flex", alignItems: "center" } },
+    },
     MuiOutlinedInput: {
       styleOverrides: {
         root: {
           backgroundColor: "var(--mui-palette-background-paper)",
           "& .MuiOutlinedInput-notchedOutline": {
-            borderColor: "var(--mui-palette-text-disabled)",
+            borderColor: "var(--mui-palette-divider)",
+            transition: "border-color 150ms ease",
           },
           "&:hover .MuiOutlinedInput-notchedOutline": {
-            borderColor: "var(--mui-palette-text-secondary)",
+            borderColor:
+              "color-mix(in srgb, var(--mui-palette-divider), var(--mui-palette-text-secondary) 25%)",
           },
           "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
             borderColor: "var(--mui-palette-primary-main)",

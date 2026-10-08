@@ -16,6 +16,7 @@ import {
 } from "@mui/material";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
+import { z } from "zod";
 import { BackLink } from "@/components/ui/back-link";
 import {
   rememberVerificationEmail,
@@ -23,7 +24,7 @@ import {
   verificationCallbackURL,
   verificationPath,
 } from "@/features/auth/verification-flow";
-import { useNotifications } from "@/hooks/use-notifications";
+import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { authClient } from "@/lib/auth-client";
 import { safeReturnPath } from "@/lib/safe-return-path";
 
@@ -41,7 +42,9 @@ export function AuthForm({
   const [email, setEmail] = useState("");
   const router = useRouter();
   const requestInFlight = useRef(false);
-  const notifications = useNotifications();
+  const feedback = useFormFeedback();
+  const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
   const registering = mode === "register";
   const safeReturnTo = safeReturnPath(returnTo);
   const authQuery = safeReturnTo
@@ -68,10 +71,29 @@ export function AuthForm({
       return;
     }
 
+    const errors: Record<string, string> = {};
+
+    if (registering && !name.trim()) {
+      errors.name = "Enter your name.";
+    }
+
+    if (!z.email().safeParse(email.trim()).success) {
+      errors.email = "Enter a valid email address.";
+    }
+
+    if (password.length < 10 || password.length > 128) {
+      errors.password = "Use 10–128 characters.";
+    }
+    feedback.setErrors(errors);
+    feedback.setMessage(undefined);
+
+    if (Object.keys(errors).length) {
+      return;
+    }
+
     requestInFlight.current = true;
     const form = new FormData(event.currentTarget);
     setPending(true);
-    notifications.close("authentication");
 
     try {
       const credentials = {
@@ -100,15 +122,26 @@ export function AuthForm({
           return;
         }
 
-        notifications.show(
-          !registering && result.error.code === "INVALID_EMAIL_OR_PASSWORD"
-            ? "Invalid email or password. Please try again."
-            : "Unable to complete the request. Please try again.",
-          {
-            severity: "error",
-            key: "authentication",
-          },
-        );
+        if (result.error.code === "INVALID_EMAIL") {
+          feedback.setErrors({
+            email: result.error.message ?? "Enter a valid email address.",
+          });
+        } else if (
+          ["PASSWORD_TOO_SHORT", "PASSWORD_TOO_LONG"].includes(
+            result.error.code ?? "",
+          )
+        ) {
+          feedback.setErrors({
+            password: result.error.message ?? "Use 10–128 characters.",
+          });
+        } else {
+          feedback.setMessage(
+            !registering && result.error.code === "INVALID_EMAIL_OR_PASSWORD"
+              ? "Invalid email or password. Please try again."
+              : (result.error.message ??
+                  "Unable to complete the request. Please try again."),
+          );
+        }
 
         return;
       }
@@ -121,10 +154,7 @@ export function AuthForm({
       if (registering) {
         showVerification(String(form.get("email")), true);
       } else {
-        notifications.show("Unable to connect. Please try again.", {
-          severity: "error",
-          key: "authentication",
-        });
+        feedback.setMessage("Unable to connect. Please try again.");
       }
     } finally {
       requestInFlight.current = false;
@@ -157,6 +187,7 @@ export function AuthForm({
           {notice && <Alert severity="info">{notice}</Alert>}
           <Stack
             component="form"
+            noValidate
             spacing={2.5}
             onSubmit={submit}
             aria-busy={pending}
@@ -164,6 +195,13 @@ export function AuthForm({
             {registering && (
               <TextField
                 label="Name"
+                value={name}
+                disabled={pending}
+                {...feedback.field("name")}
+                onChange={(event) => {
+                  setName(event.target.value);
+                  feedback.clear("name");
+                }}
                 name="name"
                 autoComplete="name"
                 required
@@ -175,13 +213,25 @@ export function AuthForm({
               name="email"
               type="email"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                feedback.clear("email");
+              }}
+              disabled={pending}
+              {...feedback.field("email")}
               autoComplete="email"
               required
               fullWidth
             />
             <TextField
               label="Password"
+              value={password}
+              disabled={pending}
+              error={Boolean(feedback.errors.password)}
+              onChange={(event) => {
+                setPassword(event.target.value);
+                feedback.clear("password");
+              }}
               name="password"
               type={showPassword ? "text" : "password"}
               autoComplete={registering ? "new-password" : "current-password"}
@@ -208,11 +258,24 @@ export function AuthForm({
                   ),
                 },
               }}
-              helperText={registering ? "Use 10–128 characters." : undefined}
+              helperText={
+                feedback.errors.password ??
+                (registering ? "Use 10–128 characters." : undefined)
+              }
               required
               fullWidth
             />
-            <Button type="submit" variant="contained" loading={pending}>
+            {feedback.message && (
+              <Alert severity="error">{feedback.message}</Alert>
+            )}
+            <Button
+              type="submit"
+              variant="contained"
+              loading={pending}
+              disabled={
+                !email.trim() || !password || (registering && !name.trim())
+              }
+            >
               {pending
                 ? "Please wait…"
                 : registering
