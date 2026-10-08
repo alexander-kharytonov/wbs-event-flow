@@ -1495,7 +1495,7 @@ One logical recipient intent permits at-least-once physical SMTP delivery; exact
 once is not guaranteed.
 
 History foundation exposes explicit summary/actor selections, delivery counts and
-safe recipient status (id, frozen email, status, sentAt). Future queries must check
+safe recipient status (id, frozen email, status, attempts, createdAt, sentAt). Queries must check
 communications.read before using them and keep Event scoping; these primitives
 are not public endpoints. No raw payload, SMTP errors, lease metadata, credentials,
 capability URLs or auth/session fields belong to UI DTOs.
@@ -1675,6 +1675,76 @@ context, credential, SMTP error or internal lease metadata is exposed. Delivery
 terms remain Pending=queued, Processing=claimed, Sent=SMTP accepted, Failed=automatic
 attempts exhausted. Enqueue sends only existing event.changed routing; EventWorkspace
 coalesces invalidations. Explicit History refresh retrieves current counts;
-dispatcher status push and full recipient/details/history presentation remain 27D.
+section 35 adds dispatcher status invalidation and recipient/details presentation.
 There is no new polling, websocket, background worker, transactional trigger,
 schema migration, dependency or change to existing transactional content/recipients.
+
+
+## 35. Unified History and Delivery Visibility (27D)
+
+The same History reader serves MANUAL and TRANSACTIONAL records. Request-facing
+History and Details readers obtain a fresh verified session (cookie cache disabled),
+then execute RepeatableRead authorization and projections. Their server-only query
+primitives take this verified identity and recheck communications.read on the Event.
+OWNER/MANAGER are allowed in all lifecycle states; RECEPTION and foreign users get
+null/neutral not-found before Communication or delivery reads. Details additionally
+require Communication.eventId to equal the requested Event. Invalid/foreign cursors
+also return neutral denial; no fallback to a different page is inferred.
+
+History retains createdAt DESC, id DESC, take 21 (20 plus sentinel), and one grouped
+Outbox status query for visible IDs. It never selects recipient rows, message or
+context. UI adds immutable actor name/role, an overall derived status and an opaque
+ID link to /dashboard/events/[id]/communications/[communicationId]. No persisted
+Communication status exists. Zero count is “No recipients”, never Sent. All Pending,
+all Sent and all Failed are distinct; mixed outstanding work is In progress,
+including partial failures, and terminal partial failure is Completed with failures.
+Before deriving any status, counts must be nonnegative safe integers and their
+sum must equal the frozen recipientCount; otherwise the status is the neutral
+“Status unavailable”. This does not repair or mutate historical data.
+
+Details select one scoped Communication's summary, message and contextSnapshot.
+Context passes the strict semantic schema before projection; only MANUAL exposes
+message as React-escaped plain text with preserved line breaks. TRANSACTIONAL shows
+only saved trigger/optional Event title and explicitly states that message content
+is not stored. There is no live renderer or Application/Attendee/User reconstruction.
+Actor deletion/removal cannot change snapshot presentation.
+
+Recipient pages project only id, recipientEmail, status, attempts, createdAt and
+sentAt. The cursor contains an opaque Outbox ID, resolved to its immutable email
+only after Event/Communication authorization. The query uses communicationId and
+Event scope, recipientEmail > cursor email, ascending email and take 51 (50 plus
+sentinel). The existing unique (communicationId, recipientEmail) index supplies a
+stable order without schema changes. All statuses share this order; v1 omits status
+filtering and email search. Status changes cannot create pagination duplicates or
+skips. Grouped counts and the recipient page share one RepeatableRead snapshot.
+No raw payload, SMTP error, deduplication key, lease owner/token, Ticket credentials,
+capability URL or auth/session field enters history/details DTOs, SSE or URLs.
+
+After the claim transaction commits, delivery schedules a detached, bounded,
+best-effort Event invalidation for associated Communications, including reclaimed
+PROCESSING and lease-expired exhausted FAILED rows. A process runs at most one
+invalidation transaction at a time, coalescing up to 50 pending Communication IDs;
+overflow is dropped as best-effort. Changes during a flush can schedule a subsequent
+flush. Completion UPDATE keeps the
+existing worker/attempt/status fence and returns only communicationId; notification
+is scheduled only for rows actually updated, after that autocommit statement.
+SENT, retry PENDING and exhausted FAILED all use this path. Lost fencing ownership
+produces no notification. Legacy null associations produce none.
+
+Invalidation resolves only associated Event IDs in a separate bounded transaction
+and calls the existing routing-only event.changed NOTIFY. Notification failures
+are swallowed independently of status persistence: they cannot roll back SENT,
+block SMTP, alter retry classification or enqueue duplicate mail. PostgreSQL emits
+NOTIFY only after its transaction commits. Existing EventWorkspace SSE reauthorizes
+and coalesces refreshes; reconnect and manual Refresh recover missed notifications.
+No recipient, subject/body, payload or error appears in the envelope. No new worker,
+websocket, polling or background persistence is introduced. Retry delays, five
+attempts, leases/fencing, dispatcher LISTEN/startup/fallback sweep and all six
+renderers/deduplication paths are unchanged.
+
+PENDING = queued/awaiting attempt; PROCESSING = claimed; SENT = SMTP accepted;
+FAILED = automatic attempts exhausted. SENT does not mean mailbox delivery or
+open/read/click confirmation. Frozen content/audience/count/addresses and live
+status/attempts/sentAt remain distinct. Retention is the lifetime of the Event.
+Archive/Restore neither changes status nor restarts/cancels mail. There is no new
+send operation or manual resend/retry-failed/override UI.

@@ -586,8 +586,7 @@ transactional emails, including Event cancellation.
 transactional enqueue and manual admission primitives only. The foundation alone exposes no Manual Send action or Communications UI. 27B integrates new transactional
 Event emails as described below; legacy Outbox rows are not backfilled or inferred
 into history. 27C activates manual Send and minimal History as described below; all workers
-must understand the manual type before deployment. 27D remains the scope for
-full history/details UI. No cleanup/retention job or new
+must understand the manual type before deployment. 27D supplies unified history and details as described below. No cleanup/retention job or new
 background infrastructure is introduced.
 
 
@@ -684,6 +683,48 @@ History shows Manual/Transactional, subject, time, audience/trigger, recipient
 count and Pending/Processing/Sent/Failed counts, newest first, 20 per page.
 Sent means SMTP transport accepted, not mailbox delivery or opening. Enqueue
 reuses routing-only Event SSE invalidation; History also has an explicit refresh.
-Delivery-status push, full details, recipient addresses/details and transactional
-content reconstruction remain for 27D. No new transactional trigger, delivery
+27D extends this same History with delivery-status invalidation and safe details;
+historical transactional content is never reconstructed. No new transactional trigger, delivery
 worker, polling mechanism or background infrastructure is introduced.
+
+
+## Unified History and Delivery Visibility (27D)
+
+The existing Communications History unifies Manual and Transactional messages,
+with subject, trigger/audience, creation time, frozen actor name/role, recipient
+count, four delivery counts and an overall status. Newest-first keyset pages
+contain 20 records. Zero-recipient communications say “No recipients”; mixed
+results distinguish in-progress partial failures from completed failures.
+Invalid counts or a delivery total different from the frozen recipient count
+show the neutral “Status unavailable”, including inconsistent zero-recipient rows.
+
+Owner and Manager can open an Event-scoped details page in every lifecycle state,
+including Draft, Completed, Cancelled and Archived. Each read verifies the session,
+communications.read and Event membership. Reception and foreign selectors receive
+neutral denial without content, recipient addresses or delivery counts.
+
+Details show the saved plain-text Manual message with escaped text and preserved
+line breaks. Transactional details show only the frozen semantic trigger/Event
+name and “Message content is not stored in communication history.” They never
+reconstruct an old email from current Event/Application/Ticket state or show raw
+payload, HTML/MIME, SMTP errors, credentials or private capability links.
+
+Recipient deliveries use frozen EmailOutbox addresses, with current status,
+attempts, queued time and SMTP acceptance time. Pages contain at most 50 addresses,
+ordered by immutable email, using validated Event/Communication-scoped opaque ID
+cursors. V1 shows All statuses, without email search or a status filter; status
+changes cannot move recipients across page boundaries. Recipient lists never enter
+the general History DTO or URLs.
+
+Pending means queued and awaiting an attempt; Processing means claimed by the
+dispatcher; Sent means SMTP accepted; Failed means automatic attempts exhausted.
+SMTP acceptance is not mailbox delivery confirmation, opening or click tracking.
+Status changes trigger routing-only invalidation through existing Event SSE after
+the DB commit. Updates are best-effort; reconnect and explicit Refresh recover a
+missed signal. Notification failure cannot change delivery results or cause a
+resend. No polling, new worker or transport is added.
+
+History retention remains the Event lifetime. Content, audience, actor snapshots,
+recipient counts and addresses stay frozen; only delivery operational fields are
+live. Archive/Restore preserve history and the queue. There is no manual resend,
+retry-failed, cancel-delivery or delivery override UI; Send eligibility is unchanged.

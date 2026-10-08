@@ -5,11 +5,9 @@ import {
   ComposeMessage,
   RefreshCommunicationHistory,
 } from "@/features/communications/components/compose-message";
-import { deliveryStatusMeaning } from "@/features/communications/server/history";
-import { readCommunicationHistory } from "@/features/communications/server/read-history";
+import { DeliverySummary } from "@/features/communications/components/delivery-summary";
+import { readCommunicationHistory } from "@/features/communications/server/read";
 import { EventHeader } from "@/features/events/components/event-header";
-import { prisma } from "@/lib/prisma";
-import { requireVerifiedUser } from "@/lib/session";
 
 export default async function CommunicationsPage({
   params,
@@ -18,13 +16,9 @@ export default async function CommunicationsPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ before?: string }>;
 }) {
-  const user = await requireVerifiedUser();
   const { id } = await params;
   const { before } = await searchParams;
-  const data = await prisma.$transaction(
-    (tx) => readCommunicationHistory(tx, id, user.id, before),
-    { isolationLevel: "RepeatableRead", timeout: 15_000 },
-  );
+  const data = await readCommunicationHistory(id, before);
 
   if (!data?.header) {
     notFound();
@@ -68,7 +62,8 @@ export default async function CommunicationsPage({
         </Stack>
         <Typography variant="body2" color="text.secondary">
           Sent means accepted by the mail transport, not confirmed mailbox
-          delivery. Status counts update when History is refreshed.
+          delivery. Status counts update automatically; you can also refresh
+          them.
         </Typography>
         {data.items.length === 0 && (
           <Paper variant="outlined" sx={{ p: 3 }}>
@@ -113,24 +108,22 @@ export default async function CommunicationsPage({
                   : item.trigger?.replaceAll("_", " ").toLowerCase()}{" "}
                 · {item.recipientCount} recipients
               </Typography>
-              <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1 }}>
-                {(["PENDING", "PROCESSING", "SENT", "FAILED"] as const).map(
-                  (status) => (
-                    <Chip
-                      key={status}
-                      size="small"
-                      variant="outlined"
-                      title={deliveryStatusMeaning[status]}
-                      color={
-                        status === "FAILED" && item.deliveryCounts[status]
-                          ? "error"
-                          : "default"
-                      }
-                      label={`${status.charAt(0)}${status.slice(1).toLowerCase()}: ${item.deliveryCounts[status]}`}
-                    />
-                  ),
-                )}
-              </Stack>
+              {item.actorNameSnapshot && (
+                <Typography variant="body2" color="text.secondary">
+                  {item.actorNameSnapshot} · {item.actorRoleSnapshot}
+                </Typography>
+              )}
+              <DeliverySummary
+                recipientCount={item.recipientCount}
+                counts={item.deliveryCounts}
+              />
+              <Button
+                href={`${base}/${item.id}`}
+                aria-label={`View details: ${item.subject}`}
+                sx={{ alignSelf: "flex-start" }}
+              >
+                View details
+              </Button>
             </Stack>
           </Paper>
         ))}

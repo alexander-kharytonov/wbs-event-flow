@@ -136,7 +136,7 @@ async function main() {
     const { previewManualMessage, sendManualMessage } = await import(
       "@/features/communications/server/manual-service"
     );
-    const { readCommunicationHistory } = await import(
+    const { queryCommunicationHistory } = await import(
       "@/features/communications/server/read-history"
     );
     const { loadManualCommunicationEmail } = await import(
@@ -358,7 +358,7 @@ async function main() {
       assert.equal((await sendManualMessage(actor.id, input)).success, false);
       assert.equal(
         await prisma.$transaction((tx) =>
-          readCommunicationHistory(tx, e.id, actor.id),
+          queryCommunicationHistory(tx, e.id, actor.id),
         ),
         null,
       );
@@ -428,7 +428,7 @@ async function main() {
     );
     assert.ok(
       await prisma.$transaction((tx) =>
-        readCommunicationHistory(tx, e.id, manager.id),
+        queryCommunicationHistory(tx, e.id, manager.id),
       ),
     );
     await prisma.event.update({
@@ -775,7 +775,7 @@ async function main() {
       ),
     });
     const history = await prisma.$transaction(
-      (tx) => readCommunicationHistory(tx, e.id, manager.id),
+      (tx) => queryCommunicationHistory(tx, e.id, manager.id),
       { isolationLevel: "RepeatableRead" },
     );
     assert.ok(history);
@@ -791,7 +791,7 @@ async function main() {
       FAILED: 1,
     });
     const next = await prisma.$transaction((tx) =>
-      readCommunicationHistory(tx, e.id, owner.id, history.nextCursor),
+      queryCommunicationHistory(tx, e.id, owner.id, history.nextCursor),
     );
     assert.equal(next?.items.length, 5);
     for (const row of history.items) {
@@ -808,9 +808,9 @@ async function main() {
       }
     }
     const otherHistory = await prisma.$transaction((tx) =>
-      readCommunicationHistory(tx, raceA.id, owner.id, rows[0].id),
+      queryCommunicationHistory(tx, raceA.id, owner.id, rows[0].id),
     );
-    assert.equal(otherHistory?.items.length, 0);
+    assert.equal(otherHistory, null);
     console.log(
       "PASS: history scope, ordering, keyset pagination, aggregate status counts, safe DTO",
     );

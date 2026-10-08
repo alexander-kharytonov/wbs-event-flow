@@ -9,7 +9,8 @@ import { authorizeEventActor } from "@/features/events/server/event-access";
 import { readEventHeader } from "@/features/events/server/event-header";
 import type { Prisma } from "@/generated/prisma/client";
 
-export async function readCommunicationHistory(
+// Transaction primitive; the request reader in read.ts supplies verified identity.
+export async function queryCommunicationHistory(
   tx: Prisma.TransactionClient,
   eventId: string,
   actorUserId: string,
@@ -33,6 +34,11 @@ export async function readCommunicationHistory(
           select: { id: true, createdAt: true },
         })
       : null;
+
+  if (before !== undefined && !cursor) {
+    return null;
+  }
+
   const summaries = await tx.communication.findMany({
     where: {
       eventId,
