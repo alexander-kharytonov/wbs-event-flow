@@ -13,7 +13,7 @@ Reference for Prisma ORM CLI commands. This skill provides guidance on command u
 
 ## Boundary: Platform and Compute
 
-Do not confuse the stable ORM command (`prisma`) with the public-beta Platform package (`@prisma/cli`, binary `prisma-cli`). Use `prisma-compute` for Compute apps and workspace auth, and `prisma-postgres` for Platform projects and databases.
+Do not confuse the stable ORM command (`prisma`) with the public-beta Platform package (`@prisma/cli`, binary `prisma-cli`). Compute apps, workspace auth, and Platform database provisioning are outside this ORM reference.
 
 ## When to Apply
 
