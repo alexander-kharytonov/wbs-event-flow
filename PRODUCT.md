@@ -147,6 +147,8 @@ native browser validation popups. Invalid fields show inline errors until their
 value is edited; editing one field preserves errors on unrelated fields. Server
 field errors use the same presentation. Errors without a matching field appear
 in an Alert above the submission action.
+An empty or unmapped server field-error object must not hide the server message.
+Version-conflict feedback and its reload action remain visible while editing.
 
 Existing authorization, lifecycle and workflow guards still apply. Independent
 actions, such as updating the recipient estimate, require only their own inputs;

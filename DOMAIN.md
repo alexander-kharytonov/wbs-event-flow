@@ -1255,8 +1255,10 @@ Downloads have deterministic ASCII-safe title/dataset filenames, attachment
 Content-Disposition, text/csv UTF-8, private/no-store/max-age=0, nosniff, no-referrer
 and noindex/nofollow/noarchive. Errors also have privacy headers, but plain-text
 content and no attachment. The menu uses ordinary anchors without Next prefetch.
-CSV content/PII is not logged. There are no persistent files, export history/jobs,
-new schema, migrations, dependencies, Template export or Import flows.
+CSV content/PII is not logged. Iteration 26A introduced no persistent files,
+export history/jobs, schema changes, migrations or dependencies. Template export
+and Import/Create were outside 26A; they are now implemented in 26B and 26C
+(sections 30 and 31).
 
 ## 30. Portable EventTemplateV1 / export (26B)
 
@@ -1318,8 +1320,10 @@ The artifact contains no database identities, organizer/publicId, timestamps of
 creation/modification, publication pointers/contentVersion/revisions, cancellation/
 archive state, Applications/Registrations/Attendees/Guests, Tickets/QR/credentials,
 Attendance, notifications/outbox or runtime/lock/history data. It is private
-configuration because staff emails are present. No schema/dependency changes,
-Import/Create flow (26C), template preview/editor or Duplicate Event are included.
+configuration because staff emails are present. Iteration 26B introduced no
+schema/dependency changes and covered export only. Import/Create and its local
+review editor are now implemented in 26C (section 31). Duplicate Event remains
+outside the implemented scope.
 
 
 ## 31. Event template import / atomic create (26C)

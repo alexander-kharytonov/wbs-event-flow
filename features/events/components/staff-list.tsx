@@ -107,11 +107,7 @@ export function StaffList({
 
         if (!result.success) {
           feedback.setErrors(result.fieldErrors ?? {});
-          feedback.setMessage(
-            result.fieldErrors
-              ? undefined
-              : (result.message ?? "Could not update staff."),
-          );
+          feedback.setMessage(result.message ?? "Could not update staff.");
 
           return;
         }

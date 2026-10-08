@@ -78,11 +78,7 @@ export function EventForm({
           ]),
         ),
       );
-      feedback.setMessage(
-        next.errors && Object.keys(next.errors).length
-          ? undefined
-          : next.message,
-      );
+      feedback.setMessage(next.message);
 
       return next;
     },
@@ -455,9 +451,9 @@ export function EventForm({
         </Stack>
       </Box>
       {children}
-      {feedback.message && (
+      {(feedback.message || state.conflict) && (
         <Alert severity="error" role="alert">
-          {feedback.message}
+          {state.conflict ? state.message : feedback.message}
           {state.conflict && edit && (
             <Box sx={{ mt: 1 }}>
               <Button

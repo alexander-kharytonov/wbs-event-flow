@@ -77,11 +77,7 @@ export function PartyGuestsControls({
         }
 
         feedback.setErrors(next.fieldErrors ?? {});
-        feedback.setMessage(
-          next.fieldErrors && Object.keys(next.fieldErrors).length
-            ? undefined
-            : messages[next.code],
-        );
+        feedback.setMessage(messages[next.code] ?? messages.FAILED);
       } catch {
         feedback.setMessage(messages.FAILED);
       }

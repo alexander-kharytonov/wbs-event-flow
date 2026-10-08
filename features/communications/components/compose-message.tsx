@@ -161,7 +161,10 @@ export function ComposeMessage({
 
         if (!result.success) {
           setPreview(null);
-          setError(result.error);
+          setError(
+            result.error ||
+              "Couldn’t refresh the recipient estimate. Please try again.",
+          );
 
           return;
         }
@@ -199,12 +202,20 @@ export function ComposeMessage({
       try {
         const result = await queueMessage(input);
 
+        // An unusable response cannot establish whether the send committed.
+        if (
+          (result.success !== true && result.success !== false) ||
+          (result.success &&
+            (!Number.isSafeInteger(result.recipientCount) ||
+              result.recipientCount < 1)) ||
+          (!result.success &&
+            (typeof result.error !== "string" || !result.error))
+        ) {
+          throw new Error("Unexpected send response");
+        }
+
         if (!result.success) {
-          setError(
-            result.fieldErrors && Object.keys(result.fieldErrors).length
-              ? null
-              : result.error,
-          );
+          setError(result.error);
           setFieldErrors(result.fieldErrors ?? {});
           setAmbiguous((previous) => previous || Boolean(result.ambiguous));
           setConfirming(false);

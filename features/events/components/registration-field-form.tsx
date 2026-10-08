@@ -53,9 +53,7 @@ export function RegistrationFieldForm({
 
   useEffect(() => {
     setErrors(fieldErrors ?? {});
-    setMessage(
-      fieldErrors && Object.keys(fieldErrors).length ? undefined : message,
-    );
+    setMessage(message);
   }, [fieldErrors, message, setErrors, setMessage]);
   const [label, setLabel] = useState(initial?.label ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
@@ -134,6 +132,7 @@ export function RegistrationFieldForm({
             label="Type"
             value={type}
             disabled={pending}
+            {...feedback.field("type")}
             onChange={(event) => {
               const next = event.target.value as FieldType;
               setType(next);

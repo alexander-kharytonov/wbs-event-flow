@@ -293,9 +293,7 @@ export function EventActions({
                   if (!result.success) {
                     feedback.setErrors(result.fieldErrors ?? {});
                     feedback.setMessage(
-                      result.fieldErrors
-                        ? undefined
-                        : (result.message ?? "Could not update this event."),
+                      result.message ?? "Could not update this event.",
                     );
 
                     return;

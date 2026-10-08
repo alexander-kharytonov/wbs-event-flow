@@ -1,7 +1,9 @@
 # Event Flow
 
-Event publishing and application review with an organizer workspace, public event
-catalog, versioned registration forms, and attendee withdrawal/reapplication.
+Event publishing and registration with versioned forms, application review and
+admission, staff permissions, Tickets and Attendance, and printable Badges.
+Organizers can export CSV data, export/import Event templates, and manage
+Communications with frozen history and delivery status visibility.
 See [PRODUCT.md](PRODUCT.md) for implemented capabilities and [DOMAIN.md](DOMAIN.md)
 for domain invariants.
 

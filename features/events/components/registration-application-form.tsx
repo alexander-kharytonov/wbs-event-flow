@@ -59,11 +59,7 @@ export function RegistrationApplicationForm({
         }
       }
       feedback.setErrors(next.errors ?? {});
-      feedback.setMessage(
-        next.errors && Object.keys(next.errors).length
-          ? undefined
-          : next.message,
-      );
+      feedback.setMessage(next.message);
 
       return next;
     },
