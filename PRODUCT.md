@@ -584,9 +584,44 @@ transactional emails, including Event cancellation.
 
 27A adds persistence, contracts, rendering/delivery support, safe history DTOs,
 transactional enqueue and manual admission primitives only. No Manual Send action,
-Communications tab or History UI is available. Existing Event writers still create
-legacy Outbox rows; they are not backfilled or inferred into history. 27B will
-integrate transactional history, 27C will activate manual Send after all workers
+Communications tab or History UI is available. 27B integrates new transactional
+Event emails as described below; legacy Outbox rows are not backfilled or inferred
+into history. 27C will activate manual Send after all workers
 understand the new type and complete admission/enqueue orchestration, and 27D
 will provide the remaining history/details UI. No cleanup/retention job or new
 background infrastructure is introduced.
+
+
+## Transactional Communications integration (27B)
+
+Every new APPLICATION_RECEIVED, NEW_APPLICATION, APPLICATION_APPROVED,
+APPLICATION_REJECTED and EVENT_CANCELLED intent belongs to a Communication.
+Submission creates two logical Communications: applicant confirmation and current
+Event owner notification. Reapplication has a new Application identity and its own
+pair. Approval/rejection each create one Communication for the actual transition.
+Cancellation creates one grouped Communication for the existing normalized unique
+pending Application and active Registration contact addresses, without Guest or
+extra Staff recipients. Empty cancellation audiences record recipientCount=0,
+with no Outbox rows and no delivery claim; the cancellation still happened.
+
+Mutation, Communication, frozen Outbox recipients/payloads and notification commit
+atomically. An enqueue error rolls back the domain action; a subsequent delivery
+failure does not. Existing subjects, email text/HTML, Ticket CTA/private anonymous
+access, dynamic delivery eligibility, retries and at-least-once guarantee are
+unchanged. A shared subject map keeps semantic history aligned with the renderer.
+
+History stores only the trigger and safely available frozen Event title, never
+applicant identity/answers, Ticket references, credentials or capability URLs.
+Public/applicant submission notifications have no actor identity in history.
+Review records the actual Owner/Manager reviewer; cancellation records the verified
+owner who invoked the owner-only action. Name/role snapshots survive Staff removal
+and account deletion. A damaged submitted rejection snapshot still permits Reject
+and omits the optional history title, matching existing email fallback behavior.
+
+Deterministic Event-scoped keys use Application id plus type for submission,
+Application id plus PENDING-to-decision transition and type for review, and Event
+id plus EVENT_CANCELLED for the irreversible one-time cancellation. Existing Outbox
+deduplication keys are preserved. Same key/digest reuses the intent; conflicting
+content fails. History starts with this cutover; null-linked legacy deliveries
+remain deliverable. No Manual Send, History UI, migration, dependency or background
+infrastructure is added by 27B.

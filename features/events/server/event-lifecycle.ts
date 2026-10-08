@@ -1,11 +1,15 @@
 import "server-only";
 import { z } from "zod";
+import { captureCommunicationActor } from "@/features/communications/server/eligibility";
+import { enqueueTransactionalCommunication } from "@/features/communications/server/enqueue";
 import { eventLifecycle } from "@/features/events/event-lifecycle";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 import { lockEventForUpdate } from "@/features/events/server/lock-event-for-update";
 import { Prisma } from "@/generated/prisma/client";
-import { emailOutboxChannel } from "@/lib/email-outbox/enqueue";
-import { eventCancelledPayload } from "@/lib/email-outbox/payload";
+import {
+  eventCancelledPayload,
+  transactionalEmailSubjects,
+} from "@/lib/email-outbox/payload";
 import { prisma } from "@/lib/prisma";
 import {
   applicationNotificationChannel,
@@ -217,30 +221,49 @@ export async function changeOwnedEventLifecycle(
           },
         });
 
-        if (recipients.size > 0) {
-          await tx.emailOutbox.createMany({
-            data: [...recipients].map(([email, application]) => ({
-              type: "EVENT_CANCELLED",
-              deduplicationKey: `${event.id}:EVENT_CANCELLED:${email}`,
-              recipientEmail: email,
-              payload: eventCancelledPayload.parse({
-                schemaVersion: 1,
-                applicantName: application.fullName,
-                event: {
-                  title: snapshot.title,
-                  startsAt: snapshot.startsAt,
-                  endsAt: snapshot.endsAt,
-                  timezone: snapshot.timezone,
-                },
-                cancellationReason: command.reason,
-                ...(currentSnapshot.success && event.publicId
-                  ? { publicId: event.publicId }
-                  : {}),
-              }),
-            })),
-          });
-          await tx.$executeRaw`SELECT pg_notify(${emailOutboxChannel}::text, ''::text)`;
-        }
+        // The existing verified organizer boundary and owner-scoped Event lock
+        // establish this actor; never infer ownership from recipient identity.
+        const owner = await tx.organizerProfile.findUniqueOrThrow({
+          where: { id: event.organizerId },
+          select: { userId: true },
+        });
+        const actor = await captureCommunicationActor(tx, {
+          userId: owner.userId,
+          role: "OWNER",
+        });
+        await enqueueTransactionalCommunication(tx, {
+          eventId: event.id,
+          trigger: "EVENT_CANCELLED",
+          subject: transactionalEmailSubjects.EVENT_CANCELLED,
+          actor,
+          contextSnapshot: {
+            schemaVersion: 1,
+            kind: "TRANSACTIONAL",
+            trigger: "EVENT_CANCELLED",
+            eventTitle: snapshot.title,
+          },
+          // Cancellation is irreversible and can happen only once per Event.
+          idempotencyKey: `${event.id}:EVENT_CANCELLED`,
+          // An empty audience records the cancellation with zero delivery intents.
+          recipients: [...recipients].map(([email, application]) => ({
+            deduplicationKey: `${event.id}:EVENT_CANCELLED:${email}`,
+            recipientEmail: email,
+            payload: eventCancelledPayload.parse({
+              schemaVersion: 1,
+              applicantName: application.fullName,
+              event: {
+                title: snapshot.title,
+                startsAt: snapshot.startsAt,
+                endsAt: snapshot.endsAt,
+                timezone: snapshot.timezone,
+              },
+              cancellationReason: command.reason,
+              ...(currentSnapshot.success && event.publicId
+                ? { publicId: event.publicId }
+                : {}),
+            }),
+          })),
+        });
 
         const users = [
           ...new Set(

@@ -62,8 +62,8 @@ type TransactionalCommunicationInput = {
   }[];
 };
 
-// Foundation only; no existing writer calls this until 27B. No manual enqueue
-// entry point exists in 27A. Caller must propagate failures to roll back its
+// Used by transactional Event writers; no manual enqueue entry point.
+// Caller must propagate failures to roll back its
 // domain mutation as well. No independent transaction and no SMTP here.
 export async function enqueueTransactionalCommunication(
   tx: Prisma.TransactionClient,

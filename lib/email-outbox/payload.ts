@@ -82,3 +82,12 @@ export function rejectionEventTitle(snapshot: unknown) {
 
   return parsed.success ? parsed.data.title : undefined;
 }
+
+// Shared with Communication history; rendering remains the content authority.
+export const transactionalEmailSubjects = {
+  APPLICATION_RECEIVED: "We received your application",
+  NEW_APPLICATION: "A new application for your event",
+  APPLICATION_APPROVED: "Your application is approved",
+  APPLICATION_REJECTED: "An update on your application",
+  EVENT_CANCELLED: "Event cancelled",
+} as const;

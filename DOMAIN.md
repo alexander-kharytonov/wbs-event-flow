@@ -477,9 +477,10 @@ Sources: [emission](lib/realtime/application-notifications.ts),
 Each committed new Application (including reapply) creates APPLICATION_RECEIVED
 for its historical Application.email and NEW_APPLICATION for the organizer's
 User.email. Actual PENDING -> APPROVED/REJECTED transitions create the matching
-applicant notification. Mutation, EmailOutbox rows, and wake-up NOTIFY share the
-same transaction. Duplicate/no-op/error paths create no delivery intent; rollback
-removes both mutation and outbox. Withdrawal creates no email.
+applicant notification. Since 27B, each type creates its own Communication
+(section 33). Mutation, Communication, EmailOutbox rows, and wake-up NOTIFY share
+the same transaction. Duplicate/no-op/error paths create no delivery intent; rollback
+removes the mutation, Communication and outbox. Withdrawal creates no email.
 
 Legacy EmailOutbox has no direct Event/Application foreign keys; 27A adds an optional
 Communication relation (section 32). Its unique deduplicationKey is
@@ -529,7 +530,7 @@ closes the listener, and awaits in-flight delivery. The dispatcher makes no doma
 decisions. Persistent Node runtimes remain required, as for realtime; there is
 no separate Docker worker, generic bus, Redis, or leader election.
 
-Sources: [creation](lib/email-outbox/enqueue.ts),
+Sources: [creation](features/communications/server/enqueue.ts),
 [contracts](lib/email-outbox/payload.ts), [delivery](lib/email-outbox/delivery.ts),
 [dispatcher](lib/email-outbox/dispatcher.ts), [startup](instrumentation.ts).
 
@@ -582,8 +583,9 @@ cancellation columns null, or a non-null cancellation date and a non-null reason
 containing non-whitespace text. No mutation changes a saved cancellation reason.
 Within the Event-locked transaction, Cancel updates the domain fact, selects
 PENDING attempts and active Registrations, deduplicates normalized emails, validates frozen v1
-EVENT_CANCELLED payloads and bulk inserts outbox intents via createMany. A single
-outbox wake-up accompanies a nonempty batch. Each event/address has a unique
+EVENT_CANCELLED payloads and creates one Communication with nested bulk Outbox
+intents (section 33). A single outbox wake-up accompanies a nonempty batch;
+zero recipients still record the cancellation Communication without deliveries. Each event/address has a unique
 cancellation deduplication key. Applicant context is selected deterministically
 from the newest affected attempt for that address. Current published context, or
 last publication when unpublished, supplies email title/schedule/timezone; only a
@@ -1457,7 +1459,8 @@ Event/idempotencyKey with the same digest returns the original id without enqueu
 a different digest fails. Legacy/null-digest records cannot be replayed by guessing.
 Caller must propagate any error to abort the enclosing domain transaction. SQL
 failures abort it; notification and writes commit together. No nested independent
-transaction or SMTP is opened. Existing Event writers are not integrated in 27A.
+transaction or SMTP is opened. 27A supplied the helper; section 33 describes
+its integration into Event writers in 27B.
 Manual content/audience/recipient association contracts prepare 27C, but no manual
 enqueue API, Server Action or production path creates manual Outbox rows in 27A.
 
@@ -1504,3 +1507,84 @@ without legacy backfill. Rolling deployment requires upgrading all workers befor
 manual orchestration; 27D supplies remaining history/details presentation. No
 Communications UI, new background infrastructure or delivery retention is shipped
 by this foundation.
+
+
+## 33. Transactional Communications integration (27B)
+
+The existing submit-application, review-application and event-lifecycle cancellation
+writers now call enqueueTransactionalCommunication inside their original
+ReadCommitted transaction. Existing Event FOR UPDATE, decisionNow, post-lock
+review authorization and owner-scoped lifecycle authorization remain authoritative.
+No domain transition, reviewer provenance, Registration/PRIMARY/Ticket creation,
+Ticket cryptography or application/event SSE routing is changed. No new trigger,
+manual permission precondition, worker, endpoint or background job is introduced.
+
+Submission creates separate APPLICATION_RECEIVED and NEW_APPLICATION Communications
+for Application.email and the current Event OWNER email respectively. Application
+input already trims/lowercases email and Better Auth stores normalized User emails;
+helper normalization preserves these recipients. Review creates one approval or
+rejection Communication for Application.email. Cancellation retains exactly the
+existing PENDING Application + active Registration contact query, normalization,
+deduplication and recipient-context winner order. GUEST, extra Staff, revoked
+Registration and withdrawn/rejected Application contacts are not added.
+
+All new Communication rows have kind TRANSACTIONAL, trigger equal to the delivery
+type, null audience/message and the existing actual subject from the shared
+transactionalEmailSubjects map. Renderers use the same map and retain all other
+text/HTML/CTA and payload parsing behavior. Context is strict semantic v1:
+schemaVersion=1, kind=TRANSACTIONAL, trigger and optional frozen eventTitle only.
+Submission/approval use current published context; cancellation uses the existing
+current-or-last-publication rule; rejection uses its submitted historical title.
+An unreadable rejection snapshot omits the optional title and adds no Reject guard.
+No applicant name/email/answers, Ticket id, credentials, anonymous URL, auth fields,
+raw Outbox payload or rendered HTML enter Communication context/history DTOs.
+Approval Outbox payload v2 keeps ticketId solely as its existing delivery reference.
+Live Ticket/Registration revocation and Event cancellation checks still determine
+the approval CTA at delivery, including anonymous private access; history never
+invokes that live renderer to reconstruct past content.
+
+Both submission notifications use null actor fields: the public/applicant initiator
+is not exposed as a staff history actor. Review captures the currently authorized
+actor's DB name and role after the Event lock, preserving reviewedByUserId semantics.
+Cancellation resolves the actual owner through the locked Event.organizerId and
+existing verified requireOrganizer boundary; OWNER is not a fallback for unknown
+identity. Snapshots persist after membership removal and User SET NULL.
+
+Communication idempotency keys (unique within Event) are:
+
+- Submission: `${applicationId}:APPLICATION_RECEIVED` and
+  `${applicationId}:NEW_APPLICATION`.
+- Review: `${applicationId}:PENDING_TO_APPROVED:APPLICATION_APPROVED` or
+  `${applicationId}:PENDING_TO_REJECTED:APPLICATION_REJECTED`.
+- Cancellation: `${eventId}:EVENT_CANCELLED`.
+
+Cancellation is irreversible and happens at most once. Restore clears archive only;
+it cannot make a cancelled Event cancellable again. No timestamp/random request id
+is needed for its operation identity. Reapplication has a genuinely new Application
+id. Existing Outbox keys remain `${applicationId}:${type}` and
+`${eventId}:EVENT_CANCELLED:${normalizedEmail}`. No independent dedup store exists.
+The helper digest covers the complete parsed immutable intent; same key/digest
+replays the original record and different content conflicts. Domain duplicate/no-op
+paths keep their existing outcomes and do not reach enqueue again.
+
+Cancellation creates ONE Communication, including when there are no recipients.
+The zero-recipient record describes an actual cancellation, not an SMTP intent or
+successful delivery: recipientCount=0, no Outbox rows, no outbox NOTIFY. This extends
+semantic history for the existing EVENT_CANCELLED trigger, not the recipient set
+or email behavior. With recipients, the nested write batches Outbox inserts; it
+never creates one Communication per address and does not apply manual limits,
+including the 1,000-recipient cap. No recipient-specific live queries are added.
+
+The caller's domain mutation, Communication, all recipient rows and routing-only
+NOTIFY commit atomically. Enqueue failure propagates to the original transaction
+boundary; the public/domain error handler runs after rollback. SMTP runs only in
+the unchanged worker after commit. Post-commit failure cannot undo admission,
+review or cancellation. Status/retry/lease/fencing and at-least-once semantics
+remain as in section 18. No manual admission lock is acquired by these writers.
+Existing Event/application invalidations remain unchanged and contain no new
+history content; 27D may complete delivery-status refresh.
+
+Cutover applies only to new successful operations. Previously queued rows with null
+communicationId remain deliverable; legacy history is not inferred/backfilled.
+No schema/migration/dependency changes are required. 27C Manual Send and 27D
+History/Details UI remain unimplemented.
