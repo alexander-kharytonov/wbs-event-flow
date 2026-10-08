@@ -544,9 +544,19 @@ Sources: [creation](features/communications/server/enqueue.ts),
   approved count while preserving approvals.
 - Public UI can briefly be stale; authoritative mutations recheck conditions.
 
-These are current boundaries, not a roadmap. The initial migration is a deliberate
-pre-production development baseline; replacing applied migration history is not
-a deployment strategy for a database containing persistent production data.
+These are current boundaries, not a roadmap. The single PostgreSQL 18 migration
+`20261008180000_baseline` creates the current schema, including all 17 custom CHECK
+constraints. It replaces disposable local development history without data
+transformation or seeding. Replacing applied history is not a deployment strategy
+for persistent production data. Fresh databases use `prisma migrate deploy`.
+
+`db:check` uses one read-only RepeatableRead snapshot. It reports counts for all
+20 application tables and aggregate violations for Application/Registration
+correspondence, PRIMARY identity/cardinality, party activity, Ticket lifecycle,
+QR/MANUAL Attendance, publication references and Communication/Outbox consistency.
+Strict Communication context validation uses bounded keyset pages and the existing
+versioned contract. Empty databases pass with explicit zero data coverage. No
+repair, credential decryption, raw payload/identity logging or email occurs.
 
 
 ## 20. Event lifecycle
@@ -619,8 +629,8 @@ token; content writes continue to advance it.
 ## 21. Registration / granted admission
 
 Application is the request/review/answers/attempt-history authority. Registration
-is the approved-party, lifecycle and ownership authority, created only by approval (or historical
-backfill of a proven approval). `revokedAt IS NULL` means active; a timestamp
+is the approved-party, lifecycle and ownership authority, created only by approval.
+`revokedAt IS NULL` means active; a timestamp
 means historical revoked admission. Event cancellation/completion and archive/restore
 do not mutate Registration. Event lifecycle still independently gates actions.
 
@@ -643,12 +653,11 @@ Approved withdrawal updates Application, Registration and all active Attendees/T
 missing admission or Ticket is an invariant violation, not a successful withdrawal. PENDING withdrawal remains Application-only.
 DB constraints or any thrown failure roll back the entire transaction.
 
-The transactional migration rejects inconsistent timestamps, noncanonical email,
-identity collisions and broken history references; it does not repair history.
-APPROVED backfills active admission at reviewedAt. WITHDRAWN with reviewedAt and
-withdrawnAt backfills revoked admission at those exact times. Other attempts have
-no Registration. Correspondence is checked before commit. Application writers
-must be stopped during migration and resumed only with the matching implementation.
+APPROVED has active admission at reviewedAt. WITHDRAWN with reviewedAt retains
+revoked admission with createdAt = reviewedAt and revokedAt = withdrawnAt;
+withdrawal from PENDING has no Registration. PENDING and REJECTED have no
+Registration. The read-only integrity check verifies identity and timestamp
+correspondence without repairing history.
 
 Owner/Manager Attendees reads authorized Event Attendees through Registration, with All/Active/Revoked
 filters and identity/grant/revocation snapshots. The Attendees navigation badge
@@ -670,7 +679,8 @@ number, unique credential hash, encrypted credential, issuedAt and nullable
 revokedAt. No Event id/status is duplicated: Event is reached through Attendee -> Registration.
 DB CHECKs enforce revokedAt >= issuedAt and an all-null/all-present anonymous
 hash/envelope pair. UNIQUE attendeeId gives cardinality 0..1; matching writers
-and backfill ensure every PRIMARY has exactly one Ticket.
+and integrity verification ensure every PRIMARY has exactly one Ticket. Guest
+creation also atomically issues exactly one Ticket.
 
 The QR bearer credential is `randomBytes(32)` encoded base64url (256 random bits).
 SHA-256 is the deterministic lookup hash. AES-256-GCM with a random 96-bit IV and
@@ -733,16 +743,9 @@ pages always recheck current state. No QR credential enters approval payloads.
 Existing applications.changed routing and empty browser invalidation refresh
 linked Ticket issue/revoke without a new protocol or anonymous stream.
 
-Iteration 21A uses the controlled [Attendee rollout](docs/attendee-migration.md).
-Preparation SQL, a table-locked Node data/crypto transaction, and final SQL are
-separate steps with writers, old consumers and email dispatchers stopped throughout.
-The Node step verifies history and hashes before backfilling PRIMARY, rebinds the
-exact same QR/access secrets from Registration AAD to Attendee AAD using fresh IVs,
-and verifies unchanged Ticket IDs/numbers/hashes/timestamps and Attendance history.
-Production crypto accepts only Attendee context; no legacy fallback exists.
-Repeated runs verify a completed no-op; ambiguous/partial states fail. Missing
-historical Tickets are errors, never an instruction to regenerate credentials.
-The old №19 Ticket backfill command is retired after this cutover.
+Production crypto accepts only Attendee context; no Registration-AAD fallback
+exists. Missing historical Tickets are errors, never an instruction to regenerate
+credentials. Fresh databases require no credential or Attendee backfill.
 
 ## 23. Attendance / QR and Manual check-in
 
@@ -754,7 +757,7 @@ composite (attendeeId, ticketId) FK references Ticket (attendeeId, id)
 with RESTRICT. A DB CHECK requires ticketId for QR and NULL ticketId for MANUAL.
 Existing QR history is validated without rewriting it. User deletion SET NULLs
 the actor; it does not remove the fact. No update/delete/revoke/undo writer exists.
-The additive migration intentionally creates no historical Attendance.
+Attendance is created only by a successful check-in, never inferred from admission.
 
 The check-in Server Action derives the verified User from the authoritative session. Its only client fields are eventId and full qrPayload.
 The server-only parser accepts exactly eventflow:ticket:v1:<credential>, using
@@ -841,10 +844,10 @@ errors or SSE. Next development Server Function argument logging is disabled via
 logging.serverFunctions: false; existing Ticket/auth URL logging exclusions remain.
 External infrastructure must not capture action request bodies containing secrets.
 
-## 24. Attendee structural checkpoint (21A)
+## 24. Attendee / admitted person
 
 Registration is an approved party: it retains userId for ownership/routing and
-createdAt/revokedAt for lifecycle. attendeeName/attendeeEmail remain transitional
+createdAt/revokedAt for lifecycle. attendeeName/attendeeEmail retain submitted
 PRIMARY snapshots. Attendee is a concrete admitted person and capacity seat, with
 UUIDv7 id, Registration RESTRICT, optional User SET NULL, name, nullable email,
 createdAt and nullable revokedAt (timestamptz(3)). CHECKs enforce revokedAt >=
@@ -852,10 +855,10 @@ createdAt and GUEST.userId IS NULL. Guest writers and published policy are defin
 
 A partial UNIQUE registrationId WHERE kind = PRIMARY applies across all history,
 including revoked rows. Exactly one PRIMARY per Registration is established by
-Approve, backfill and verification, without a trigger. PRIMARY copies the submitted
-Application identity and decisionNow; its transitional Registration fields stay
+Approve and integrity verification, without a trigger. PRIMARY copies the submitted
+Application identity and decisionNow; its Registration identity fields stay
 synchronous. Registration.userId is party ownership; Attendee.userId is person
-account association, conceptually distinct even though equal today. Deleting User
+account association, equal for PRIMARY; GUEST has no account. Deleting User
 SET NULLs both without inventing anonymous capabilities or rewriting snapshots.
 
 Approve is Event lock -> DB decisionNow -> guards/active Attendee capacity ->
@@ -873,7 +876,7 @@ route realtime notifications; applications.changed and attendance.changed and th
 SSE protocol are unchanged. Anonymous PRIMARY access now authorizes this party’s view and Guest management
 with the same token and URL.
 Active Registration count equals active PRIMARY count; Guests add further capacity seats.
-The structural checkpoint is extended by iteration 21B below.
+Guest policy and party management are defined below.
 
 ## 25. Guests and party management (21B)
 
@@ -1505,10 +1508,9 @@ communications.read before using them and keep Event scoping; these primitives
 are not public endpoints. No raw payload, SMTP errors, lease metadata, credentials,
 capability URLs or auth/session fields belong to UI DTOs.
 
-Migration 13 is forward-only; migrations 1–12 are unchanged. Legacy rows keep null
-communicationId and deliver normally. History begins with newly associated sends,
-without legacy backfill. Rolling deployment requires upgrading all workers before
-27C activates MANUAL_EVENT_MESSAGE. 27B integrates transactional writers; 27C adds
+The baseline includes the full Communication/Outbox schema. Legacy rows may have
+null communicationId and remain deliverable; history includes associated sends
+without inferring or backfilling legacy history. 27B integrates transactional writers; 27C adds
 manual orchestration; 27D supplies remaining history/details presentation. No
 Communications UI, new background infrastructure or delivery retention is shipped
 by this foundation.

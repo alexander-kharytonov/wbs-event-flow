@@ -233,8 +233,9 @@ The Archived filter offers no Create event action.
 Registration holds the approved party’s ownership and lifecycle. Attendee is the
 concrete admitted person and capacity seat; its Ticket is the immutable credential.
 Registrations contain a PRIMARY and optional GUEST Attendees. Registration ownership and Attendee account association have separate
-responsibilities, even though they currently match. The structural migration
-preserves existing QR credentials, anonymous access tokens/URLs and Ticket history. Verified linked attendees see current and historical Tickets on their
+responsibilities; the PRIMARY account association matches party ownership, while
+GUEST has no linked account. QR credentials, anonymous access tokens/URLs and
+Ticket history remain immutable. Verified linked attendees see current and historical Tickets on their
 Registration Detail. Applicants who were anonymous at Ticket issue receive a
 separate private bearer link in approval email; no account is required. Anyone
 holding that link can view this party’s Tickets and add/remove its Guests. It never grants whole-party withdrawal or claiming.
@@ -608,8 +609,8 @@ transactional emails, including Event cancellation.
 27A adds persistence, contracts, rendering/delivery support, safe history DTOs,
 transactional enqueue and manual admission primitives only. The foundation alone exposes no Manual Send action or Communications UI. 27B integrates new transactional
 Event emails as described below; legacy Outbox rows are not backfilled or inferred
-into history. 27C activates manual Send and minimal History as described below; all workers
-must understand the manual type before deployment. 27D supplies unified history and details as described below. No cleanup/retention job or new
+into history. 27C activates manual Send and minimal History as described below.
+27D supplies unified history and details as described below. No cleanup/retention job or new
 background infrastructure is introduced.
 
 
@@ -643,7 +644,7 @@ Deterministic Event-scoped keys use Application id plus type for submission,
 Application id plus PENDING-to-decision transition and type for review, and Event
 id plus EVENT_CANCELLED for the irreversible one-time cancellation. Existing Outbox
 deduplication keys are preserved. Same key/digest reuses the intent; conflicting
-content fails. History starts with this cutover; null-linked legacy deliveries
+content fails. History contains associated sends; null-linked legacy deliveries
 remain deliverable. No Manual Send, History UI, migration, dependency or background
 infrastructure is added by 27B.
 

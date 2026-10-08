@@ -16,7 +16,7 @@ const numberCollision = z.object({
   }),
 });
 
-// Caller holds the Event lock (or the backfill table locks).
+// Caller holds the Event lock.
 export async function issueTicket(
   tx: Prisma.TransactionClient,
   attendee: Pick<

@@ -42,7 +42,7 @@ Ticket envelopes cannot be recovered without this key. Keep `.env` untracked.
 
 ### Fresh database
 
-For a new, empty database, apply the normal migration history:
+For a new, empty PostgreSQL 18 database, apply the single baseline migration:
 
 ```bash
 pnpm infra:up
@@ -52,15 +52,7 @@ pnpm db:check
 pnpm dev
 ```
 
-The Node Attendee migration is not needed for an empty fresh database: there are
-no historical credentials to rebind.
-
-### Existing populated №20 database → №21A
-
-Follow the canonical [controlled Attendee cutover procedure](docs/attendee-migration.md).
-Do not run ordinary `prisma migrate deploy` across prepare and finalize on a
-populated №20 database without the intermediate Node data/crypto migration.
-Writers, readers and the email dispatcher must remain stopped throughout cutover.
+There are no backfill, cutover or seed steps. Create users and Events through the UI.
 
 Open the configured `BETTER_AUTH_URL`, initially `http://localhost:3000`, and use
 that origin consistently for authentication. Prisma's generated client lives in
@@ -72,12 +64,22 @@ settings. `lib/prisma.ts` is the shared server-only client. DATABASE_URL expands
 from the POSTGRES variables in `.env.example`; use a URL-safe local password or
 percent-encode credentials when constructing a URL.
 
-The migration directory contains an initial development baseline followed by
-incremental migrations. The baseline replaces earlier pre-production migration
-history; new databases apply the complete migration history. An old disposable local database with the removed
-history requires an explicitly authorized reset after verifying its target; this
-is not an in-place migration path for a deployed production/staging database.
-There is no seed step or demo data.
+The migration directory contains `20261008180000_baseline`, replacing all earlier
+local development migrations. It creates the current schema and preserves 17
+custom SQL CHECK constraints alongside Prisma-managed keys and indexes. Future
+schema changes use new incremental migrations; do not edit an applied baseline.
+Prisma drift alone does not verify the custom CHECK constraints.
+
+A disposable local database with the removed history requires an explicitly
+authorized reset, including its migration ledger. Immediately before resetting,
+verify the effective DATABASE_URL is `127.0.0.1:5432/event_flow_dev`, schema `public`,
+with no unexpected connection parameters; confirm PostgreSQL 18, SQL
+`current_database()`, and the loopback-only Docker Compose port binding. Stop
+application writers and the Outbox dispatcher and reject unexpected connections.
+Reset only that verified database, then use `prisma migrate deploy`; do not use
+`migrate resolve` to bypass applying SQL or delete unrelated databases/volumes.
+This is not an in-place upgrade path for persistent production/staging data.
+There is no seed or demo data.
 
 ## Development services
 
@@ -110,9 +112,15 @@ These are the scripts currently defined in package.json:
 | `pnpm db:migrate` | Run local `prisma migrate dev` |
 | `pnpm db:generate` | Generate Prisma Client |
 | `pnpm db:studio` | Open Prisma Studio |
-| `pnpm db:check` | Check connectivity and authoritative №21A invariants in a read-only snapshot; no credential decryption |
-| `pnpm db:migrate-attendees` | Controlled №20 → №21A cutover only; follow the canonical procedure |
-| `pnpm db:backfill-tickets` | Retired fail-loudly guard for old instructions; not a setup or №21A migration step |
+| `pnpm db:check` | Check current domain integrity in a read-only RepeatableRead snapshot; report entity counts and violations without private data |
+
+`db:check` covers Application/Registration correspondence, PRIMARY cardinality and
+identity, party activity, Ticket lifecycle, QR/MANUAL Attendance, current publication
+references, and Communication/Outbox counts, types, normalized associated addresses
+and strict versioned contexts. JSON contexts are read in bounded keyset pages.
+Legacy null-linked Outbox and historical runtime contracts remain supported.
+An empty database passes with an explicit zero-data-coverage message. Failures
+exit nonzero; the command never repairs rows, decrypts credentials or sends mail.
 
 Additional validation commands (CLI invocations, not package scripts):
 
@@ -148,15 +156,11 @@ action. Auth or onboarding GET requests do not create OrganizerProfile.
 - [DOMAIN.md](DOMAIN.md): domain model, invariants, and enforcement boundaries.
 - [AGENTS.md](AGENTS.md): project conventions and instructions for coding agents.
 
-## Historical Ticket backfill
+## Historical credentials
 
-The historical №19 Ticket backfill must have completed before the №21A cutover.
-`db:backfill-tickets` is now a retired, explicitly failing tombstone command that
-guards against old instructions. Do not use it for fresh setup or №21A migration.
-After cutover, a missing historical Ticket is a corruption/investigation case,
-never a reason to generate a replacement credential. See the canonical
-[Attendee cutover procedure](docs/attendee-migration.md) for existing №20 databases.
-
-Protect both database and encryption-key backups.
+A missing historical Ticket is a corruption/investigation case, never a reason to
+generate a replacement credential. Preserve the Ticket encryption key while its
+data is retained; protect database and encryption-key backups separately when
+retaining data. The disposable development baseline reset does not require backups.
 Configure any deployment ingress/CDN/access logger to redact `/ticket/*` URLs;
 application logging excludes these bearer paths but cannot control upstream logs.
