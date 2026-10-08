@@ -9,6 +9,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useEffect, useRef, useState } from "react";
+import { z } from "zod";
 import { BackLink } from "@/components/ui/back-link";
 import {
   rememberVerificationEmail,
@@ -17,6 +18,7 @@ import {
   verificationCooldownKey,
   verificationEmailKey,
 } from "@/features/auth/verification-flow";
+import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { useNotifications } from "@/hooks/use-notifications";
 import { authClient } from "@/lib/auth-client";
 import { safeReturnPath } from "@/lib/safe-return-path";
@@ -35,6 +37,7 @@ export function VerificationForm({
   const [remaining, setRemaining] = useState(0);
   const [cooldownLoaded, setCooldownLoaded] = useState(false);
   const notifications = useNotifications();
+  const feedback = useFormFeedback();
   const [hasFeedback, setHasFeedback] = useState(false);
   const inFlight = useRef(false);
   const retryAt = useRef(0);
@@ -73,6 +76,14 @@ export function VerificationForm({
       return;
     }
 
+    feedback.reset();
+
+    if (!z.email().safeParse(email.trim()).success) {
+      feedback.setErrors({ email: "Enter a valid email address." });
+
+      return;
+    }
+
     inFlight.current = true;
     setPending(true);
     notifications.close("verification-resend");
@@ -91,12 +102,18 @@ export function VerificationForm({
         }
 
         setHasFeedback(true);
-        notifications.show(
-          result.error.status === 429
-            ? "Please wait before requesting another email."
-            : "Could not send the verification email. Please try again.",
-          { severity: "error", key: "verification-resend" },
-        );
+
+        if (result.error.code === "INVALID_EMAIL") {
+          feedback.setErrors({
+            email: result.error.message ?? "Enter a valid email address.",
+          });
+        } else {
+          feedback.setMessage(
+            result.error.status === 429
+              ? "Please wait before requesting another email."
+              : "Could not send the verification email. Please try again.",
+          );
+        }
 
         return;
       }
@@ -109,9 +126,8 @@ export function VerificationForm({
       );
     } catch {
       setHasFeedback(true);
-      notifications.show(
+      feedback.setMessage(
         "Could not confirm email delivery. Check your connection and try again.",
-        { severity: "error", key: "verification-resend" },
       );
     } finally {
       inFlight.current = false;
@@ -151,6 +167,7 @@ export function VerificationForm({
           )}
           <Stack
             component="form"
+            noValidate
             onSubmit={resend}
             spacing={2}
             aria-busy={pending}
@@ -161,15 +178,24 @@ export function VerificationForm({
               type="email"
               autoComplete="email"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                feedback.clear("email");
+              }}
+              {...feedback.field("email")}
               disabled={pending}
               required
               fullWidth
             />
+            {feedback.message && (
+              <Alert severity="error">{feedback.message}</Alert>
+            )}
             <Button
               type="submit"
               variant="contained"
-              disabled={!cooldownLoaded || pending || remaining > 0}
+              disabled={
+                !cooldownLoaded || pending || remaining > 0 || !email.trim()
+              }
             >
               {pending
                 ? "Sending…"

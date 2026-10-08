@@ -35,7 +35,7 @@ export default async function OrganizerOnboardingPage() {
           </Typography>
         </Stack>
         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-          <form action={becomeOrganizer}>
+          <form noValidate action={becomeOrganizer}>
             <Button type="submit" variant="contained">
               Become an organizer
             </Button>

@@ -142,8 +142,13 @@ export function CreateEventModes({ modal = false }: { modal?: boolean }) {
               setIssues([]);
             }}
             fullWidth
-            helperText="Maximum 512 KiB of UTF-8 JSON. Templates may contain private staff emails."
+            error={issues.length > 0}
+            helperText={
+              issues[0]?.message ??
+              "Maximum 512 KiB of UTF-8 JSON. Templates may contain private staff emails."
+            }
           />
+          <TemplateIssues issues={issues} />
           <Button
             variant="outlined"
             sx={{ alignSelf: "flex-start" }}
@@ -165,7 +170,6 @@ export function CreateEventModes({ modal = false }: { modal?: boolean }) {
           >
             Validate
           </Button>
-          <TemplateIssues issues={issues} />
           {review && (
             <>
               {!busy && (

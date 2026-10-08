@@ -1,5 +1,6 @@
 "use client";
 
+import PeopleOutlined from "@mui/icons-material/PeopleOutlined";
 import {
   Alert,
   Box,
@@ -13,8 +14,11 @@ import {
   Typography,
 } from "@mui/material";
 import { type ReactNode, useState, useTransition } from "react";
+import { z } from "zod";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { GuestResult } from "@/features/guests/guest-result";
 import type { PartyGuestsPresentation } from "@/features/guests/server/party-presentation";
+import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { useNotifications } from "@/hooks/use-notifications";
 
 const messages: Record<GuestResult["code"], string> = {
@@ -49,6 +53,9 @@ export function PartyGuestsControls({
   removeAction: (guestId: string) => Promise<GuestResult>;
 }) {
   const notifications = useNotifications();
+  const feedback = useFormFeedback();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [open, setOpen] = useState(false);
   const [removeId, setRemoveId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -69,15 +76,14 @@ export function PartyGuestsControls({
           return;
         }
 
-        notifications.show(messages[next.code], {
-          severity: "error",
-          autoHideDuration: 5000,
-        });
+        feedback.setErrors(next.fieldErrors ?? {});
+        feedback.setMessage(
+          next.fieldErrors && Object.keys(next.fieldErrors).length
+            ? undefined
+            : messages[next.code],
+        );
       } catch {
-        notifications.show(messages.FAILED, {
-          severity: "error",
-          autoHideDuration: 5000,
-        });
+        feedback.setMessage(messages.FAILED);
       }
     });
   }
@@ -100,6 +106,9 @@ export function PartyGuestsControls({
           <Button
             variant="outlined"
             onClick={() => {
+              feedback.reset();
+              setName("");
+              setEmail("");
               setOpen(true);
             }}
           >
@@ -109,9 +118,11 @@ export function PartyGuestsControls({
       </Stack>
       {party.reason && <Alert severity="info">{party.reason}</Alert>}
       {party.items.length === 0 && (
-        <Typography variant="body2" color="text.secondary">
-          No guests added.
-        </Typography>
+        <EmptyState
+          icon={<PeopleOutlined />}
+          title="No guests added"
+          description="Guests added to your registration will appear here."
+        />
       )}
       <Box
         sx={{
@@ -141,6 +152,7 @@ export function PartyGuestsControls({
                   fullWidth
                   color="error"
                   onClick={() => {
+                    feedback.reset();
                     setRemoveId(guest.id);
                   }}
                 >
@@ -161,14 +173,25 @@ export function PartyGuestsControls({
       >
         <Box
           component="form"
-          action={(data) =>
-            submit(() =>
-              addAction({
-                name: String(data.get("name") ?? ""),
-                email: String(data.get("email") ?? ""),
-              }),
-            )
-          }
+          noValidate
+          onSubmit={(event) => {
+            event.preventDefault();
+            feedback.reset();
+            const errors: Record<string, string> = {};
+
+            if (!name.trim() || name.trim().length > 200) {
+              errors.name = "Enter a name of 1–200 characters.";
+            }
+
+            if (email.trim() && !z.email().safeParse(email.trim()).success) {
+              errors.email = "Enter a valid email address.";
+            }
+            feedback.setErrors(errors);
+
+            if (!pending && !Object.keys(errors).length) {
+              submit(() => addAction({ name, email }));
+            }
+          }}
         >
           <DialogTitle>Add guest</DialogTitle>
           <DialogContent>
@@ -176,22 +199,49 @@ export function PartyGuestsControls({
               <TextField
                 name="name"
                 label="Guest name"
+                value={name}
+                disabled={pending}
+                {...feedback.field("name")}
+                onChange={(event) => {
+                  setName(event.target.value);
+                  feedback.clear("name");
+                }}
                 required
                 autoFocus
                 slotProps={{ htmlInput: { maxLength: 200 } }}
               />
-              <TextField name="email" label="Email (optional)" type="email" />
+              <TextField
+                name="email"
+                label="Email (optional)"
+                type="email"
+                value={email}
+                disabled={pending}
+                {...feedback.field("email")}
+                onChange={(event) => {
+                  setEmail(event.target.value);
+                  feedback.clear("email");
+                }}
+              />
               <Typography variant="body2" color="text.secondary">
                 Your guest counts toward event capacity. You can manage guests
                 until the event starts.
               </Typography>
             </Stack>
           </DialogContent>
+          {feedback.message && (
+            <Alert severity="error" sx={{ mx: 3 }}>
+              {feedback.message}
+            </Alert>
+          )}
           <DialogActions>
             <Button disabled={pending} onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" variant="contained" disabled={pending}>
+            <Button
+              type="submit"
+              variant="contained"
+              disabled={pending || !name.trim()}
+            >
               {pending ? "Adding…" : "Add guest"}
             </Button>
           </DialogActions>
@@ -214,6 +264,11 @@ export function PartyGuestsControls({
             </Typography>
           </Stack>
         </DialogContent>
+        {feedback.message && (
+          <Alert severity="error" sx={{ mx: 3 }}>
+            {feedback.message}
+          </Alert>
+        )}
         <DialogActions>
           <Button disabled={pending} onClick={() => setRemoveId(null)}>
             Cancel

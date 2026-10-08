@@ -125,7 +125,7 @@ dates, admission grant/revocation context, and answers from each attempt's submi
 is unavailable, the detail remains readable using safe submitted event context,
 without unpublished workspace content or a View event action.
 
-Registration leads to `/verify-email`. Only the latest successfully sent
+Account registration leads to `/verify-email`. Only the latest successfully sent
 verification link is accepted; it is single-use and expires after one hour.
 An email delivery failure preserves the previous link. Successful
 verification signs the user in. Successful sign-in or verification returns to a
@@ -133,6 +133,25 @@ safe local contextual destination, or `/account` by default. An unverified sign-
 leads to the verification screen; requesting another email is an explicit action,
 with a 60-second resend cooldown that also starts after successful registration.
 Sign out is available in the shared account menu.
+
+## Form feedback and shared UI
+
+Text fields and selects use the shared theme's outlined appearance, including
+focus, error and disabled states. Empty collection views reuse EmptyState with
+an icon, title, description and an optional action.
+
+Form submission actions are disabled while required values are missing or their
+request is pending. Once required values are filled, formatting errors do not
+disable submission: client validation runs on submit and explains them without
+native browser validation popups. Invalid fields show inline errors until their
+value is edited; editing one field preserves errors on unrelated fields. Server
+field errors use the same presentation. Errors without a matching field appear
+in an Alert above the submission action.
+
+Existing authorization, lifecycle and workflow guards still apply. Independent
+actions, such as updating the recipient estimate, require only their own inputs;
+they do not require unrelated message fields to be complete.
+Server validation, authorization and lifecycle rules remain authoritative.
 
 ## Current boundaries
 
@@ -177,8 +196,10 @@ instant and follows the new display zone. Valid exact intervals across a DST fol
 are not blocked by local browser min/max hints, including during template review.
 
 Upcoming workspaces are editable. During an ongoing event, the start is immutable
-and a changed end must remain in the future. Completed, cancelled, and archived
-workspaces are read-only. Applications freeze on completion or cancellation;
+and a changed end must remain in the future. Configuration of completed, cancelled,
+and archived Events is read-only. Operational actions, including Staff management,
+Badge printing and Communications, retain their separately documented eligibility
+rules. Applications freeze on completion or cancellation;
 their statuses and historical answers are preserved. Cancellation, completion,
 archive and restore do not revoke or rewrite Registration history.
 

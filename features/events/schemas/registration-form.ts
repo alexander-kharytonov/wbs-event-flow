@@ -109,6 +109,7 @@ export type RegistrationResult =
       form?: never;
       message: string;
       conflict?: boolean;
+      fieldErrors?: Record<string, string>;
     };
 
 // Shared normalized workspace mapping for individual edits and template creation.

@@ -16,10 +16,14 @@ import {
 } from "@mui/material";
 import { useRouter } from "next/navigation";
 import { useActionState, useState } from "react";
-import type { ApplicationFormState } from "@/features/events/application-input";
+import {
+  type ApplicationFormState,
+  applicationAnswersSchema,
+  applicationInputSchema,
+} from "@/features/events/application-input";
 import type { EventSnapshot } from "@/features/events/schemas/event-snapshot";
 import { submitApplication } from "@/features/events/submit-application-action";
-import { useNotifications } from "@/hooks/use-notifications";
+import { useFormFeedback } from "@/hooks/use-form-feedback";
 
 export function RegistrationApplicationForm({
   publicId,
@@ -34,13 +38,12 @@ export function RegistrationApplicationForm({
   eventRevisionId: string;
   fields: EventSnapshot["registrationForm"]["fields"];
 }) {
-  const notifications = useNotifications();
+  const feedback = useFormFeedback();
   const router = useRouter();
   // Keep entered values on errors; discard them only after server success.
   const [values, setValues] = useState<Record<string, string[]>>(initialValues);
   const [state, action, pending] = useActionState(
     async (previous: ApplicationFormState, formData: FormData) => {
-      notifications.close("registration-submission");
       const next = await submitApplication(
         publicId,
         eventRevisionId,
@@ -54,19 +57,30 @@ export function RegistrationApplicationForm({
         if (applicant) {
           router.refresh();
         }
-      } else if (next.message && !next.errors) {
-        notifications.show(next.message, {
-          severity: "error",
-          key: "registration-submission",
-        });
       }
+      feedback.setErrors(next.errors ?? {});
+      feedback.setMessage(
+        next.errors && Object.keys(next.errors).length
+          ? undefined
+          : next.message,
+      );
 
       return next;
     },
     {},
   );
-  const update = (name: string, value: string[]) =>
+  const update = (name: string, value: string[]) => {
+    feedback.clear(name);
     setValues((previous) => ({ ...previous, [name]: value }));
+  };
+  const complete =
+    Boolean((values.fullName?.[0] ?? applicant?.name ?? "").trim()) &&
+    Boolean((applicant?.email ?? values.email?.[0] ?? "").trim()) &&
+    fields.every(
+      (field) =>
+        !field.required ||
+        (values[`answer:${field.id}`] ?? []).some((value) => value.trim()),
+    );
 
   if (state.success) {
     return (
@@ -81,6 +95,50 @@ export function RegistrationApplicationForm({
     <Stack
       component="form"
       action={action}
+      noValidate
+      onSubmit={(event) => {
+        feedback.reset();
+        const errors: Record<string, string> = {};
+        const input = applicationInputSchema.safeParse({
+          publicId,
+          eventRevisionId,
+          fullName: values.fullName?.[0] ?? applicant?.name ?? "",
+          email: applicant?.email ?? values.email?.[0] ?? "",
+          answers: Object.fromEntries(
+            fields.map((field) => [
+              field.id,
+              values[`answer:${field.id}`] ?? [],
+            ]),
+          ),
+        });
+
+        if (!input.success) {
+          for (const issue of input.error.issues) {
+            errors[String(issue.path[0])] ??= issue.message;
+          }
+        }
+        const answers = applicationAnswersSchema({
+          registrationForm: { fields },
+        }).safeParse(
+          Object.fromEntries(
+            fields.map((field) => [
+              field.id,
+              values[`answer:${field.id}`] ?? [],
+            ]),
+          ),
+        );
+
+        if (!answers.success) {
+          for (const issue of answers.error.issues) {
+            errors[`answer:${String(issue.path[0])}`] ??= issue.message;
+          }
+        }
+
+        if (pending || Object.keys(errors).length) {
+          event.preventDefault();
+          feedback.setErrors(errors);
+        }
+      }}
       onReset={(event) => event.preventDefault()}
       spacing={3}
     >
@@ -91,12 +149,8 @@ export function RegistrationApplicationForm({
         Submit your details for organizer review. Required questions are marked
         with *.
       </Typography>
-      {state.message && state.errors && (
-        <Alert severity="error" role="alert">
-          {state.message}
-        </Alert>
-      )}
       <TextField
+        disabled={pending}
         name="fullName"
         label="Full name"
         autoComplete="name"
@@ -104,11 +158,12 @@ export function RegistrationApplicationForm({
         fullWidth
         value={values.fullName?.[0] ?? applicant?.name ?? ""}
         onChange={(event) => update("fullName", [event.target.value])}
-        error={!!state.errors?.fullName}
-        helperText={state.errors?.fullName}
+        error={!!feedback.errors.fullName}
+        helperText={feedback.errors.fullName}
         slotProps={{ htmlInput: { maxLength: 200 } }}
       />
       <TextField
+        disabled={pending}
         name="email"
         label="Email"
         type="email"
@@ -117,9 +172,9 @@ export function RegistrationApplicationForm({
         fullWidth
         value={applicant?.email ?? values.email?.[0] ?? ""}
         onChange={(event) => update("email", [event.target.value])}
-        error={!!state.errors?.email}
+        error={!!feedback.errors.email}
         helperText={
-          state.errors?.email ??
+          feedback.errors.email ??
           (applicant ? "Using your verified account email." : undefined)
         }
         slotProps={{ input: { readOnly: !!applicant } }}
@@ -127,7 +182,7 @@ export function RegistrationApplicationForm({
       {fields.map((field) => {
         const name = `answer:${field.id}`;
         const selected = values[name] ?? [];
-        const error = state.errors?.[name];
+        const error = feedback.errors[name];
 
         if (field.type === "SHORT_TEXT" || field.type === "LONG_TEXT") {
           return (
@@ -140,6 +195,7 @@ export function RegistrationApplicationForm({
                 {field.label}
               </FormLabel>
               <TextField
+                disabled={pending}
                 id={`question-${field.id}`}
                 name={name}
                 required={field.required}
@@ -171,6 +227,7 @@ export function RegistrationApplicationForm({
                 {field.label}
               </FormLabel>
               <TextField
+                disabled={pending}
                 id={`question-${field.id}`}
                 name={name}
                 select
@@ -216,6 +273,7 @@ export function RegistrationApplicationForm({
                   label={field.label}
                   control={
                     <Checkbox
+                      disabled={pending}
                       name={name}
                       value="true"
                       required={field.required}
@@ -233,6 +291,7 @@ export function RegistrationApplicationForm({
                     label={option.label}
                     control={
                       <Checkbox
+                        disabled={pending}
                         name={name}
                         value={option.id}
                         checked={selected.includes(option.id)}
@@ -258,8 +317,10 @@ export function RegistrationApplicationForm({
           </FormControl>
         );
       })}
+      {feedback.message && <Alert severity="error">{feedback.message}</Alert>}
       <Button
         type="submit"
+        disabled={!complete || pending}
         variant="contained"
         loading={pending}
         sx={{ alignSelf: "flex-start" }}

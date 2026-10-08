@@ -23,9 +23,10 @@ import {
   type EventFormState,
   type EventFormValues,
   eventDateFields,
+  eventInputSchema,
 } from "@/features/events/event-input-schema";
 import { formatTimezone } from "@/features/events/format-timezone";
-import { useNotifications } from "@/hooks/use-notifications";
+import { useFormFeedback } from "@/hooks/use-form-feedback";
 
 const emptyValues: EventFormValues = {
   title: "",
@@ -65,18 +66,23 @@ export function EventForm({
   ) => Promise<EventFormState>;
   edit?: { id: string; version: string; dates: EventDateSource };
 }) {
-  const notifications = useNotifications();
+  const feedback = useFormFeedback();
   const [state, action, pending] = useActionState(
     async (previous: EventFormState, formData: FormData) => {
-      notifications.close("event-form");
       const next = await serverAction(previous, formData);
-
-      if (next.message && !next.errors && !next.conflict) {
-        notifications.show(next.message, {
-          severity: "error",
-          key: "event-form",
-        });
-      }
+      feedback.setErrors(
+        Object.fromEntries(
+          Object.entries(next.errors ?? {}).map(([field, messages]) => [
+            field,
+            messages[0],
+          ]),
+        ),
+      );
+      feedback.setMessage(
+        next.errors && Object.keys(next.errors).length
+          ? undefined
+          : next.message,
+      );
 
       return next;
     },
@@ -138,11 +144,12 @@ export function EventForm({
       onChange: (
         event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
       ) => {
+        feedback.clear(name);
         markDateEdited(name);
         setValues((current) => ({ ...current, [name]: event.target.value }));
       },
-      error: Boolean(state.errors?.[name]),
-      helperText: state.errors?.[name]?.[0],
+      ...feedback.field(name),
+      disabled: pending,
       fullWidth: true,
     };
   }
@@ -151,6 +158,35 @@ export function EventForm({
     <Stack
       component="form"
       action={action}
+      noValidate
+      onSubmit={(event) => {
+        feedback.reset();
+
+        if (pending || disabled) {
+          event.preventDefault();
+
+          return;
+        }
+
+        // Import review validates its preserved absolute instants in its local action.
+        if (exactInstantMode) {
+          return;
+        }
+
+        const parsed = edit
+          ? parseEventEdit(values, edit.dates, editedDates, startLocked)
+          : eventInputSchema.safeParse(values);
+
+        if (!parsed.success) {
+          event.preventDefault();
+          const errors: Record<string, string> = {};
+
+          for (const issue of parsed.error.issues) {
+            errors[String(issue.path[0])] ??= issue.message;
+          }
+          feedback.setErrors(errors);
+        }
+      }}
       spacing={3}
       useFlexGap
       aria-busy={pending}
@@ -171,23 +207,6 @@ export function EventForm({
             <input key={field} type="hidden" name="editedDate" value={field} />
           ))}
         </>
-      )}
-      {state.message && (state.errors || state.conflict) && (
-        <Alert severity="error" role="alert">
-          {state.message}
-          {state.conflict && edit && (
-            <Box sx={{ mt: 1 }}>
-              <Button
-                color="inherit"
-                size="small"
-                component="a"
-                href={`/dashboard/events/${edit.id}/edit`}
-              >
-                Reload latest version
-              </Button>
-            </Box>
-          )}
-        </Alert>
       )}
       <Box
         component="section"
@@ -253,6 +272,7 @@ export function EventForm({
           </Box>
           <input type="hidden" name="timezone" value={values.timezone} />
           <Autocomplete
+            disabled={pending}
             freeSolo
             options={timezones}
             getOptionLabel={formatTimezone}
@@ -269,6 +289,7 @@ export function EventForm({
                 return;
               }
 
+              feedback.clear("timezone");
               markDateEdited("timezone");
               const timezone = input.replaceAll(" ", "_");
               setValues((current) => {
@@ -291,9 +312,9 @@ export function EventForm({
                 {...params}
                 label="Timezone"
                 required
-                error={Boolean(state.errors?.timezone)}
+                error={Boolean(feedback.errors.timezone)}
                 helperText={
-                  state.errors?.timezone?.[0] ??
+                  feedback.errors.timezone ??
                   "All dates and times use this IANA timezone."
                 }
               />
@@ -320,12 +341,14 @@ export function EventForm({
               control={
                 <Switch
                   checked={values.maxGuestsPerRegistration !== "0"}
-                  onChange={(_, enabled) =>
+                  disabled={pending}
+                  onChange={(_, enabled) => {
+                    feedback.clear("maxGuestsPerRegistration");
                     setValues((current) => ({
                       ...current,
                       maxGuestsPerRegistration: enabled ? "1" : "0",
-                    }))
-                  }
+                    }));
+                  }}
                 />
               }
             />
@@ -350,7 +373,7 @@ export function EventForm({
             type="number"
             slotProps={{ htmlInput: { min: 1, max: 2147483647, step: 1 } }}
             helperText={
-              state.errors?.capacity?.[0] ??
+              feedback.errors.capacity ??
               "Leave blank for no limit on admitted attendees."
             }
           />
@@ -373,7 +396,7 @@ export function EventForm({
                 htmlInput: { max: registrationMax("registrationOpensAt") },
               }}
               helperText={
-                state.errors?.registrationOpensAt?.[0] ??
+                feedback.errors.registrationOpensAt ??
                 "Leave blank to allow registration immediately. Must be no later than the event end."
               }
             />
@@ -386,7 +409,7 @@ export function EventForm({
                 htmlInput: { max: registrationMax("registrationClosesAt") },
               }}
               helperText={
-                state.errors?.registrationClosesAt?.[0] ??
+                feedback.errors.registrationClosesAt ??
                 "Leave blank to close registration when the event ends. An earlier deadline is optional."
               }
             />
@@ -406,7 +429,7 @@ export function EventForm({
             label="Who can discover this event?"
             select
             helperText={
-              state.errors?.visibility?.[0] ??
+              feedback.errors.visibility ??
               (values.visibility === "PRIVATE"
                 ? "Only people with the event link can find it. The link is not password protected."
                 : "Your published event appears in Explore events.")
@@ -419,7 +442,7 @@ export function EventForm({
             {...field("accountRequirement")}
             label="Do applicants need an account?"
             helperText={
-              state.errors?.accountRequirement?.[0] ??
+              feedback.errors.accountRequirement ??
               "A required account must have a verified email before applying."
             }
             select
@@ -432,6 +455,23 @@ export function EventForm({
         </Stack>
       </Box>
       {children}
+      {feedback.message && (
+        <Alert severity="error" role="alert">
+          {feedback.message}
+          {state.conflict && edit && (
+            <Box sx={{ mt: 1 }}>
+              <Button
+                color="inherit"
+                size="small"
+                component="a"
+                href={`/dashboard/events/${edit.id}/edit`}
+              >
+                Reload latest version
+              </Button>
+            </Box>
+          )}
+        </Alert>
+      )}
       <Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {edit
@@ -446,7 +486,15 @@ export function EventForm({
           <Button
             type="submit"
             variant="contained"
-            disabled={pending || disabled}
+            disabled={
+              pending ||
+              disabled ||
+              !values.title.trim() ||
+              !values.startsAt ||
+              !values.endsAt ||
+              !values.timezone.trim() ||
+              !values.maxGuestsPerRegistration.trim()
+            }
           >
             {pending
               ? edit

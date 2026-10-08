@@ -5,6 +5,13 @@ import {
   deliveryStatusMeaning,
 } from "@/features/communications/server/history";
 
+export const deliveryStatusColor = {
+  PENDING: "warning",
+  PROCESSING: "info",
+  SENT: "success",
+  FAILED: "error",
+} as const;
+
 export function DeliverySummary({
   recipientCount,
   counts,
@@ -32,9 +39,7 @@ export function DeliverySummary({
               variant="outlined"
               title={deliveryStatusMeaning[status]}
               aria-label={`${status}: ${counts[status]}. ${deliveryStatusMeaning[status]}`}
-              color={
-                status === "FAILED" && counts[status] ? "error" : "default"
-              }
+              color={deliveryStatusColor[status]}
               label={`${status.charAt(0)}${status.slice(1).toLowerCase()}: ${counts[status]}`}
             />
           ),

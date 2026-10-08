@@ -31,6 +31,7 @@ const commandSchema = z.discriminatedUnion("action", [
 export type LifecycleResult = {
   success?: true;
   deleted?: true;
+  fieldErrors?: Record<string, string>;
   message?: string;
 };
 
@@ -43,6 +44,9 @@ export async function changeOwnedEventLifecycle(
   if (!parsed.success) {
     return {
       message: "Check the action and cancellation reason (1–2000 characters).",
+      ...(parsed.error.issues.some((issue) => issue.path[0] === "reason")
+        ? { fieldErrors: { reason: "Enter a reason of 1–2000 characters." } }
+        : {}),
     };
   }
 

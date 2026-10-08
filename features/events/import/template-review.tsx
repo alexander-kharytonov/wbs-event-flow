@@ -5,6 +5,8 @@ import ArrowDownward from "@mui/icons-material/ArrowDownward";
 import ArrowUpward from "@mui/icons-material/ArrowUpward";
 import DeleteOutlined from "@mui/icons-material/DeleteOutlined";
 import EditOutlined from "@mui/icons-material/EditOutlined";
+import PeopleOutlined from "@mui/icons-material/PeopleOutlined";
+import QuizOutlined from "@mui/icons-material/QuizOutlined";
 import {
   Alert,
   Box,
@@ -20,6 +22,7 @@ import {
 } from "@mui/material";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   type BadgeLayout,
   badgeFieldSchema,
@@ -30,6 +33,7 @@ import { RegistrationFieldForm } from "@/features/events/components/registration
 import { EventForm } from "@/features/events/event-form";
 import {
   type EventDateField,
+  type EventFormState,
   eventDateFields,
   eventValidationError,
   type PreservedEventDates,
@@ -49,6 +53,8 @@ import {
   registrationFieldSchema,
 } from "@/features/events/schemas/registration-form";
 import type { TemplateCreateResult } from "@/features/events/server/create-template-event";
+import { staffEmailSchema } from "@/features/events/staff-input";
+import { useFormFeedback } from "@/hooks/use-form-feedback";
 
 export function TemplateIssues({ issues }: { issues: TemplateIssue[] }) {
   return (
@@ -172,6 +178,7 @@ export function TemplateReview({
 }) {
   const router = useRouter();
   const [event, setEvent] = useState(initial);
+  const staffFeedback = useFormFeedback();
   const [staffKeys, setStaffKeys] = useState(() =>
     initial.staff.map((_, index) => String(index)),
   );
@@ -185,6 +192,33 @@ export function TemplateReview({
   const editedDates = useRef(new Set<EventDateField>());
   const nextKey = useRef(initial.registrationForm.fields.length + 1);
   const initialValues = useRef(templateEventValues(initial)).current;
+
+  function showIssues(nextIssues: TemplateIssue[]): EventFormState {
+    const errors: Record<string, string[]> = {};
+    const staffErrors: Record<string, string> = {};
+    const remaining: TemplateIssue[] = [];
+
+    for (const issue of nextIssues) {
+      const field = issue.path.replace(/^event\./, "");
+      const staffField = /^event\.staff\[(\d+)\]\.(email|role)$/.exec(
+        issue.path,
+      );
+
+      if (Object.hasOwn(initialValues, field)) {
+        errors[field] = [...(errors[field] ?? []), issue.message];
+      } else if (staffField && staffKeys[Number(staffField[1])] !== undefined) {
+        staffErrors[`${staffKeys[Number(staffField[1])]}.${staffField[2]}`] =
+          issue.message;
+      } else {
+        remaining.push(issue);
+      }
+    }
+    staffFeedback.setErrors(staffErrors);
+    setIssues(remaining);
+
+    return { errors };
+  }
+
   const fields = event.registrationForm.fields;
   const bindings = portableBindingIssues(event);
 
@@ -246,7 +280,10 @@ export function TemplateReview({
         <EventForm
           exactInstantMode
           initialValues={initialValues}
-          disabled={bindings.length > 0}
+          disabled={
+            bindings.length > 0 ||
+            event.staff.some((member) => !member.email.trim())
+          }
           scheduleNotice={(values) => {
             const preserved: PreservedEventDates = {};
 
@@ -290,6 +327,21 @@ export function TemplateReview({
           }}
           serverAction={async (_previous, formData) => {
             setIssues([]);
+            staffFeedback.reset();
+            const staffErrors: Record<string, string> = {};
+
+            for (const [index, member] of event.staff.entries()) {
+              if (!staffEmailSchema.safeParse(member.email).success) {
+                staffErrors[`${staffKeys[index]}.email`] =
+                  "Enter a valid email address.";
+              }
+            }
+            staffFeedback.setErrors(staffErrors);
+
+            if (Object.keys(staffErrors).length) {
+              return {};
+            }
+
             const preserved: PreservedEventDates = {};
 
             for (const field of eventDateFields) {
@@ -320,9 +372,7 @@ export function TemplateReview({
             });
 
             if (!reviewed.success) {
-              setIssues(reviewed.issues);
-
-              return {};
+              return showIssues(reviewed.issues);
             }
 
             setBusy(true);
@@ -336,8 +386,9 @@ export function TemplateReview({
               if (outcome.success) {
                 setResult(outcome);
               } else {
-                setIssues(outcome.issues);
                 onBusyChange(false);
+
+                return showIssues(outcome.issues);
               }
             } catch {
               setIssues([
@@ -356,7 +407,6 @@ export function TemplateReview({
             return {};
           }}
         >
-          <TemplateIssues issues={issues} />
           <Stack spacing={2}>
             <Typography variant="h6" component="h2">
               Registration Form
@@ -366,9 +416,11 @@ export function TemplateReview({
               local until Create.
             </Typography>
             {fields.length === 0 && (
-              <Typography color="text.secondary">
-                No custom questions.
-              </Typography>
+              <EmptyState
+                icon={<QuizOutlined />}
+                title="No custom questions"
+                description="Add questions to collect more information from your guests."
+              />
             )}
             {fields.map((field, index) => (
               <Box
@@ -468,9 +520,11 @@ export function TemplateReview({
               Staff accounts will be resolved when the event is created.
             </Typography>
             {event.staff.length === 0 && (
-              <Typography color="text.secondary">
-                No staff assignments.
-              </Typography>
+              <EmptyState
+                icon={<PeopleOutlined />}
+                title="No staff assignments"
+                description="Add existing Event Flow users to help manage this event."
+              />
             )}
             {event.staff.map((member, index) => (
               <Stack
@@ -484,7 +538,9 @@ export function TemplateReview({
                   required
                   fullWidth
                   value={member.email}
-                  onChange={(change) =>
+                  {...staffFeedback.field(`${staffKeys[index]}.email`)}
+                  onChange={(change) => {
+                    staffFeedback.clear(`${staffKeys[index]}.email`);
                     setEvent({
                       ...event,
                       staff: event.staff.map((item, i) =>
@@ -492,15 +548,17 @@ export function TemplateReview({
                           ? { ...item, email: change.target.value }
                           : item,
                       ),
-                    })
-                  }
+                    });
+                  }}
                 />
                 <TextField
                   select
                   label="Role"
                   value={member.role}
+                  {...staffFeedback.field(`${staffKeys[index]}.role`)}
                   sx={{ minWidth: 150 }}
-                  onChange={(change) =>
+                  onChange={(change) => {
+                    staffFeedback.clear(`${staffKeys[index]}.role`);
                     setEvent({
                       ...event,
                       staff: event.staff.map((item, i) =>
@@ -511,8 +569,8 @@ export function TemplateReview({
                             }
                           : item,
                       ),
-                    })
-                  }
+                    });
+                  }}
                 >
                   <MenuItem value="MANAGER">Manager</MenuItem>
                   <MenuItem value="RECEPTION">Reception</MenuItem>
@@ -547,6 +605,7 @@ export function TemplateReview({
             </Button>
           </Stack>
           <TemplateIssues issues={bindings} />
+          <TemplateIssues issues={issues} />
           <ReviewBadge
             event={event}
             onChange={(badgeLayout) => {

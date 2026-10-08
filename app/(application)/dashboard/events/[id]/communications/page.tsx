@@ -1,5 +1,21 @@
-import { Button, Chip, Paper, Stack, Typography } from "@mui/material";
+import ChevronRight from "@mui/icons-material/ChevronRight";
+import EmailOutlined from "@mui/icons-material/EmailOutlined";
+import {
+  Alert,
+  Avatar,
+  Box,
+  Button,
+  Chip,
+  List,
+  ListItem,
+  ListItemAvatar,
+  ListItemButton,
+  Paper,
+  Stack,
+  Typography,
+} from "@mui/material";
 import { notFound } from "next/navigation";
+import { EmptyState } from "@/components/ui/empty-state";
 import { audienceLabel } from "@/features/communications/audiences";
 import {
   ComposeMessage,
@@ -60,73 +76,133 @@ export default async function CommunicationsPage({
           </Typography>
           <RefreshCommunicationHistory />
         </Stack>
-        <Typography variant="body2" color="text.secondary">
+        <Alert severity="info">
           Sent means accepted by the mail transport, not confirmed mailbox
           delivery. Status counts update automatically; you can also refresh
           them.
-        </Typography>
-        {data.items.length === 0 && (
-          <Paper variant="outlined" sx={{ p: 3 }}>
-            <Typography>No communications yet.</Typography>
-            <Typography variant="body2" color="text.secondary">
-              Messages queued for this event will appear here.
-            </Typography>
+        </Alert>
+        {data.items.length === 0 ? (
+          <EmptyState
+            icon={<EmailOutlined />}
+            title="No communications yet"
+            description="Messages queued for this event will appear here."
+          />
+        ) : (
+          <Paper variant="outlined" sx={{ overflow: "hidden" }}>
+            <List disablePadding aria-label="Communication history">
+              {data.items.map((item, index) => (
+                <ListItem
+                  key={item.id}
+                  disablePadding
+                  divider={index < data.items.length - 1}
+                >
+                  <ListItemButton
+                    href={`${base}/${item.id}`}
+                    aria-label={`View communication: ${item.subject}`}
+                    sx={{
+                      px: { xs: 2, sm: 3 },
+                      py: 2.5,
+                      gap: 2,
+                      alignItems: "flex-start",
+                    }}
+                  >
+                    <ListItemAvatar
+                      sx={{
+                        minWidth: 0,
+                        mt: 0.5,
+                        display: { xs: "none", sm: "block" },
+                      }}
+                    >
+                      <Avatar
+                        sx={{
+                          bgcolor: "action.selected",
+                          color: "primary.main",
+                        }}
+                      >
+                        <EmailOutlined />
+                      </Avatar>
+                    </ListItemAvatar>
+                    <Stack spacing={2} sx={{ flex: 1, minWidth: 0 }}>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          flexDirection: { xs: "column", md: "row" },
+                          gap: 1,
+                          justifyContent: "space-between",
+                        }}
+                      >
+                        <Stack spacing={0.5} sx={{ minWidth: 0 }}>
+                          <Typography
+                            variant="subtitle1"
+                            component="h3"
+                            sx={{ overflowWrap: "anywhere" }}
+                          >
+                            {item.subject}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {item.audience
+                              ? audienceLabel(item.audience)
+                              : item.trigger
+                                  ?.replaceAll("_", " ")
+                                  .toLowerCase()}
+                            {" · "}
+                            {item.recipientCount} recipients
+                          </Typography>
+                          {item.actorNameSnapshot && (
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              {item.actorNameSnapshot} ·{" "}
+                              {item.actorRoleSnapshot}
+                            </Typography>
+                          )}
+                        </Stack>
+                        <Stack
+                          spacing={0.75}
+                          sx={{
+                            alignItems: { xs: "flex-start", md: "flex-end" },
+                            flexShrink: 0,
+                          }}
+                        >
+                          <Chip
+                            size="small"
+                            label={
+                              item.kind === "MANUAL"
+                                ? "Manual"
+                                : "Transactional"
+                            }
+                            variant="outlined"
+                          />
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            component="time"
+                            dateTime={item.createdAt.toISOString()}
+                          >
+                            {dateFormat.format(item.createdAt)} ·{" "}
+                            {data.header?.context.timezone}
+                          </Typography>
+                        </Stack>
+                      </Box>
+                      <DeliverySummary
+                        recipientCount={item.recipientCount}
+                        counts={item.deliveryCounts}
+                      />
+                    </Stack>
+                    <ChevronRight
+                      sx={{
+                        alignSelf: "center",
+                        color: "text.secondary",
+                        display: { xs: "none", sm: "block" },
+                      }}
+                    />
+                  </ListItemButton>
+                </ListItem>
+              ))}
+            </List>
           </Paper>
         )}
-        {data.items.map((item) => (
-          <Paper key={item.id} variant="outlined" sx={{ p: 2.5 }}>
-            <Stack spacing={1.5}>
-              <Stack
-                direction="row"
-                sx={{ alignItems: "center", flexWrap: "wrap", gap: 1 }}
-              >
-                <Chip
-                  size="small"
-                  label={item.kind === "MANUAL" ? "Manual" : "Transactional"}
-                  variant="outlined"
-                />
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  component="time"
-                  dateTime={item.createdAt.toISOString()}
-                >
-                  {dateFormat.format(item.createdAt)} ·{" "}
-                  {data.header?.context.timezone}
-                </Typography>
-              </Stack>
-              <Typography
-                variant="subtitle1"
-                component="h3"
-                sx={{ fontWeight: 600, overflowWrap: "anywhere" }}
-              >
-                {item.subject}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {item.audience
-                  ? audienceLabel(item.audience)
-                  : item.trigger?.replaceAll("_", " ").toLowerCase()}{" "}
-                · {item.recipientCount} recipients
-              </Typography>
-              {item.actorNameSnapshot && (
-                <Typography variant="body2" color="text.secondary">
-                  {item.actorNameSnapshot} · {item.actorRoleSnapshot}
-                </Typography>
-              )}
-              <DeliverySummary
-                recipientCount={item.recipientCount}
-                counts={item.deliveryCounts}
-              />
-              <Button
-                href={`${base}/${item.id}`}
-                aria-label={`View details: ${item.subject}`}
-                sx={{ alignSelf: "flex-start" }}
-              >
-                View details
-              </Button>
-            </Stack>
-          </Paper>
-        ))}
         <Stack direction="row" spacing={1}>
           {data.hasCursor && (
             <Button href={`${base}#communication-history`}>

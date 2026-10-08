@@ -65,20 +65,6 @@ export function ApplicationsList({
             xs: "minmax(0, 1fr)",
             md: "repeat(2, minmax(0, 1fr))",
           },
-          "& .MuiSelect-select": {
-            display: "flex",
-            alignItems: "center",
-          },
-          "& .MuiOutlinedInput-notchedOutline": {
-            transition: "border-color 150ms ease",
-          },
-          "& .MuiOutlinedInput-root:not(.Mui-focused):not(.Mui-error):not(.Mui-disabled) .MuiOutlinedInput-notchedOutline":
-            { borderColor: "divider" },
-          "& .MuiOutlinedInput-root:hover:not(.Mui-focused):not(.Mui-error):not(.Mui-disabled) .MuiOutlinedInput-notchedOutline":
-            {
-              borderColor:
-                "color-mix(in srgb, var(--mui-palette-divider), var(--mui-palette-text-secondary) 25%)",
-            },
         }}
       >
         <TextField

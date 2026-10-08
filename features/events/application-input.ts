@@ -19,7 +19,9 @@ export const applicationInputSchema = z.strictObject({
   answers: z.record(z.string(), z.array(z.string())),
 });
 
-export function applicationAnswersSchema(snapshot: EventSnapshot) {
+export function applicationAnswersSchema(snapshot: {
+  registrationForm: Pick<EventSnapshot["registrationForm"], "fields">;
+}) {
   const shape = snapshot.registrationForm.fields.map((field) => {
     const values = z
       .array(z.string())

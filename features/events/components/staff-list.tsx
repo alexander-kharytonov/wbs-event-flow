@@ -30,6 +30,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { EventAccessStatus } from "@/features/events/components/event-access-status";
 import { accessLabels } from "@/features/events/event-access-labels";
 import { updateStaff } from "@/features/events/staff-actions";
+import { staffEmailSchema } from "@/features/events/staff-input";
+import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { useNotifications } from "@/hooks/use-notifications";
 
 type Role = "MANAGER" | "RECEPTION";
@@ -52,6 +54,7 @@ export function StaffList({
 }) {
   const router = useRouter();
   const notifications = useNotifications();
+  const feedback = useFormFeedback();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Role | "ALL">("ALL");
   const query = search.trim().toLowerCase();
@@ -72,6 +75,7 @@ export function StaffList({
 
   function open(action: "add" | "change" | "remove", member?: Member) {
     notifications.close(`staff:${eventId}`);
+    feedback.reset();
     setEmail("");
     setRole(member?.role ?? "RECEPTION");
     setDialog({ action, member });
@@ -79,6 +83,14 @@ export function StaffList({
 
   function submit() {
     if (!dialog || pending) {
+      return;
+    }
+
+    feedback.reset();
+
+    if (dialog.action === "add" && !staffEmailSchema.safeParse(email).success) {
+      feedback.setErrors({ email: "Enter a valid email address." });
+
       return;
     }
 
@@ -94,10 +106,12 @@ export function StaffList({
         const result = await updateStaff(command);
 
         if (!result.success) {
-          notifications.show(result.message ?? "Could not update staff.", {
-            severity: "error",
-            key: `staff:${eventId}`,
-          });
+          feedback.setErrors(result.fieldErrors ?? {});
+          feedback.setMessage(
+            result.fieldErrors
+              ? undefined
+              : (result.message ?? "Could not update staff."),
+          );
 
           return;
         }
@@ -117,10 +131,7 @@ export function StaffList({
         setDialog(null);
         router.refresh();
       } catch {
-        notifications.show("Could not update staff. Please try again.", {
-          severity: "error",
-          key: `staff:${eventId}`,
-        });
+        feedback.setMessage("Could not update staff. Please try again.");
       }
     });
   }
@@ -160,17 +171,6 @@ export function StaffList({
               xs: "minmax(0, 1fr)",
               md: "repeat(2, minmax(0, 1fr))",
             },
-            "& .MuiSelect-select": { display: "flex", alignItems: "center" },
-            "& .MuiOutlinedInput-notchedOutline": {
-              transition: "border-color 150ms ease",
-            },
-            "& .MuiOutlinedInput-root:not(.Mui-focused):not(.Mui-error):not(.Mui-disabled) .MuiOutlinedInput-notchedOutline":
-              { borderColor: "divider" },
-            "& .MuiOutlinedInput-root:hover:not(.Mui-focused):not(.Mui-error):not(.Mui-disabled) .MuiOutlinedInput-notchedOutline":
-              {
-                borderColor:
-                  "color-mix(in srgb, var(--mui-palette-divider), var(--mui-palette-text-secondary) 25%)",
-              },
           }}
         >
           <TextField
@@ -322,6 +322,7 @@ export function StaffList({
           </DialogTitle>
           <Box
             component="form"
+            noValidate
             sx={{ display: "flex", flexDirection: "column", minHeight: 0 }}
             onSubmit={(event) => {
               event.preventDefault();
@@ -340,8 +341,15 @@ export function StaffList({
                     autoComplete="off"
                     required
                     value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    helperText="Use their verified Event Flow account email."
+                    onChange={(event) => {
+                      setEmail(event.target.value);
+                      feedback.clear("email");
+                    }}
+                    error={Boolean(feedback.errors.email)}
+                    helperText={
+                      feedback.errors.email ??
+                      "Use their verified Event Flow account email."
+                    }
                   />
                 ) : (
                   dialog?.member && (
@@ -393,6 +401,11 @@ export function StaffList({
                 )}
               </Stack>
             </DialogContent>
+            {feedback.message && (
+              <Alert severity="error" sx={{ mx: 3 }}>
+                {feedback.message}
+              </Alert>
+            )}
             <DialogActions sx={{ px: 3, pb: 3, gap: 1, flexWrap: "wrap" }}>
               {dialog?.action === "change" && (
                 <Button
@@ -413,6 +426,9 @@ export function StaffList({
               </Button>
               <Button
                 type="submit"
+                disabled={
+                  pending || (dialog?.action === "add" && !email.trim())
+                }
                 variant="contained"
                 loading={pending}
                 color={dialog?.action === "remove" ? "error" : "primary"}

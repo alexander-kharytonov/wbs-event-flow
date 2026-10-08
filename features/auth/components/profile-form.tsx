@@ -1,17 +1,19 @@
 "use client";
 
-import { Button, Stack, TextField, Typography } from "@mui/material";
+import { Alert, Button, Stack, TextField, Typography } from "@mui/material";
 import { useActionState, useState } from "react";
 import {
   type ProfileFormState,
   updateProfile,
 } from "@/features/auth/update-profile";
+import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { useNotifications } from "@/hooks/use-notifications";
 
 export function ProfileForm({ name, email }: { name: string; email: string }) {
   const [value, setValue] = useState(name);
   const notifications = useNotifications();
-  const [state, action, pending] = useActionState(
+  const feedback = useFormFeedback();
+  const [, action, pending] = useActionState(
     async (previous: ProfileFormState, formData: FormData) => {
       notifications.close("profile-update");
       const next = await updateProfile(previous, formData);
@@ -24,12 +26,8 @@ export function ProfileForm({ name, email }: { name: string; email: string }) {
         });
       }
 
-      if (next.message) {
-        notifications.show(next.message, {
-          severity: "error",
-          key: "profile-update",
-        });
-      }
+      feedback.setErrors(next.error ? { name: next.error } : {});
+      feedback.setMessage(next.message);
 
       return next;
     },
@@ -39,6 +37,15 @@ export function ProfileForm({ name, email }: { name: string; email: string }) {
   return (
     <Stack
       component="form"
+      noValidate
+      onSubmit={(event) => {
+        feedback.reset();
+
+        if (!value.trim() || value.trim().length > 200) {
+          event.preventDefault();
+          feedback.setErrors({ name: "Enter a name of 1–200 characters." });
+        }
+      }}
       action={action}
       spacing={3}
       aria-busy={pending}
@@ -57,9 +64,11 @@ export function ProfileForm({ name, email }: { name: string; email: string }) {
         name="name"
         autoComplete="name"
         value={value}
-        onChange={(event) => setValue(event.target.value)}
-        error={Boolean(state.error)}
-        helperText={state.error}
+        onChange={(event) => {
+          setValue(event.target.value);
+          feedback.clear("name");
+        }}
+        {...feedback.field("name")}
         slotProps={{ htmlInput: { maxLength: 200 } }}
         disabled={pending}
         required
@@ -72,10 +81,11 @@ export function ProfileForm({ name, email }: { name: string; email: string }) {
         helperText="Email changes are not available yet."
         fullWidth
       />
+      {feedback.message && <Alert severity="error">{feedback.message}</Alert>}
       <Button
         type="submit"
         variant="contained"
-        disabled={pending}
+        disabled={pending || !value.trim()}
         sx={{ alignSelf: "flex-start" }}
       >
         {pending ? "Saving…" : "Save changes"}

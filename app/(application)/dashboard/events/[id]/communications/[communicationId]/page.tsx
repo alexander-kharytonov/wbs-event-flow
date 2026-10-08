@@ -1,16 +1,26 @@
+import PeopleOutlined from "@mui/icons-material/PeopleOutlined";
 import {
   Alert,
+  Avatar,
+  Box,
   Button,
   Chip,
   Divider,
+  List,
+  ListItem,
+  ListItemAvatar,
   Paper,
   Stack,
   Typography,
 } from "@mui/material";
 import { notFound } from "next/navigation";
+import { EmptyState } from "@/components/ui/empty-state";
 import { audienceLabel } from "@/features/communications/audiences";
 import { RefreshCommunicationHistory } from "@/features/communications/components/compose-message";
-import { DeliverySummary } from "@/features/communications/components/delivery-summary";
+import {
+  DeliverySummary,
+  deliveryStatusColor,
+} from "@/features/communications/components/delivery-summary";
 import { deliveryStatusMeaning } from "@/features/communications/server/history";
 import { readCommunicationDetails } from "@/features/communications/server/read";
 import { EventHeader } from "@/features/events/components/event-header";
@@ -92,12 +102,12 @@ export default async function CommunicationDetailsPage({
             recipientCount={item.recipientCount}
             counts={item.deliveryCounts}
           />
-          <Typography variant="body2" color="text.secondary">
+          <Alert severity="info">
             Pending: queued, awaiting an attempt. Processing: claimed by the
             dispatcher. Sent: accepted by the SMTP transport. Failed: automatic
             attempts exhausted. Sent does not confirm mailbox delivery, opening
             or reading.
-          </Typography>
+          </Alert>
           <Divider />
           <Typography variant="h6" component="h3">
             {item.kind === "MANUAL" ? "Message" : "Saved context"}
@@ -131,50 +141,86 @@ export default async function CommunicationDetailsPage({
         <Typography variant="h6" component="h3" id="recipient-deliveries-title">
           Recipient deliveries
         </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Alert severity="info">
           Frozen addresses, ordered by email · up to 50 per page. Delivery
           statuses update automatically.
-        </Typography>
+        </Alert>
         {data.recipients.length === 0 ? (
-          <Paper variant="outlined" sx={{ p: 3 }}>
-            <Typography>
-              {item.recipientCount === 0
+          <EmptyState
+            icon={<PeopleOutlined />}
+            title={
+              item.recipientCount === 0 ? "No recipients" : "No more recipients"
+            }
+            description={
+              item.recipientCount === 0
                 ? "No recipients were queued for this communication."
-                : "No more recipients on this page."}
-            </Typography>
-          </Paper>
+                : "You have reached the end of this recipient list."
+            }
+          />
         ) : (
-          <Stack
-            component="ul"
-            spacing={1}
-            sx={{ listStyle: "none", m: 0, p: 0 }}
-          >
-            {data.recipients.map((recipient) => (
-              <Paper
-                component="li"
-                key={recipient.id}
-                variant="outlined"
-                sx={{ p: 2 }}
-              >
-                <Stack spacing={1}>
-                  <Stack
-                    direction={{ xs: "column", sm: "row" }}
+          <Paper variant="outlined" sx={{ overflow: "hidden" }}>
+            <List disablePadding aria-label="Recipient deliveries">
+              {data.recipients.map((recipient, index) => (
+                <ListItem
+                  key={recipient.id}
+                  divider={index < data.recipients.length - 1}
+                  sx={{
+                    px: { xs: 2, sm: 3 },
+                    py: 2.5,
+                    gap: 2,
+                    alignItems: "flex-start",
+                  }}
+                >
+                  <ListItemAvatar sx={{ minWidth: 0, mt: 0.5 }}>
+                    <Avatar
+                      sx={{
+                        bgcolor: "action.selected",
+                        color: "primary.main",
+                        fontSize: 14,
+                        fontWeight: 600,
+                      }}
+                    >
+                      {Array.from(recipient.recipientEmail)
+                        .slice(0, 2)
+                        .join("")
+                        .toUpperCase()}
+                    </Avatar>
+                  </ListItemAvatar>
+                  <Box
                     sx={{
-                      justifyContent: "space-between",
-                      alignItems: { xs: "flex-start", sm: "center" },
-                      gap: 1,
+                      flex: 1,
+                      minWidth: 0,
+                      display: "flex",
+                      flexDirection: { xs: "column", md: "row" },
+                      gap: 2,
+                      alignItems: { md: "center" },
                     }}
                   >
-                    <Typography sx={{ overflowWrap: "anywhere", minWidth: 0 }}>
-                      {recipient.recipientEmail}
-                    </Typography>
+                    <Stack
+                      spacing={0.5}
+                      sx={{ flex: 1, minWidth: 0, overflowWrap: "anywhere" }}
+                    >
+                      <Typography sx={{ fontWeight: 600 }}>
+                        {recipient.recipientEmail}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Attempts: {recipient.attempts} · Queued:{" "}
+                        {dateFormat.format(recipient.createdAt)}
+                      </Typography>
+                      {recipient.sentAt && (
+                        <Typography variant="caption" color="text.secondary">
+                          SMTP accepted: {dateFormat.format(recipient.sentAt)}
+                        </Typography>
+                      )}
+                    </Stack>
                     <Chip
                       size="small"
                       variant="outlined"
-                      sx={{ flexShrink: 0 }}
-                      color={
-                        recipient.status === "FAILED" ? "error" : "default"
-                      }
+                      sx={{
+                        flexShrink: 0,
+                        alignSelf: { xs: "flex-start", md: "center" },
+                      }}
+                      color={deliveryStatusColor[recipient.status]}
                       label={
                         recipient.status.charAt(0) +
                         recipient.status.slice(1).toLowerCase()
@@ -182,17 +228,11 @@ export default async function CommunicationDetailsPage({
                       aria-label={deliveryStatusMeaning[recipient.status]}
                       title={deliveryStatusMeaning[recipient.status]}
                     />
-                  </Stack>
-                  <Typography variant="body2" color="text.secondary">
-                    Attempts: {recipient.attempts} · Queued:{" "}
-                    {dateFormat.format(recipient.createdAt)}
-                    {recipient.sentAt &&
-                      ` · SMTP accepted: ${dateFormat.format(recipient.sentAt)}`}
-                  </Typography>
-                </Stack>
-              </Paper>
-            ))}
-          </Stack>
+                  </Box>
+                </ListItem>
+              ))}
+            </List>
+          </Paper>
         )}
         <Stack direction="row" spacing={1}>
           {data.hasCursor && (

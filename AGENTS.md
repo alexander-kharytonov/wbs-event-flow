@@ -23,6 +23,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 - Before changing product behavior, domain rules, persistence, authorization, publication, registration, applications, or lifecycle semantics, read the relevant sections of `PRODUCT.md` and `DOMAIN.md`.
 - Local CSS changes or implementation-only refactors do not require reading both documents in full.
+- Before changing forms, field styles, or empty collection views, read the `Form feedback and shared UI` section of `PRODUCT.md` and inspect the existing shared components referenced below. This applies to local UI changes too; it does not require reading unrelated product/domain sections.
 - When a task intentionally changes a documented invariant, update the corresponding documentation in the same task. If a task unexpectedly conflicts with `DOMAIN.md`, report the conflict instead of silently violating the invariant.
 
 ## Project structure
@@ -47,3 +48,12 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Keep layouts usable on both desktop and mobile.
 - Reuse established visual patterns before introducing new ones.
 - Do not create a design system or abstractions unless current UI repetition requires them.
+
+### Shared fields, empty states, and form feedback
+
+- Use `components/ui/empty-state.tsx` for empty collection views, supplying its icon, title, description, and optional action. Reuse the component instead of creating a local empty-state card.
+- Keep common text-field and select appearance in `providers/theme-provider.tsx`. Local layout and sizing are allowed; do not duplicate or override the shared border, background, focus, error, or disabled styles for individual forms.
+- Follow the form behavior defined in `PRODUCT.md`. Use `noValidate` on forms, disable submission while required values are missing or the submission is pending, and run explicit client validation on submit. A non-empty but incorrectly formatted value must remain submittable so validation can explain the error; existing authorization, lifecycle, and workflow guards still apply.
+- Reuse existing shared input schemas for client validation when they are safe to import into the client. Keep server validation and authorization authoritative; never import server-only code or private data into a client form.
+- Use `hooks/use-form-feedback.ts` where its field-error/message model fits. Otherwise preserve the same behavior within the existing form workflow: show field errors inline, clear the affected error when its value changes, and show errors without a matching field in an Alert above the submission action. Preserve errors on unrelated fields.
+- Inspect the neighboring form/list pattern before implementation. Verify empty, populated, validation-error, and pending states, along with desktop/mobile layout where applicable. Report browser checks that were not performed; code checks alone do not establish visual correctness. This does not authorize adding tests beyond the project rule above.

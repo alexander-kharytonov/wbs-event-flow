@@ -7,7 +7,6 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
-  DialogContentText,
   DialogTitle,
   MenuItem,
   Paper,
@@ -83,10 +82,15 @@ export function ComposeMessage({
   const selected = manualAudiences.find((option) => option.value === audience);
   const locked = pending || ambiguous || Boolean(disabledReason);
 
-  function edited() {
+  function edited(field: string) {
     attemptedSend.current = null;
     setError(null);
-    setFieldErrors({});
+    setFieldErrors((current) => {
+      const next = { ...current };
+      delete next[field];
+
+      return next;
+    });
     setSuccess(null);
   }
 
@@ -104,7 +108,12 @@ export function ComposeMessage({
   }
 
   function review(openDialog: boolean) {
-    if (busy.current || ambiguous) {
+    if (
+      busy.current ||
+      ambiguous ||
+      disabledReason ||
+      (openDialog && (!subject.trim() || !message.trim()))
+    ) {
       return;
     }
 
@@ -135,7 +144,9 @@ export function ComposeMessage({
       }
     }
 
-    setFieldErrors(errors);
+    if (openDialog) {
+      setFieldErrors(errors);
+    }
 
     if (Object.keys(errors).length) {
       return;
@@ -189,7 +200,11 @@ export function ComposeMessage({
         const result = await queueMessage(input);
 
         if (!result.success) {
-          setError(result.error);
+          setError(
+            result.fieldErrors && Object.keys(result.fieldErrors).length
+              ? null
+              : result.error,
+          );
           setFieldErrors(result.fieldErrors ?? {});
           setAmbiguous((previous) => previous || Boolean(result.ambiguous));
           setConfirming(false);
@@ -241,7 +256,6 @@ export function ComposeMessage({
             Queued for {success} recipients
           </Alert>
         )}
-        {error && <Alert severity="error">{error}</Alert>}
         {ambiguous && (
           <Alert severity="warning">
             Keep this page open. Retry same send uses the original message and
@@ -257,7 +271,7 @@ export function ComposeMessage({
           error={Boolean(fieldErrors.audience)}
           helperText={fieldErrors.audience ?? selected?.description}
           onChange={(event) => {
-            edited();
+            edited("audience");
             setAudience(event.target.value as ManualAudience);
             setPreview(null);
           }}
@@ -268,31 +282,49 @@ export function ComposeMessage({
             </MenuItem>
           ))}
         </TextField>
-        <Stack spacing={0.5} sx={{ alignItems: "flex-start" }}>
-          <Button
-            disableTouchRipple
-            disabled={locked}
-            onClick={() => review(false)}
-          >
-            Update recipient estimate
-          </Button>
-          <Typography variant="body2">
-            {preview
-              ? `Estimated recipients: ${preview.recipientCount}`
-              : "Update the estimate to see the number of recipients."}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Unique deliverable email addresses. The actual number may change
-            before Send.
-          </Typography>
-          {Boolean(preview?.unavailableCount) && (
-            <Typography variant="caption" color="text.secondary">
-              Missing or invalid email: {preview?.unavailableCount}
-            </Typography>
-          )}
-        </Stack>
+        <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+          <Stack spacing={1.5}>
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              sx={{
+                gap: 1,
+                justifyContent: "space-between",
+                alignItems: { sm: "center" },
+              }}
+            >
+              <Stack spacing={0.5} aria-live="polite">
+                <Typography variant="subtitle2">Recipient estimate</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {preview
+                    ? `Estimated recipients: ${preview.recipientCount}`
+                    : "Update the estimate to see the number of recipients."}
+                </Typography>
+              </Stack>
+              <Button
+                disableTouchRipple
+                variant="outlined"
+                disabled={locked}
+                onClick={() => review(false)}
+                sx={{
+                  alignSelf: { xs: "flex-start", sm: "center" },
+                  flexShrink: 0,
+                }}
+              >
+                Update recipient estimate
+              </Button>
+            </Stack>
+            <Alert severity="info">
+              Unique deliverable email addresses. The actual number may change
+              before Send.
+              {Boolean(preview?.unavailableCount) && (
+                <> Missing or invalid email: {preview?.unavailableCount}.</>
+              )}
+            </Alert>
+          </Stack>
+        </Paper>
         <TextField
           label="Subject"
+          required
           value={subject}
           disabled={locked}
           error={Boolean(fieldErrors.subject)}
@@ -301,12 +333,13 @@ export function ComposeMessage({
             `${[...subject].length}/200 Unicode characters`
           }
           onChange={(event) => {
-            edited();
+            edited("subject");
             setSubject(event.target.value);
           }}
         />
         <TextField
           label="Message"
+          required
           multiline
           minRows={6}
           maxRows={18}
@@ -318,17 +351,22 @@ export function ComposeMessage({
             `Plain text · ${[...message.replace(/\r\n/g, "\n")].length}/10,000 Unicode characters`
           }
           onChange={(event) => {
-            edited();
+            edited("message");
             setMessage(event.target.value);
           }}
         />
+        {error && <Alert severity="error">{error}</Alert>}
         <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>
           <Button
             disableTouchRipple
             action={reviewButton}
             variant="contained"
             startIcon={<SendOutlined />}
-            disabled={pending || Boolean(disabledReason)}
+            disabled={
+              pending ||
+              Boolean(disabledReason) ||
+              (!ambiguous && (!subject.trim() || !message.trim()))
+            }
             onClick={() => {
               if (ambiguous && attemptedSend.current) {
                 setConfirming(true);
@@ -385,11 +423,11 @@ export function ComposeMessage({
                 Estimated recipients: {preview?.recipientCount}
               </Typography>
             )}
-            <DialogContentText>
+            <Alert severity={ambiguous ? "warning" : "info"}>
               {ambiguous
                 ? "This repeats the original request with the same message and key. If it was already queued, you will recover its result. If it was not queued, retry may complete the original send using the current audience and sending limits. No new recipient estimate is requested."
                 : "Send uses the current audience and freezes the recipients when the message is queued. The actual count may differ from this estimate."}
-            </DialogContentText>
+            </Alert>
           </Stack>
         </DialogContent>
         <DialogActions>
@@ -417,11 +455,11 @@ export function ComposeMessage({
       >
         <DialogTitle id="new-message-title">Start a new message?</DialogTitle>
         <DialogContent>
-          <DialogContentText>
+          <Alert severity="warning">
             The previous message may already be queued. This clears the compose
             fields and abandons its retry key. Check History before sending
             another copy.
-          </DialogContentText>
+          </Alert>
         </DialogContent>
         <DialogActions>
           <Button disableTouchRipple onClick={() => setStartingNew(false)}>

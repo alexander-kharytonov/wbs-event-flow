@@ -6,6 +6,7 @@ import ArrowUpward from "@mui/icons-material/ArrowUpward";
 import DeleteOutlined from "@mui/icons-material/DeleteOutlined";
 import EditOutlined from "@mui/icons-material/EditOutlined";
 import LockOutlined from "@mui/icons-material/LockOutlined";
+import QuizOutlined from "@mui/icons-material/QuizOutlined";
 import {
   Alert,
   Box,
@@ -22,6 +23,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useState, useTransition } from "react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { RegistrationFieldForm } from "@/features/events/components/registration-field-form";
 import { changeRegistrationForm } from "@/features/events/registration-form-actions";
 import {
@@ -52,6 +54,7 @@ export function RegistrationFormBuilder({
   const [error, setError] = useState<{
     message: string;
     conflict?: boolean;
+    fieldErrors?: Record<string, string>;
   } | null>(null);
   const notifications = useNotifications();
   const [pending, startTransition] = useTransition();
@@ -190,13 +193,11 @@ export function RegistrationFormBuilder({
           }
         </Stack>
         {form.fields.length === 0 && (
-          <Paper variant="outlined" sx={{ p: 3 }}>
-            <Typography variant="subtitle1">No custom questions yet</Typography>
-            <Typography color="text.secondary" variant="body2">
-              Add questions to collect the information you need from your
-              guests.
-            </Typography>
-          </Paper>
+          <EmptyState
+            icon={<QuizOutlined />}
+            title="No custom questions yet"
+            description="Add questions to collect the information you need from your guests."
+          />
         )}
         {form.fields.map((field, index) => (
           <Paper
@@ -324,6 +325,7 @@ export function RegistrationFormBuilder({
             initial={editor.field}
             pending={pending}
             message={error?.message}
+            fieldErrors={error?.fieldErrors}
             conflict={error?.conflict}
             reloadHref={reloadHref}
             onCancel={() => setEditor(null)}

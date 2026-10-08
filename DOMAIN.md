@@ -60,7 +60,8 @@ Client edit markers never supply preserved timestamps; changed local values or t
 are also detected against the stored row. A timezone edit reinterprets local dates in
 the new zone, except the immutable Ongoing start, whose exact instant only changes
 its display zone. Existing lifecycle/version/contentVersion guards remain unchanged.
-Local HTML min/max are UX hints: import review omits cross-field wall-clock bounds,
+Forms use noValidate and explicit client feedback; the server remains authoritative.
+Local HTML min/max are input hints: import review omits cross-field wall-clock bounds,
 and Edit omits a conflicting hint when its authoritative-source absolute interval is
 valid across a DST fold. The shared absolute relationship validation remains authority.
 
