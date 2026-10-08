@@ -4,6 +4,8 @@ import type { Prisma } from "@/generated/prisma/client";
 
 const permissions = {
   OWNER: [
+    "communications.read",
+    "communications.send",
     "event.context.read",
     "applications.read",
     "applications.review",
@@ -23,6 +25,8 @@ const permissions = {
     "badges.print.team",
   ],
   MANAGER: [
+    "communications.read",
+    "communications.send",
     "badges.print.individual",
     "badges.print.bulk",
     "badges.print.team",

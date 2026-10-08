@@ -540,3 +540,53 @@ duplicate email warnings, followed by Open event. Results stay in memory and may
 vanish on reload; no emails are placed in navigation URLs, cookies or persistent
 browser storage. There is no ImportJob, invitation, destructive import or Duplicate
 Event flow.
+
+## Communications foundation (27A)
+
+Communication stores one immutable logical send for one Event, with kind
+(MANUAL/TRANSACTIONAL), optional transactional trigger, actor name/role snapshot,
+manual audience, subject/message, versioned semantic context, recipient count,
+and Event-scoped idempotency key/request digest. EmailOutbox is its only
+per-recipient delivery authority; each associated row freezes a normalized email.
+There is no third delivery table. History retention is the lifetime of the Event:
+Event/Communication deletion is restricted by history/delivery references. Actor
+account deletion clears only its FK, preserving the name/role snapshot; Staff
+removal never rewrites history.
+
+Owner and Manager have explicit communications.read and communications.send;
+Reception has neither. Future manual sending requires send permission, at least
+one historical EventRevision and an unarchived Event. Thus never-published Draft
+and Archived are history-only; published Upcoming, Ongoing, Completed, previously
+published Cancelled, and restored previously published Events allow sending.
+Unpublish does not erase publication history. Archive/Restore preserve history
+and queued deliveries, never restart old sends or generate new emails.
+
+Manual audience v1 is All active attendees, Primary attendees, Checked in, Not
+arrived, Pending applications, or Event staff. Approved applications are not an
+audience. Subject is 1–200 Unicode code points on one safe line; message is
+1–10,000, with normalized CRLF, ordinary newlines/tabs and no unsafe controls.
+Manual rendering uses the shared Event Flow shell, escaped text and a plain-text
+alternative, server-owned From, and no custom HTML, Reply-To, CTA or tracking.
+Semantic history never copies Ticket credentials or anonymous capability URLs;
+the existing approval delivery still supplies its private access link when eligible.
+
+Delivery status means queued (PENDING), claimed (PROCESSING), accepted by SMTP
+(SENT), or automatic attempts exhausted (FAILED). SENT does not prove mailbox
+delivery or opening. One logical recipient intent can result in at-least-once
+physical SMTP delivery. Existing five attempts and delays of 1 minute, 5 minutes,
+30 minutes and 2 hours remain unchanged.
+
+Future manual admission limits are 1,000 unique recipients per communication,
+5 sends per Event/hour, 10 per actor/hour, and 2,000 outstanding recipients per
+Event / 10,000 globally. Outstanding means PENDING or PROCESSING. DB transaction
+locking primitives prepare concurrent enforcement; these limits never apply to
+transactional emails, including Event cancellation.
+
+27A adds persistence, contracts, rendering/delivery support, safe history DTOs,
+transactional enqueue and manual admission primitives only. No Manual Send action,
+Communications tab or History UI is available. Existing Event writers still create
+legacy Outbox rows; they are not backfilled or inferred into history. 27B will
+integrate transactional history, 27C will activate manual Send after all workers
+understand the new type and complete admission/enqueue orchestration, and 27D
+will provide the remaining history/details UI. No cleanup/retention job or new
+background infrastructure is introduced.

@@ -1,4 +1,5 @@
 import "server-only";
+import { loadManualCommunicationEmail } from "@/features/communications/server/render";
 import type { EmailOutboxType } from "@/generated/prisma/client";
 import {
   applicationApprovedPayload,
@@ -15,7 +16,16 @@ import { decryptTicketSecret } from "@/lib/ticket-crypto";
 export async function renderOutboxEmail(
   type: EmailOutboxType,
   payload: unknown,
+  communicationId: string | null = null,
 ) {
+  if (type === "MANUAL_EVENT_MESSAGE") {
+    if (!communicationId) {
+      throw new Error("Manual delivery has no Communication.");
+    }
+
+    return loadManualCommunicationEmail(prisma, communicationId);
+  }
+
   const origin = getServerEnv().BETTER_AUTH_URL;
   const absoluteUrl = (path: string) => new URL(path, origin).href;
   let subject: string;

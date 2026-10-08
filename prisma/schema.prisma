@@ -25,6 +25,7 @@ model User {
   registrations        Registration[]
   attendees            Attendee[]
   checkedInAttendances Attendance[]
+  communications       Communication[]
 
   @@unique([email])
   @@map("user")
@@ -81,6 +82,7 @@ model Event {
   applications        Application[]
   registrations       Registration[]
   staff               EventStaff[]
+  communications      Communication[]
 
   @@unique([id, publishedRevisionId])
   @@index([organizerId, createdAt])
@@ -327,7 +329,62 @@ model ApplicationAnswerOption {
   @@id([answerId, optionId])
 }
 
+enum CommunicationKind {
+  MANUAL
+  TRANSACTIONAL
+}
+
+enum CommunicationTrigger {
+  EVENT_CANCELLED
+  APPLICATION_RECEIVED
+  NEW_APPLICATION
+  APPLICATION_APPROVED
+  APPLICATION_REJECTED
+}
+
+enum CommunicationAudience {
+  ALL_ACTIVE_ATTENDEES
+  PRIMARY_ATTENDEES
+  CHECKED_IN
+  NOT_ARRIVED
+  PENDING_APPLICATIONS
+  EVENT_STAFF
+}
+
+enum CommunicationActorRole {
+  OWNER
+  MANAGER
+  RECEPTION
+}
+
+model Communication {
+  id                String @id @default(uuid(7)) @db.Uuid
+  eventId           String @db.Uuid
+  kind              CommunicationKind
+  trigger           CommunicationTrigger?
+  createdAt         DateTime @default(now()) @db.Timestamptz(3)
+  actorUserId        String? @db.Uuid
+  actorNameSnapshot  String?
+  actorRoleSnapshot  CommunicationActorRole?
+  audience          CommunicationAudience?
+  subject           String
+  message           String?
+  contextSnapshot   Json
+  recipientCount    Int
+  idempotencyKey    String
+  requestDigest     String?
+  event             Event @relation(fields: [eventId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  actor             User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull, onUpdate: Restrict)
+  deliveries        EmailOutbox[]
+
+  @@unique([eventId, idempotencyKey])
+  @@index([eventId, createdAt, id])
+  @@index([eventId, kind, createdAt])
+  @@index([actorUserId, kind, createdAt])
+}
+
 enum EmailOutboxType {
+  MANUAL_EVENT_MESSAGE
   EVENT_CANCELLED
   APPLICATION_RECEIVED
   NEW_APPLICATION
@@ -344,6 +401,8 @@ enum EmailOutboxStatus {
 
 model EmailOutbox {
   id               String            @id @default(uuid(7)) @db.Uuid
+  communicationId  String? @db.Uuid
+  communication    Communication? @relation(fields: [communicationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   type             EmailOutboxType
   status           EmailOutboxStatus @default(PENDING)
   deduplicationKey String            @unique
@@ -360,6 +419,9 @@ model EmailOutbox {
 
   @@index([status, nextAttemptAt, createdAt])
   @@index([status, lockedAt])
+  @@unique([communicationId, recipientEmail])
+  @@index([communicationId, status, id])
+  @@index([type, status, communicationId])
 }
 
 

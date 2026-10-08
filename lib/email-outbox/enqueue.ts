@@ -19,7 +19,7 @@ export async function enqueueApplicationEmail(
   tx: Prisma.TransactionClient,
   input: {
     applicationId: string;
-    type: EmailOutboxType;
+    type: Exclude<EmailOutboxType, "MANUAL_EVENT_MESSAGE">;
     recipientEmail: string;
     payload: unknown;
   },

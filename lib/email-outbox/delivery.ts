@@ -72,7 +72,11 @@ export async function deliverClaimedEmail(row: EmailOutbox, workerId: string) {
 
   try {
     z.email().parse(row.recipientEmail);
-    message = await renderOutboxEmail(row.type, row.payload);
+    message = await renderOutboxEmail(
+      row.type,
+      row.payload,
+      row.communicationId,
+    );
   } catch {
     await finishEmailDelivery(row, workerId, "Invalid email payload.");
 
