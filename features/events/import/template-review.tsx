@@ -55,6 +55,7 @@ import {
 import type { TemplateCreateResult } from "@/features/events/server/create-template-event";
 import { staffEmailSchema } from "@/features/events/staff-input";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
+import { useNotifications } from "@/hooks/use-notifications";
 
 export function TemplateIssues({ issues }: { issues: TemplateIssue[] }) {
   return (
@@ -177,6 +178,7 @@ export function TemplateReview({
   onBusyChange: (busy: boolean) => void;
 }) {
   const router = useRouter();
+  const notifications = useNotifications();
   const [event, setEvent] = useState(initial);
   const staffFeedback = useFormFeedback();
   const [staffKeys, setStaffKeys] = useState(() =>
@@ -187,8 +189,7 @@ export function TemplateReview({
   const [editor, setEditor] = useState<{ field?: TemplateField } | null>(null);
   const [fieldMessage, setFieldMessage] = useState<string>();
   const [busy, setBusy] = useState(false);
-  const [result, setResult] =
-    useState<Extract<TemplateCreateResult, { success: true }>>();
+  const [created, setCreated] = useState(false);
   const editedDates = useRef(new Set<EventDateField>());
   const nextKey = useRef(initial.registrationForm.fields.length + 1);
   const initialValues = useRef(templateEventValues(initial)).current;
@@ -233,41 +234,8 @@ export function TemplateReview({
     setFields(next);
   }
 
-  if (result) {
-    return (
-      <Stack spacing={2}>
-        <Alert severity="success">
-          Event created. Staff added: {result.addedCount}.
-        </Alert>
-        {result.skippedEmails.length > 0 && (
-          <Alert severity="warning">
-            <Typography>These staff assignments were not added:</Typography>
-            {result.skippedEmails.map((email) => (
-              <Typography
-                variant="body2"
-                key={email}
-                sx={{ overflowWrap: "anywhere" }}
-              >
-                {email}
-              </Typography>
-            ))}
-          </Alert>
-        )}
-        {result.duplicateWarnings.length > 0 && (
-          <Alert severity="info">
-            Duplicate entries were combined:{" "}
-            {result.duplicateWarnings.join(", ")}
-          </Alert>
-        )}
-        <Button
-          variant="contained"
-          sx={{ alignSelf: "flex-start" }}
-          onClick={() => router.replace(`/dashboard/events/${result.eventId}`)}
-        >
-          Open event
-        </Button>
-      </Stack>
-    );
+  if (created) {
+    return <Alert severity="info">Opening event…</Alert>;
   }
 
   return (
@@ -278,7 +246,7 @@ export function TemplateReview({
         sx={{ border: 0, p: 0, m: 0, minWidth: 0 }}
       >
         <EventForm
-          exactInstantMode
+          importedDates={initial}
           initialValues={initialValues}
           disabled={
             bindings.length > 0 ||
@@ -377,19 +345,12 @@ export function TemplateReview({
 
             setBusy(true);
             onBusyChange(true);
+            let outcome: TemplateCreateResult;
 
             try {
               const payload = new FormData();
               payload.set("template", JSON.stringify(reviewed.template));
-              const outcome = await importTemplate(payload);
-
-              if (outcome.success) {
-                setResult(outcome);
-              } else {
-                onBusyChange(false);
-
-                return showIssues(outcome.issues);
-              }
+              outcome = await importTemplate(payload);
             } catch {
               setIssues([
                 {
@@ -400,9 +361,44 @@ export function TemplateReview({
                 },
               ]);
               onBusyChange(false);
-            } finally {
               setBusy(false);
+
+              return {};
             }
+
+            if (!outcome.success) {
+              onBusyChange(false);
+              setBusy(false);
+
+              return showIssues(outcome.issues);
+            }
+
+            // Keep creation locked until navigation completes.
+            setCreated(true);
+            notifications.show(
+              <Stack spacing={1} sx={{ maxHeight: 240, overflowY: "auto" }}>
+                <Typography>
+                  Event created. Staff added: {outcome.addedCount}.
+                </Typography>
+                {outcome.skippedEmails.length > 0 && (
+                  <Typography>
+                    These staff assignments were not added:{" "}
+                    {outcome.skippedEmails.join(", ")}
+                  </Typography>
+                )}
+                {outcome.duplicateWarnings.length > 0 && (
+                  <Typography>
+                    Duplicate entries were combined:{" "}
+                    {outcome.duplicateWarnings.join(", ")}
+                  </Typography>
+                )}
+              </Stack>,
+              {
+                key: `template-created:${outcome.eventId}`,
+                severity: outcome.skippedEmails.length ? "warning" : "success",
+              },
+            );
+            router.replace(`/dashboard/events/${outcome.eventId}`);
 
             return {};
           }}

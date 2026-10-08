@@ -15,6 +15,7 @@ export default async function CommunicationDetailsPage({
       eventId={id}
       communicationId={communicationId}
       after={after}
+      modal
     />
   );
 }

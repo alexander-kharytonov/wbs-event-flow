@@ -54,6 +54,9 @@ Unpublished changes are visible to the organizer and Preview, not public content
 
 Dates are stored as instants with an IANA timezone for input/display. Authoring
 rejects ambiguous/nonexistent edited local DST times. Event end must be after start.
+New authoring/publication requires registration opening <= Event start, closing <=
+Event end, and closing > opening when both boundaries are configured. Empty
+registration boundaries remain allowed; historical snapshots retain their frozen rules.
 Minute-resolution Event Edit preserves untouched dates, including nullable registration
 boundaries, from the locked authoritative Event row with exact seconds/milliseconds.
 Client edit markers never supply preserved timestamps; changed local values or timezone
@@ -61,9 +64,10 @@ are also detected against the stored row. A timezone edit reinterprets local dat
 the new zone, except the immutable Ongoing start, whose exact instant only changes
 its display zone. Existing lifecycle/version/contentVersion guards remain unchanged.
 Forms use noValidate and explicit client feedback; the server remains authoritative.
-Local HTML min/max are input hints: import review omits cross-field wall-clock bounds,
-and Edit omits a conflicting hint when its authoritative-source absolute interval is
-valid across a DST fold. The shared absolute relationship validation remains authority.
+Local HTML min/max constrain the calendar in Create, Edit and template review.
+Edit and template review omit a conflicting wall-clock hint only when the interval
+preserved from the source instants is valid across a DST fold. The shared absolute
+relationship validation remains authority.
 
 Sources: [create](features/events/create-event.ts),
 [edit](features/events/update-event.ts),
@@ -113,8 +117,8 @@ Future authoring changes must not silently redefine that compatibility contract.
 
 `buildEventSnapshot` constructs v2 from workspace and applies the current
 publication validator, also for Preview. New publication forbids registration
-opens/closes after event end. Historical v1 still reads older snapshots containing
-a later close time; effective availability caps it at end.
+opening after Event start or closing after Event end. Historical snapshots still
+read older registration windows; effective availability caps closing at Event end.
 
 Public Event, metadata, catalog, historical detail, prefill, and policy consumers
 use validated historical snapshots. Invalid snapshots fail closed or produce an
@@ -1018,8 +1022,11 @@ The catalog combines draft fields, validated immutable EventRevision fields and 
 bindings, deduplicated by ID/type/label. Historical bindings have no FK to mutable
 RegistrationField. Resolution uses Attendee -> Registration.sourceApplication ->
 Application.eventRevision.snapshot plus ApplicationAnswer, never current draft options.
-Exact fieldId/type/label compatibility is required. Only SHORT_TEXT, LONG_TEXT and
-SINGLE_CHOICE are supported; choice labels come from that submitted snapshot. Missing
+Exact fieldId/type/label compatibility is required. SHORT_TEXT, LONG_TEXT,
+SINGLE_CHOICE and MULTIPLE_CHOICE are supported; choice labels come from that
+submitted snapshot. Multiple selections are joined with ", " in snapshot option
+order; duplicate or unknown selected option IDs make the whole value unavailable.
+The same field descriptor schema supports portable template bindings. Missing
 fields/answers are omitted. Incompatibility or malformed data omits the value and
 produces structured owner preview diagnostics, never string-based status comparisons
 or automatic remapping. The designer also warns about incompatible active historical
@@ -1350,9 +1357,10 @@ Imported UTC instants retain milliseconds until that date is edited. Changing th
 review timezone interprets local date inputs using the new zone. Edited values use
 the same Temporal disambiguation=reject path as manual authoring. Untouched instants
 are not round-tripped through minute-resolution inputs. Shared date relationships
-require end > start, close > open when both exist, and registration boundaries <=
-end. Past dates remain valid, with a warning; endsAt <= now yields Completed and
-read-only after creation under existing lifecycle rules, without shifting dates.
+require end > start, close > open when both exist, registration open <= start and
+registration close <= end. Past dates remain valid, with a warning; endsAt <= now
+yields Completed and read-only after creation under existing lifecycle rules,
+without shifting dates.
 Browser timezone initialization applies only when Create has no supplied timezone.
 Replacing a template remounts all review state.
 
@@ -1396,9 +1404,10 @@ Add Staff uses the same eligibility resolver and budget while retaining its owne
 lock/reauthorization, role-change and notification behavior.
 
 After commit, Import returns only eventId, addedCount, skipped template emails and
-duplicate email warnings. The client replaces the review with a success result and
-Open event navigation, preventing repeat submission in that review. Result state
-is ephemeral; no URL/cookie/persistent storage or ImportJob is used. No destructive
+duplicate email warnings. The client immediately navigates to the new Event page,
+keeping creation disabled until navigation completes. The existing global
+notification displays the import result across navigation. Result state is
+ephemeral; no URL/cookie/persistent storage or ImportJob is used. No destructive
 import, CSV import, publication import, backup/restore, automatic date shifting,
 background job, schema migration or dependency is introduced.
 
@@ -1699,7 +1708,19 @@ require Communication.eventId to equal the requested Event. Invalid/foreign curs
 also return neutral denial; no fallback to a different page is inferred.
 
 History retains createdAt DESC, id DESC, take 21 (20 plus sentinel), and one grouped
-Outbox status query for visible IDs. It never selects recipient rows, message or
+Outbox status query for visible IDs. Optional subject substring (case-insensitive,
+literal wildcard characters) and MANUAL/TRANSACTIONAL filters apply before the
+keyset limit. A verified read-only Server Action validates filter inputs and
+returns only summary rows and pagination metadata. Filter text remains client
+memory state and travels in the request body, not URLs or storage. Existing SSE
+refreshes re-read the active filters; stale responses cannot overwrite newer
+filters. Initial History reads and the client filter default to MANUAL; clearing
+filters selects all kinds. Changing filters resets the cursor.
+Details use the same authorized reader for full pages and an intercepted dialog
+route. Soft navigation opens the dialog with an opaque Communication ID URL;
+Close/Back restores History, and hard navigation renders the full details page.
+Recipient pagination replaces the dialog entry to preserve one-step dismissal.
+History never selects recipient rows, message or
 context. UI adds immutable actor name/role, an overall derived status and an opaque
 ID link to /dashboard/events/[id]/communications/[communicationId]. No persisted
 Communication status exists. Zero count is “No recipients”, never Sent. All Pending,

@@ -51,10 +51,10 @@ export function EventForm({
   disabled = false,
   onDateEdit,
   scheduleNotice,
-  exactInstantMode = false,
+  importedDates,
 }: {
   startLocked?: boolean;
-  exactInstantMode?: boolean;
+  importedDates?: EventDateSource;
   children?: ReactNode;
   scheduleNotice?: (values: EventFormValues) => ReactNode;
   disabled?: boolean;
@@ -86,21 +86,37 @@ export function EventForm({
   );
   const [values, setValues] = useState(initialValues);
   const [editedDates, setEditedDates] = useState<EventDateField[]>([]);
-  const validExactSchedule = edit
-    ? parseEventEdit(values, edit.dates, editedDates, startLocked).success
+  const dateSource = edit?.dates ?? importedDates;
+  const validExactSchedule = dateSource
+    ? parseEventEdit(values, dateSource, editedDates, startLocked).success
     : false;
 
-  // Keep normal Edit hints, but never reject a valid absolute interval at a fold.
-  const endMin =
-    exactInstantMode || (validExactSchedule && values.endsAt < values.startsAt)
-      ? undefined
-      : values.startsAt || undefined;
-  const registrationMax = (
-    field: "registrationOpensAt" | "registrationClosesAt",
-  ) =>
-    exactInstantMode || (validExactSchedule && values[field] > values.endsAt)
-      ? undefined
-      : values.endsAt || undefined;
+  // Wall-clock hints must not exclude preserved absolute intervals at a DST fold.
+  function dateLimit(
+    field: EventDateField,
+    direction: "min" | "max",
+    boundaries: EventDateField[],
+  ) {
+    const candidates = boundaries
+      .map((boundary) => values[boundary])
+      .filter(Boolean)
+      .sort();
+    const limit = direction === "min" ? candidates.at(-1) : candidates[0];
+
+    if (!limit) {
+      return undefined;
+    }
+
+    if (
+      validExactSchedule &&
+      values[field] &&
+      (direction === "min" ? values[field] < limit : values[field] > limit)
+    ) {
+      return undefined;
+    }
+
+    return limit;
+  }
   const [openedVersion] = useState(edit?.version);
   const [timezones, setTimezones] = useState<string[]>([]);
 
@@ -120,7 +136,7 @@ export function EventForm({
   function markDateEdited(name: keyof EventFormValues) {
     onDateEdit?.(name);
 
-    if (!edit) {
+    if (!dateSource) {
       return;
     }
 
@@ -165,7 +181,7 @@ export function EventForm({
         }
 
         // Import review validates its preserved absolute instants in its local action.
-        if (exactInstantMode) {
+        if (importedDates) {
           return;
         }
 
@@ -253,6 +269,10 @@ export function EventForm({
               slotProps={{
                 inputLabel: { shrink: true },
                 input: { readOnly: startLocked },
+                htmlInput: {
+                  min: dateLimit("startsAt", "min", ["registrationOpensAt"]),
+                  max: dateLimit("startsAt", "max", ["endsAt"]),
+                },
               }}
             />
             <TextField
@@ -262,7 +282,12 @@ export function EventForm({
               required
               slotProps={{
                 inputLabel: { shrink: true },
-                htmlInput: { min: endMin },
+                htmlInput: {
+                  min: dateLimit("endsAt", "min", [
+                    "startsAt",
+                    "registrationClosesAt",
+                  ]),
+                },
               }}
             />
           </Box>
@@ -389,11 +414,16 @@ export function EventForm({
               type="datetime-local"
               slotProps={{
                 inputLabel: { shrink: true },
-                htmlInput: { max: registrationMax("registrationOpensAt") },
+                htmlInput: {
+                  max: dateLimit("registrationOpensAt", "max", [
+                    "startsAt",
+                    "registrationClosesAt",
+                  ]),
+                },
               }}
               helperText={
                 feedback.errors.registrationOpensAt ??
-                "Leave blank to allow registration immediately. Must be no later than the event end."
+                "Leave blank to allow registration immediately. Must be no later than the event start and before registration closes."
               }
             />
             <TextField
@@ -402,11 +432,16 @@ export function EventForm({
               type="datetime-local"
               slotProps={{
                 inputLabel: { shrink: true },
-                htmlInput: { max: registrationMax("registrationClosesAt") },
+                htmlInput: {
+                  min: dateLimit("registrationClosesAt", "min", [
+                    "registrationOpensAt",
+                  ]),
+                  max: dateLimit("registrationClosesAt", "max", ["endsAt"]),
+                },
               }}
               helperText={
                 feedback.errors.registrationClosesAt ??
-                "Leave blank to close registration when the event ends. An earlier deadline is optional."
+                "Leave blank to close registration when the event ends. Must be after registration opens and no later than the event end."
               }
             />
           </Box>

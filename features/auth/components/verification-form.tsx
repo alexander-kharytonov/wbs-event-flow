@@ -204,10 +204,10 @@ export function VerificationForm({
                   : "Resend verification email"}
             </Button>
           </Stack>
-          <Typography variant="body2" color="text.secondary">
+          <Alert severity="info">
             Verification links expire after one hour. If your email is already
             verified, return to sign in.
-          </Typography>
+          </Alert>
           <Button href={signInHref}>Back to sign in</Button>
         </Stack>
       </Paper>

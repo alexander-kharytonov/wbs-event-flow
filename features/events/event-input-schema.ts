@@ -99,6 +99,14 @@ export function validateEventDateRelationships(
     });
   }
 
+  if (registrationOpensAt && registrationOpensAt > startsAt) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["registrationOpensAt"],
+      message: "Registration must open no later than the event start.",
+    });
+  }
+
   if (
     registrationOpensAt &&
     registrationClosesAt &&

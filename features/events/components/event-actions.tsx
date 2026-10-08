@@ -223,9 +223,15 @@ export function EventActions({
           {action && labels[action]}
         </DialogTitle>
         <DialogContent>
-          <DialogContentText>
-            {action && descriptions[action]}
-          </DialogContentText>
+          {action === "cancel" || action === "unpublish" ? (
+            <Alert severity={action === "cancel" ? "error" : "warning"}>
+              {descriptions[action]}
+            </Alert>
+          ) : (
+            <DialogContentText>
+              {action && descriptions[action]}
+            </DialogContentText>
+          )}
           {action === "cancel" && (
             <TextField
               autoFocus

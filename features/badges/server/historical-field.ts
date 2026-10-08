@@ -53,8 +53,11 @@ export function resolveBadgeField(
 
   let value: string;
 
-  if (field.type === "SINGLE_CHOICE") {
-    if (answer.textValue !== null || answer.selectedOptions.length > 1) {
+  if (field.type === "SINGLE_CHOICE" || field.type === "MULTIPLE_CHOICE") {
+    if (
+      answer.textValue !== null ||
+      (field.type === "SINGLE_CHOICE" && answer.selectedOptions.length > 1)
+    ) {
       return { status: "UNAVAILABLE" };
     }
 
@@ -62,15 +65,19 @@ export function resolveBadgeField(
       return { status: "MISSING" };
     }
 
-    const option = field.options.find(
-      ({ id }) => id === answer.selectedOptions[0].optionId,
+    const selectedIds = new Set(
+      answer.selectedOptions.map(({ optionId }) => optionId),
     );
+    const selected = field.options.filter(({ id }) => selectedIds.has(id));
 
-    if (!option) {
+    if (
+      selectedIds.size !== answer.selectedOptions.length ||
+      selected.length !== selectedIds.size
+    ) {
       return { status: "UNAVAILABLE" };
     }
 
-    value = option.label;
+    value = selected.map(({ label }) => label).join(", ");
   } else {
     if (answer.selectedOptions.length > 0) {
       return { status: "UNAVAILABLE" };

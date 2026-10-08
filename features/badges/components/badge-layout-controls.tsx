@@ -15,6 +15,7 @@ import {
   badgeSizes,
   sameBadgeField,
 } from "@/features/badges/badge-layout";
+import { fieldTypeLabels } from "@/features/events/schemas/registration-form";
 
 export function BadgeLayoutControls({
   layout,
@@ -74,12 +75,7 @@ export function BadgeLayoutControls({
             value={String(position)}
             sx={{ whiteSpace: "normal" }}
           >
-            {field.label} ·{" "}
-            {field.type === "SHORT_TEXT"
-              ? "Short text"
-              : field.type === "LONG_TEXT"
-                ? "Long text"
-                : "Single choice"}
+            {field.label} · {fieldTypeLabels[field.type]}
             {catalog.some(
               (other) =>
                 other.fieldId !== field.fieldId &&

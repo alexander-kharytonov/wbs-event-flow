@@ -1,9 +1,9 @@
-import { Chip, Stack } from "@mui/material";
+import { Chip, Stack, Typography } from "@mui/material";
 import {
   communicationDeliverySummary,
   type DeliveryCounts,
   deliveryStatusMeaning,
-} from "@/features/communications/server/history";
+} from "@/features/communications/delivery-status";
 
 export const deliveryStatusColor = {
   PENDING: "warning",
@@ -15,14 +15,22 @@ export const deliveryStatusColor = {
 export function DeliverySummary({
   recipientCount,
   counts,
+  compact = false,
 }: {
   recipientCount: number;
   counts: DeliveryCounts;
+  compact?: boolean;
 }) {
   const summary = communicationDeliverySummary(recipientCount, counts);
 
   return (
-    <Stack spacing={1}>
+    <Stack
+      direction={compact ? { xs: "column", sm: "row" } : "column"}
+      sx={{
+        gap: compact ? 1.5 : 1,
+        alignItems: compact ? { sm: "center" } : undefined,
+      }}
+    >
       <Chip
         size="small"
         label={summary.label}
@@ -30,9 +38,29 @@ export function DeliverySummary({
         sx={{ alignSelf: "flex-start" }}
         aria-label={`Overall status: ${summary.label}`}
       />
-      <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1 }}>
-        {(["PENDING", "PROCESSING", "SENT", "FAILED"] as const).map(
-          (status) => (
+      <Stack
+        direction="row"
+        sx={{ flexWrap: "wrap", columnGap: compact ? 2 : 1, rowGap: 0.75 }}
+      >
+        {(["PENDING", "PROCESSING", "SENT", "FAILED"] as const).map((status) =>
+          compact ? (
+            <Typography
+              key={status}
+              variant="caption"
+              title={deliveryStatusMeaning[status]}
+              aria-label={`${status}: ${counts[status]}. ${deliveryStatusMeaning[status]}`}
+              sx={{
+                color:
+                  counts[status] > 0
+                    ? `${deliveryStatusColor[status]}.main`
+                    : "text.secondary",
+                fontWeight: counts[status] > 0 ? 600 : 400,
+              }}
+            >
+              {status.charAt(0)}
+              {status.slice(1).toLowerCase()}: {counts[status]}
+            </Typography>
+          ) : (
             <Chip
               key={status}
               size="small"

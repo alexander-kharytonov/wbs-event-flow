@@ -65,7 +65,11 @@ reapplication rule below. A new account requirement applies to old open forms to
 Registration is Not open yet, Open, or Closed. It closes at the earlier of the
 configured close time and event end, or at event end if no close time was set.
 It may remain open after the event starts, but never after it ends. New event
-settings cannot place registration opening or closing after event end.
+settings require registration opening no later than event start and closing no
+later than event end. When both registration boundaries are set, closing must be
+after opening. Event end must be after event start. Create/Edit and template review
+date fields provide linked calendar min/max bounds; explicit validation explains
+invalid date combinations.
 
 Only active Attendees occupy places. A full event can still receive pending
 applications; approval waits until a place is available. Capacity may be unlimited.
@@ -353,7 +357,9 @@ Ticket/QR fields. Padding sets the inner spacing on all sides from 0 to 10 mm
 in whole millimeters (default 3 mm), shared by preview and print. Save affects newly
 opened print documents.
 
-Owners explicitly select up to two SHORT_TEXT, LONG_TEXT or SINGLE_CHOICE questions.
+Owners explicitly select up to two SHORT_TEXT, LONG_TEXT, SINGLE_CHOICE or
+MULTIPLE_CHOICE questions. Multiple-choice values list selected option labels
+separated by a comma and space, in the submitted form's option order.
 PRIMARY values come from the submitted Application revision only when field ID, type
 and label match the selected descriptor. Missing values are omitted; incompatible
 values are omitted with owner preview warnings. Guests never inherit PRIMARY answers.
@@ -559,9 +565,10 @@ attempt. Repeated operations consume budget again. This is not a distributed
 abuse-prevention guarantee. Successful assignment reveals eligibility as with
 existing Add Staff; unavailable reasons and account metadata are never returned.
 
-After creation, the import result shows added Staff count and neutral skipped/
-duplicate email warnings, followed by Open event. Results stay in memory and may
-vanish on reload; no emails are placed in navigation URLs, cookies or persistent
+After successful manual or template creation, the app immediately opens the new
+Event page. Import shows added Staff count and neutral skipped/duplicate email
+warnings in a notification that remains visible after navigation. Results stay in
+memory and may vanish on reload; no emails are placed in navigation URLs, cookies or persistent
 browser storage. There is no ImportJob, invitation, destructive import or Duplicate
 Event flow.
 
@@ -717,7 +724,20 @@ worker, polling mechanism or background infrastructure is introduced.
 The existing Communications History unifies Manual and Transactional messages,
 with subject, trigger/audience, creation time, frozen actor name/role, recipient
 count, four delivery counts and an overall status. Newest-first keyset pages
-contain 20 records. Zero-recipient communications say “No recipients”; mixed
+contain 20 records. History supports case-insensitive subject search and an
+All/Manual/Transactional type filter across the full Event history, with Manual
+selected on initial load. Clear filters shows All types. Changing a
+filter returns to the latest matching page. Search stays in memory and is sent
+only in a read request body, never in URLs or browser storage. Type chips use
+consistent distinct colors and icons in History and details. Actor roles reuse
+the shared EventAccessStatus chip. History rows group subject/type/time, audience
+and actor, then a compact delivery summary with all four counts.
+Clicking a History row opens details in a dialog and updates the URL. Closing,
+Escape or Back restores History with its filters; Forward reopens the dialog.
+Reloading or directly opening that URL renders the full communication details
+page. Recipient pagination within the dialog replaces the current history entry,
+so closing still returns to History in one step.
+Zero-recipient communications say “No recipients”; mixed
 results distinguish in-progress partial failures from completed failures.
 Invalid counts or a delivery total different from the frozen recipient count
 show the neutral “Status unavailable”, including inconsistent zero-recipient rows.
