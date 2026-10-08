@@ -1465,7 +1465,7 @@ Manual content/audience/recipient association contracts prepare 27C, but no manu
 enqueue API, Server Action or production path creates manual Outbox rows in 27A.
 
 Manual admission primitives use a fixed global pg_advisory_xact_lock(27001, 1)
-inside the caller's ReadCommitted transaction. Required future lock order:
+inside the caller's ReadCommitted transaction. Required lock order:
 Event FOR UPDATE -> current authorization/eligibility -> idempotency replay check
 -> global admission lock -> fresh DB clock/counts -> atomic insertion -> commit.
 Do not lock another Event after acquiring admission. All manual admission writers
@@ -1586,5 +1586,95 @@ history content; 27D may complete delivery-status refresh.
 
 Cutover applies only to new successful operations. Previously queued rows with null
 communicationId remain deliverable; legacy history is not inferred/backfilled.
-No schema/migration/dependency changes are required. 27C Manual Send and 27D
-History/Details UI remain unimplemented.
+No schema/migration/dependency changes are required. Section 34 implements 27C;
+27D full History/Details UI remains outside this iteration.
+
+
+## 34. Manual Communications Center (27C)
+
+`/dashboard/events/[id]/communications` reuses EventHeader/navigation and the
+permission-aware EventWorkspace. Fresh verified sessions gate both Server Actions;
+History queries authorize communications.read before selecting Communication data.
+OWNER/MANAGER see all Event Communications regardless of actor; RECEPTION/foreign
+users receive neutral denial and no counts or DTO. History remains readable when
+send lifecycle eligibility fails. No separate layout or Manual Draft model exists.
+
+The shared server-only resolver serves Preview and Send. Active admission means
+Attendee.revokedAt IS NULL and its Registration.eventId matches the Event and
+Registration.revokedAt IS NULL. ALL_ACTIVE_ATTENDEES includes PRIMARY and GUEST;
+PRIMARY_ATTENDEES adds kind=PRIMARY; CHECKED_IN requires Attendance; NOT_ARRIVED
+requires its absence. PENDING_APPLICATIONS selects status=PENDING (withdrawn
+historical attempts cannot remain pending). EVENT_STAFF selects current owner and
+EventStaff users, including RECEPTION recipients. Only email columns are projected,
+from Attendee, Application or User respectively; there is no Primary fallback for
+Guest. Trim/lowercase, Zod email validation and Set deduplication exclude unavailable
+addresses and freeze exactly one intent per normalized email. No provider alias
+normalization, answers, Tickets, credentials or Application snapshots are read.
+
+Each resolver uses one statement, capped at 10,001 rows. The Event schema permits
+unlimited capacity: a sentinel beyond the 10,000-record scan budget rejects the
+entire operation, never truncates it. Unique counts above 1,000 also reject. Queries
+have a 10-second statement timeout in Preview/Send; Send has a 30-second transaction
+timeout and 10-second lock timeout. Preview uses a read-only RepeatableRead
+transaction with authorization, eligibility and strict audience validation. Its
+only audience data is audience/count/unavailable count; it neither reserves
+admission nor writes, snapshots or sends. The estimate is informational.
+
+Send accepts only strict {eventId, requestKey, audience, subject, message}; the
+fresh server session supplies actor identity. The transaction-aware helper checks
+ReadCommitted, then Event FOR UPDATE, fresh post-lock communications.send and
+lifecycle, replay, current audience resolution, actor snapshot, global advisory
+admission, fresh DB counts/time, nested Communication + batch createMany Outbox,
+and Outbox/Event NOTIFY. No skipDuplicates, independent transaction, SMTP, or
+second Event lock after advisory admission exists. All errors propagate out of
+the transaction; a successful action result follows the awaited commit. Unknown
+errors become a neutral retry message, never raw SQL/SMTP error data.
+
+Manual keys are `manual:${verifiedActorUserId}:${clientRandomUUID}` under the
+existing unique (eventId, idempotencyKey) constraint. The SHA-256 digest includes
+version, Event, actor identity, audience, subject, normalized message and safe
+manual context v1. First Send captures the operational Event title; replay uses
+the original immutable context, not current title, actor name/role or audience.
+Therefore live edits and audience changes cannot break same-intent retry.
+Same key/digest returns the original id/count before audience/admission; a
+mismatch fails. Actor namespace plus ownership validation prevents cross-actor
+replay. Client edits after an attempt invalidate the key; ambiguous outcomes keep
+the original key/content and lock editing until explicit abandonment/new message.
+Keys/content are not persisted in browser storage and do not survive page reload.
+
+New Communication stores kind=MANUAL, audience, subject, normalized message,
+verified actor/name/role snapshot, strict contextSnapshot v1, actual recipientCount,
+key/digest and createdAt=admittedAt. Each frozen recipient creates one PENDING
+MANUAL_EVENT_MESSAGE Outbox with empty server-owned payload; the existing renderer
+loads the immutable Communication. Deduplication key is Communication UUID plus
+SHA-256(normalized recipient email). DB/Outbox/NOTIFY failures roll back everything.
+Empty audiences produce no Communication. Admission retains all section 32 limits,
+DB clock semantics and lock order; transactional messages bypass those limits.
+
+Lifecycle eligibility is unchanged: communications.send AND any EventRevision
+AND archivedAt IS NULL. Current publication, completion and cancellation are not
+additional guards. History remains available when Send is denied. Archive/Restore
+does not affect queued delivery or replay old sends.
+
+A new Send refreshes Preview before opening its MUI confirmation Dialog.
+The Dialog shows audience/subject/estimate and warns that Send resolves fresh
+recipients. Ambiguous recovery instead offers “Retry same send”: it opens a
+confirmation without Preview and submits the exact frozen attempted payload/key.
+The recovery Dialog explains that retry returns the original result if committed,
+or may complete the original send under current server guards if not committed.
+Editing stays locked until recovery or explicit abandonment. Both paths require
+confirmation; Cancel/Escape/backdrop close retains text and returns visible focus
+to the initiating action. Pending disables submission; success says “Queued for
+N recipients” using the server result, resets compose/key and refreshes History.
+
+History uses RepeatableRead authorization and narrow summary selection, ordered
+createdAt DESC/id DESC, 20 rows plus one sentinel and an Event-scoped keyset cursor.
+One grouped Outbox query returns the four delivery counts for visible rows; no
+per-recipient lookup or recipient DTO reaches the browser. No payload, body,
+context, credential, SMTP error or internal lease metadata is exposed. Delivery
+terms remain Pending=queued, Processing=claimed, Sent=SMTP accepted, Failed=automatic
+attempts exhausted. Enqueue sends only existing event.changed routing; EventWorkspace
+coalesces invalidations. Explicit History refresh retrieves current counts;
+dispatcher status push and full recipient/details/history presentation remain 27D.
+There is no new polling, websocket, background worker, transactional trigger,
+schema migration, dependency or change to existing transactional content/recipients.

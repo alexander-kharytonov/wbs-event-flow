@@ -554,7 +554,7 @@ account deletion clears only its FK, preserving the name/role snapshot; Staff
 removal never rewrites history.
 
 Owner and Manager have explicit communications.read and communications.send;
-Reception has neither. Future manual sending requires send permission, at least
+Reception has neither. Manual sending requires send permission, at least
 one historical EventRevision and an unarchived Event. Thus never-published Draft
 and Archived are history-only; published Upcoming, Ongoing, Completed, previously
 published Cancelled, and restored previously published Events allow sending.
@@ -576,19 +576,18 @@ delivery or opening. One logical recipient intent can result in at-least-once
 physical SMTP delivery. Existing five attempts and delays of 1 minute, 5 minutes,
 30 minutes and 2 hours remain unchanged.
 
-Future manual admission limits are 1,000 unique recipients per communication,
+Manual admission limits are 1,000 unique recipients per communication,
 5 sends per Event/hour, 10 per actor/hour, and 2,000 outstanding recipients per
 Event / 10,000 globally. Outstanding means PENDING or PROCESSING. DB transaction
 locking primitives prepare concurrent enforcement; these limits never apply to
 transactional emails, including Event cancellation.
 
 27A adds persistence, contracts, rendering/delivery support, safe history DTOs,
-transactional enqueue and manual admission primitives only. No Manual Send action,
-Communications tab or History UI is available. 27B integrates new transactional
+transactional enqueue and manual admission primitives only. The foundation alone exposes no Manual Send action or Communications UI. 27B integrates new transactional
 Event emails as described below; legacy Outbox rows are not backfilled or inferred
-into history. 27C will activate manual Send after all workers
-understand the new type and complete admission/enqueue orchestration, and 27D
-will provide the remaining history/details UI. No cleanup/retention job or new
+into history. 27C activates manual Send and minimal History as described below; all workers
+must understand the manual type before deployment. 27D remains the scope for
+full history/details UI. No cleanup/retention job or new
 background infrastructure is introduced.
 
 
@@ -625,3 +624,66 @@ deduplication keys are preserved. Same key/digest reuses the intent; conflicting
 content fails. History starts with this cutover; null-linked legacy deliveries
 remain deliverable. No Manual Send, History UI, migration, dependency or background
 infrastructure is added by 27B.
+
+
+## Manual Communications Center (27C)
+
+The Event workspace has a Communications section for Owner and Manager, with New
+message and minimal History for all Communications in that Event, regardless of
+initiator. Reception has no navigation, page access, preview, send, or history DTO.
+
+Compose selects exactly one audience: All active attendees (PRIMARY + GUEST),
+Primary attendees, Checked in, Not arrived, Pending applications, or Event staff
+(current owner plus Managers and Reception). Attendee audiences require both
+Attendee and Registration to be unrevoked. Checked in means Attendance exists;
+Not arrived means none exists. Only current PENDING attempts are selected.
+Addresses come from Attendee.email, Application.email, or team User.email.
+Missing/invalid emails are skipped; a Guest never falls back to the Primary's
+email. Trim/lowercase deduplication yields one intent per unique deliverable
+address, without provider-specific alias rules.
+
+Subject is 1–200 Unicode code points; plain-text message is 1–10,000, with the
+foundation's text safety/CRLF normalization. There is no rich editor, attachment,
+custom CTA, arbitrary recipient list, sender override or persisted Manual Draft.
+Compose is memory-only; no message, email or body goes into URLs, cookies or
+localStorage.
+
+Preview is read-only and displays “Estimated recipients: N”, with an explanation
+that the actual count can change. Changing audience invalidates it. Every new Send
+requires a fresh estimate and a confirmation Dialog showing audience, subject and
+estimated count. Cancel preserves the text. “Queue message” recomputes the current
+audience under server authority and freezes its emails atomically with the
+Communication and durable Outbox intents. Opening confirmation creates nothing.
+Success says “Queued for N recipients”, clears compose, updates History and links
+to it; it never claims delivery.
+
+Each send intent has an opaque request key scoped to Event and verified actor.
+An unchanged retry returns the existing Communication; changed content with the
+same key is rejected. Network ambiguity retains the exact attempted payload and
+key, with editing locked until recovery or explicit abandonment. “Retry same send”
+opens confirmation without refreshing Preview. It can recover a committed result
+or complete the original send if it was not queued; server authorization and all
+applicable guards remain authoritative. Starting a new message warns that the
+previous message may already be queued. A new intent receives a new key. Keys
+survive retries within the mounted compose, not a page reload. Cancel, Escape and
+backdrop close preserve text and return visible focus to the initiating action.
+
+Sending requires communications.send, any historical publication and no archive.
+Upcoming/Ongoing/Completed, previously published Cancelled, restored and currently
+unpublished Events qualify. Never-published Draft and Archived remain history-only.
+Archive/Restore neither cancels queued deliveries nor resends old messages.
+
+All manual limits apply atomically: 1,000 unique addresses/send, 5 sends/Event/hour,
+10 sends/actor/hour, 2,000 outstanding/Event and 10,000 outstanding globally.
+Outstanding means Pending or Processing. Empty audiences and over-limit sends
+fail entirely. Audience resolution reads at most 10,001 matching email records;
+more than 10,000 is a safety refusal, including when duplication/missing addresses
+might reduce the final unique count. It never sends a truncated audience.
+
+History shows Manual/Transactional, subject, time, audience/trigger, recipient
+count and Pending/Processing/Sent/Failed counts, newest first, 20 per page.
+Sent means SMTP transport accepted, not mailbox delivery or opening. Enqueue
+reuses routing-only Event SSE invalidation; History also has an explicit refresh.
+Delivery-status push, full details, recipient addresses/details and transactional
+content reconstruction remain for 27D. No new transactional trigger, delivery
+worker, polling mechanism or background infrastructure is introduced.
