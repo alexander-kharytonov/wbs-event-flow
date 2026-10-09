@@ -52,7 +52,9 @@ export function EventForm({
   onDateEdit,
   scheduleNotice,
   importedDates,
+  initialErrors,
 }: {
+  initialErrors?: Record<string, string>;
   startLocked?: boolean;
   importedDates?: EventDateSource;
   children?: ReactNode;
@@ -66,7 +68,7 @@ export function EventForm({
   ) => Promise<EventFormState>;
   edit?: { id: string; version: string; dates: EventDateSource };
 }) {
-  const feedback = useFormFeedback();
+  const feedback = useFormFeedback(initialErrors);
   const [state, action, pending] = useActionState(
     async (previous: EventFormState, formData: FormData) => {
       const next = await serverAction(previous, formData);
