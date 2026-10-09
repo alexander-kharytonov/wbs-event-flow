@@ -19,6 +19,7 @@ import type { EventSnapshot } from "@/features/events/schemas/event-snapshot";
 
 export function EventGuestView({
   snapshot,
+  content,
   cancelled = false,
   cancellationReason,
   now,
@@ -27,6 +28,7 @@ export function EventGuestView({
   notice,
   showApplicationLink = false,
 }: {
+  content?: ReactNode;
   cancelled?: boolean;
   cancellationReason?: string | null;
   snapshot: EventSnapshot;
@@ -96,11 +98,12 @@ export function EventGuestView({
           }}
         >
           <Stack spacing={4} sx={{ minWidth: 0 }}>
-            {snapshot.description && (
-              <Typography sx={{ whiteSpace: "pre-wrap", maxWidth: "80ch" }}>
-                {snapshot.description}
-              </Typography>
-            )}
+            {content ??
+              (snapshot.description && (
+                <Typography sx={{ whiteSpace: "pre-wrap", maxWidth: "80ch" }}>
+                  {snapshot.description}
+                </Typography>
+              ))}
             <Box
               id="event-application"
               tabIndex={-1}

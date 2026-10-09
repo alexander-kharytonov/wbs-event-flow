@@ -1275,6 +1275,9 @@ and Import/Create were outside 26A; they are now implemented in 26B and 26C
 
 ## 30. Portable EventTemplateV1 / export (26B)
 
+This section defines the frozen V1 transport contract, still accepted by Import.
+Current export uses V2 and the filename suffix `-template-v2.json` (section 38).
+
 The transport-independent strict envelope is {format: "event-flow-template",
 version: 1, event: {...}}. The explicit event DTO has exactly title, description,
 startsAt, endsAt, timezone, visibility, accountRequirement, capacity,
@@ -1341,8 +1344,8 @@ review editor are now implemented in 26C (section 31). Duplicate Event reuses th
 ## 31. Event template import / atomic create (26C)
 
 Create page and intercepted modal share manual/import modes. Upload and Paste use
-one UTF-8 byte-limit -> JSON parse -> format/version -> strict EventTemplateV1 ->
-create-domain validation pipeline. Version other than 1 is explicitly unsupported;
+one UTF-8 byte-limit -> JSON parse -> format/version -> strict versioned template ->
+create-domain validation pipeline. Versions 1 and 2 are supported (section 38);
 unknown fields and database identity properties fail. Limits remain 512 KiB,
 100 fields, 100 options/field, 1,000 total options and 100 Staff, including after
 review edits. Errors expose only code/known path/safe message, never raw parser,
@@ -1945,6 +1948,61 @@ SQL CHECKs enforce locator, lifecycle/nullability, manifest container shape,
 timestamps and Event rich-field/alt shape. Full manifest/snapshot validity, asset
 ownership/scope, state transitions and immutability are server-enforced, like existing
 EventRevision invariants. db:check checks media references and serialized contracts.
-Template v1 has no new fields; its authorized reader fails before projecting any
-configuration that would lose rich content. Import remains v1; no Template v2,
-binary inclusion, shared media cloning or remote media fetch is implemented.
+Template v1 has no new fields and remains a strict import contract. The current
+Template v2 boundary below replaces the 29A rich-content export rejection. Binary
+inclusion, shared media cloning and remote media fetch remain unsupported.
+
+
+## 38. Rich authoring and EventTemplateV2 (29B)
+
+The shared Event authoring schema extends the existing Create/Edit/Review path.
+It reuses location/publicOrganizer constraints and the schedule entry shape from
+29A without changing frozen v1/v2/v3 snapshot parsers. Nullable JSON authoring
+writes use Prisma.DbNull for SQL NULL. Existing fresh OWNER checks, Event lock,
+version/contentVersion, lifecycle/Ongoing-start guards, atomic Create and realtime
+invalidation remain authoritative. No new persistence model or migration is needed.
+
+Form agenda rows carry a stable UI key, source index, local minute value and edited
+flag, never an authoritative preserved UTC timestamp. After locking/checking the
+Event version, Edit matches unedited rows to the original saved schedule and same
+timezone/displayed minute. Only that locked source supplies exact UTC instants.
+Import Review uses its already validated exact template source. Title/reorder edits
+retain seconds/milliseconds; new/edited times use Temporal disambiguation reject.
+Timezone changes reinterpret local values, and Event date changes only revalidate
+order and [start,end). Duplicate source indices/keys are invalid. Equal times are
+allowed; no automatic sorting, date shifting or client-authoritative preservation.
+
+Cover upload/attachment stays separate from Event form writes. A synchronous local
+mutation guard excludes overlapping Event Save and cover upload/save operations.
+Only successful PUT attachment responses update the form's optimistic token;
+router refresh never silently replaces it. Other form values survive cover saves.
+Failures/conflicts retain the existing reload contract and never delete assets.
+The existing 29A upload, immutable storage, reference and cleanup rules are unchanged.
+
+One shared react-markdown renderer handles explicit MARKDOWN in client/OWNER
+Preview. It skips HTML, restricts elements to text formatting/lists/links, excludes
+images/MDX/raw plugins and permits only absolute HTTP(S) URLs without credentials.
+Links use noopener/noreferrer. PLAIN_TEXT remains literal. Preview uses the current
+workspace V3 builder and controlled OWNER media routes without the image optimizer.
+Public /e/[publicId] retains its published-revision authority and Staff DTOs are not
+expanded. Public landing/metadata work is deferred to 29C and subsequent 29D work.
+
+EventTemplateV2 retains the format identifier and version 2, the V1 portable Event
+configuration and rich fields descriptionFormat, nullable location/publicOrganizer,
+ordered exact schedule and strict cover {status: NONE|OMITTED}. The same V1 semantic
+constraints/limits, deterministic serialization, explicit nulls, field_N identity,
+normalized Staff and Badge remapping apply. Unknown fields and private/internal
+identities are rejected. NONE describes no source cover; OMITTED describes a source
+cover excluded from portability. No media IDs, bytes, filenames or keys are exported.
+
+Import dispatches by version before strict parsing. V1 is parsed unchanged, then
+normalized to current V2 defaults: PLAIN_TEXT, null location/publicOrganizer, [],
+and cover NONE. Size validation applies to the original version before adding
+internal defaults. Review/Create retain V1 transport while rich fields are defaults;
+adding rich content promotes the complete payload to V2 with unchanged V2 limits.
+V2 validates the complete rich configuration and agenda interval.
+Export and the existing authorized Duplicate source reader project V2. Review
+warns about OMITTED; Create always creates without a cover using the existing atomic
+core. Source reload/revocation checks, Staff resolution, fresh question/option IDs,
+Badge bindings and rollback behavior are preserved. There is no second editor or
+cloning service, media copy, worker, polling or cloud backend.

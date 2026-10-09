@@ -10,6 +10,7 @@ import {
 import {
   type EventFormState,
   eventDateFields,
+  eventFormInput,
   eventValidationError,
 } from "@/features/events/event-input-schema";
 import {
@@ -18,6 +19,7 @@ import {
 } from "@/features/events/event-lifecycle";
 import { lockEventForUpdate } from "@/features/events/server/lock-event-for-update";
 import { requireOrganizer } from "@/features/organizer/server/require-organizer";
+import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { notifyEventChanged } from "@/lib/realtime/application-notifications";
 
@@ -64,7 +66,7 @@ export async function updateEvent(
     };
   }
 
-  const input = Object.fromEntries(formData);
+  const input = eventFormInput(formData);
 
   try {
     const outcome = await prisma.$transaction(
@@ -98,7 +100,7 @@ export async function updateEvent(
         );
 
         if (!parsed.success) {
-          return eventValidationError(parsed.error);
+          return eventValidationError(parsed.error, input);
         }
 
         if (
@@ -116,6 +118,8 @@ export async function updateEvent(
           where: { id, organizerId: organizer.id, updatedAt },
           data: {
             ...parsed.data,
+            location: parsed.data.location ?? Prisma.DbNull,
+            publicOrganizer: parsed.data.publicOrganizer ?? Prisma.DbNull,
             contentVersion: { increment: 1 },
             updatedAt: new Date(
               Math.max(event.decisionNow.getTime(), updatedAt.getTime() + 1),

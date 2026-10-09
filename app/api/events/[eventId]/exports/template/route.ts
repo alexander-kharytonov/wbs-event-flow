@@ -64,7 +64,7 @@ export async function GET(
         .slice(0, 80)
         .join("")
         .replace(/^-|-$/g, "") || "event";
-    const filename = `${slug}-template-v1.json`;
+    const filename = `${slug}-template-v2.json`;
     const asciiSlug =
       slug.replace(/[^a-z0-9-]+/g, "").replace(/^-+|-+$/g, "") || "event";
 
@@ -72,7 +72,7 @@ export async function GET(
       headers: {
         ...responseHeaders,
         "Content-Type": "application/json; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${asciiSlug}-template-v1.json"; filename*=UTF-8''${encodeURIComponent(filename)}`,
+        "Content-Disposition": `attachment; filename="${asciiSlug}-template-v2.json"; filename*=UTF-8''${encodeURIComponent(filename)}`,
       },
     });
   } catch (error) {

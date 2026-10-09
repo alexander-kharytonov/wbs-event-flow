@@ -1,7 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { parseTemplateText } from "@/features/events/import/template-input";
+import {
+  parseTemplateText,
+  templateCreateInput,
+} from "@/features/events/import/template-input";
 import {
   createTemplateEvent,
   type TemplateCreateResult,
@@ -23,7 +26,7 @@ export async function importTemplate(
   const result = await createTemplateEvent(
     user.id,
     organizer.id,
-    parsed.template,
+    templateCreateInput(parsed.template.event, parsed.sourceVersion),
   );
 
   if (result.success) {

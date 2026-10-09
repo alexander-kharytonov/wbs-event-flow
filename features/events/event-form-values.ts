@@ -1,11 +1,18 @@
-import { Temporal } from "@js-temporal/polyfill";
 import {
   type EventDateField,
   type EventFormValues,
   eventDateFields,
+  localInstantValue,
   type PreservedEventDates,
   parseEventWithPreservedDates,
+  type ScheduleSource,
+  scheduleFormValues,
 } from "@/features/events/event-input-schema";
+import {
+  locationSchema,
+  publicOrganizerSchema,
+  scheduleSchema,
+} from "@/features/events/schemas/event-rich-content";
 import type { Event } from "@/generated/prisma/client";
 
 export function eventFormValues(event: Event): EventFormValues {
@@ -18,6 +25,17 @@ export function eventFormValues(event: Event): EventFormValues {
   }
 
   return {
+    descriptionFormat: event.descriptionFormat,
+    location:
+      event.location === null ? null : locationSchema.parse(event.location),
+    publicOrganizer:
+      event.publicOrganizer === null
+        ? null
+        : publicOrganizerSchema.parse(event.publicOrganizer),
+    schedule: scheduleFormValues(
+      scheduleSchema.parse(event.schedule),
+      event.timezone,
+    ),
     title: event.title,
     description: event.description ?? "",
     startsAt: localTime(event.startsAt),
@@ -32,13 +50,15 @@ export function eventFormValues(event: Event): EventFormValues {
   };
 }
 
-export type EventDateSource = Record<EventDateField, string | null> & {
-  timezone: string;
-};
+export type EventDateSource = Record<EventDateField, string | null> &
+  Partial<ScheduleSource> & {
+    timezone: string;
+  };
 
 export function eventDateSource(event: Event): EventDateSource {
   return {
     timezone: event.timezone,
+    schedule: scheduleSchema.parse(event.schedule),
     startsAt: event.startsAt.toISOString(),
     endsAt: event.endsAt.toISOString(),
     registrationOpensAt: event.registrationOpensAt?.toISOString() ?? null,
@@ -47,12 +67,7 @@ export function eventDateSource(event: Event): EventDateSource {
 }
 
 export function eventLocalDate(instant: string | null, timezone: string) {
-  return instant
-    ? Temporal.Instant.from(instant)
-        .toZonedDateTimeISO(timezone)
-        .toPlainDateTime()
-        .toString({ smallestUnit: "minute" })
-    : "";
+  return instant ? localInstantValue(instant, timezone) : "";
 }
 
 // On update, source must be derived from the locked DB row, never client timestamps.
@@ -91,5 +106,8 @@ export function parseEventEdit(
     }
   }
 
-  return parseEventWithPreservedDates(input, preserved);
+  return parseEventWithPreservedDates(input, preserved, {
+    timezone: source.timezone,
+    schedule: source.schedule ?? [],
+  });
 }

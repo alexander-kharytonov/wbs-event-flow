@@ -12,7 +12,22 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { type ReactNode, useActionState, useEffect, useState } from "react";
+import {
+  type ReactNode,
+  useActionState,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import {
+  type EditableCover,
+  EventCoverEditor,
+} from "@/features/events/components/event-cover-editor";
+import { EventDescription } from "@/features/events/components/event-description";
+import {
+  EventRichFields,
+  richRequiredMissing,
+} from "@/features/events/components/event-rich-fields";
 import {
   type EventDateSource,
   eventLocalDate,
@@ -24,11 +39,16 @@ import {
   type EventFormValues,
   eventDateFields,
   eventInputSchema,
+  eventIssuePath,
 } from "@/features/events/event-input-schema";
 import { formatTimezone } from "@/features/events/format-timezone";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 
 const emptyValues: EventFormValues = {
+  descriptionFormat: "PLAIN_TEXT",
+  location: null,
+  schedule: [],
+  publicOrganizer: null,
   title: "",
   description: "",
   startsAt: "",
@@ -53,7 +73,9 @@ export function EventForm({
   scheduleNotice,
   importedDates,
   initialErrors,
+  initialCover,
 }: {
+  initialCover?: EditableCover;
   initialErrors?: Record<string, string>;
   startLocked?: boolean;
   importedDates?: EventDateSource;
@@ -69,9 +91,18 @@ export function EventForm({
   edit?: { id: string; version: string; dates: EventDateSource };
 }) {
   const feedback = useFormFeedback(initialErrors);
+  const mutationBusy = useRef(false);
+  const [coverBusy, setCoverBusy] = useState(false);
+  const [markdownPreview, setMarkdownPreview] = useState(false);
   const [state, action, pending] = useActionState(
     async (previous: EventFormState, formData: FormData) => {
-      const next = await serverAction(previous, formData);
+      let next: EventFormState;
+
+      try {
+        next = await serverAction(previous, formData);
+      } finally {
+        mutationBusy.current = false;
+      }
       feedback.setErrors(
         Object.fromEntries(
           Object.entries(next.errors ?? {}).map(([field, messages]) => [
@@ -90,7 +121,12 @@ export function EventForm({
   const [editedDates, setEditedDates] = useState<EventDateField[]>([]);
   const dateSource = edit?.dates ?? importedDates;
   const validExactSchedule = dateSource
-    ? parseEventEdit(values, dateSource, editedDates, startLocked).success
+    ? parseEventEdit(
+        { ...values, location: null, publicOrganizer: null, schedule: [] },
+        dateSource,
+        editedDates,
+        startLocked,
+      ).success
     : false;
 
   // Wall-clock hints must not exclude preserved absolute intervals at a DST fold.
@@ -119,7 +155,7 @@ export function EventForm({
 
     return limit;
   }
-  const [openedVersion] = useState(edit?.version);
+  const [openedVersion, setOpenedVersion] = useState(edit?.version);
   const [timezones, setTimezones] = useState<string[]>([]);
 
   useEffect(() => {
@@ -151,7 +187,12 @@ export function EventForm({
     setEditedDates((current) => [...new Set([...current, ...fields])]);
   }
 
-  function field(name: keyof typeof values) {
+  function field(
+    name: Exclude<
+      keyof typeof values,
+      "location" | "schedule" | "publicOrganizer"
+    >,
+  ) {
     return {
       name,
       value: values[name],
@@ -163,10 +204,20 @@ export function EventForm({
         setValues((current) => ({ ...current, [name]: event.target.value }));
       },
       ...feedback.field(name),
-      disabled: pending,
+      disabled: pending || coverBusy,
       fullWidth: true,
     };
   }
+
+  const unmappedError = Object.entries(feedback.errors).find(([name]) => {
+    if (Object.hasOwn(values, name)) {
+      return false;
+    }
+
+    return !/^(location\.(venueName|address|onlineLabel|onlineUrl)|publicOrganizer\.(displayName|description|websiteUrl)|schedule\.agenda_[0-9]+\.(title|description|startsAt))$/.test(
+      name,
+    );
+  })?.[1];
 
   return (
     <Stack
@@ -176,7 +227,7 @@ export function EventForm({
       onSubmit={(event) => {
         feedback.reset();
 
-        if (pending || disabled) {
+        if (pending || disabled || mutationBusy.current) {
           event.preventDefault();
 
           return;
@@ -184,6 +235,8 @@ export function EventForm({
 
         // Import review validates its preserved absolute instants in its local action.
         if (importedDates) {
+          mutationBusy.current = true;
+
           return;
         }
 
@@ -196,14 +249,17 @@ export function EventForm({
           const errors: Record<string, string> = {};
 
           for (const issue of parsed.error.issues) {
-            errors[String(issue.path[0])] ??= issue.message;
+            errors[eventIssuePath(issue.path, values)] ??= issue.message;
           }
           feedback.setErrors(errors);
+
+          return;
         }
+        mutationBusy.current = true;
       }}
       spacing={3}
       useFlexGap
-      aria-busy={pending}
+      aria-busy={pending || coverBusy}
       sx={{
         width: "100%",
         bgcolor: "background.paper",
@@ -222,6 +278,28 @@ export function EventForm({
           ))}
         </>
       )}
+      {edit && initialCover && openedVersion && (
+        <EventCoverEditor
+          eventId={edit.id}
+          initial={initialCover}
+          version={openedVersion}
+          disabled={pending || disabled}
+          begin={() => {
+            if (mutationBusy.current) {
+              return false;
+            }
+            mutationBusy.current = true;
+            setCoverBusy(true);
+
+            return true;
+          }}
+          end={() => {
+            mutationBusy.current = false;
+            setCoverBusy(false);
+          }}
+          onSaved={setOpenedVersion}
+        />
+      )}
       <Box
         component="section"
         sx={{ pb: 3, borderBottom: 1, borderColor: "divider" }}
@@ -237,12 +315,57 @@ export function EventForm({
             slotProps={{ htmlInput: { maxLength: 200 } }}
           />
           <TextField
+            {...field("descriptionFormat")}
+            label="Description format"
+            select
+          >
+            <MenuItem value="PLAIN_TEXT">Plain text</MenuItem>
+            <MenuItem value="MARKDOWN">Markdown</MenuItem>
+          </TextField>
+          <TextField
             {...field("description")}
             label="Description"
             multiline
             minRows={3}
             slotProps={{ htmlInput: { maxLength: 20000 } }}
           />
+          {values.descriptionFormat === "MARKDOWN" && (
+            <>
+              <Typography variant="body2" color="text.secondary">
+                Headings, paragraphs, emphasis, lists and HTTP(S) links are
+                supported. HTML and embedded images are not rendered.
+              </Typography>
+              <Button
+                type="button"
+                aria-expanded={markdownPreview}
+                aria-controls="event-markdown-preview"
+                onClick={() => setMarkdownPreview((current) => !current)}
+                sx={{ alignSelf: "flex-start" }}
+              >
+                {markdownPreview
+                  ? "Hide Markdown preview"
+                  : "Show Markdown preview"}
+              </Button>
+              {markdownPreview && (
+                <Box
+                  id="event-markdown-preview"
+                  role="region"
+                  aria-label="Markdown preview"
+                  sx={{
+                    p: 2,
+                    border: 1,
+                    borderColor: "divider",
+                    borderRadius: 1,
+                  }}
+                >
+                  <EventDescription
+                    text={values.description}
+                    format="MARKDOWN"
+                  />
+                </Box>
+              )}
+            </>
+          )}
         </Stack>
       </Box>
       <Box
@@ -295,7 +418,7 @@ export function EventForm({
           </Box>
           <input type="hidden" name="timezone" value={values.timezone} />
           <Autocomplete
-            disabled={pending}
+            disabled={pending || coverBusy}
             freeSolo
             options={timezones}
             getOptionLabel={formatTimezone}
@@ -327,7 +450,15 @@ export function EventForm({
                   }
                 }
 
-                return { ...current, startsAt, timezone };
+                return {
+                  ...current,
+                  startsAt,
+                  timezone,
+                  schedule: current.schedule.map((entry) => ({
+                    ...entry,
+                    edited: true,
+                  })),
+                };
               });
             }}
             renderInput={(params) => (
@@ -364,7 +495,7 @@ export function EventForm({
               control={
                 <Switch
                   checked={values.maxGuestsPerRegistration !== "0"}
-                  disabled={pending}
+                  disabled={pending || coverBusy}
                   onChange={(_, enabled) => {
                     feedback.clear("maxGuestsPerRegistration");
                     setValues((current) => ({
@@ -487,10 +618,16 @@ export function EventForm({
           </TextField>
         </Stack>
       </Box>
+      <EventRichFields
+        values={values}
+        setValues={setValues}
+        feedback={feedback}
+        disabled={pending || coverBusy || disabled}
+      />
       {children}
-      {(feedback.message || state.conflict) && (
+      {(feedback.message || unmappedError || state.conflict) && (
         <Alert severity="error" role="alert">
-          {state.conflict ? state.message : feedback.message}
+          {state.conflict ? state.message : (feedback.message ?? unmappedError)}
           {state.conflict && edit && (
             <Box sx={{ mt: 1 }}>
               <Button
@@ -521,6 +658,8 @@ export function EventForm({
             variant="contained"
             disabled={
               pending ||
+              coverBusy ||
+              richRequiredMissing(values) ||
               disabled ||
               !values.title.trim() ||
               !values.startsAt ||

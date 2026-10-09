@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   type EventFormState,
+  eventFormInput,
   eventInputSchema,
   eventValidationError,
 } from "@/features/events/event-input-schema";
@@ -16,10 +17,11 @@ export async function createEvent(
   formData: FormData,
 ): Promise<EventFormState> {
   const organizer = await requireOrganizer();
-  const parsed = eventInputSchema.safeParse(Object.fromEntries(formData));
+  const input = eventFormInput(formData);
+  const parsed = eventInputSchema.safeParse(input);
 
   if (!parsed.success) {
-    return eventValidationError(parsed.error);
+    return eventValidationError(parsed.error, input);
   }
 
   let eventId: string;

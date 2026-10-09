@@ -192,8 +192,8 @@ root or silently fall back to temporary/public directories. Files use opaque key
 this directory as static web content. Provision the root during local/deployment
 setup; upload handlers never create or substitute the root themselves.
 
-Use the documented POST/PUT/GET contracts in DOMAIN.md for foundation integration;
-29A does not include a cover editor, Markdown renderer or landing-page redesign.
+The existing Event editor uses the POST/PUT/GET contracts documented in DOMAIN.md.
+The public landing-page redesign remains outside this iteration.
 POST accepts raw JPEG/PNG/WebP bytes, not multipart or remote URLs. The server checks
 Origin against BETTER_AUTH_URL and verifies OWNER scope. Input limits are 5 MiB,
 4096 × 4096, one frame and two process-local operations. A new upload is refused
@@ -228,9 +228,9 @@ backend/key locators after verifying checksums. It must retain asset IDs, immuta
 bytes and historical references; public DTOs/URLs must remain independent of storage.
 No cloud integration is present; the SQL backend CHECK currently permits LOCAL only.
 
-New publications are v3; v1/v2 remain readable without backfill. Template v1 export
-and Duplicate fail explicitly for rich/cover configuration; ordinary V1 Import and
-Duplicate stay unchanged. Template v2 belongs to a later iteration.
+New publications are v3; v1/v2 remain readable without backfill. Template export
+and Duplicate now use V2, preserving rich configuration and explicitly omitting
+cover images. Strict V1 Import remains supported.
 
 Requested targeted verification can be repeated with:
 
@@ -242,3 +242,52 @@ It requires loopback PostgreSQL with CREATE DATABASE privileges and write access
 the current user's Application Support directory. It creates an isolated database
 and private media directory and removes both in finally. No existing application
 data is modified and no SMTP is called. Fixtures never remain in the application DB.
+
+## Rich Event authoring and Template V2 (29B)
+
+Create, Edit, Import Review and Duplicate Review share the Event form and atomic
+create path. They support explicit Plain Text/Markdown descriptions, optional
+physical/online/hybrid location, up to 100 ordered agenda entries and explicitly
+authored public organizer information. Markdown uses one restricted react-markdown
+renderer for client preview and OWNER Event Preview: no HTML, images or MDX; only
+absolute HTTP(S) links without credentials. Existing plain text stays plain text.
+
+Untouched agenda instants retain seconds/milliseconds, including ambiguous local
+hours imported as exact UTC instants. Title edits/reordering preserve those instants;
+edited/new local times reject DST gaps/folds. Changing timezone reinterprets local
+times; changing Event dates does not shift the agenda. Invalid order/range is shown
+inline. Event Edit obtains preserved instants from the version-checked locked row.
+
+For existing Events, select a file, Upload, inspect the normalized preview and
+Save cover. Cover and Event saves exclude each other. Only a successful cover
+response advances the form token, preserving other unsaved edits. Replaced or
+abandoned uploads remain tracked for the existing explicit cleanup lifecycle.
+Create/Import/Duplicate cannot upload until the new Event exists.
+
+Export downloads `-template-v2.json`. V2 includes rich configuration and an explicit
+cover status NONE/OMITTED; no asset identity, storage locator or bytes are included.
+The Export menu and Import/Duplicate Review explain omission. V1 files retain their
+strict parser and normalize to plain text, null location/organizer, empty agenda
+and no cover. Every new Event starts without a cover.
+
+OWNER Preview reads the draft workspace through snapshot V3. Public pages still
+read only the published revision; publish/republish is required to expose changes.
+Overview and Staff projections remain operational. Public landing redesign (29C)
+and the subsequent 29D work are not implemented.
+
+Targeted verification (in addition to the media regression script above):
+
+```bash
+node --import tsx scripts/check-event-rich-rendering.tsx
+node --conditions=react-server --import tsx scripts/check-event-rich-content.ts
+```
+
+Use `--pure` for the boundary, schema and child/cleanup checks without a database.
+The rich-content script otherwise uses a disposable PostgreSQL database. Cleanup
+attempts child shutdown, each disconnect, database removal and media removal
+independently with deadlines; failures retain the original error and exit nonzero. It needs CREATE DATABASE privileges and does not use real SMTP or modify
+the development DB. For an interactive browser smoke check, run `pnpm build`, then
+append `--browser` to that script. It starts the production app at 127.0.0.1:3029
+with isolated credentials/media, prints the verification login and file path, and
+waits for Enter before stopping the server and removing the disposable resources.
+Do not point these fixtures or media at an existing application database/root.

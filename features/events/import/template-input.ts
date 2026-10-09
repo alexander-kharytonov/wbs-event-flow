@@ -1,28 +1,49 @@
 import { Temporal } from "@js-temporal/polyfill";
 import type { z } from "zod";
-import { validateEventDateRelationships } from "@/features/events/event-input-schema";
+import {
+  scheduleFormValues,
+  validateEventDateRelationships,
+} from "@/features/events/event-input-schema";
 import {
   isChoice,
   registrationFieldData,
 } from "@/features/events/schemas/registration-form";
 import { normalizeStaff } from "@/features/events/staff-input";
 import {
-  type EventTemplateV1,
+  type EventTemplateV2,
   eventTemplateV1Schema,
+  eventTemplateV2Schema,
   TEMPLATE_V1_LIMITS,
 } from "@/features/exports/event-template";
 
 export type TemplateIssue = { code: string; path: string; message: string };
 
 export type TemplateResult =
-  | { success: true; template: EventTemplateV1; duplicateWarnings: string[] }
+  | {
+      success: true;
+      template: EventTemplateV2;
+      sourceVersion: 1 | 2;
+      duplicateWarnings: string[];
+    }
   | { success: false; issues: TemplateIssue[] };
 
-export type TemplateEvent = EventTemplateV1["event"];
+export type TemplateEvent = EventTemplateV2["event"];
 
 export type TemplateField = TemplateEvent["registrationForm"]["fields"][number];
 
 const knownSegments = new Set([
+  "descriptionFormat",
+  "location",
+  "schedule",
+  "publicOrganizer",
+  "cover",
+  "status",
+  "venueName",
+  "address",
+  "onlineLabel",
+  "onlineUrl",
+  "displayName",
+  "websiteUrl",
   "format",
   "version",
   "event",
@@ -102,7 +123,9 @@ export function templateFailure(
   return { success: false, issues: [{ code, path, message }] };
 }
 
-export function portableBindingIssues(event: TemplateEvent): TemplateIssue[] {
+export function portableBindingIssues(
+  event: Pick<TemplateEvent, "registrationForm" | "badgeLayout">,
+): TemplateIssue[] {
   const issues: TemplateIssue[] = [];
 
   for (const slot of ["secondaryField", "tertiaryField"] as const) {
@@ -148,15 +171,17 @@ export function validateTemplateCreate(input: unknown): TemplateResult {
     );
   }
 
-  if (!("version" in input) || input.version !== 1) {
+  if (!("version" in input) || ![1, 2].includes(input.version as number)) {
     return templateFailure(
       "unsupported_version",
       "version",
-      "Unsupported template version. Only version 1 is supported.",
+      "Unsupported template version. Versions 1 and 2 are supported.",
     );
   }
 
-  const parsed = eventTemplateV1Schema.safeParse(input);
+  const parsed = (
+    input.version === 1 ? eventTemplateV1Schema : eventTemplateV2Schema
+  ).safeParse(input);
 
   if (!parsed.success) {
     // v1's binding/count refinements have root paths. Supply useful known paths
@@ -183,8 +208,7 @@ export function validateTemplateCreate(input: unknown): TemplateResult {
     return { success: false, issues };
   }
 
-  const template = parsed.data;
-  const event = template.event;
+  const event = parsed.data.event;
   event.description = event.description || null;
   const issues: TemplateIssue[] = [];
   const dates = {
@@ -241,7 +265,7 @@ export function validateTemplateCreate(input: unknown): TemplateResult {
 
   // Retain duplicates in review so the final server result can report them.
   if (
-    new TextEncoder().encode(JSON.stringify(template)).byteLength >
+    new TextEncoder().encode(JSON.stringify(parsed.data)).byteLength >
     TEMPLATE_V1_LIMITS.bytes
   ) {
     return templateFailure(
@@ -251,7 +275,28 @@ export function validateTemplateCreate(input: unknown): TemplateResult {
     );
   }
 
-  return { success: true, template, duplicateWarnings: staff.duplicates };
+  const template: EventTemplateV2 =
+    parsed.data.version === 1
+      ? {
+          ...parsed.data,
+          version: 2,
+          event: {
+            ...parsed.data.event,
+            descriptionFormat: "PLAIN_TEXT",
+            location: null,
+            schedule: [],
+            publicOrganizer: null,
+            cover: { status: "NONE" },
+          },
+        }
+      : parsed.data;
+
+  return {
+    success: true,
+    template,
+    sourceVersion: parsed.data.version,
+    duplicateWarnings: staff.duplicates,
+  };
 }
 
 export function parseTemplateText(text: unknown): TemplateResult {
@@ -286,9 +331,41 @@ export function parseTemplateText(text: unknown): TemplateResult {
   return validateTemplateCreate(input);
 }
 
+// Keep legacy transport through Review/Create while all rich fields are defaults.
+// A rich edit promotes the payload to strict V2; it is never silently dropped.
+export function templateCreateInput(
+  event: TemplateEvent,
+  sourceVersion: 1 | 2,
+) {
+  const {
+    descriptionFormat,
+    location,
+    schedule,
+    publicOrganizer,
+    cover,
+    ...legacy
+  } = event;
+
+  if (
+    sourceVersion === 1 &&
+    descriptionFormat === "PLAIN_TEXT" &&
+    location === null &&
+    schedule.length === 0 &&
+    publicOrganizer === null &&
+    cover.status === "NONE"
+  ) {
+    return { format: "event-flow-template", version: 1, event: legacy };
+  }
+
+  return { format: "event-flow-template", version: 2, event };
+}
+
 // Review keys remain stable across edits/reorder. Check references BEFORE renumbering.
 
-export function canonicalizeReview(event: TemplateEvent): TemplateResult {
+export function canonicalizeReview(
+  event: TemplateEvent,
+  sourceVersion: 1 | 2 = 2,
+): TemplateResult {
   const issues = portableBindingIssues(event);
   const keys = new Map(
     event.registrationForm.fields.map((field, index) => [
@@ -313,26 +390,27 @@ export function canonicalizeReview(event: TemplateEvent): TemplateResult {
     value: NonNullable<TemplateEvent["badgeLayout"]>["secondaryField"],
   ) => (value ? { ...value, fieldKey: keys.get(value.fieldKey) ?? "" } : null);
 
-  return validateTemplateCreate({
-    format: "event-flow-template",
-    version: 1,
-    event: {
-      ...event,
-      registrationForm: {
-        fields: event.registrationForm.fields.map((field) => ({
-          ...field,
-          key: keys.get(field.key),
-        })),
+  return validateTemplateCreate(
+    templateCreateInput(
+      {
+        ...event,
+        registrationForm: {
+          fields: event.registrationForm.fields.map((field) => ({
+            ...field,
+            key: keys.get(field.key) ?? "",
+          })),
+        },
+        badgeLayout: event.badgeLayout
+          ? {
+              ...event.badgeLayout,
+              secondaryField: binding(event.badgeLayout.secondaryField),
+              tertiaryField: binding(event.badgeLayout.tertiaryField),
+            }
+          : null,
       },
-      badgeLayout: event.badgeLayout
-        ? {
-            ...event.badgeLayout,
-            secondaryField: binding(event.badgeLayout.secondaryField),
-            tertiaryField: binding(event.badgeLayout.tertiaryField),
-          }
-        : null,
-    },
-  });
+      sourceVersion,
+    ),
+  );
 }
 
 export function templateEventValues(event: TemplateEvent) {
@@ -345,6 +423,10 @@ export function templateEventValues(event: TemplateEvent) {
       : "";
 
   return {
+    descriptionFormat: event.descriptionFormat,
+    location: event.location,
+    publicOrganizer: event.publicOrganizer,
+    schedule: scheduleFormValues(event.schedule, event.timezone),
     title: event.title,
     description: event.description ?? "",
     timezone: event.timezone,

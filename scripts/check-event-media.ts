@@ -516,9 +516,9 @@ async function main() {
       }),
       (error: unknown) => error instanceof MediaError && error.status === 409,
     );
-    await assert.rejects(
-      readEventTemplate(owner.id, event.id),
-      /Template v1 cannot include/,
+    assert.equal(
+      (await readEventTemplate(owner.id, event.id))?.event.cover.status,
+      "OMITTED",
     );
     // Fail after revision insertion, while switching the publication pointer.
     // The trigger exists only in this disposable verification database.
@@ -711,7 +711,7 @@ async function main() {
       prisma.mediaAsset.delete({ where: { id: cover.assetId } }),
     );
     results.push(
-      "attachment/version guards, V1 boundary, v3 FK/snapshot, no-op, replace/remove isolation, failed Publish preservation, republish/unpublish and historical FK retention",
+      "attachment/version guards, V2 cover omission, v3 FK/snapshot, no-op, replace/remove isolation, failed Publish preservation, republish/unpublish and historical FK retention",
     );
 
     assert.equal(snapshot.schemaVersion, 3);

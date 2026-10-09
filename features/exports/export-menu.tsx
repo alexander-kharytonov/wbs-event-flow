@@ -104,7 +104,7 @@ export function ExportMenu({
         </Box>
         {template && <Divider />}
         {template && (
-          <ListSubheader disableSticky>Event template · JSON</ListSubheader>
+          <ListSubheader disableSticky>Event template · V2 JSON</ListSubheader>
         )}
         {template && (
           <MenuItem
@@ -128,7 +128,8 @@ export function ExportMenu({
           <Box component="li" sx={{ px: 2, py: 1, listStyle: "none" }}>
             <Alert severity="warning" sx={{ fontSize: "0.75rem" }}>
               Includes private staff emails and unpublished changes. No
-              applications, attendees or attendance.
+              applications, attendees or attendance. Cover images are omitted;
+              upload a new cover after importing or duplicating.
             </Alert>
           </Box>
         )}

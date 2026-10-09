@@ -35,6 +35,7 @@ import {
   type EventDateField,
   type EventFormState,
   eventDateFields,
+  eventFormInput,
   eventInputSchema,
   eventValidationError,
   type PreservedEventDates,
@@ -46,6 +47,7 @@ import {
   type TemplateEvent,
   type TemplateField,
   type TemplateIssue,
+  templateCreateInput,
   templateEventValues,
 } from "@/features/events/import/template-input";
 import { importTemplate } from "@/features/events/import-template";
@@ -173,9 +175,11 @@ function ReviewBadge({
 
 export function TemplateReview({
   initial: initialTemplate,
+  sourceVersion = 2,
   onBusyChange,
 }: {
   initial: TemplateEvent;
+  sourceVersion?: 1 | 2;
   onBusyChange: (busy: boolean) => void;
 }) {
   // One mounted review owns one source snapshot, including every exact date.
@@ -199,7 +203,10 @@ export function TemplateReview({
   const initialValues = useRef(templateEventValues(initial)).current;
   const initialTitle = eventInputSchema.in.shape.title.safeParse(initial.title);
 
-  function showIssues(nextIssues: TemplateIssue[]): EventFormState {
+  function showIssues(
+    nextIssues: TemplateIssue[],
+    input?: Record<string, unknown>,
+  ): EventFormState {
     const errors: Record<string, string[]> = {};
     const staffErrors: Record<string, string> = {};
     const remaining: TemplateIssue[] = [];
@@ -210,8 +217,16 @@ export function TemplateReview({
         issue.path,
       );
 
-      if (Object.hasOwn(initialValues, field)) {
-        errors[field] = [...(errors[field] ?? []), issue.message];
+      const agenda = /^schedule\[(\d+)\]\.(.+)$/.exec(field);
+      const rows = Array.isArray(input?.schedule)
+        ? input.schedule
+        : initialValues.schedule;
+      const mappedField = agenda
+        ? `schedule.${rows[Number(agenda[1])]?.key}.${agenda[2]}`
+        : field;
+
+      if (Object.hasOwn(initialValues, field.split(/[.[]/)[0])) {
+        errors[mappedField] = [...(errors[mappedField] ?? []), issue.message];
       } else if (staffField && staffKeys[Number(staffField[1])] !== undefined) {
         staffErrors[`${staffKeys[Number(staffField[1])]}.${staffField[2]}`] =
           issue.message;
@@ -245,6 +260,12 @@ export function TemplateReview({
 
   return (
     <>
+      {initial.cover.status === "OMITTED" && (
+        <Alert severity="warning">
+          The source cover image is not included. Upload a new cover after
+          creating this event.
+        </Alert>
+      )}
       <Box
         component="fieldset"
         disabled={busy}
@@ -271,7 +292,11 @@ export function TemplateReview({
               }
             }
 
-            const parsed = parseEventWithPreservedDates(values, preserved);
+            const parsed = parseEventWithPreservedDates(
+              values,
+              preserved,
+              initial,
+            );
 
             if (!parsed.success) {
               return null;
@@ -329,28 +354,35 @@ export function TemplateReview({
             }
 
             const parsed = parseEventWithPreservedDates(
-              Object.fromEntries(formData),
+              eventFormInput(formData),
               preserved,
+              initial,
             );
 
             if (!parsed.success) {
-              return eventValidationError(parsed.error);
+              return eventValidationError(
+                parsed.error,
+                eventFormInput(formData),
+              );
             }
 
             const values = parsed.data;
-            const reviewed = canonicalizeReview({
-              ...event,
-              ...values,
-              startsAt: values.startsAt.toISOString(),
-              endsAt: values.endsAt.toISOString(),
-              registrationOpensAt:
-                values.registrationOpensAt?.toISOString() ?? null,
-              registrationClosesAt:
-                values.registrationClosesAt?.toISOString() ?? null,
-            });
+            const reviewed = canonicalizeReview(
+              {
+                ...event,
+                ...values,
+                startsAt: values.startsAt.toISOString(),
+                endsAt: values.endsAt.toISOString(),
+                registrationOpensAt:
+                  values.registrationOpensAt?.toISOString() ?? null,
+                registrationClosesAt:
+                  values.registrationClosesAt?.toISOString() ?? null,
+              },
+              sourceVersion,
+            );
 
             if (!reviewed.success) {
-              return showIssues(reviewed.issues);
+              return showIssues(reviewed.issues, eventFormInput(formData));
             }
 
             setBusy(true);
@@ -359,7 +391,15 @@ export function TemplateReview({
 
             try {
               const payload = new FormData();
-              payload.set("template", JSON.stringify(reviewed.template));
+              payload.set(
+                "template",
+                JSON.stringify(
+                  templateCreateInput(
+                    reviewed.template.event,
+                    reviewed.sourceVersion,
+                  ),
+                ),
+              );
               outcome = await importTemplate(payload);
             } catch {
               setIssues([
@@ -380,7 +420,7 @@ export function TemplateReview({
               onBusyChange(false);
               setBusy(false);
 
-              return showIssues(outcome.issues);
+              return showIssues(outcome.issues, eventFormInput(formData));
             }
 
             // Keep creation locked until navigation completes.

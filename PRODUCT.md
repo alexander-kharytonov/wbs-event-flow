@@ -495,8 +495,10 @@ partial file, persistent export file, export history or background job is create
 
 Owners can download **Export template** from the Event header Export menu.
 The menu groups CSV datasets and JSON configuration separately. Template filenames
-include a sanitized Event title followed by `-template-v1.json`, preserving Unicode.
-EventTemplateV1 is portable configuration, not a backup or a public artifact:
+include a sanitized Event title followed by `-template-v2.json`, preserving Unicode.
+The original EventTemplateV1 contract below remains valid for Import; current V2
+adds rich configuration as described in 29B below. A template is portable
+configuration, not a backup or a public artifact:
 it contains current staff emails. It uses current saved workspace configuration,
 including unpublished Event, Registration Form and Badge Design changes.
 
@@ -781,7 +783,7 @@ modal directly in Review, using the current saved workspace, including unpublish
 changes. No JSON download/upload is needed. Manager/Reception and foreign users
 cannot read this configuration through Duplicate.
 
-The original configuration must pass Template v1 export size/portability checks
+The original configuration must pass current Template V2 export size/portability checks
 and create validation before Review opens. Invalid or historical Badge bindings
 reject the whole operation; no fields or bindings are silently dropped. A neutral
 error explains that access, template limits and current-form Badge compatibility
@@ -813,8 +815,8 @@ there is no server-side exactly-once guarantee after a lost response.
 
 Owners with verified accounts can upload cover images for existing editable Events
 through the media API, then explicitly attach, replace or remove the draft cover.
-There is no cover editor or new public landing-page layout yet. Create/Import/
-Duplicate Review still performs no media upload or persistence before Create.
+The 29B editor below uses these APIs; a new public landing-page layout is deferred.
+Create/Import/Duplicate Review performs no media upload or persistence before Create.
 
 Uploads accept one static JPEG, PNG or WebP, at most 5 MiB and 4096 × 4096 pixels.
 The server validates and re-encodes images, applies orientation, strips metadata,
@@ -835,15 +837,59 @@ only when it is the cover of the current valid published revision.
 
 New publications use snapshot v3; existing v1/v2 content and registration history
 remain readable and unchanged. Existing descriptions stay plain text. Location,
-agenda, public organizer and description-format fields are reserved in the v3
-contract; their editors and rich rendering are not implemented in 29A.
+agenda, public organizer and description-format fields use the existing v3
+contract; 29B adds their authoring UI and OWNER Preview rendering.
 
-Template v1 Import and ordinary Duplicate remain supported. Export/Duplicate reject
-saved configuration containing a cover, Markdown format, location, agenda or public
-organizer information, with an explicit incompatibility message. They never silently
-omit that configuration. Template v2 is not implemented.
+Strict Template v1 Import remains supported. Current Export/Duplicate use Template
+v2, preserving rich configuration and explicitly reporting omitted cover images.
 
 Media cleanup is an explicit maintenance command, not a worker: incomplete uploads
 expire after 24 hours, unused ready assets after seven days, and assets referenced
 by any draft or revision are retained. Historical media remains for the lifetime of
 its revision. Operators must invoke cleanup and maintain storage/backups.
+
+
+## Rich Event editor and Template V2 (29B)
+
+The existing Create/Edit and Import/Duplicate Review forms share rich authoring.
+Descriptions have an explicit Plain Text/Markdown selector and a 20,000-character
+limit. Switching format never transforms text. The accessible Markdown preview and
+OWNER Event Preview share a renderer permitting headings, paragraphs, emphasis,
+lists and absolute HTTP(S) links without credentials. Raw HTML, images, MDX and
+iframes are not rendered. Historical plain-text snapshots remain plain text.
+
+Location is None, Physical, Online or Hybrid. None stores null; the selected type
+requires its applicable venue/address and/or online label/URL fields. Agenda has
+at most 100 entries, titles up to 200 characters and optional descriptions up to
+2,000. Add/remove/move controls preserve row identity and expose inline errors.
+Times must be chronological (ties allowed) inside [Event start, Event end); the
+editor never sorts or shifts them automatically. Untouched imported/saved instants
+keep exact seconds/milliseconds through title edits and reorder. New or changed
+local times reject skipped/repeated DST hours. Timezone edits reinterpret local
+values under existing Event date rules; Event date edits only revalidate agenda.
+The Ongoing Event start remains locked.
+
+Public organizer information is optional, Event-local and authored explicitly:
+display name, optional description and optional website URL. It never automatically
+includes account email, staff email or private profile metadata.
+
+Existing editable Events also show the cover editor: Select file -> Upload ->
+normalized preview -> Save cover; replace/remove and alt text up to 500 characters
+use the existing authorized attachment action. Cover and Event Save cannot overlap.
+A successful cover response alone updates the local optimistic token and preserves
+all other edits. Feedback says: "Cover saved. Other event changes are not saved yet."
+A conflict requires reload. Draft changes never alter the currently published cover;
+abandoned uploads follow the existing 24-hour/7-day cleanup rules.
+
+Template V2 preserves all V1 portable settings plus description format, location,
+exact agenda and public organizer. Its cover marker is NONE if absent or OMITTED
+if the source has a cover. Images/asset IDs/storage keys are never copied. Export,
+Import Review and Duplicate Review explain omission; the new Event has no cover.
+V1 Import retains strict validation before defaulting new fields to plain text,
+null location/organizer, empty agenda and NONE. Existing Staff/Badge identity rules,
+size limits, atomic Create and Duplicate refresh/revocation semantics are preserved.
+
+OWNER Preview displays the draft cover and rich content from the workspace's V3
+snapshot. Public pages still use published revisions only. Overview remains an
+operational view without expanded Staff access. Public landing redesign (29C) and
+29D are deferred; this iteration adds no worker, polling or storage backend.

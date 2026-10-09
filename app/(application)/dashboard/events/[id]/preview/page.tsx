@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { z } from "zod";
 import { EventGuestView } from "@/features/events/components/event-guest-view";
 import { EventHeader } from "@/features/events/components/event-header";
+import { EventRichPreview } from "@/features/events/components/event-rich-preview";
 import { RegistrationFormPreview } from "@/features/events/components/registration-form-preview";
 import {
   buildEventSnapshot,
@@ -67,7 +68,11 @@ export default async function PreviewPage({
         Registration is unavailable in preview.
       </Alert>
       {snapshot.success ? (
-        <EventGuestView snapshot={snapshot.data} now={new Date()}>
+        <EventGuestView
+          snapshot={snapshot.data}
+          now={new Date()}
+          content={<EventRichPreview snapshot={snapshot.data} eventId={id} />}
+        >
           <Stack spacing={3}>
             <Stack spacing={0.5}>
               <Typography
