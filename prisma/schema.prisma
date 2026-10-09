@@ -38,6 +38,7 @@ model OrganizerProfile {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   events    Event[]
+  mediaAssets MediaAsset[]
 }
 
 enum EventVisibility {
@@ -50,12 +51,55 @@ enum EventAccountRequirement {
   OPTIONAL
 }
 
+enum DescriptionFormat {
+  PLAIN_TEXT
+  MARKDOWN
+}
+
+enum MediaAssetState {
+  UPLOADING
+  READY
+  DELETING
+}
+
+model MediaAsset {
+  id              String @id @default(uuid(7)) @db.Uuid
+  organizerId     String @db.Uuid
+  organizer       OrganizerProfile @relation(fields: [organizerId], references: [id], onDelete: Restrict)
+  eventId         String? @db.Uuid
+  event           Event? @relation("EventUploads", fields: [eventId], references: [id], onDelete: SetNull)
+  backend         String @default("LOCAL")
+  storageKey      String @unique
+  state           MediaAssetState @default(UPLOADING)
+  manifest        Json?
+  createdAt       DateTime @default(now()) @db.Timestamptz(3)
+  uploadExpiresAt DateTime @db.Timestamptz(3)
+  readyAt         DateTime? @db.Timestamptz(3)
+  unusedSince     DateTime? @db.Timestamptz(3)
+  deletingAt      DateTime? @db.Timestamptz(3)
+  draftEvents     Event[] @relation("DraftCover")
+  revisions       EventRevision[] @relation("RevisionCover")
+
+  @@index([organizerId, state])
+  @@index([eventId])
+  @@index([state, uploadExpiresAt])
+  @@index([state, unusedSince])
+}
+
 model Event {
   id                   String                  @id @default(uuid(7)) @db.Uuid
   organizerId          String                  @db.Uuid
   organizer            OrganizerProfile        @relation(fields: [organizerId], references: [id])
   title                String
   description          String?
+  descriptionFormat    DescriptionFormat @default(PLAIN_TEXT)
+  coverAssetId         String? @db.Uuid
+  coverAsset           MediaAsset? @relation("DraftCover", fields: [coverAssetId], references: [id], onDelete: Restrict)
+  coverAlt             String?
+  location             Json?
+  schedule             Json @default("[]")
+  publicOrganizer      Json?
+  mediaUploads         MediaAsset[] @relation("EventUploads")
   startsAt             DateTime                @db.Timestamptz(3)
   endsAt               DateTime                @db.Timestamptz(3)
   timezone             String
@@ -86,6 +130,7 @@ model Event {
 
   @@unique([id, publishedRevisionId])
   @@index([organizerId, createdAt])
+  @@index([coverAssetId])
 }
 
 model Session {
@@ -189,12 +234,15 @@ model EventRevision {
   number          Int
   contentVersion  Int
   snapshot        Json
+  coverAssetId    String? @db.Uuid
+  coverAsset      MediaAsset? @relation("RevisionCover", fields: [coverAssetId], references: [id], onDelete: Restrict)
   publishedAt     DateTime      @db.Timestamptz(3)
   createdAt       DateTime      @default(now()) @db.Timestamptz(3)
   applications    Application[]
 
   @@unique([eventId, id])
   @@unique([eventId, number])
+  @@index([coverAssetId])
 }
 
 enum ApplicationStatus {

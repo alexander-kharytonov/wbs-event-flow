@@ -5,6 +5,7 @@ import { enqueueTransactionalCommunication } from "@/features/communications/ser
 import { eventLifecycle } from "@/features/events/event-lifecycle";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 import { lockEventForUpdate } from "@/features/events/server/lock-event-for-update";
+import { releaseDeletedEventMedia } from "@/features/events/server/media-assets";
 import { Prisma } from "@/generated/prisma/client";
 import {
   eventCancelledPayload,
@@ -154,6 +155,7 @@ export async function changeOwnedEventLifecycle(
             };
           }
 
+          await releaseDeletedEventMedia(tx, event.id, event.decisionNow);
           await tx.event.delete({ where: { id: event.id } });
 
           return { success: true, deleted: true };

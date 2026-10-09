@@ -2,6 +2,10 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["192.168.2.142"],
+  // Uploaded media must never enter the optimizer's independently public cache.
+  images: {
+    localPatterns: [{ pathname: "/_next/static/media/**", search: "" }],
+  },
   // Auth and anonymous Ticket URLs contain bearer secrets.
   logging: {
     serverFunctions: false,

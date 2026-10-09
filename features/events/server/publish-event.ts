@@ -1,12 +1,13 @@
 import "server-only";
 import { z } from "zod";
 import { eventLifecycle } from "@/features/events/event-lifecycle";
-import { eventSnapshotV2Schema } from "@/features/events/schemas/event-snapshot";
+import { eventSnapshotV3Schema } from "@/features/events/schemas/event-snapshot";
 import {
   buildEventSnapshot,
   workspaceInclude,
 } from "@/features/events/server/build-event-snapshot";
 import { lockEventForUpdate } from "@/features/events/server/lock-event-for-update";
+import { lockMediaAsset } from "@/features/events/server/media-assets";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { notifyEventChanged } from "@/lib/realtime/application-notifications";
@@ -79,10 +80,15 @@ export async function publishOwnedEvent(
           };
         }
 
+        const currentSnapshot = eventSnapshotV3Schema.safeParse(
+          event.publishedRevision?.snapshot,
+        );
+
         if (
           event.publishedRevision?.contentVersion === contentVersion &&
-          eventSnapshotV2Schema.safeParse(event.publishedRevision.snapshot)
-            .success
+          currentSnapshot.success &&
+          (currentSnapshot.data.cover?.assetId ?? null) ===
+            event.publishedRevision.coverAssetId
         ) {
           return { success: true };
         }
@@ -100,6 +106,21 @@ export async function publishOwnedEvent(
           };
         }
 
+        if (event.coverAssetId) {
+          const asset = await lockMediaAsset(tx, event.coverAssetId);
+
+          if (
+            asset?.state !== "READY" ||
+            asset.organizerId !== event.organizerId ||
+            asset.eventId !== eventId
+          ) {
+            return {
+              message:
+                "The draft cover is unavailable. Reload before publishing.",
+            };
+          }
+        }
+
         const latest = await tx.eventRevision.findFirst({
           where: { eventId },
           orderBy: { number: "desc" },
@@ -111,6 +132,7 @@ export async function publishOwnedEvent(
             eventId,
             number: (latest?.number ?? 0) + 1,
             contentVersion,
+            coverAssetId: event.coverAssetId,
             snapshot: snapshot.data,
             publishedAt: now,
           },

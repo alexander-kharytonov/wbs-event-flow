@@ -304,7 +304,7 @@ browser capability; their normal Tickets and Attendance use the existing QR flow
 
 Organizers configure 0–10 maximum active guests per registration in the Event
 workspace and publish the policy. Zero disables adding guests. Historical v1
-snapshots imply zero; new publications use v2. Add requires a current published
+snapshots imply zero; current publications use v3. Add requires a current published
 permission and available published capacity. Remove needs neither publication nor
 a positive limit. Both require an active party, a non-cancelled Event, and time
 strictly before the persisted event start; party composition then freezes.
@@ -808,3 +808,42 @@ Full page reload opens the Create page and may reload the source, discarding edi
 No persistent draft is kept.
 Existing submit locking prevents resubmission after confirmed success in that UI;
 there is no server-side exactly-once guarantee after a lost response.
+
+## Event cover foundation (29A)
+
+Owners with verified accounts can upload cover images for existing editable Events
+through the media API, then explicitly attach, replace or remove the draft cover.
+There is no cover editor or new public landing-page layout yet. Create/Import/
+Duplicate Review still performs no media upload or persistence before Create.
+
+Uploads accept one static JPEG, PNG or WebP, at most 5 MiB and 4096 × 4096 pixels.
+The server validates and re-encodes images, applies orientation, strips metadata,
+and creates immutable responsive WebP variants plus a JPEG social variant.
+Original files and names are not retained. At most two upload-processing operations
+run per application process. New upload admission is refused when the organizer
+already has at least ten pending assets (incomplete uploads or READY assets with no
+draft/revision reference). Removing a cover remains allowed under normal Event guards
+and can increase pending assets above ten; this is not a total-count invariant.
+Further uploads are refused while the current count is at least ten.
+
+Saving a draft cover is a versioned Event edit. Only Publish/Republish changes the
+published cover. Removing/replacing a draft cover never removes media used by a
+published or historical revision. Unpublish closes public media access. Cancellation,
+archive and restore preserve media and the existing public-page availability rules.
+Draft/upload previews are owner-only and Event-scoped; public media is available
+only when it is the cover of the current valid published revision.
+
+New publications use snapshot v3; existing v1/v2 content and registration history
+remain readable and unchanged. Existing descriptions stay plain text. Location,
+agenda, public organizer and description-format fields are reserved in the v3
+contract; their editors and rich rendering are not implemented in 29A.
+
+Template v1 Import and ordinary Duplicate remain supported. Export/Duplicate reject
+saved configuration containing a cover, Markdown format, location, agenda or public
+organizer information, with an explicit incompatibility message. They never silently
+omit that configuration. Template v2 is not implemented.
+
+Media cleanup is an explicit maintenance command, not a worker: incomplete uploads
+expire after 24 hours, unused ready assets after seven days, and assets referenced
+by any draft or revision are retained. Historical media remains for the lifetime of
+its revision. Operators must invoke cleanup and maintain storage/backups.

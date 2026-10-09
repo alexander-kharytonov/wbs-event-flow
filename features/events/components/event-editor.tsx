@@ -39,6 +39,7 @@ export async function CreateEventView({
   if (duplicateFrom !== undefined) {
     let initialTemplate: TemplateEvent | undefined;
     let failure: "authorization" | "configuration" | "unavailable" | undefined;
+    let richContentFailure = false;
 
     try {
       const session = await auth.api.getSession({
@@ -76,6 +77,8 @@ export async function CreateEventView({
         }
       }
     } catch (error) {
+      richContentFailure =
+        error instanceof EventTemplateError && error.code === "richContent";
       // A failed read is not evidence of revoked access. Never expose raw errors.
       failure =
         error instanceof EventTemplateError ? "configuration" : "unavailable";
@@ -94,7 +97,9 @@ export async function CreateEventView({
         duplicateError={
           initialTemplate
             ? undefined
-            : "This event cannot be duplicated. Check your access and whether its configuration meets template limits and its badge design matches the current form."
+            : richContentFailure
+              ? "Template v1 cannot duplicate cover images or rich public content. This configuration requires Template v2."
+              : "This event cannot be duplicated. Check your access and whether its configuration meets template limits and its badge design matches the current form."
         }
       />
     );

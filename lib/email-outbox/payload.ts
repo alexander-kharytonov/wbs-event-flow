@@ -77,7 +77,10 @@ export const emailPayloadSchemas = {
 
 export function rejectionEventTitle(snapshot: unknown) {
   const parsed = z
-    .object({ schemaVersion: z.union([z.literal(1), z.literal(2)]), title })
+    .object({
+      schemaVersion: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+      title,
+    })
     .safeParse(snapshot);
 
   return parsed.success ? parsed.data.title : undefined;

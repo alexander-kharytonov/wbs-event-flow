@@ -3,8 +3,22 @@ import { eventPublicationSnapshotSchema } from "@/features/events/schemas/event-
 import type { Prisma } from "@/generated/prisma/client";
 
 export const workspaceInclude = {
+  coverAsset: {
+    select: {
+      id: true,
+      organizerId: true,
+      eventId: true,
+      state: true,
+      manifest: true,
+    },
+  },
   publishedRevision: {
-    select: { contentVersion: true, number: true, snapshot: true },
+    select: {
+      contentVersion: true,
+      number: true,
+      snapshot: true,
+      coverAssetId: true,
+    },
   },
   registrationForm: {
     include: {
@@ -21,8 +35,25 @@ type EventWorkspace = Prisma.EventGetPayload<{
 }>;
 
 export function buildEventSnapshot(event: EventWorkspace) {
+  const asset = event.coverAsset;
+  const validAsset =
+    asset &&
+    asset.id === event.coverAssetId &&
+    asset.organizerId === event.organizerId &&
+    asset.eventId === event.id &&
+    asset.state === "READY";
+
   return eventPublicationSnapshotSchema.safeParse({
-    schemaVersion: 2,
+    schemaVersion: 3,
+    descriptionFormat: event.descriptionFormat,
+    cover: event.coverAssetId
+      ? validAsset
+        ? { assetId: asset.id, alt: event.coverAlt, variants: asset.manifest }
+        : undefined
+      : null,
+    location: event.location,
+    schedule: event.schedule,
+    publicOrganizer: event.publicOrganizer,
     maxGuestsPerRegistration: event.maxGuestsPerRegistration,
     title: event.title,
     description: event.description,

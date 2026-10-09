@@ -42,6 +42,12 @@ export async function readEventTemplate(userId: string, eventId: string) {
         select: {
           title: true,
           description: true,
+          descriptionFormat: true,
+          coverAssetId: true,
+          coverAlt: true,
+          location: true,
+          schedule: true,
+          publicOrganizer: true,
           startsAt: true,
           endsAt: true,
           timezone: true,
@@ -79,6 +85,18 @@ export async function readEventTemplate(userId: string, eventId: string) {
 
       if (!event.registrationForm) {
         throw new EventTemplateError("configuration");
+      }
+
+      if (
+        event.descriptionFormat !== "PLAIN_TEXT" ||
+        event.coverAssetId !== null ||
+        event.coverAlt !== null ||
+        event.location !== null ||
+        event.publicOrganizer !== null ||
+        !Array.isArray(event.schedule) ||
+        event.schedule.length > 0
+      ) {
+        throw new EventTemplateError("richContent");
       }
 
       return projectEventTemplate({

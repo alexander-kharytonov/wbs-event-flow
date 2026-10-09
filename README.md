@@ -68,7 +68,8 @@ The migration directory contains `20261008180000_baseline`, replacing all earlie
 local development migrations. It creates the current schema and preserves 17
 custom SQL CHECK constraints alongside Prisma-managed keys and indexes. Future
 schema changes use new incremental migrations; do not edit an applied baseline.
-Prisma drift alone does not verify the custom CHECK constraints.
+`20261009000000_event_media_v3` adds the media foundation incrementally; the baseline
+is unchanged. Prisma drift alone does not verify the custom CHECK constraints.
 
 A disposable local database with the removed history requires an explicitly
 authorized reset, including its migration ledger. Immediately before resetting,
@@ -113,11 +114,13 @@ These are the scripts currently defined in package.json:
 | `pnpm db:generate` | Generate Prisma Client |
 | `pnpm db:studio` | Open Prisma Studio |
 | `pnpm db:check` | Check current domain integrity in a read-only RepeatableRead snapshot; report entity counts and violations without private data |
+| `pnpm media:cleanup` | Explicitly collect expired/unreferenced media and reconcile generated orphan files; writes to DB and the configured media directory |
 
 `db:check` covers Application/Registration correspondence, PRIMARY cardinality and
 identity, party activity, Ticket lifecycle, QR/MANUAL Attendance, current publication
 references, and Communication/Outbox counts, types, normalized associated addresses
 and strict versioned contexts. JSON contexts are read in bounded keyset pages.
+It also checks media ownership/references, manifests and v3 cover descriptors.
 Legacy null-linked Outbox and historical runtime contracts remain supported.
 An empty database passes with an explicit zero-data-coverage message. Failures
 exit nonzero; the command never repairs rows, decrypts credentials or sends mail.
@@ -164,3 +167,78 @@ data is retained; protect database and encryption-key backups separately when
 retaining data. The disposable development baseline reset does not require backups.
 Configure any deployment ingress/CDN/access logger to redact `/ticket/*` URLs;
 application logging excludes these bearer paths but cannot control upstream logs.
+
+## Private Event media (29A)
+
+Media operations require MEDIA_STORAGE_ROOT: an existing absolute persistent
+directory owned by the application OS user, mode 0700, outside Git checkouts,
+public/, .next/ and temporary directories. The full ancestor chain must be owned by
+root or the application OS user, with no group/other write permissions or symlinks.
+Provisioning must also exclude write-granting ACLs and untrusted mounts. Root and
+same-UID processes are trusted not to replace paths during operations: Node's
+portable path APIs do not provide universal TOCTOU protection. POSIX is required.
+For example, create a dedicated directory under your Mac's Application Support:
+
+```bash
+mkdir -p "$HOME/Library/Application Support/Event Flow/media"
+chmod 700 "$HOME/Library/Application Support/Event Flow/media"
+```
+
+Set its expanded absolute path in local `.env` (not a literal `$HOME`). Existing
+non-media commands do not require this optional configuration; media operations
+fail closed if it is missing/unsafe. The application does not create the storage
+root or silently fall back to temporary/public directories. Files use opaque keys,
+0600 permissions, atomic create-only publication and no-follow reads. Never mount
+this directory as static web content. Provision the root during local/deployment
+setup; upload handlers never create or substitute the root themselves.
+
+Use the documented POST/PUT/GET contracts in DOMAIN.md for foundation integration;
+29A does not include a cover editor, Markdown renderer or landing-page redesign.
+POST accepts raw JPEG/PNG/WebP bytes, not multipart or remote URLs. The server checks
+Origin against BETTER_AUTH_URL and verifies OWNER scope. Input limits are 5 MiB,
+4096 × 4096, one frame and two process-local operations. A new upload is refused
+when the owner already has >=10 pending assets. Detach remains allowed and can
+raise that count above ten; later uploads remain blocked while the count is >=10.
+Input buffering uses one allocation capped at 5 MiB, independent of chunk count.
+Sharp is a direct native dependency; install its platform binaries in the runtime
+image. Original bytes/filenames/EXIF are not retained. Four immutable normalized
+variants are stored, with fixed-size endpoints bypassing the Next.js optimizer.
+
+Run `pnpm media:cleanup` deliberately against the intended DB/storage pair. It
+expires incomplete uploads after 24 hours and unreferenced READY assets after seven
+days. Draft and historical revision references always prevent deletion. Interrupted
+deletions and generated orphan/temp files are recovered on subsequent invocations.
+Each run selects at most 100 eligible DB candidates and attempts at most 100 orphan
+file deletions (at most 500 file unlinks including four variants per DB candidate).
+Known variants are removed directly; orphan reconciliation streams directory entries
+with constant memory. Filesystem traversal/reference lookups remain O(F) and are not
+strictly time-bounded; this is an accepted v1 limitation. `deleted` counts rows this
+collector actually deleted; `orphans` counts files actually unlinked. Rerun while a
+budget flag is true; a flag signals budget exhaustion, not guaranteed remaining work.
+Failed DELETING rows retry; persistent failures must be repaired by the operator.
+There is no scheduled cleanup, worker or polling; monitor disk usage and invoke the
+command regularly. Never point two unrelated databases at the same media root.
+
+Back up the database and all referenced immutable variants together. A database-only
+restore cannot recover cover files. Keep local storage on a persistent volume across
+restarts/redeployments; ephemeral/serverless filesystems are unsupported. Multiple
+instances need a shared private backend and an appropriate processing-resource budget.
+Future S3 support can implement the small storage adapter and migrate internal
+backend/key locators after verifying checksums. It must retain asset IDs, immutable
+bytes and historical references; public DTOs/URLs must remain independent of storage.
+No cloud integration is present; the SQL backend CHECK currently permits LOCAL only.
+
+New publications are v3; v1/v2 remain readable without backfill. Template v1 export
+and Duplicate fail explicitly for rich/cover configuration; ordinary V1 Import and
+Duplicate stay unchanged. Template v2 belongs to a later iteration.
+
+Requested targeted verification can be repeated with:
+
+```bash
+node --expose-gc --conditions=react-server --import tsx scripts/check-event-media.ts
+```
+
+It requires loopback PostgreSQL with CREATE DATABASE privileges and write access to
+the current user's Application Support directory. It creates an isolated database
+and private media directory and removes both in finally. No existing application
+data is modified and no SMTP is called. Fixtures never remain in the application DB.

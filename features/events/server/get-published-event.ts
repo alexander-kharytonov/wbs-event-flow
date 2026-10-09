@@ -16,14 +16,20 @@ export const getPublishedEvent = cache(async (publicId: string) => {
       cancelledAt: true,
       cancellationReason: true,
       endsAt: true,
-      publishedRevision: { select: { id: true, snapshot: true } },
+      publishedRevision: {
+        select: { id: true, snapshot: true, coverAssetId: true },
+      },
     },
   });
   const snapshot = eventSnapshotSchema.safeParse(
     event?.publishedRevision?.snapshot,
   );
 
-  return snapshot.success && event?.publishedRevision
+  return snapshot.success &&
+    event?.publishedRevision &&
+    (snapshot.data.schemaVersion !== 3 ||
+      (snapshot.data.cover?.assetId ?? null) ===
+        event.publishedRevision.coverAssetId)
     ? {
         snapshot: snapshot.data,
         eventRevisionId: event.publishedRevision.id,

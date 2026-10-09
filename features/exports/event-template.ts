@@ -18,6 +18,8 @@ export const TEMPLATE_V1_LIMITS = {
 } as const;
 
 const errorMessages = {
+  richContent:
+    "Template v1 cannot include cover images or rich public content. Export and Duplicate are unavailable for this configuration until Template v2 is supported.",
   limits:
     "This event exceeds Template v1 limits (100 questions, 100 options per question, 1,000 options total, 100 staff, 512 KiB). No partial file was produced.",
   binding:
@@ -29,7 +31,7 @@ const errorMessages = {
 } as const;
 
 export class EventTemplateError extends Error {
-  constructor(code: keyof typeof errorMessages) {
+  constructor(public readonly code: keyof typeof errorMessages) {
     super(errorMessages[code]);
   }
 }

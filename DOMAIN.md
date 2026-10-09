@@ -78,8 +78,10 @@ Sources: [create](features/events/create-event.ts),
 
 `publishOwnedEvent` locks the owned Event, checks the requested contentVersion,
 builds a snapshot, creates a new EventRevision, and changes publishedRevisionId
-atomically. Publishing the already-current contentVersion with a valid v2 snapshot succeeds without
-creating another revision. A current v1 can republish to v2 at the same contentVersion. Older revisions are not rewritten by application code.
+atomically. Publishing the already-current contentVersion with a valid v3 snapshot
+and matching cover FK succeeds without creating another revision. A current v1/v2
+can republish to v3 at the same contentVersion. Older revisions are not rewritten
+by application code.
 
 The first publication generates a separate UUIDv7 publicId via PostgreSQL
 `uuidv7()` and assigns the first publishedAt. publicId is stored as `uuid`.
@@ -100,13 +102,14 @@ Sources: [publisher](features/events/server/publish-event.ts),
 
 ## 4. Snapshot contracts
 
-New snapshots have `schemaVersion: 2`; historical v1 remains readable and immutable. Responsibilities are separate:
+New snapshots have `schemaVersion: 3`; historical v1/v2 remain readable and immutable. Responsibilities are separate:
 
 | Contract | Responsibility | Implementation |
 | --- | --- | --- |
 | Current authoring | Validate mutable questions/options | [registrationFieldSchema](features/events/schemas/registration-form.ts) |
 | Historical v1 | Read the frozen serialized format independently of authoring | [eventSnapshotSchema](features/events/schemas/event-snapshot.ts) |
-| Current publication | Require valid v2 plus current authoring/publication rules | [eventPublicationSnapshotSchema](features/events/schemas/event-publication-snapshot.ts) |
+| Historical v2/v3 | Read frozen serialized fields independently of future editors | [eventSnapshotSchema](features/events/schemas/event-snapshot.ts) |
+| Current publication | Require valid v3 plus current authoring/publication rules | [eventPublicationSnapshotSchema](features/events/schemas/event-publication-snapshot.ts) |
 
 V1 contains event content, schedule/timezone, visibility, account requirement,
 capacity, registration dates, and ordered fields/options. Each field retains id,
@@ -115,7 +118,7 @@ Array order expresses display order. Historical field constraints are defined
 locally in the v1 parser, without runtime imports of mutable authoring validation.
 Future authoring changes must not silently redefine that compatibility contract.
 
-`buildEventSnapshot` constructs v2 from workspace and applies the current
+`buildEventSnapshot` constructs v3 from workspace and applies the current
 publication validator, also for Preview. New publication forbids registration
 opening after Event start or closing after Event end. Historical snapshots still
 read older registration windows; effective availability caps closing at Event end.
@@ -1820,3 +1823,128 @@ logs. A direct request renders the page, soft navigation the existing modal; bot
 use the same boundary. There is no new create action, schema, job or draft storage.
 Exact dates, past-date warnings, Staff skips, rollback and confirmed-success submit
 locking retain section 31 semantics, without adding server-side idempotency.
+
+## 37. Immutable Event media and snapshot v3 (29A)
+
+MediaAsset belongs to an OrganizerProfile and is scoped to the existing Event
+which authorized its upload. eventId becomes null on pristine Event deletion;
+the record/files remain tracked for cleanup. No pre-Create uploads exist.
+backend/storageKey locate bytes privately; generated opaque keys contain no original
+filename. IDs, fixed variant metadata and alt are the only media snapshot data.
+There are no storage keys, local paths, original files or binary DB values in public
+DTOs/templates. Assets and variant manifests are immutable after READY in application
+code; storage writes are create-only, never overwrite. A future backend migration
+must preserve bytes/checksums and references, not rewrite historical snapshots.
+
+Event.coverAssetId is the mutable draft FK. EventRevision.coverAssetId is the frozen
+reference with ON DELETE RESTRICT; any draft/revision reference prevents cleanup.
+Cover alt belongs to Event authoring and is copied into the snapshot. V3 retains all
+v2 fields and adds descriptionFormat, nullable cover/location/publicOrganizer and
+ordered schedule. Description reuses Event.description, defaults to PLAIN_TEXT, and
+old snapshots are never reinterpreted as Markdown. V3's frozen validators cap agenda
+at 100 chronological entries with UTC millisecond instants inside the Event interval;
+location is PHYSICAL/ONLINE/HYBRID, and organizer display data is explicit public
+content rather than account/profile/Staff projection. These fields have no new editor
+in 29A. New authoring contracts must not redefine v1/v2/v3 historical parsing.
+
+Upload uses POST /api/events/[eventId]/cover/uploads with raw image bytes and exact
+image/jpeg, image/png or image/webp Content-Type. Fresh verified session (no cookie
+cache/session refresh), exact configured Origin, then Event FOR UPDATE and post-lock
+event.edit OWNER authorization are required. Cancelled/Completed/Archived workspaces
+refuse upload and attachment. The server reserves an UPLOADING row before filesystem
+work. A per-organizer transaction advisory lock serializes NEW upload admission
+across Events/processes. Admission reads the current pending count and refuses it
+when >=10. Pending means UPLOADING or READY with neither draft nor revision
+references; expired uploads count until explicit cleanup. Detach remains allowed
+under normal guards, including concurrently with admission, and may raise the count
+above ten. This is not an unconditional pendingCount<=10 invariant. Subsequent
+admissions remain blocked while the current count is >=10; cleanup removes expired
+pending assets. Attachment can also reduce the count by establishing a reference.
+
+Two process-global slots bound upload/normalization operations; no queue/polling is
+created. Actual streaming bytes are limited to 5 MiB (Content-Length is not authority)
+with a 30-second receive deadline. A single bounded input buffer retains at most
+5 MiB regardless of chunk count; only initialized bytes reach the decoder.
+Magic/container boundaries, decoded format,
+single-frame status, individual 4096 dimensions and 16,777,216 pixels are checked.
+Animated PNG/WebP, malformed images and appended payloads are rejected. This is not
+a claim of universal polyglot detection: only newly encoded pixels are retained/served.
+Sharp applies EXIF orientation, sRGB conversion and metadata stripping. Fixed WebP
+640/1280/1920-width and JPEG social (1200-width) variants never upscale; each output
+is capped at 5 MiB and each encoding has a ten-second processing timeout. The full
+manifest records dimensions, MIME, bytes and SHA-256. All files are written outside
+DB transactions before Event -> MediaAsset locks reauthorize and finalize READY.
+Failed/uncertain uploads remain tracked; failure never blindly deletes committed media.
+
+PUT /api/events/[eventId]/cover accepts strict JSON {assetId: UUID|null, alt:
+string|null, version: opaque updatedAt token}. Removing requires both nullable values
+null. Under Event -> MediaAsset locks it rechecks owner/lifecycle/version and the
+asset's READY state, owner, originating Event and manifest. Changing attachment/alt
+increments contentVersion and advances updatedAt exactly like Event Edit, and emits
+event.changed. Same-value saves are no-ops after guards. Replacement locks asset IDs
+in sorted order. Detached unreferenced assets receive a fresh unusedSince timestamp.
+Pristine Event deletion locks/releases uploads before deletion in the same transaction.
+
+Publish locks Event then its READY cover, validates v3, creates snapshot plus revision
+FK and switches the current pointer atomically. No filesystem operation occurs in
+the transaction. Republish retains old references; failed publication loses no media.
+Unpublish, cancellation, archive and restore never delete assets. Existing revision
+ownership/publicId/registration/application/lifecycle contracts remain unchanged.
+
+GET /api/events/[eventId]/cover/[assetId]/[variant] requires a fresh verified owner
+and exact Event ownership/reference, including READY staged uploads for that Event.
+GET /e/[publicId]/cover/[assetId]/[variant] requires the current valid v3 publication,
+matching cover descriptor/revision FK, asset Event/owner, READY manifest and checksum.
+It does not authorize drafts or arbitrary historical assets. Current PRIVATE
+publication retains existing direct-link availability, not password protection.
+Cancellation/archive do not independently hide a still-published cover. Each read
+authorizes one consistent DB snapshot; an already authorized in-flight response can
+finish after an unpublish, and previously downloaded bytes cannot be recalled.
+Only fixed generated variants are served, with correct MIME, nosniff, private/no-store,
+noindex/nofollow/noarchive and no-referrer. Media paths are excluded from Next's image
+optimizer allowlist. New metadata/landing rendering is outside 29A.
+
+Local storage validates the complete ancestor chain top-down: no symlinks, every
+ancestor owned by root or the application UID and not group/other writable. The
+storage root must be application-owned and exactly mode 0700. POSIX ownership
+support is required. Paths are canonical and outside Git/public/.next/tmp. Each
+operation uses its validated canonical root; generated names cannot contain paths.
+Node's portable APIs do not provide directory-relative openat/unlinkat here. Root,
+the application OS user and processes running as that user are trusted not to swap
+ancestors or files during operations. ACLs/mounts must not grant another principal
+write access beyond the checked POSIX modes; provisioning must ensure this. This is
+not universal TOCTOU protection against privileged or same-UID local interference.
+
+Explicit media:cleanup selects at most 100 eligible, unreferenced DB candidates per
+invocation (expired UPLOADING after 24h, unused READY after 7d, or DELETING). Under a
+MediaAsset lock it rechecks state/age and ALL draft/historical revision references,
+marks DELETING and commits. Four known variants are removed directly outside the
+transaction, without a directory scan per asset. Final DB deletion rechecks
+state/references; only the collector deleting the row increments deleted.
+DELETING cannot be attached; failed/interrupted deletions retry on later runs.
+The collector never locks Event after MediaAsset. Pristine-delete orphans retain
+their records/unusedSince.
+
+Reconciliation uses one opendir stream (buffer of 32 entries), no full directory
+array/Map, and attempts at most 100 orphan file deletions per invocation. Only exact
+generated flat filenames absent from DB and individually at least 24h old qualify;
+age is checked again before unlink. Newer siblings of late writes are not removed.
+`orphans` counts actually unlinked files, not keys. At most 500 file unlinks are
+attempted (four variants per DB candidate plus 100 orphans). Directory traversal
+and reference lookups are O(F), with no strict wall-time bound: an explicitly
+accepted v1 limitation. Retained enumeration memory is constant.
+
+Budget flags mean a budget was reached, not proof of remaining eligible work.
+Rerun the command until neither budget is reached; repeated calls are idempotent.
+Successful deletions remove candidates from subsequent runs, including late-upload
+temp/orphan files. Persistent failures require operator intervention and may occupy
+the DB candidate budget until repaired. There are no persistent cursors, new tables,
+workers, cron, polling or automatic cleanup.
+
+SQL CHECKs enforce locator, lifecycle/nullability, manifest container shape,
+timestamps and Event rich-field/alt shape. Full manifest/snapshot validity, asset
+ownership/scope, state transitions and immutability are server-enforced, like existing
+EventRevision invariants. db:check checks media references and serialized contracts.
+Template v1 has no new fields; its authorized reader fails before projecting any
+configuration that would lose rich content. Import remains v1; no Template v2,
+binary inclusion, shared media cloning or remote media fetch is implemented.
