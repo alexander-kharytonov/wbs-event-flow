@@ -3,6 +3,7 @@
 import ArchiveOutlined from "@mui/icons-material/ArchiveOutlined";
 import ArrowDropDown from "@mui/icons-material/ArrowDropDown";
 import CancelOutlined from "@mui/icons-material/CancelOutlined";
+import ContentCopyOutlined from "@mui/icons-material/ContentCopyOutlined";
 import DeleteOutlined from "@mui/icons-material/DeleteOutlined";
 import EditOutlined from "@mui/icons-material/EditOutlined";
 import PublishOutlined from "@mui/icons-material/PublishOutlined";
@@ -85,7 +86,6 @@ export function EventActions({
 
   const menuId = useId();
   const [publication, setPublication] = useState<PublishResult>({});
-  const hasMenu = Boolean(publishLabel || actions.length);
 
   return (
     <Stack
@@ -106,19 +106,17 @@ export function EventActions({
         >
           Edit event
         </Button>
-        {hasMenu && (
-          <Button
-            size="small"
-            aria-label="More event actions"
-            aria-haspopup="menu"
-            aria-controls={anchor ? menuId : undefined}
-            aria-expanded={Boolean(anchor)}
-            onClick={(event) => setAnchor(event.currentTarget)}
-            sx={{ px: 0.75 }}
-          >
-            <ArrowDropDown />
-          </Button>
-        )}
+        <Button
+          size="small"
+          aria-label="More event actions"
+          aria-haspopup="menu"
+          aria-controls={anchor ? menuId : undefined}
+          aria-expanded={Boolean(anchor)}
+          onClick={(event) => setAnchor(event.currentTarget)}
+          sx={{ px: 0.75 }}
+        >
+          <ArrowDropDown />
+        </Button>
       </ButtonGroup>
       <Menu
         id={menuId}
@@ -128,6 +126,19 @@ export function EventActions({
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         transformOrigin={{ vertical: "top", horizontal: "right" }}
       >
+        <MenuItem
+          component={NextLink}
+          href={`/dashboard/events/new?duplicateFrom=${eventId}`}
+          prefetch={false}
+          scroll={false}
+          onClick={() => setAnchor(null)}
+        >
+          <ListItemIcon>
+            <ContentCopyOutlined fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Duplicate event</ListItemText>
+        </MenuItem>
+        {(publishLabel || actions.length > 0) && <Divider />}
         {publishLabel && (
           <MenuItem
             disabled={pending || publication.conflict}

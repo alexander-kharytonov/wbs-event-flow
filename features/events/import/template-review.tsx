@@ -35,6 +35,7 @@ import {
   type EventDateField,
   type EventFormState,
   eventDateFields,
+  eventInputSchema,
   eventValidationError,
   type PreservedEventDates,
   parseEventWithPreservedDates,
@@ -171,12 +172,15 @@ function ReviewBadge({
 }
 
 export function TemplateReview({
-  initial,
+  initial: initialTemplate,
   onBusyChange,
 }: {
   initial: TemplateEvent;
   onBusyChange: (busy: boolean) => void;
 }) {
+  // One mounted review owns one source snapshot, including every exact date.
+  // Duplicate source keys and Import generation keys intentionally start a new review.
+  const [initial] = useState(initialTemplate);
   const router = useRouter();
   const notifications = useNotifications();
   const [event, setEvent] = useState(initial);
@@ -193,6 +197,7 @@ export function TemplateReview({
   const editedDates = useRef(new Set<EventDateField>());
   const nextKey = useRef(initial.registrationForm.fields.length + 1);
   const initialValues = useRef(templateEventValues(initial)).current;
+  const initialTitle = eventInputSchema.in.shape.title.safeParse(initial.title);
 
   function showIssues(nextIssues: TemplateIssue[]): EventFormState {
     const errors: Record<string, string[]> = {};
@@ -247,6 +252,11 @@ export function TemplateReview({
       >
         <EventForm
           importedDates={initial}
+          initialErrors={
+            initialTitle.success
+              ? undefined
+              : { title: initialTitle.error.issues[0].message }
+          }
           initialValues={initialValues}
           disabled={
             bindings.length > 0 ||

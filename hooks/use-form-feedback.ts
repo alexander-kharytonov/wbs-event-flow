@@ -3,8 +3,8 @@
 import { useState } from "react";
 
 // Errors belong to the submitted values and clear when that field is edited.
-export function useFormFeedback() {
-  const [errors, setErrors] = useState<Record<string, string>>({});
+export function useFormFeedback(initialErrors: Record<string, string> = {}) {
+  const [errors, setErrors] = useState<Record<string, string>>(initialErrors);
   const [message, setMessage] = useState<string>();
 
   function clear(field: string) {

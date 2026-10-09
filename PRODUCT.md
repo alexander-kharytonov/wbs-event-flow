@@ -524,7 +524,7 @@ Template v1 allows at most 100 questions, 100 options per question, 1,000 option
 in total, 100 staff and 512 KiB of serialized UTF-8 JSON. Exports are complete or
 fail; these limits do not restrict manual editing. Downloads are private and
 uncached. The v1 export contract remains unchanged by Import/Create (26C).
-Duplicate Event is not implemented.
+Duplicate Event reuses this portable configuration (see iteration 28 below).
 
 
 ## Event template import / create (26C)
@@ -569,8 +569,7 @@ After successful manual or template creation, the app immediately opens the new
 Event page. Import shows added Staff count and neutral skipped/duplicate email
 warnings in a notification that remains visible after navigation. Results stay in
 memory and may vanish on reload; no emails are placed in navigation URLs, cookies or persistent
-browser storage. There is no ImportJob, invitation, destructive import or Duplicate
-Event flow.
+browser storage. There is no ImportJob, invitation or destructive import.
 
 ## Communications foundation (27A)
 
@@ -772,3 +771,40 @@ History retention remains the Event lifetime. Content, audience, actor snapshots
 recipient counts and addresses stay frozen; only delivery operational fields are
 live. Archive/Restore preserve history and the queue. There is no manual resend,
 retry-failed, cancel-delivery or delivery override UI; Send eligibility is unchanged.
+
+
+## Duplicate event (28)
+
+Owners can choose **Duplicate event** from the Event actions menu in any lifecycle,
+publication or archive state. It opens the existing Create page or intercepted
+modal directly in Review, using the current saved workspace, including unpublished
+changes. No JSON download/upload is needed. Manager/Reception and foreign users
+cannot read this configuration through Duplicate.
+
+The original configuration must pass Template v1 export size/portability checks
+and create validation before Review opens. Invalid or historical Badge bindings
+reject the whole operation; no fields or bindings are silently dropped. A neutral
+error explains that access, template limits and current-form Badge compatibility
+must permit duplication.
+
+The copied title receives ` (Copy)` without truncation. A title over 200 characters
+is preserved in Review with an inline error and must be shortened before Create.
+All supported settings, questions/options, Staff emails/roles and Badge layout are
+editable. Untouched dates preserve exact instants and nulls; edited dates/timezone
+use the existing DST rules. Past dates are allowed with the existing warning:
+an unpublished copy can already be Completed and read-only.
+
+Nothing is saved or assigned during Review. Explicit Create uses the same atomic
+creation, Staff budget/resolver, Badge remapping and success navigation as Import.
+The new Event has fresh identity and belongs to the verified creator; publication,
+cancellation/archive state and all operational/history records are excluded.
+The source is never changed. The URL contains only `duplicateFrom=<eventId>`;
+private configuration stays out of URLs and persistent browser storage.
+Cancel/Back discard the review without writes. Background refresh keeps the active
+snapshot and edits even if the source later exceeds template limits, has invalid
+Badge bindings, or cannot temporarily be read. Confirmed loss of verified session
+or source access removes the protected Review. Initial failures never open Review.
+Full page reload opens the Create page and may reload the source, discarding edits.
+No persistent draft is kept.
+Existing submit locking prevents resubmission after confirmed success in that UI;
+there is no server-side exactly-once guarantee after a lost response.

@@ -27,7 +27,18 @@ import {
 } from "@/features/events/import/template-review";
 import { TEMPLATE_V1_LIMITS } from "@/features/exports/event-template";
 
-export function CreateEventModes({ modal = false }: { modal?: boolean }) {
+export function CreateEventModes({
+  modal = false,
+  initialTemplate: incomingTemplate,
+  duplicateError,
+}: {
+  modal?: boolean;
+  initialTemplate?: TemplateEvent;
+  duplicateError?: string;
+}) {
+  // The server changes this container's key on source changes or confirmed denial.
+  // Other refresh outcomes must not replace or remove an acquired snapshot.
+  const [initialTemplate, setInitialTemplate] = useState(incomingTemplate);
   const [mode, setMode] = useState("manual");
   const [text, setText] = useState("");
   const [issues, setIssues] = useState<TemplateIssue[]>([]);
@@ -39,6 +50,10 @@ export function CreateEventModes({ modal = false }: { modal?: boolean }) {
   const [reading, setReading] = useState(false);
   const uploadSequence = useRef(0);
   const generation = useRef(0);
+
+  if (!initialTemplate && incomingTemplate) {
+    setInitialTemplate(incomingTemplate);
+  }
 
   const modeSwitch = (
     <Tooltip title="Create an event from a JSON template">
@@ -58,7 +73,18 @@ export function CreateEventModes({ modal = false }: { modal?: boolean }) {
   );
   const content = (
     <Stack spacing={3}>
-      {mode === "manual" ? (
+      {duplicateError && !initialTemplate ? (
+        <Alert severity="error">{duplicateError}</Alert>
+      ) : initialTemplate ? (
+        <>
+          <Alert severity="info">
+            Review this copy before creating a new unpublished event. Nothing is
+            saved until Create event. Reloading discards your edits and reloads
+            the source configuration.
+          </Alert>
+          <TemplateReview initial={initialTemplate} onBusyChange={setBusy} />
+        </>
+      ) : mode === "manual" ? (
         <EventForm serverAction={createEvent} />
       ) : (
         <Stack spacing={3}>
@@ -191,7 +217,12 @@ export function CreateEventModes({ modal = false }: { modal?: boolean }) {
   );
 
   return modal ? (
-    <EventFormDialog title="Create event" headerActions={modeSwitch}>
+    <EventFormDialog
+      title="Create event"
+      headerActions={
+        !initialTemplate && !duplicateError ? modeSwitch : undefined
+      }
+    >
       {content}
     </EventFormDialog>
   ) : (
@@ -209,7 +240,7 @@ export function CreateEventModes({ modal = false }: { modal?: boolean }) {
         <Typography variant="h4" component="h1">
           Create event
         </Typography>
-        {modeSwitch}
+        {!initialTemplate && !duplicateError && modeSwitch}
       </Stack>
       {content}
     </Stack>

@@ -1332,8 +1332,7 @@ archive state, Applications/Registrations/Attendees/Guests, Tickets/QR/credentia
 Attendance, notifications/outbox or runtime/lock/history data. It is private
 configuration because staff emails are present. Iteration 26B introduced no
 schema/dependency changes and covered export only. Import/Create and its local
-review editor are now implemented in 26C (section 31). Duplicate Event remains
-outside the implemented scope.
+review editor are now implemented in 26C (section 31). Duplicate Event reuses this pipeline (section 36).
 
 
 ## 31. Event template import / atomic create (26C)
@@ -1351,7 +1350,7 @@ No Event write or account eligibility query occurs before explicit Create.
 Review state is local and not authority. The server rechecks fresh verified
 Organizer authority and all final values; organizerId comes only from the session
 adapter. No new permission is introduced. Object validation and creation remain
-independent of JSON transport for a future projector consumer; Duplicate is absent.
+independent of JSON transport; Duplicate supplies the projected object directly to Review.
 
 Imported UTC instants retain milliseconds until that date is edited. Changing the
 review timezone interprets local date inputs using the new zone. Edited values use
@@ -1776,3 +1775,48 @@ open/read/click confirmation. Frozen content/audience/count/addresses and live
 status/attempts/sentAt remain distinct. Retention is the lifetime of the Event.
 Archive/Restore neither changes status nor restarts/cancels mail. There is no new
 send operation or manual resend/retry-failed/override UI.
+
+
+## 36. Duplicate Event (28)
+
+Both Create routes consume optional duplicateFrom and share CreateEventView.
+The owner menu link disables prefetch. Before reading source configuration the
+server checks a fresh verified, unexpired session with cookie cache and session
+refresh disabled, then calls readEventTemplate with only that session user ID.
+The reader authorizes event.edit in the source scope before projecting any private
+configuration; Manager/Reception, foreign, missing and malformed sources receive
+a neutral failure with no partial template. The request is dynamically rendered,
+not a public cached template endpoint. No source lock or write is performed.
+
+The existing RepeatableRead reader provides one snapshot of current Event/Form/
+Staff/Badge, never EventRevision. There is no source lifecycle gate. The original
+object passes serializeEventTemplate (including pretty UTF-8 bytes and newline)
+and validateTemplateCreate before appending ` (Copy)` to its review-only title.
+This temporary title may exceed 200 characters; initial inline feedback and the
+unchanged authoritative create validation require correction. Source portability
+failure rejects the whole Duplicate before Review, including historical bindings.
+
+TemplateReview receives an object without JSON upload/download. Final submission
+retains the existing importTemplate action and atomic createTemplateEvent/core.
+Review performs no eligibility lookup or persistence; Staff resolution and its
+shared budget run only on explicit Create. Badges use the same field_N-to-new-ID
+mapping. Organizer identity comes from the fresh verified Create session, and
+no source identity, version, lifecycle facts or operational/history rows are copied.
+
+Review captures its entire initial configuration once per mount, including exact
+dates and timezone. RSC refresh may reread the source but replacement props do not
+merge into an active Review or reset its edits. Create modes retains its first
+successful source snapshot across later projection/portability errors and unknown
+read failures. Initial failures show only a neutral error. Fresh session denial or
+readEventTemplate's unauthorized/missing result changes the server-owned container
+key to a denial boundary, unmounting the protected Review and discarding its state.
+Unknown failures never count as confirmed revocation; a later unknown failure
+cannot resurrect a snapshot discarded by denial. No client flag authorizes a read.
+A different Duplicate source key,
+an Import replacement generation, or full page reload starts a fresh Review.
+Cancel/Back make no writes.
+No source configuration or emails enter URLs/cookies/persistent browser storage or
+logs. A direct request renders the page, soft navigation the existing modal; both
+use the same boundary. There is no new create action, schema, job or draft storage.
+Exact dates, past-date warnings, Staff skips, rollback and confirmed-success submit
+locking retain section 31 semantics, without adding server-side idempotency.
