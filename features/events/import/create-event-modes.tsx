@@ -13,7 +13,11 @@ import {
 } from "@mui/material";
 import { useRef, useState } from "react";
 import { BackLink } from "@/components/ui/back-link";
-import { EventFormDialog } from "@/features/events/components/event-form-dialog";
+import {
+  EditorNavigationGuard,
+  useEditorDirty,
+  useEditorNavigation,
+} from "@/components/ui/editor-navigation-guard";
 import { createEvent } from "@/features/events/create-event";
 import { EventForm } from "@/features/events/event-form";
 import {
@@ -27,12 +31,10 @@ import {
 } from "@/features/events/import/template-review";
 import { TEMPLATE_LIMITS } from "@/features/exports/event-template";
 
-export function CreateEventModes({
-  modal = false,
+function CreateEventModesContent({
   initialTemplate: incomingTemplate,
   duplicateError,
 }: {
-  modal?: boolean;
   initialTemplate?: TemplateEvent;
   duplicateError?: string;
 }) {
@@ -55,6 +57,9 @@ export function CreateEventModes({
     setInitialTemplate(incomingTemplate);
   }
 
+  const navigation = useEditorNavigation();
+  useEditorDirty("template-text", mode === "import" && Boolean(text));
+
   const modeSwitch = (
     <Tooltip title="Create an event from a JSON template">
       <FormControlLabel
@@ -65,7 +70,9 @@ export function CreateEventModes({
             size="small"
             checked={mode === "import"}
             disabled={busy || reading}
-            onChange={(_, checked) => setMode(checked ? "import" : "manual")}
+            onChange={(_, checked) =>
+              navigation.request(() => setMode(checked ? "import" : "manual"))
+            }
           />
         }
       />
@@ -85,9 +92,14 @@ export function CreateEventModes({
           <TemplateReview initial={initialTemplate} onBusyChange={setBusy} />
         </>
       ) : mode === "manual" ? (
-        <EventForm serverAction={createEvent} />
+        <EventForm serverAction={createEvent} onBusyChange={setBusy} />
       ) : (
-        <Stack spacing={3}>
+        <Stack
+          component="fieldset"
+          disabled={reading}
+          spacing={3}
+          sx={{ border: 0, p: 0, m: 0, minWidth: 0 }}
+        >
           <Alert severity="info">
             Upload an Event Flow JSON template or paste its contents. Review and
             edit it before creating a new unpublished event.
@@ -114,9 +126,6 @@ export function CreateEventModes({
                 }
 
                 const sequence = ++uploadSequence.current;
-                setReview(undefined);
-                setIssues([]);
-                setText("");
 
                 if (file.size > TEMPLATE_LIMITS.bytes) {
                   setIssues([
@@ -138,9 +147,23 @@ export function CreateEventModes({
                     fatal: true,
                   }).decode(await file.arrayBuffer());
 
-                  if (sequence === uploadSequence.current) {
-                    setText(contents);
+                  if (sequence !== uploadSequence.current) {
+                    return;
                   }
+
+                  const result = parseTemplateText(contents);
+
+                  if (!result.success) {
+                    setIssues(result.issues);
+
+                    return;
+                  }
+
+                  navigation.request(() => {
+                    setText(contents);
+                    setReview(undefined);
+                    setIssues([]);
+                  });
                 } catch {
                   setIssues([
                     {
@@ -163,9 +186,18 @@ export function CreateEventModes({
             value={text}
             disabled={busy || reading}
             onChange={(change) => {
-              setText(change.target.value);
-              setReview(undefined);
-              setIssues([]);
+              const value = change.target.value;
+              const replace = () => {
+                setText(value);
+                setReview(undefined);
+                setIssues([]);
+              };
+
+              if (review) {
+                navigation.request(replace);
+              } else {
+                replace();
+              }
             }}
             fullWidth
             error={issues.length > 0}
@@ -180,17 +212,25 @@ export function CreateEventModes({
             sx={{ alignSelf: "flex-start" }}
             disabled={busy || reading || !text.trim()}
             onClick={() => {
-              const result = parseTemplateText(text);
-              setIssues([]);
+              const validate = () => {
+                const result = parseTemplateText(text);
+                setIssues([]);
 
-              if (result.success) {
-                setReview({
-                  generation: ++generation.current,
-                  event: result.template.event,
-                });
+                if (result.success) {
+                  setReview({
+                    generation: ++generation.current,
+                    event: result.template.event,
+                  });
+                } else {
+                  setReview(undefined);
+                  setIssues(result.issues);
+                }
+              };
+
+              if (review) {
+                navigation.request(validate);
               } else {
-                setReview(undefined);
-                setIssues(result.issues);
+                validate();
               }
             }}
           >
@@ -216,16 +256,7 @@ export function CreateEventModes({
     </Stack>
   );
 
-  return modal ? (
-    <EventFormDialog
-      title="Create event"
-      headerActions={
-        !initialTemplate && !duplicateError ? modeSwitch : undefined
-      }
-    >
-      {content}
-    </EventFormDialog>
-  ) : (
+  return (
     <Stack spacing={3} sx={{ width: "100%" }}>
       <BackLink href="/dashboard">My events</BackLink>
       <Stack
@@ -244,5 +275,15 @@ export function CreateEventModes({
       </Stack>
       {content}
     </Stack>
+  );
+}
+
+export function CreateEventModes(
+  props: Parameters<typeof CreateEventModesContent>[0],
+) {
+  return (
+    <EditorNavigationGuard>
+      <CreateEventModesContent {...props} />
+    </EditorNavigationGuard>
   );
 }

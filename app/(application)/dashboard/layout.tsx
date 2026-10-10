@@ -1,16 +1,5 @@
 import type { ReactNode } from "react";
 
-export default function DashboardLayout({
-  children,
-  eventModal,
-}: {
-  children: ReactNode;
-  eventModal: ReactNode;
-}) {
-  return (
-    <>
-      {children}
-      {eventModal}
-    </>
-  );
+export default function DashboardLayout({ children }: { children: ReactNode }) {
+  return children;
 }

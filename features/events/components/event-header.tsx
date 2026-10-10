@@ -1,6 +1,6 @@
-import { Alert, Stack, Typography } from "@mui/material";
+import { Alert, Box, Stack, Typography } from "@mui/material";
 import { notFound } from "next/navigation";
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { DateTime } from "@/components/ui/date-time";
 import { EventAccessStatus } from "@/features/events/components/event-access-status";
 import { EventPublicationAlert } from "@/features/events/components/event-publication-alert";
@@ -165,11 +165,13 @@ function OwnerEventControls({
 export async function EventHeader({
   eventId,
   active,
+  children,
   data: suppliedData,
   now = new Date(),
 }: {
   eventId: string;
   active: ComponentProps<typeof EventNavigation>["active"];
+  children: ReactNode;
   data?: EventHeaderProjection;
   now?: Date;
 }) {
@@ -270,17 +272,52 @@ export async function EventHeader({
       {snapshot && (
         <EventCapacity snapshot={snapshot} occupied={attendeeCount} />
       )}
-      <EventNavigation
-        eventId={eventId}
-        active={active}
-        sections={eventSections
-          .filter(({ permission }) =>
-            hasEventPermission(access.role, permission),
-          )
-          .map(({ id, label }) => ({ id, label }))}
-        applicationCount={applicationCount}
-        attendeeCount={attendeeCount}
-      />
+      <Box
+        sx={{
+          bgcolor: "background.paper",
+          border: 1,
+          borderColor: "divider",
+          borderRadius: 1,
+          display: "grid",
+          gridTemplateColumns: {
+            xs: "minmax(0, 1fr)",
+            md: "240px minmax(0, 1fr)",
+          },
+        }}
+      >
+        <Box
+          sx={{
+            minWidth: 0,
+            borderStyle: "solid",
+            borderWidth: 0,
+            borderRightWidth: { md: 1 },
+            borderBottomWidth: { xs: 1, md: 0 },
+            borderColor: "divider",
+          }}
+        >
+          <EventNavigation
+            eventId={eventId}
+            active={active}
+            sections={eventSections
+              .filter(({ permission }) =>
+                hasEventPermission(access.role, permission),
+              )
+              .map(({ id, label }) => ({ id, label }))}
+            applicationCount={applicationCount}
+            attendeeCount={attendeeCount}
+          />
+        </Box>
+        <Stack
+          id="event-section-panel"
+          role="tabpanel"
+          aria-labelledby={`event-nav-${active}`}
+          tabIndex={0}
+          spacing={3}
+          sx={{ minWidth: 0, p: { xs: 2, sm: 4 } }}
+        >
+          {children}
+        </Stack>
+      </Box>
     </Stack>
   );
 }

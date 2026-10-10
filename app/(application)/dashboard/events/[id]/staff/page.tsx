@@ -40,8 +40,9 @@ export default async function StaffPage({
 
   return (
     <Stack spacing={3}>
-      <EventHeader eventId={id} active="staff" />
-      <StaffList eventId={id} members={members} />
+      <EventHeader eventId={id} active="staff">
+        <StaffList eventId={id} members={members} />
+      </EventHeader>
     </Stack>
   );
 }

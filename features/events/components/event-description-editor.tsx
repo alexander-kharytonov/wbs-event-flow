@@ -16,7 +16,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { EventDescription } from "@/features/events/components/event-description";
 
 function lineRange(value: string, start: number, end: number) {
@@ -71,6 +71,11 @@ export function EventDescriptionEditor({
   const [selection, setSelection] = useState({ start: 0, end: 0 });
   const input = useRef<HTMLTextAreaElement>(null);
   const id = useId();
+  useEffect(() => {
+    if (error) {
+      setMode("write");
+    }
+  }, [error]);
   const formats = selectionFormats(value, selection.start, selection.end);
 
   function replace(next: string, start: number, end: number) {
@@ -256,18 +261,14 @@ export function EventDescriptionEditor({
     <Stack spacing={1}>
       <input type="hidden" name="description" value={value} />
       <input type="hidden" name="descriptionFormat" value="MARKDOWN" />
-      <Stack
-        direction="row"
-        sx={{ justifyContent: "space-between", alignItems: "baseline" }}
-      >
-        <Typography id={`${id}-label`} component="h3" variant="subtitle1">
-          Description
-        </Typography>
-        <Typography variant="caption" color="text.secondary">
-          Markdown
-        </Typography>
-      </Stack>
-      {formatError && <Alert severity="error">{formatError}</Alert>}
+      <Typography id={`${id}-label`} component="h3" variant="subtitle1">
+        Description
+      </Typography>
+      {formatError && (
+        <Alert severity="error" tabIndex={-1} data-editor-error>
+          {formatError}
+        </Alert>
+      )}
       <TextField
         inputRef={input}
         value={value}
@@ -340,11 +341,14 @@ export function EventDescriptionEditor({
           },
           htmlInput: {
             maxLength: 20000,
+            "data-editor-field": "description",
             "aria-labelledby": `${id}-label`,
             "aria-hidden": mode === "preview" ? true : undefined,
             tabIndex: mode === "preview" ? -1 : undefined,
             // Keep the source mounted so both modes share its autosized height.
-            style: { visibility: mode === "preview" ? "hidden" : "visible" },
+            style: {
+              visibility: mode === "preview" ? "hidden" : "visible",
+            },
           },
         }}
         onKeyDown={(event) => {

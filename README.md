@@ -234,12 +234,14 @@ pre-deployment reset discards old local records without conversion.
 
 ## Rich Event authoring and Template V2 (29B)
 
-Create, Edit, Import Review and Duplicate Review share the Event form and atomic
-create path. They support explicit Plain Text/Markdown descriptions, optional
+Create, Edit, Import Review and Duplicate Review share a full-page, seven-tab
+workspace editor (plus Additional settings for Import/Duplicate Review) and the atomic create path. Edit saves stay open; successful Create
+opens the new editor. Preview opens the saved draft in a separate tab. Cover saves
+remain independent, and app navigation asks before discarding unsaved changes. Descriptions use Markdown (including ordinary text), with optional
 physical/online/hybrid location, up to 100 ordered agenda entries and explicitly
 authored public organizer information. Markdown uses one restricted react-markdown
 renderer for client preview and OWNER Event Preview: no HTML, images or MDX; only
-absolute HTTP(S) links without credentials. Existing plain text stays plain text.
+absolute HTTP(S) links without credentials. Historical plain-text snapshots retain literal rendering.
 
 Untouched agenda instants retain seconds/milliseconds, including ambiguous local
 hours imported as exact UTC instants. Title edits/reordering preserve those instants;

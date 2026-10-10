@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import {
   type EventFormState,
   eventFormInput,
@@ -35,5 +34,6 @@ export async function createEvent(
   }
 
   revalidatePath("/dashboard");
-  redirect(`/dashboard/events/${eventId}`);
+
+  return { createdId: eventId };
 }

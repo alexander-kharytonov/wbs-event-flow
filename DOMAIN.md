@@ -1351,7 +1351,7 @@ review editor are now implemented in 26C (section 31). Duplicate Event reuses th
 
 ## 31. Event template import / atomic create (26C)
 
-Create page and intercepted modal share manual/import modes. Upload and Paste use
+The full-page Create editor shares manual/import modes. Upload and Paste use
 one UTF-8 byte-limit -> JSON parse -> format/version -> strict EventTemplate V2 ->
 create-domain validation pipeline. EventTemplate V2 is the only supported format
 (section 38). V1 and unknown versions are rejected without legacy normalization
@@ -1392,7 +1392,7 @@ unchanged. Null BadgeLayout stays SQL null/default.
 The shared transaction-aware core creates Event + RegistrationForm, batch fields,
 batch options, remapped BadgeLayout and batch resolved memberships in one bounded
 transaction. Manual Create calls this core with empty fields/staff and null layout,
-retaining its redirect. The new Event starts with the ordinary contentVersion=1
+returning the confirmed new ID for navigation to its editor. The new Event starts with the ordinary contentVersion=1
 and null publication/publicId/cancellation/archive state. No EventRevision or
 operational/history rows are written. Any invariant or DB/integrity failure throws
 out of the transaction and rolls back all Event data; no partial success return or
@@ -1419,7 +1419,7 @@ Add Staff uses the same eligibility resolver and budget while retaining its owne
 lock/reauthorization, role-change and notification behavior.
 
 After commit, Import returns only eventId, addedCount, skipped template emails and
-duplicate email warnings. The client immediately navigates to the new Event page,
+duplicate email warnings. The client immediately navigates to the new Event editor,
 keeping creation disabled until navigation completes. The existing global
 notification displays the import result across navigation. Result state is
 ephemeral; no URL/cookie/persistent storage or ImportJob is used. No destructive
@@ -1795,7 +1795,7 @@ send operation or manual resend/retry-failed/override UI.
 
 ## 36. Duplicate Event (28)
 
-Both Create routes consume optional duplicateFrom and share CreateEventView.
+The full-page Create route consumes optional duplicateFrom through CreateEventView.
 The owner menu link disables prefetch. Before reading source configuration the
 server checks a fresh verified, unexpired session with cookie cache and session
 refresh disabled, then calls readEventTemplate with only that session user ID.
@@ -1832,8 +1832,8 @@ A different Duplicate source key,
 an Import replacement generation, or full page reload starts a fresh Review.
 Cancel/Back make no writes.
 No source configuration or emails enter URLs/cookies/persistent browser storage or
-logs. A direct request renders the page, soft navigation the existing modal; both
-use the same boundary. There is no new create action, schema, job or draft storage.
+logs. Direct requests and soft navigation render the same full page
+with the same authorization boundary. There is no new create action, schema, job or draft storage.
 Exact dates, past-date warnings, Staff skips, rollback and confirmed-success submit
 locking retain section 31 semantics, without adding server-side idempotency.
 
@@ -1972,12 +1972,13 @@ remote media fetch remain unsupported.
 
 ## 38. Rich authoring and EventTemplateV2 (29B)
 
-The description editor uses Markdown only: its form state and submitted
-descriptionFormat are MARKDOWN for Create/Edit and Import/Duplicate Review.
-Opening a plain-text draft/template does not write data; saving the reviewed
-description explicitly adopts Markdown. The persisted enum and frozen template/
-snapshot readers still accept PLAIN_TEXT, preserving existing data and historical
-meaning. No migration or historical revision rewrite is performed.
+The description editor authors MARKDOWN in Create/Edit and Import/Duplicate
+Review. Plain text can be entered directly as Markdown; there is no format selector.
+Opening a persisted draft or template preserves source text and initializes the
+editor to MARKDOWN; only an explicit Save/Create persists that format. Historical
+PLAIN_TEXT snapshots retain literal rendering. Both formats remain valid in frozen
+snapshot and TemplateV2 transport contracts. No migration, bulk conversion or
+historical revision rewrite is performed.
 
 The shared Event authoring schema extends the existing Create/Edit/Review path.
 It reuses location/publicOrganizer constraints and the schedule entry shape from
@@ -1998,7 +1999,7 @@ allowed; no automatic sorting, date shifting or client-authoritative preservatio
 
 Cover upload/attachment stays separate from Event form writes. A synchronous local
 mutation guard excludes overlapping Event Save and cover upload/save operations.
-Only successful PUT attachment responses update the form's optimistic token;
+Only successful PUT attachment responses advance the cover mutation token;
 router refresh never silently replaces it. Other form values survive cover saves.
 Failures/conflicts retain the existing reload contract and never delete assets.
 The existing 29A upload, immutable storage, reference and cleanup rules are unchanged.
@@ -2030,6 +2031,32 @@ warns about OMITTED; Create always creates without a cover using the existing at
 core. Source reload/revocation checks, Staff resolution, fresh question/option IDs,
 Badge bindings and rollback behavior are preserved. There is no second editor or
 cloning service, media copy, worker, polling or cloud backend.
+
+### Workspace editor save and navigation contract
+
+Switchable UI sections share one state and complete-form transport; hidden panels
+never define a validation or authorization boundary. Edit retains fresh verified
+OWNER checks, the Event row lock, one decision time, updatedAt compare-and-write,
+contentVersion increment, lifecycle checks and transactional invalidation.
+After commit, updateEvent returns only the confirmed opaque version, safe editable
+values, exact date/agenda source and Ongoing start-lock state. The client rebases
+schedule source indices to the new saved order while preserving UI keys; it resets
+edited-date markers only on confirmed success. Later writes still derive exact
+instants from the locked database row, never the returned client source. RSC refresh
+does not overwrite a mounted editor's local values or advance its token.
+
+Manual Create uses the unchanged atomic create core, returning the ID for navigation
+to Edit. Import/Duplicate keep atomic creation, Staff budgets, Badge remapping,
+frozen Review and confirmed-success locking; success now opens Edit. There is no
+schema, TemplateV2 transport, admission, publication or media lifecycle change.
+
+Dirty tracking includes Event values/date intent, unsaved cover selection/alt/upload
+and modified Review extras. A committed cover is not an unsaved Event-field change.
+App-link/editor-exit, template replacement and Sign-out confirmation is client UX,
+not a security boundary. beforeunload is best effort; browser-history/OS exit
+protection is not universal. Confirmed session/source revocation still removes
+protected state. Preview uses saved authorized workspace data in a separate tab;
+local edits do not become public without the existing explicit publication action.
 
 ## 39. Public landing and metadata (29C)
 

@@ -293,6 +293,7 @@ export default async function PublicEventsPage() {
                       )}
                       <Stack
                         spacing={2}
+                        useFlexGap
                         sx={{
                           position: "relative",
                           p: { xs: 2, sm: 3 },
@@ -307,7 +308,7 @@ export default async function PublicEventsPage() {
                           variant="h6"
                           component="h3"
                           color={snapshot.cover ? "inherit" : "primary.main"}
-                          sx={{ overflowWrap: "anywhere" }}
+                          sx={{ overflowWrap: "anywhere", mb: "auto" }}
                         >
                           {snapshot.title}
                         </Typography>

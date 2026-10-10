@@ -35,35 +35,36 @@ export default async function AttendeesPage({
 
   return (
     <Stack spacing={3}>
-      <EventHeader eventId={id} active="attendees" />
-      <Stack
-        direction={{ xs: "column", sm: "row" }}
-        sx={{
-          gap: 1,
-          justifyContent: "space-between",
-          alignItems: { sm: "center" },
-        }}
-      >
-        <Typography
-          variant="h6"
-          component="h2"
-          sx={{ minHeight: 42, display: "flex", alignItems: "center" }}
+      <EventHeader eventId={id} active="attendees">
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          sx={{
+            gap: 1,
+            justifyContent: "space-between",
+            alignItems: { sm: "center" },
+          }}
         >
-          Attendees
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {activeCount} admitted · {checkedInCount} checked in ·{" "}
-          {activeCount - checkedInCount} not arrived
-        </Typography>
-      </Stack>
-      <AttendeesList
-        eventId={id}
-        attendees={attendees}
-        full={data.full}
-        canPrintBadges={data.canPrintBadges}
-        timezone={event.timezone}
-        lifecycle={eventLifecycle(event, new Date())}
-      />
+          <Typography
+            variant="h6"
+            component="h2"
+            sx={{ minHeight: 42, display: "flex", alignItems: "center" }}
+          >
+            Attendees
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {activeCount} admitted · {checkedInCount} checked in ·{" "}
+            {activeCount - checkedInCount} not arrived
+          </Typography>
+        </Stack>
+        <AttendeesList
+          eventId={id}
+          attendees={attendees}
+          full={data.full}
+          canPrintBadges={data.canPrintBadges}
+          timezone={event.timezone}
+          lifecycle={eventLifecycle(event, new Date())}
+        />
+      </EventHeader>
     </Stack>
   );
 }

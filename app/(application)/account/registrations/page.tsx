@@ -11,8 +11,6 @@ import {
 import type { Metadata } from "next";
 import { DateTime } from "@/components/ui/date-time";
 import { EmptyState } from "@/components/ui/empty-state";
-import { PageHeader } from "@/components/ui/page-header";
-import { AccountNavigation } from "@/features/auth/components/account-navigation";
 import { ApplicationRealtime } from "@/features/events/components/application-realtime";
 import { ApplicationStatus } from "@/features/events/components/application-status";
 import { RegistrationAdmission } from "@/features/events/components/registration-admission";
@@ -41,8 +39,9 @@ export default async function MyRegistrationsPage() {
   return (
     <Stack spacing={3}>
       <ApplicationRealtime streamUrl="/api/account/registrations/stream" />
-      <PageHeader title="My registrations" />
-      <AccountNavigation active="registrations" />
+      <Typography variant="h6" component="h2">
+        My registrations
+      </Typography>
       {upcoming.length === 0 &&
       past.length === 0 &&
       unavailable.length === 0 ? (
@@ -79,7 +78,7 @@ export default async function MyRegistrationsPage() {
                   gap: 2,
                   gridTemplateColumns: {
                     xs: "minmax(0, 1fr)",
-                    sm: "repeat(2, minmax(0, 1fr))",
+                    lg: "repeat(2, minmax(0, 1fr))",
                   },
                 }}
               >

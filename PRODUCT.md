@@ -123,9 +123,18 @@ does not identify the physical person behind an anonymous submission.
 ## Account
 
 `/account` is the verified user's workspace, with Overview, Registrations, and
-Profile sections.
+Profile sections in a persistent tabbed workspace. It shares the Event editor's
+responsive MUI Tabs: a 240px sidebar on desktop and horizontal tabs on mobile,
+with CSS determining layout before hydration. Existing section URLs, direct links,
+refresh and browser history are preserved; registration details keep Registrations
+active. Loading and error content stays inside the shared workspace.
 `/account/profile` lets users edit their name; email is displayed read-only. Overview
 links to public events and organizer activation or the existing organizer dashboard.
+Profile Save is disabled without changes, while pending or when the name is blank.
+Successful Save keeps the page open and updates the clean baseline. Ordinary app
+links (including Account tabs) and Sign out use the shared discard confirmation
+when profile edits are unsaved. Reload/tab close has best-effort beforeunload
+protection; browser history and OS termination are not guaranteed to prompt.
 
 `/account/registrations` shows linked Event registrations, one card per Event.
 Active admission displays “Registration confirmed”; revoked admission remains
@@ -550,15 +559,18 @@ Duplicate Event reuses this portable configuration (see iteration 28 below).
 
 ## Event template import / create (26C)
 
-Create event defaults to manual entry in both the page and modal. A **Use template**
+Create event defaults to manual entry in the full-page workspace editor. A **Use template**
 switch in the header opens template import.
 Upload a UTF-8 JSON file or paste JSON, then Validate. Both use the same strict
 parser, reject unsupported versions/unknown properties/internal identity fields,
 and enforce the same template limits. Preview performs no writes or account lookup.
 
 Review allows editing Event settings, local questions/options, staff email/role,
-and Badge Design before an explicit Create event. Loading another template resets
-all review state. Manual Create retains its browser timezone default; imported
+and Badge Design before an explicit Create event. Replacing a template asks before discarding local edits and then resets
+all review state. Uploaded replacements are read and validated before confirmation;
+cancelled replacements and invalid or unreadable files preserve the existing JSON
+and Review. A successful upload still requires Validate to open a new Review.
+Manual Create retains its browser timezone default; imported
 configuration retains its supplied timezone. Untouched imported dates keep their
 exact instants, including seconds/milliseconds. Editing a date (or its timezone)
 uses the existing local-time/DST validation. Dates are never shifted automatically.
@@ -587,7 +599,7 @@ abuse-prevention guarantee. Successful assignment reveals eligibility as with
 existing Add Staff; unavailable reasons and account metadata are never returned.
 
 After successful manual or template creation, the app immediately opens the new
-Event page. Import shows added Staff count and neutral skipped/duplicate email
+Event editor. Import shows added Staff count and neutral skipped/duplicate email
 warnings in a notification that remains visible after navigation. Results stay in
 memory and may vanish on reload; no emails are placed in navigation URLs, cookies or persistent
 browser storage. There is no ImportJob, invitation or destructive import.
@@ -797,8 +809,8 @@ retry-failed, cancel-delivery or delivery override UI; Send eligibility is uncha
 ## Duplicate event (28)
 
 Owners can choose **Duplicate event** from the Event actions menu in any lifecycle,
-publication or archive state. It opens the existing Create page or intercepted
-modal directly in Review, using the current saved workspace, including unpublished
+publication or archive state. It opens the full Create page
+directly in Review, using the current saved workspace, including unpublished
 changes. No JSON download/upload is needed. Manager/Reception and foreign users
 cannot read this configuration through Duplicate.
 
@@ -821,7 +833,7 @@ The new Event has fresh identity and belongs to the verified creator; publicatio
 cancellation/archive state and all operational/history records are excluded.
 The source is never changed. The URL contains only `duplicateFrom=<eventId>`;
 private configuration stays out of URLs and persistent browser storage.
-Cancel/Back discard the review without writes. Background refresh keeps the active
+Editor Cancel/Back ask before discarding changed review values and make no writes. Background refresh keeps the active
 snapshot and edits even if the source later exceeds template limits, has invalid
 Badge bindings, or cannot temporarily be read. Confirmed loss of verified session
 or source access removes the protected Review. Initial failures never open Review.
@@ -836,8 +848,8 @@ Owners with verified accounts can upload cover images for existing editable Even
 through the media API, then explicitly attach, replace or remove the draft cover.
 The 29B editor below uses these APIs; the public landing page is described in 29C.
 Create/Import/Duplicate Review performs no media upload or persistence before Create.
-An info alert before Basic information explains that cover images become available
-after creation.
+The Cover tab is disabled until the Event exists. An adjacent information button
+explains that images can be uploaded and cropped after creation, before publishing.
 
 Uploads accept one static JPEG, PNG or WebP, at most 5 MiB and 4096 × 4096 pixels.
 The editor offers a fixed 16:9 crop with drag positioning, zoom and keyboard-accessible
@@ -876,9 +888,10 @@ its revision. Operators must invoke cleanup and maintain storage/backups.
 ## Rich Event editor and Template V2 (29B)
 
 The existing Create/Edit and Import/Duplicate Review forms share rich authoring.
-Descriptions always use Markdown in the editor, with a 20,000-character limit.
-Create/Edit and Import/Duplicate Review save the reviewed description as MARKDOWN;
-there is no Plain text selector. The editor combines Write/Preview tabs with
+Descriptions are authored as Markdown, with a 20,000-character limit. Ordinary
+text needs no special formatting. There is no Plain text mode selector. Opening
+a draft or template preserves the source text; saving through the editor uses
+MARKDOWN. The editor combines Write/Preview with
 grouped formatting toggles for selected text (bold, italic, heading and list)
 and a separate link insertion action. Toggling an active format removes it.
 Existing stored descriptions are not bulk-converted; previously published
@@ -929,6 +942,61 @@ OWNER Preview displays the draft cover and rich content from the workspace's V3
 snapshot. Public pages still use published revisions only. Overview remains an
 operational view without expanded Staff access. 29B adds no worker, polling or
 storage backend; the public presentation is extended by 29C below.
+
+## Event Workspace Editor
+
+Create, Edit, Import Review and Duplicate Review use one full-page editor at the
+existing /dashboard/events/new and /dashboard/events/[id]/edit URLs. Event editor
+route interception is removed; Application and Communication detail dialogs remain.
+Direct links, refresh and ordinary Back/Forward use the same page routes.
+
+Seven switchable tabs show only the active panel: Basics (title, description),
+Cover (independently saved image, crop and alt text), Schedule (dates and timezone),
+Location (venue and online meeting details), Event agenda (compact agenda), Registration
+(capacity, guests, registration dates, visibility, account requirement), Organizer
+(public organizer information). Import/Duplicate additionally shows Additional
+settings for Registration Form questions, Staff and Badge Design. Review errors
+open that tab; ordinary Create/Edit does not show it. No separate builder is introduced.
+All panels remain mounted in one form, with inactive panels hidden from layout,
+keyboard navigation and assistive technology. Switching never saves, resets errors,
+or discards values. Desktop uses vertical MUI Tabs with icons and labels; mobile
+uses horizontally scrollable tabs. Cover follows Basics and is disabled until the
+event exists; an adjacent information button explains availability instead of an
+in-form alert. Fields and feedback retain shared theme/light/dark behavior.
+
+A compact sticky action area provides Create event / Save draft,
+Preview saved draft and Cancel / Back actions. Contextual help explains separate
+publication and that Preview excludes unsaved edits. Cover edits have a separate
+reminder and their own Save cover action in Cover. Save draft is disabled when
+Event fields have no unsaved changes; there are no ordinary saved/unsaved status
+labels. Pending Save, validation errors, save failures and version conflicts remain
+visible. Missing required values still disable submission; Complete required fields locates unfinished input.
+Nonempty invalid values remain submittable. Save validates every section, activates
+the first affected section and focuses its invalid field (or a general Alert).
+Agenda field errors expose the corresponding details. Other errors remain intact.
+Conflict and unknown-save feedback keeps Reload latest version available.
+
+Successful Edit stays open and adopts the confirmed server version, canonical
+values and exact date/agenda source. Dirty state clears only after confirmed
+success. Create opens the new Event editor, where its cover can be added; past,
+Completed Events retain the existing read-only boundary. No automatic Save occurs.
+Cover selection/upload/attachment remains independent, with its own pending edits
+and save status. Successful cover attachment alone advances its optimistic token
+without saving or clearing other Event edits. Cover and Event Save cannot overlap.
+
+Editor Back/Cancel, ordinary same-tab app links, Sign out and template mode/replacement
+controls use a MUI Discard unsaved changes? dialog with Keep editing / Discard changes.
+Beforeunload is best effort for reload/tab close; browser history controls and OS
+termination are not guaranteed to prompt. Confirmed access revocation still discards
+protected state immediately. No persistent local draft storage is introduced.
+Preview saved draft opens in a new tab, retaining local edits and explaining that
+Preview only includes saved workspace data. Publication remains a separate explicit
+operation from the Event overview; Save never publishes or changes historical revisions.
+
+Agenda items show title, local date/time, a brief description, move/edit/delete
+controls and expandable details. New items expand and receive focus; reorder/delete
+restore focus to the affected/neighboring item. Rows retain stable UI identities.
+No sorting or time shifting occurs; exact instants and DST rules remain authoritative.
 
 ## Public Event landing page and SEO (29C)
 

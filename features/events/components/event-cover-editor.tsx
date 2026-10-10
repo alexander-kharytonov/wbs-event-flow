@@ -32,6 +32,8 @@ export function EventCoverEditor({
   begin,
   end,
   onSaved,
+  onDirtyChange,
+  onConflictChange,
 }: {
   eventId: string;
   initial: EditableCover;
@@ -40,6 +42,8 @@ export function EventCoverEditor({
   begin: () => boolean;
   end: () => void;
   onSaved: (version: string) => void;
+  onDirtyChange: (dirty: boolean) => void;
+  onConflictChange: (conflict: boolean) => void;
 }) {
   const [cover, setCover] = useState(initial);
   const [assetId, setAssetId] = useState(initial.assetId);
@@ -229,6 +233,12 @@ export function EventCoverEditor({
   const busy = disabled || Boolean(pending);
   const changed =
     assetId !== cover.assetId || (alt.trim() || null) !== cover.alt;
+  useEffect(() => {
+    onDirtyChange(changed || Boolean(source));
+  }, [changed, source, onDirtyChange]);
+  useEffect(() => {
+    onConflictChange(conflict);
+  }, [conflict, onConflictChange]);
   const chooseButton = (
     <Button
       type="button"
@@ -247,7 +257,6 @@ export function EventCoverEditor({
       spacing={2}
       aria-label="Event cover"
       aria-busy={Boolean(pending)}
-      sx={{ pb: 3, borderBottom: 1, borderColor: "divider" }}
     >
       <Stack
         direction="row"
@@ -271,8 +280,9 @@ export function EventCoverEditor({
         />
       </Stack>
       <Alert severity="info">
-        Choose an image, adjust the crop, then upload and save your cover. JPEG,
-        PNG or WebP, up to 5 MiB and 4096 × 4096 pixels.
+        Cover saves independently from event fields. Choose an image, adjust the
+        crop, then upload and save your cover. JPEG, PNG or WebP, up to 5 MiB
+        and 4096 × 4096 pixels.
       </Alert>
       <input
         ref={fileInput}
@@ -355,13 +365,12 @@ export function EventCoverEditor({
           action={chooseButton}
         />
       )}
-      {(source || assetId) && (
+      {(source || file || assetId !== cover.assetId) && (
         <Stack
           direction={{ xs: "column", sm: "row" }}
           spacing={1}
           sx={{ alignItems: { sm: "center" } }}
         >
-          {chooseButton}
           {source && (
             <Button
               type="button"
@@ -372,6 +381,19 @@ export function EventCoverEditor({
               }}
             >
               Cancel selection
+            </Button>
+          )}
+          {assetId !== cover.assetId && !source && (
+            <Button
+              type="button"
+              disabled={busy || conflict}
+              onClick={() => {
+                setAssetId(cover.assetId);
+                setAlt(cover.alt ?? "");
+                feedback.reset();
+              }}
+            >
+              Discard upload
             </Button>
           )}
           {file && (
@@ -422,50 +444,50 @@ export function EventCoverEditor({
         </Alert>
       )}
       {(source || assetId || pending) && (
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-          {source ? (
-            <Button
-              type="button"
-              variant="contained"
-              startIcon={<CloudUploadOutlined />}
-              disabled={busy || conflict}
-              onClick={() => void mutate("upload")}
-            >
-              {pending === "upload" ? "Uploading…" : "Upload cropped image"}
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              variant="contained"
-              disabled={!assetId || !changed || busy || conflict}
-              onClick={() => void mutate("save")}
-            >
-              {pending === "save" ? "Saving…" : "Save cover"}
-            </Button>
-          )}
-          {assetId !== cover.assetId && !source && (
-            <Button
-              type="button"
-              disabled={busy || conflict}
-              onClick={() => {
-                setAssetId(cover.assetId);
-                setAlt(cover.alt ?? "");
-                feedback.reset();
-              }}
-            >
-              Discard upload
-            </Button>
-          )}
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={1}
+          useFlexGap
+          sx={{ alignItems: { xs: "stretch", sm: "center" } }}
+        >
           {cover.assetId && (
             <Button
               type="button"
               color="error"
+              sx={{ alignSelf: { xs: "flex-start", sm: "center" } }}
               disabled={busy || conflict}
               onClick={() => void mutate("save", true)}
             >
               Remove cover
             </Button>
           )}
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={1}
+            sx={{ ml: { sm: "auto" } }}
+          >
+            {chooseButton}
+            {source ? (
+              <Button
+                type="button"
+                variant="contained"
+                startIcon={<CloudUploadOutlined />}
+                disabled={busy || conflict}
+                onClick={() => void mutate("upload")}
+              >
+                {pending === "upload" ? "Uploading…" : "Upload cropped image"}
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="contained"
+                disabled={!assetId || !changed || busy || conflict}
+                onClick={() => void mutate("save")}
+              >
+                {pending === "save" ? "Saving…" : "Save cover"}
+              </Button>
+            )}
+          </Stack>
         </Stack>
       )}
     </Stack>

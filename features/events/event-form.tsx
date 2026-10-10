@@ -1,17 +1,7 @@
 "use client";
 
-import {
-  Alert,
-  Autocomplete,
-  Box,
-  Button,
-  FormControlLabel,
-  MenuItem,
-  Stack,
-  Switch,
-  TextField,
-  Typography,
-} from "@mui/material";
+import { Box, Stack } from "@mui/material";
+import { unstable_rethrow, useRouter } from "next/navigation";
 import {
   type ReactNode,
   useActionState,
@@ -20,17 +10,25 @@ import {
   useState,
 } from "react";
 import {
+  useEditorDirty,
+  useEditorNavigation,
+} from "@/components/ui/editor-navigation-guard";
+import { EditorNavigation } from "@/features/events/components/editor-navigation";
+import {
   type EditableCover,
   EventCoverEditor,
 } from "@/features/events/components/event-cover-editor";
-import { EventDescriptionEditor } from "@/features/events/components/event-description-editor";
+import { EventEditorActions } from "@/features/events/components/event-editor-actions";
+import { EventFormSections } from "@/features/events/components/event-form-sections";
+import { richRequiredMissing } from "@/features/events/components/event-rich-fields";
 import {
-  EventRichFields,
-  richRequiredMissing,
-} from "@/features/events/components/event-rich-fields";
+  type EditorSection,
+  editorFingerprint,
+  errorSection,
+  rebaseSavedValues,
+} from "@/features/events/editor-state";
 import {
   type EventDateSource,
-  eventLocalDate,
   parseEventEdit,
 } from "@/features/events/event-form-values";
 import {
@@ -41,7 +39,6 @@ import {
   eventInputSchema,
   eventIssuePath,
 } from "@/features/events/event-input-schema";
-import { formatTimezone } from "@/features/events/format-timezone";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 
 const emptyValues: EventFormValues = {
@@ -66,7 +63,7 @@ export function EventForm({
   initialValues = emptyValues,
   serverAction,
   edit,
-  startLocked = false,
+  startLocked: initialStartLocked = false,
   children,
   disabled = false,
   onDateEdit,
@@ -74,7 +71,11 @@ export function EventForm({
   importedDates,
   initialErrors,
   initialCover,
+  extraDirty = false,
+  onBusyChange,
 }: {
+  onBusyChange?: (busy: boolean) => void;
+  extraDirty?: boolean;
   initialCover?: EditableCover;
   initialErrors?: Record<string, string>;
   startLocked?: boolean;
@@ -90,38 +91,137 @@ export function EventForm({
   ) => Promise<EventFormState>;
   edit?: { id: string; version: string; dates: EventDateSource };
 }) {
+  const [section, setSection] = useState<EditorSection>("basics");
   const feedback = useFormFeedback(initialErrors);
   const mutationBusy = useRef(false);
+  const focusSavedSection = useRef(false);
   const [coverBusy, setCoverBusy] = useState(false);
+  const router = useRouter();
+  const navigation = useEditorNavigation();
+  const form = useRef<HTMLFormElement>(null);
+  const [initial] = useState<EventFormValues>(() => ({
+    ...initialValues,
+    descriptionFormat: "MARKDOWN",
+  }));
+  const [values, setValues] = useState<EventFormValues>(initial);
+  const [editedDates, setEditedDates] = useState<EventDateField[]>([]);
+  const [dateSource, setDateSource] = useState(edit?.dates ?? importedDates);
+  const [startLocked, setStartLocked] = useState(initialStartLocked);
+  const [savedFingerprint, setSavedFingerprint] = useState(() =>
+    editorFingerprint(initial, []),
+  );
+  const [coverDirty, setCoverDirty] = useState(false);
+  const [coverConflict, setCoverConflict] = useState(false);
+  const [focusRequest, setFocusRequest] = useState(0);
+  const [validationAttempted, setValidationAttempted] = useState(false);
+  const dirty =
+    editorFingerprint(values, editedDates) !== savedFingerprint || extraDirty;
   const [state, action, pending] = useActionState(
     async (previous: EventFormState, formData: FormData) => {
       let next: EventFormState;
 
       try {
         next = await serverAction(previous, formData);
+      } catch (error) {
+        unstable_rethrow(error);
+        next = {
+          message:
+            "Could not confirm the save. Your edits are kept. Reload the latest version before retrying if the event may have been saved.",
+        };
       } finally {
         mutationBusy.current = false;
       }
-      feedback.setErrors(
-        Object.fromEntries(
-          Object.entries(next.errors ?? {}).map(([field, messages]) => [
-            field,
-            messages[0],
-          ]),
-        ),
+
+      if (next.createdId) {
+        navigation.confirmed(() =>
+          router.replace(`/dashboard/events/${next.createdId}/edit`),
+        );
+
+        return next;
+      }
+
+      if (next.saved) {
+        // Rebase every source index after reorder/delete, preserving UI row identity.
+        const savedValues = rebaseSavedValues(next.saved.values, values);
+        setValues(savedValues);
+        setEditedDates([]);
+        setDateSource(next.saved.dates);
+        setStartLocked(next.saved.startLocked);
+        setOpenedVersion(next.saved.version);
+        setSavedFingerprint(editorFingerprint(savedValues, []));
+        setValidationAttempted(false);
+        focusSavedSection.current = true;
+      }
+      const errors = Object.fromEntries(
+        Object.entries(next.errors ?? {}).map(([field, messages]) => [
+          field,
+          messages[0],
+        ]),
       );
+      feedback.setErrors(errors);
       feedback.setMessage(next.message);
+
+      if (Object.keys(errors).length || next.message || next.conflict) {
+        revealErrors(errors);
+      }
 
       return next;
     },
     {},
   );
-  const [values, setValues] = useState<EventFormValues>({
-    ...initialValues,
-    descriptionFormat: "MARKDOWN",
-  });
-  const [editedDates, setEditedDates] = useState<EventDateField[]>([]);
-  const dateSource = edit?.dates ?? importedDates;
+  useEditorDirty("event-form", dirty || coverDirty || pending || coverBusy);
+  useEffect(() => {
+    onBusyChange?.(pending || coverBusy || Boolean(state.createdId));
+  }, [onBusyChange, pending, coverBusy, state.createdId]);
+
+  useEffect(() => {
+    if (!pending && state.saved && focusSavedSection.current) {
+      focusSavedSection.current = false;
+      form.current
+        ?.querySelector<HTMLButtonElement>(`#editor-nav-${section}`)
+        ?.focus({ preventScroll: true });
+    }
+  }, [pending, state.saved, section]);
+
+  function revealErrors(errors: Record<string, string>) {
+    const firstSection = Object.keys(errors).map(errorSection).find(Boolean);
+
+    if (firstSection) {
+      setSection(firstSection);
+    }
+    setValidationAttempted(true);
+    setFocusRequest((current) => current + 1);
+  }
+
+  useEffect(() => {
+    if (!focusRequest || pending) {
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      const panel = form.current?.querySelector<HTMLElement>(
+        `#editor-panel-${section}`,
+      );
+      const invalid = panel?.querySelector<HTMLElement>(
+        '[aria-invalid="true"]:not([type="hidden"]):not([aria-hidden="true"]), [data-editor-error]',
+      );
+      const missing = panel
+        ? Array.from(
+            panel.querySelectorAll<HTMLInputElement>(
+              "input[required], textarea[required]",
+            ),
+          ).find((input) => !input.value.trim())
+        : undefined;
+      const target =
+        invalid ??
+        missing ??
+        form.current?.querySelector<HTMLElement>("[data-editor-feedback]");
+      target?.focus();
+      target?.scrollIntoView({ block: "center", behavior: "instant" });
+      setFocusRequest(0);
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [focusRequest, pending, section]);
   const validExactSchedule = dateSource
     ? parseEventEdit(
         { ...values, location: null, publicOrganizer: null, schedule: [] },
@@ -158,6 +258,10 @@ export function EventForm({
     return limit;
   }
   const [openedVersion, setOpenedVersion] = useState(edit?.version);
+  const initialSession = useRef({
+    values: initial,
+    editing: Boolean(edit),
+  });
   const [timezones, setTimezones] = useState<string[]>([]);
 
   useEffect(() => {
@@ -168,10 +272,16 @@ export function EventForm({
       ].sort(),
     );
 
-    if (!edit && !initialValues.timezone) {
+    if (
+      !initialSession.current.editing &&
+      !initialSession.current.values.timezone
+    ) {
       setValues((current) => ({ ...current, timezone }));
+      setSavedFingerprint(
+        editorFingerprint({ ...initialSession.current.values, timezone }, []),
+      );
     }
-  }, [edit, initialValues.timezone]);
+  }, []);
 
   function markDateEdited(name: keyof EventFormValues) {
     onDateEdit?.(name);
@@ -206,7 +316,7 @@ export function EventForm({
         setValues((current) => ({ ...current, [name]: event.target.value }));
       },
       ...feedback.field(name),
-      disabled: disabled || pending || coverBusy,
+      disabled: pending || coverBusy,
       fullWidth: true,
     };
   }
@@ -221,71 +331,46 @@ export function EventForm({
     );
   })?.[1];
 
-  return (
-    <Stack
-      component="form"
-      action={action}
-      noValidate
-      onSubmit={(event) => {
-        feedback.reset();
+  const requiredMissing =
+    richRequiredMissing(values) ||
+    !values.title.trim() ||
+    !values.startsAt ||
+    !values.endsAt ||
+    !values.timezone.trim() ||
+    !values.maxGuestsPerRegistration.trim();
 
-        if (pending || disabled || mutationBusy.current) {
-          event.preventDefault();
+  function checkRequiredFields() {
+    const parsed = dateSource
+      ? parseEventEdit(values, dateSource, editedDates, startLocked)
+      : eventInputSchema.safeParse(values);
 
-          return;
-        }
+    if (!parsed.success) {
+      const errors: Record<string, string> = {};
 
-        // Import review validates its preserved absolute instants in its local action.
-        if (importedDates) {
-          mutationBusy.current = true;
+      for (const issue of parsed.error.issues) {
+        errors[eventIssuePath(issue.path, values)] ??= issue.message;
+      }
+      feedback.setErrors(errors);
+      revealErrors(errors);
+    } else if (disabled) {
+      const errors = {
+        review: "Complete the template questions, staff and badge settings.",
+      };
+      feedback.setErrors(errors);
+      revealErrors(errors);
+    }
+  }
 
-          return;
-        }
-
-        const parsed = edit
-          ? parseEventEdit(values, edit.dates, editedDates, startLocked)
-          : eventInputSchema.safeParse(values);
-
-        if (!parsed.success) {
-          event.preventDefault();
-          const errors: Record<string, string> = {};
-
-          for (const issue of parsed.error.issues) {
-            errors[eventIssuePath(issue.path, values)] ??= issue.message;
-          }
-          feedback.setErrors(errors);
-
-          return;
-        }
-        mutationBusy.current = true;
-      }}
-      spacing={3}
-      useFlexGap
-      aria-busy={pending || coverBusy}
-      sx={{
-        width: "100%",
-        bgcolor: "background.paper",
-        border: 1,
-        borderColor: "divider",
-        borderRadius: 1,
-        p: { xs: 2, sm: 4 },
-      }}
-    >
-      {edit && (
-        <>
-          <input type="hidden" name="eventId" value={edit.id} />
-          <input type="hidden" name="version" value={openedVersion} />
-          {editedDates.map((field) => (
-            <input key={field} type="hidden" name="editedDate" value={field} />
-          ))}
-        </>
-      )}
+  const cover = (
+    <>
       {edit && initialCover && openedVersion && (
         <EventCoverEditor
           eventId={edit.id}
           initial={initialCover}
           version={openedVersion}
-          disabled={pending || disabled}
+          disabled={pending || disabled || Boolean(state.conflict)}
+          onDirtyChange={setCoverDirty}
+          onConflictChange={setCoverConflict}
           begin={() => {
             if (mutationBusy.current) {
               return false;
@@ -302,348 +387,147 @@ export function EventForm({
           onSaved={setOpenedVersion}
         />
       )}
-      {!edit && (
-        <Alert severity="info">
-          Cover image will be available after you create the event. You can
-          upload and crop it before publishing.
-        </Alert>
+    </>
+  );
+
+  return (
+    <Stack
+      component="form"
+      ref={form}
+      action={action}
+      noValidate
+      onSubmit={(event) => {
+        if (
+          pending ||
+          disabled ||
+          (Boolean(edit) && !dirty) ||
+          state.conflict ||
+          coverConflict ||
+          mutationBusy.current
+        ) {
+          event.preventDefault();
+
+          return;
+        }
+
+        feedback.reset();
+
+        // Import review validates its preserved absolute instants in its local action.
+        if (importedDates) {
+          mutationBusy.current = true;
+
+          return;
+        }
+
+        const parsed = edit
+          ? parseEventEdit(
+              values,
+              dateSource ?? edit.dates,
+              editedDates,
+              startLocked,
+            )
+          : eventInputSchema.safeParse(values);
+
+        if (!parsed.success) {
+          event.preventDefault();
+          const errors: Record<string, string> = {};
+
+          for (const issue of parsed.error.issues) {
+            errors[eventIssuePath(issue.path, values)] ??= issue.message;
+          }
+          feedback.setErrors(errors);
+          revealErrors(errors);
+
+          return;
+        }
+        mutationBusy.current = true;
+      }}
+      aria-busy={pending || coverBusy}
+      sx={{
+        width: "100%",
+        bgcolor: "background.paper",
+        border: 1,
+        borderColor: "divider",
+        borderRadius: 1,
+      }}
+    >
+      {edit && (
+        <>
+          <input type="hidden" name="eventId" value={edit.id} />
+          <input type="hidden" name="version" value={openedVersion} />
+          {editedDates.map((field) => (
+            <input key={field} type="hidden" name="editedDate" value={field} />
+          ))}
+        </>
       )}
       <Box
-        component="section"
-        sx={{ pb: 3, borderBottom: 1, borderColor: "divider" }}
+        sx={{
+          display: "grid",
+          gridTemplateColumns: {
+            xs: "minmax(0, 1fr)",
+            md: "240px minmax(0, 1fr)",
+          },
+        }}
       >
-        <Stack spacing={3}>
-          <Typography variant="h6" component="h2">
-            Basic information
-          </Typography>
-          <TextField
-            {...field("title")}
-            label="Event name"
-            required
-            slotProps={{ htmlInput: { maxLength: 200 } }}
-          />
-          <EventDescriptionEditor
-            value={values.description}
-            disabled={disabled || pending || coverBusy}
-            error={feedback.errors.description}
-            formatError={feedback.errors.descriptionFormat}
-            onChange={(description) => {
-              feedback.clear("description");
-              setValues((current) => ({ ...current, description }));
-            }}
-          />
-        </Stack>
-      </Box>
-      <Box
-        component="section"
-        sx={{ pb: 3, borderBottom: 1, borderColor: "divider" }}
-      >
-        <Stack spacing={3}>
-          <Typography variant="h6" component="h2">
-            Schedule
-          </Typography>
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: {
-                xs: "minmax(0, 1fr)",
-                sm: "repeat(2, minmax(0, 1fr))",
-              },
-              gap: 3,
-            }}
-          >
-            <TextField
-              {...field("startsAt")}
-              label="Start"
-              type="datetime-local"
-              required
-              slotProps={{
-                inputLabel: { shrink: true },
-                input: { readOnly: startLocked },
-                htmlInput: {
-                  min: dateLimit("startsAt", "min", ["registrationOpensAt"]),
-                  max: dateLimit("startsAt", "max", ["endsAt"]),
-                },
-              }}
-            />
-            <TextField
-              {...field("endsAt")}
-              label="End"
-              type="datetime-local"
-              required
-              slotProps={{
-                inputLabel: { shrink: true },
-                htmlInput: {
-                  min: dateLimit("endsAt", "min", [
-                    "startsAt",
-                    "registrationClosesAt",
-                  ]),
-                },
-              }}
-            />
-          </Box>
-          <input type="hidden" name="timezone" value={values.timezone} />
-          <Autocomplete
-            disabled={disabled || pending || coverBusy}
-            freeSolo
-            options={timezones}
-            getOptionLabel={formatTimezone}
-            filterOptions={(options, { inputValue }) => {
-              const query = formatTimezone(inputValue).toLowerCase();
-
-              return options.filter((timezone) =>
-                formatTimezone(timezone).toLowerCase().includes(query),
-              );
-            }}
-            inputValue={formatTimezone(values.timezone)}
-            onInputChange={(_, input) => {
-              if (input.replaceAll(" ", "_") === values.timezone) {
-                return;
-              }
-
-              feedback.clear("timezone");
-              markDateEdited("timezone");
-              const timezone = input.replaceAll(" ", "_");
-              setValues((current) => {
-                let startsAt = current.startsAt;
-
-                if (startLocked && edit) {
-                  try {
-                    // Use the exact instant, including an unambiguous DST fold offset.
-                    startsAt = eventLocalDate(edit.dates.startsAt, timezone);
-                  } catch {
-                    // Incomplete timezone input is validated on submit.
-                  }
-                }
-
-                return {
-                  ...current,
-                  startsAt,
-                  timezone,
-                  schedule: current.schedule.map((entry) => ({
-                    ...entry,
-                    edited: true,
-                  })),
-                };
-              });
-            }}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Timezone"
-                required
-                error={Boolean(feedback.errors.timezone)}
-                helperText={
-                  feedback.errors.timezone ??
-                  "All dates and times use this IANA timezone."
-                }
-              />
-            )}
-          />
-          <Typography variant="body2" color="text.secondary">
-            Times skipped or repeated during daylight saving changes must be
-            replaced with an unambiguous time.
-          </Typography>
-          {scheduleNotice?.(values)}
-        </Stack>
-      </Box>
-      <Box
-        component="section"
-        sx={{ pb: 3, borderBottom: 1, borderColor: "divider" }}
-      >
-        <Stack spacing={3}>
-          <Typography variant="h6" component="h2">
-            Registration
-          </Typography>
-          <Stack spacing={1}>
-            <FormControlLabel
-              label="Allow attendees to bring guests"
-              control={
-                <Switch
-                  checked={values.maxGuestsPerRegistration !== "0"}
-                  disabled={disabled || pending || coverBusy}
-                  onChange={(_, enabled) => {
-                    feedback.clear("maxGuestsPerRegistration");
-                    setValues((current) => ({
-                      ...current,
-                      maxGuestsPerRegistration: enabled ? "1" : "0",
-                    }));
-                  }}
-                />
-              }
-            />
-            {values.maxGuestsPerRegistration !== "0" ? (
-              <TextField
-                {...field("maxGuestsPerRegistration")}
-                label="Maximum guests per registration"
-                type="number"
-                slotProps={{ htmlInput: { min: 1, max: 10 } }}
-              />
-            ) : (
-              <input type="hidden" name="maxGuestsPerRegistration" value="0" />
-            )}
-            <Typography variant="body2" color="text.secondary">
-              Guests count toward event capacity and can be managed until the
-              event starts.
-            </Typography>
-          </Stack>
-          <TextField
-            {...field("capacity")}
-            label="Event capacity"
-            type="number"
-            slotProps={{ htmlInput: { min: 1, max: 2147483647, step: 1 } }}
-            helperText={
-              feedback.errors.capacity ??
-              "Leave blank for no limit on admitted attendees."
-            }
-          />
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: {
-                xs: "minmax(0, 1fr)",
-                sm: "repeat(2, minmax(0, 1fr))",
-              },
-              gap: 3,
-            }}
-          >
-            <TextField
-              {...field("registrationOpensAt")}
-              label="Registration opens"
-              type="datetime-local"
-              slotProps={{
-                inputLabel: { shrink: true },
-                htmlInput: {
-                  max: dateLimit("registrationOpensAt", "max", [
-                    "startsAt",
-                    "registrationClosesAt",
-                  ]),
-                },
-              }}
-              helperText={
-                feedback.errors.registrationOpensAt ??
-                "Leave blank to allow registration immediately. Must be no later than the event start and before registration closes."
-              }
-            />
-            <TextField
-              {...field("registrationClosesAt")}
-              label="Registration closes"
-              type="datetime-local"
-              slotProps={{
-                inputLabel: { shrink: true },
-                htmlInput: {
-                  min: dateLimit("registrationClosesAt", "min", [
-                    "registrationOpensAt",
-                  ]),
-                  max: dateLimit("registrationClosesAt", "max", ["endsAt"]),
-                },
-              }}
-              helperText={
-                feedback.errors.registrationClosesAt ??
-                "Leave blank to close registration when the event ends. Must be after registration opens and no later than the event end."
-              }
-            />
-          </Box>
-        </Stack>
-      </Box>
-      <Box
-        component="section"
-        sx={{ pb: 3, borderBottom: 1, borderColor: "divider" }}
-      >
-        <Stack spacing={3}>
-          <Typography variant="h6" component="h2">
-            Access
-          </Typography>
-          <TextField
-            {...field("visibility")}
-            label="Who can discover this event?"
-            select
-            helperText={
-              feedback.errors.visibility ??
-              (values.visibility === "PRIVATE"
-                ? "Only people with the event link can find it. The link is not password protected."
-                : "Your published event appears in Explore events.")
-            }
-          >
-            <MenuItem value="PRIVATE">Private</MenuItem>
-            <MenuItem value="PUBLIC">Public</MenuItem>
-          </TextField>
-          <TextField
-            {...field("accountRequirement")}
-            label="Do applicants need an account?"
-            helperText={
-              feedback.errors.accountRequirement ??
-              "A required account must have a verified email before applying."
-            }
-            select
-          >
-            <MenuItem value="OPTIONAL">No — account optional</MenuItem>
-            <MenuItem value="REQUIRED">
-              Yes — verified account required
-            </MenuItem>
-          </TextField>
-        </Stack>
-      </Box>
-      <EventRichFields
-        values={values}
-        setValues={setValues}
-        feedback={feedback}
-        disabled={pending || coverBusy || disabled}
-      />
-      {children}
-      {(feedback.message || unmappedError || state.conflict) && (
-        <Alert severity="error" role="alert">
-          {state.conflict ? state.message : (feedback.message ?? unmappedError)}
-          {state.conflict && edit && (
-            <Box sx={{ mt: 1 }}>
-              <Button
-                color="inherit"
-                size="small"
-                component="a"
-                href={`/dashboard/events/${edit.id}/edit`}
-              >
-                Reload latest version
-              </Button>
-            </Box>
-          )}
-        </Alert>
-      )}
-      <Box>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          {edit
-            ? "Changes are saved to your workspace. Publish them when you’re ready to update the public event."
-            : "Your event starts as an unpublished draft. You can review it before publishing."}
-        </Typography>
-        <Stack
-          direction={{ xs: "column", sm: "row" }}
-          spacing={2}
-          sx={{ "& > a": { alignSelf: { xs: "flex-start", sm: "center" } } }}
+        <Box
+          sx={{
+            minWidth: 0,
+            borderStyle: "solid",
+            borderWidth: 0,
+            borderRightWidth: { md: 1 },
+            borderBottomWidth: { xs: 1, md: 0 },
+            borderColor: "divider",
+          }}
         >
-          <Button
-            type="submit"
-            variant="contained"
-            disabled={
-              pending ||
-              coverBusy ||
-              richRequiredMissing(values) ||
-              disabled ||
-              !values.title.trim() ||
-              !values.startsAt ||
-              !values.endsAt ||
-              !values.timezone.trim() ||
-              !values.maxGuestsPerRegistration.trim()
-            }
+          <EditorNavigation
+            section={section}
+            coverEnabled={Boolean(edit)}
+            hasAdditionalSettings={Boolean(children)}
+            onChange={setSection}
+            errors={feedback.errors}
+          />
+        </Box>
+        <Box sx={{ p: { xs: 2, sm: 4 }, minWidth: 0 }}>
+          <EventFormSections
+            section={section}
+            revealErrorsKey={focusRequest}
+            values={values}
+            setValues={setValues}
+            feedback={feedback}
+            disabled={pending || coverBusy}
+            startLocked={startLocked}
+            edit={edit && dateSource ? { dates: dateSource } : undefined}
+            timezones={timezones}
+            markDateEdited={markDateEdited}
+            dateLimit={dateLimit}
+            field={field}
+            cover={cover}
+            scheduleNotice={scheduleNotice}
           >
-            {pending
-              ? edit
-                ? "Saving…"
-                : "Creating…"
-              : edit
-                ? "Save changes"
-                : "Create event"}
-          </Button>
-        </Stack>
+            {children}
+          </EventFormSections>
+        </Box>
       </Box>
+      <EventEditorActions
+        eventId={edit?.id}
+        createdId={state.createdId}
+        message={feedback.message}
+        serverMessage={state.message}
+        unmappedError={unmappedError}
+        errors={feedback.errors}
+        conflict={Boolean(state.conflict)}
+        coverConflict={coverConflict}
+        saved={Boolean(state.saved)}
+        pending={pending}
+        coverBusy={coverBusy}
+        dirty={dirty}
+        coverDirty={coverDirty}
+        validationAttempted={validationAttempted}
+        requiredMissing={requiredMissing}
+        disabled={disabled}
+        onShowErrors={() => revealErrors(feedback.errors)}
+        onCheckRequired={checkRequiredFields}
+      />
     </Stack>
   );
 }

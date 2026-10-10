@@ -59,9 +59,6 @@ export async function CommunicationDetail({
   const content = (
     <Stack spacing={3}>
       {!modal && (
-        <EventHeader eventId={id} active="communications" data={data.header} />
-      )}
-      {!modal && (
         <Button
           href={`${base}#communication-history`}
           sx={{ alignSelf: "flex-start" }}
@@ -310,5 +307,11 @@ export async function CommunicationDetail({
     </Stack>
   );
 
-  return modal ? <CommunicationDialog>{content}</CommunicationDialog> : content;
+  return modal ? (
+    <CommunicationDialog>{content}</CommunicationDialog>
+  ) : (
+    <EventHeader eventId={id} active="communications" data={data.header}>
+      {content}
+    </EventHeader>
+  );
 }

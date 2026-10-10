@@ -353,7 +353,7 @@ export function OrganizerEventResults({
               key={event.id}
               sx={{
                 opacity: event.cancelledAt ? 0.5 : 1,
-                alignSelf: "start",
+                alignSelf: "stretch",
                 display: "flex",
                 position: "relative",
                 overflow: "hidden",
@@ -400,6 +400,7 @@ export function OrganizerEventResults({
                 )}
                 <Stack
                   spacing={2}
+                  useFlexGap
                   sx={{
                     position: "relative",
                     p: { xs: 2, sm: 3 },
@@ -476,7 +477,7 @@ export function OrganizerEventResults({
                     component="h2"
                     variant="h6"
                     color={event.coverAssetId ? "inherit" : "primary.main"}
-                    sx={{ overflowWrap: "anywhere" }}
+                    sx={{ overflowWrap: "anywhere", mb: "auto" }}
                   >
                     {event.title}
                   </Typography>

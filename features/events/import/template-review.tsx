@@ -1,17 +1,12 @@
 "use client";
 
 import Add from "@mui/icons-material/Add";
-import ArrowDownward from "@mui/icons-material/ArrowDownward";
-import ArrowUpward from "@mui/icons-material/ArrowUpward";
 import DeleteOutlined from "@mui/icons-material/DeleteOutlined";
-import EditOutlined from "@mui/icons-material/EditOutlined";
 import PeopleOutlined from "@mui/icons-material/PeopleOutlined";
-import QuizOutlined from "@mui/icons-material/QuizOutlined";
 import {
   Alert,
   Box,
   Button,
-  Chip,
   Dialog,
   DialogTitle,
   IconButton,
@@ -22,6 +17,7 @@ import {
 } from "@mui/material";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
+import { useEditorNavigation } from "@/components/ui/editor-navigation-guard";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
   type BadgeLayout,
@@ -30,6 +26,7 @@ import {
 } from "@/features/badges/badge-layout";
 import { BadgeLayoutControls } from "@/features/badges/components/badge-layout-controls";
 import { RegistrationFieldForm } from "@/features/events/components/registration-field-form";
+import { RegistrationQuestions } from "@/features/events/components/registration-questions";
 import { EventForm } from "@/features/events/event-form";
 import {
   type EventDateField,
@@ -51,10 +48,7 @@ import {
   templateEventValues,
 } from "@/features/events/import/template-input";
 import { importTemplate } from "@/features/events/import-template";
-import {
-  fieldTypeLabels,
-  registrationFieldSchema,
-} from "@/features/events/schemas/registration-form";
+import { registrationFieldSchema } from "@/features/events/schemas/registration-form";
 import type { TemplateCreateResult } from "@/features/events/server/create-template-event";
 import { staffEmailSchema } from "@/features/events/staff-input";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
@@ -184,6 +178,7 @@ export function TemplateReview({
   // Duplicate source keys and Import generation keys intentionally start a new review.
   const [initial] = useState(initialTemplate);
   const router = useRouter();
+  const navigation = useEditorNavigation();
   const notifications = useNotifications();
   const [event, setEvent] = useState(initial);
   const staffFeedback = useFormFeedback();
@@ -235,6 +230,12 @@ export function TemplateReview({
     staffFeedback.setErrors(staffErrors);
     setIssues(remaining);
 
+    if (Object.keys(staffErrors).length || remaining.length) {
+      errors.review = [
+        "Check the template questions, staff and badge settings below.",
+      ];
+    }
+
     return { errors };
   }
 
@@ -270,6 +271,7 @@ export function TemplateReview({
         sx={{ border: 0, p: 0, m: 0, minWidth: 0 }}
       >
         <EventForm
+          extraDirty={JSON.stringify(event) !== JSON.stringify(initial)}
           importedDates={initial}
           initialErrors={
             initialTitle.success
@@ -340,7 +342,9 @@ export function TemplateReview({
             staffFeedback.setErrors(staffErrors);
 
             if (Object.keys(staffErrors).length) {
-              return {};
+              return {
+                errors: { review: ["Correct the highlighted staff emails."] },
+              };
             }
 
             const preserved: PreservedEventDates = {};
@@ -403,7 +407,13 @@ export function TemplateReview({
               onBusyChange(false);
               setBusy(false);
 
-              return {};
+              return {
+                errors: {
+                  review: [
+                    "Could not confirm creation. Check My events before trying again.",
+                  ],
+                },
+              };
             }
 
             if (!outcome.success) {
@@ -438,7 +448,9 @@ export function TemplateReview({
                 severity: outcome.skippedEmails.length ? "warning" : "success",
               },
             );
-            router.replace(`/dashboard/events/${outcome.eventId}`);
+            navigation.confirmed(() =>
+              router.replace(`/dashboard/events/${outcome.eventId}/edit`),
+            );
 
             return {};
           }}
@@ -451,102 +463,24 @@ export function TemplateReview({
               Full name and email are always collected. Questions below remain
               local until Create.
             </Typography>
-            {fields.length === 0 && (
-              <EmptyState
-                icon={<QuizOutlined />}
-                title="No custom questions"
-                description="Add questions to collect more information from your guests."
-              />
-            )}
-            {fields.map((field, index) => (
-              <Box
-                key={field.key}
-                sx={{
-                  border: 1,
-                  borderColor: "divider",
-                  borderRadius: 1,
-                  p: 2,
-                }}
-              >
-                <Stack
-                  direction="row"
-                  spacing={1}
-                  sx={{ alignItems: "flex-start" }}
-                >
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography sx={{ overflowWrap: "anywhere" }}>
-                      {index + 1}. {field.label}
-                    </Typography>
-                    <Chip
-                      size="small"
-                      label={fieldTypeLabels[field.type]}
-                      sx={{ my: 1, mr: 1 }}
-                    />
-                    {field.required && (
-                      <Chip size="small" label="Required" variant="outlined" />
-                    )}
-                    {field.description && (
-                      <Typography variant="body2" color="text.secondary">
-                        {field.description}
-                      </Typography>
-                    )}
-                    {field.options.map((option) => (
-                      <Typography variant="body2" key={option.label}>
-                        • {option.label}
-                      </Typography>
-                    ))}
-                  </Box>
-                  <Stack>
-                    <IconButton
-                      aria-label={`Edit question ${index + 1}`}
-                      onClick={() => {
-                        setFieldMessage(undefined);
-                        setEditor({ field });
-                      }}
-                    >
-                      <EditOutlined />
-                    </IconButton>
-                    <IconButton
-                      aria-label={`Delete question ${index + 1}`}
-                      onClick={() =>
-                        setFields(
-                          fields.filter((item) => item.key !== field.key),
-                        )
-                      }
-                    >
-                      <DeleteOutlined />
-                    </IconButton>
-                  </Stack>
-                </Stack>
-                <IconButton
-                  size="small"
-                  aria-label={`Move question ${index + 1} up`}
-                  disabled={index === 0}
-                  onClick={() => move(index, -1)}
-                >
-                  <ArrowUpward />
-                </IconButton>
-                <IconButton
-                  size="small"
-                  aria-label={`Move question ${index + 1} down`}
-                  disabled={index === fields.length - 1}
-                  onClick={() => move(index, 1)}
-                >
-                  <ArrowDownward />
-                </IconButton>
-              </Box>
-            ))}
-            <Button
-              startIcon={<Add />}
-              disabled={fields.length >= 100}
-              sx={{ alignSelf: "flex-start" }}
-              onClick={() => {
+            <RegistrationQuestions
+              fields={fields}
+              getKey={(field) => field.key}
+              disabled={busy}
+              addDisabled={fields.length >= 100}
+              onAdd={() => {
                 setFieldMessage(undefined);
                 setEditor({});
               }}
-            >
-              Add question
-            </Button>
+              onEdit={(field) => {
+                setFieldMessage(undefined);
+                setEditor({ field });
+              }}
+              onDelete={(field) =>
+                setFields(fields.filter((item) => item.key !== field.key))
+              }
+              onMove={move}
+            />
           </Stack>
           <Stack spacing={2}>
             <Typography variant="h6" component="h2">
@@ -613,6 +547,7 @@ export function TemplateReview({
                 </TextField>
                 <IconButton
                   aria-label={`Remove staff ${index + 1}`}
+                  sx={{ alignSelf: { xs: "flex-end", sm: "flex-start" } }}
                   onClick={() => {
                     setStaffKeys(staffKeys.filter((_, i) => i !== index));
                     setEvent({

@@ -1,10 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { z } from "zod";
 import {
   eventDateSource,
+  eventFormValues,
   parseEventEdit,
 } from "@/features/events/event-form-values";
 import {
@@ -68,9 +68,11 @@ export async function updateEvent(
 
   const input = eventFormInput(formData);
 
+  let outcome: EventFormState;
+
   try {
-    const outcome = await prisma.$transaction(
-      async (tx): Promise<EventFormState | null> => {
+    outcome = await prisma.$transaction(
+      async (tx): Promise<EventFormState> => {
         const event = await lockEventForUpdate(tx, {
           id,
           organizerId: organizer.id,
@@ -136,12 +138,23 @@ export async function updateEvent(
 
         await notifyEventChanged(tx, id);
 
-        return null;
+        const saved = await tx.event.findUniqueOrThrow({ where: { id } });
+
+        return {
+          saved: {
+            version: Buffer.from(saved.updatedAt.toISOString()).toString(
+              "base64url",
+            ),
+            values: eventFormValues(saved),
+            dates: eventDateSource(saved),
+            startLocked: eventLifecycle(saved, event.decisionNow) === "Ongoing",
+          },
+        };
       },
       { isolationLevel: "ReadCommitted" },
     );
 
-    if (outcome) {
+    if (!outcome.saved) {
       return outcome;
     }
   } catch {
@@ -153,5 +166,6 @@ export async function updateEvent(
   revalidatePath(`/dashboard/events/${id}/edit`);
   revalidatePath(`/dashboard/events/${id}/preview`);
   revalidatePath(`/dashboard/events/${id}/registration-form`);
-  redirect(`/dashboard/events/${id}`);
+
+  return outcome;
 }

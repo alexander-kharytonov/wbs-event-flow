@@ -30,16 +30,17 @@ export default async function BadgesPage({
 
   return (
     <Stack spacing={3}>
-      <EventHeader eventId={id} active="badges" />
-      <OperationalBadgeWorkspace
-        eventId={id}
-        data={data}
-        designer={
-          preview?.editor ? (
-            <BadgeWorkspace eventId={id} initial={preview} />
-          ) : null
-        }
-      />
+      <EventHeader eventId={id} active="badges">
+        <OperationalBadgeWorkspace
+          eventId={id}
+          data={data}
+          designer={
+            preview?.editor ? (
+              <BadgeWorkspace eventId={id} initial={preview} />
+            ) : null
+          }
+        />
+      </EventHeader>
     </Stack>
   );
 }

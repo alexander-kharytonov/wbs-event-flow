@@ -31,44 +31,45 @@ export default async function CommunicationsPage({
 
   return (
     <Stack spacing={3}>
-      <EventHeader eventId={id} active="communications" data={data.header} />
-      <ComposeMessage eventId={id} disabledReason={disabledReason} />
-      <Stack
-        component="section"
-        id="communication-history"
-        spacing={2}
-        sx={{ scrollMarginTop: 24 }}
-        aria-labelledby="communication-history-title"
-      >
+      <EventHeader eventId={id} active="communications" data={data.header}>
+        <ComposeMessage eventId={id} disabledReason={disabledReason} />
         <Stack
-          direction="row"
-          sx={{ alignItems: "center", justifyContent: "space-between" }}
+          component="section"
+          id="communication-history"
+          spacing={2}
+          sx={{ scrollMarginTop: 24 }}
+          aria-labelledby="communication-history-title"
         >
-          <Typography
-            variant="h6"
-            component="h2"
-            id="communication-history-title"
+          <Stack
+            direction="row"
+            sx={{ alignItems: "center", justifyContent: "space-between" }}
           >
-            History
-          </Typography>
-          <RefreshCommunicationHistory />
+            <Typography
+              variant="h6"
+              component="h2"
+              id="communication-history-title"
+            >
+              History
+            </Typography>
+            <RefreshCommunicationHistory />
+          </Stack>
+          <Alert severity="info">
+            Sent means accepted by the mail transport, not confirmed mailbox
+            delivery. Status counts update automatically; you can also refresh
+            them.
+          </Alert>
+          <CommunicationHistory
+            eventId={id}
+            timezone={data.header.context.timezone}
+            initialBefore={before}
+            initialData={{
+              items: data.items,
+              hasCursor: data.hasCursor,
+              nextCursor: data.nextCursor,
+            }}
+          />
         </Stack>
-        <Alert severity="info">
-          Sent means accepted by the mail transport, not confirmed mailbox
-          delivery. Status counts update automatically; you can also refresh
-          them.
-        </Alert>
-        <CommunicationHistory
-          eventId={id}
-          timezone={data.header.context.timezone}
-          initialBefore={before}
-          initialData={{
-            items: data.items,
-            hasCursor: data.hasCursor,
-            nextCursor: data.nextCursor,
-          }}
-        />
-      </Stack>
+      </EventHeader>
     </Stack>
   );
 }

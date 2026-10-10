@@ -1,4 +1,4 @@
-import { Alert, Stack, Typography } from "@mui/material";
+import { Alert, Paper, Stack, Typography } from "@mui/material";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import { EventCover } from "@/features/events/components/event-cover";
@@ -61,53 +61,64 @@ export default async function PreviewPage({
 
   return (
     <Stack spacing={3}>
-      <EventHeader eventId={id} active="preview" />
-      <Alert severity="info">
-        Preview of your current workspace, including unpublished changes.
-        Registration is unavailable in preview.
-      </Alert>
-      {snapshot.success ? (
-        <EventGuestView
-          snapshot={snapshot.data}
-          now={new Date()}
-          cover={
-            snapshot.data.cover && (
-              <EventCover
-                fill
-                priority
-                key={snapshot.data.cover.assetId}
-                image={eventCoverImage(
-                  snapshot.data.cover,
-                  `/api/events/${id}/cover/${snapshot.data.cover.assetId}`,
-                )}
-              />
-            )
-          }
-        >
-          <Stack spacing={3}>
-            <Stack spacing={0.5}>
-              <Typography
-                variant="h6"
-                component="h2"
-                sx={{ minHeight: 42, display: "flex", alignItems: "center" }}
-              >
-                Registration form preview
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                This is the form guests will complete. Fields are read-only in
-                preview.
-              </Typography>
-            </Stack>
-            <RegistrationFormPreview
-              fields={snapshot.data.registrationForm.fields}
-            />
-          </Stack>
-        </EventGuestView>
-      ) : (
-        <Alert severity="error">
-          Check the event details and registration questions before previewing.
+      <EventHeader eventId={id} active="preview">
+        <Alert severity="info">
+          Preview of your current workspace, including unpublished changes.
+          Registration is unavailable in preview.
         </Alert>
-      )}
+        {snapshot.success ? (
+          <Paper
+            elevation={0}
+            sx={{ bgcolor: "background.default", p: { xs: 2, sm: 4 } }}
+          >
+            <EventGuestView
+              snapshot={snapshot.data}
+              now={new Date()}
+              cover={
+                snapshot.data.cover && (
+                  <EventCover
+                    fill
+                    priority
+                    key={snapshot.data.cover.assetId}
+                    image={eventCoverImage(
+                      snapshot.data.cover,
+                      `/api/events/${id}/cover/${snapshot.data.cover.assetId}`,
+                    )}
+                  />
+                )
+              }
+            >
+              <Stack spacing={3}>
+                <Stack spacing={0.5}>
+                  <Typography
+                    variant="h6"
+                    component="h2"
+                    sx={{
+                      minHeight: 42,
+                      display: "flex",
+                      alignItems: "center",
+                    }}
+                  >
+                    Registration form preview
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    This is the form guests will complete. Fields are read-only
+                    in preview.
+                  </Typography>
+                </Stack>
+                <RegistrationFormPreview
+                  fields={snapshot.data.registrationForm.fields}
+                />
+              </Stack>
+            </EventGuestView>
+          </Paper>
+        ) : (
+          <Alert severity="error">
+            Check the event details and registration questions before
+            previewing.
+          </Alert>
+        )}
+      </EventHeader>
     </Stack>
   );
 }

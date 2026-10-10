@@ -1,7 +1,9 @@
 "use client";
 
 import { Alert, Button, Stack, TextField, Typography } from "@mui/material";
-import { useActionState, useState } from "react";
+import { unstable_rethrow } from "next/navigation";
+import { useActionState, useRef, useState } from "react";
+import { useEditorDirty } from "@/components/ui/editor-navigation-guard";
 import {
   type ProfileFormState,
   updateProfile,
@@ -11,15 +13,29 @@ import { useNotifications } from "@/hooks/use-notifications";
 
 export function ProfileForm({ name, email }: { name: string; email: string }) {
   const [value, setValue] = useState(name);
+  const [savedName, setSavedName] = useState(name);
+  const nameInput = useRef<HTMLInputElement>(null);
+  const dirty = value !== savedName;
   const notifications = useNotifications();
   const feedback = useFormFeedback();
   const [, action, pending] = useActionState(
     async (previous: ProfileFormState, formData: FormData) => {
       notifications.close("profile-update");
-      const next = await updateProfile(previous, formData);
+      let next: ProfileFormState;
+
+      try {
+        next = await updateProfile(previous, formData);
+      } catch (error) {
+        unstable_rethrow(error);
+        next = {
+          message:
+            "Could not confirm the save. Your edits are kept; please try again.",
+        };
+      }
 
       if (next.success && next.name !== undefined) {
         setValue(next.name);
+        setSavedName(next.name);
         notifications.show("Profile updated.", {
           severity: "success",
           key: "profile-update",
@@ -29,21 +45,34 @@ export function ProfileForm({ name, email }: { name: string; email: string }) {
       feedback.setErrors(next.error ? { name: next.error } : {});
       feedback.setMessage(next.message);
 
+      if (next.error) {
+        requestAnimationFrame(() => nameInput.current?.focus());
+      }
+
       return next;
     },
     {},
   );
+
+  useEditorDirty("profile", dirty || pending);
 
   return (
     <Stack
       component="form"
       noValidate
       onSubmit={(event) => {
+        if (pending || !dirty) {
+          event.preventDefault();
+
+          return;
+        }
+
         feedback.reset();
 
         if (!value.trim() || value.trim().length > 200) {
           event.preventDefault();
           feedback.setErrors({ name: "Enter a name of 1–200 characters." });
+          nameInput.current?.focus();
         }
       }}
       action={action}
@@ -60,6 +89,7 @@ export function ProfileForm({ name, email }: { name: string; email: string }) {
         </Typography>
       </Stack>
       <TextField
+        inputRef={nameInput}
         label="Name"
         name="name"
         autoComplete="name"
@@ -77,7 +107,7 @@ export function ProfileForm({ name, email }: { name: string; email: string }) {
       <TextField
         label="Email"
         value={email}
-        slotProps={{ input: { readOnly: true } }}
+        disabled
         helperText="Email changes are not available yet."
         fullWidth
       />
@@ -85,7 +115,7 @@ export function ProfileForm({ name, email }: { name: string; email: string }) {
       <Button
         type="submit"
         variant="contained"
-        disabled={pending || !value.trim()}
+        disabled={pending || !dirty || !value.trim()}
         sx={{ alignSelf: "flex-start" }}
       >
         {pending ? "Saving…" : "Save changes"}

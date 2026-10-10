@@ -40,7 +40,6 @@ export async function ApplicationDetail({
     <Stack spacing={3}>
       {!modal && (
         <>
-          <EventHeader eventId={id} active="applications" />
           <BackLink href={`/dashboard/events/${id}/applications`}>
             All applications
           </BackLink>
@@ -180,5 +179,11 @@ export async function ApplicationDetail({
     </Stack>
   );
 
-  return modal ? <ApplicationDialog>{content}</ApplicationDialog> : content;
+  return modal ? (
+    <ApplicationDialog>{content}</ApplicationDialog>
+  ) : (
+    <EventHeader eventId={id} active="applications">
+      {content}
+    </EventHeader>
+  );
 }
