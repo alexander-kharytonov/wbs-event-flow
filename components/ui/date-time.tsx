@@ -4,9 +4,10 @@ type Props = {
   date: Date | string;
   endDate?: Date | string;
   timezone: string;
+  inverse?: boolean;
 };
 
-export function DateTime({ date, endDate, timezone }: Props) {
+export function DateTime({ date, endDate, timezone, inverse = false }: Props) {
   const start = new Date(date);
   const end = endDate ? new Date(endDate) : null;
   const fullDate = new Intl.DateTimeFormat("en-US", {
@@ -44,16 +45,16 @@ export function DateTime({ date, endDate, timezone }: Props) {
           width: 56,
           flexShrink: 0,
           border: 1,
-          borderColor: "divider",
+          borderColor: inverse ? "rgba(255,255,255,0.3)" : "divider",
           borderRadius: 1,
           overflow: "hidden",
           textAlign: "center",
-          color: "primary.main",
+          color: inverse ? "#fff" : "primary.main",
         }}
       >
         <Box
           sx={{
-            bgcolor: "action.hover",
+            bgcolor: inverse ? "rgba(255,255,255,0.12)" : "action.hover",
             py: 0.5,
             fontSize: "0.75rem",
             fontWeight: 700,
@@ -77,7 +78,10 @@ export function DateTime({ date, endDate, timezone }: Props) {
         <Typography component="div" sx={{ fontWeight: 600 }}>
           <time dateTime={start.toISOString()}>{startLabel}</time>
         </Typography>
-        <Typography component="div" color="text.secondary">
+        <Typography
+          component="div"
+          color={inverse ? "rgba(255,255,255,0.85)" : "text.secondary"}
+        >
           {time.format(start)}
           {end && sameDay && (
             <>
@@ -87,14 +91,20 @@ export function DateTime({ date, endDate, timezone }: Props) {
           )}
         </Typography>
         {end && !sameDay && (
-          <Typography component="div" color="text.secondary">
+          <Typography
+            component="div"
+            color={inverse ? "rgba(255,255,255,0.85)" : "text.secondary"}
+          >
             Until{" "}
             <time dateTime={end.toISOString()}>
               {fullDate.format(end)}, {time.format(end)}
             </time>
           </Typography>
         )}
-        <Typography variant="caption" color="text.secondary">
+        <Typography
+          variant="caption"
+          color={inverse ? "rgba(255,255,255,0.85)" : "text.secondary"}
+        >
           {timezone.replaceAll("_", " ")}
         </Typography>
       </Stack>

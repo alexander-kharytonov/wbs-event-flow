@@ -1013,7 +1013,7 @@ for PRIMARY, submitted Application answers. Printing does not write Attendance o
 change admission. Guest answers are never inferred from their Registration PRIMARY.
 
 Event.badgeLayout is nullable JSON: SQL null means the current built-in default,
-including paddingMm=3.
+including paddingMm=10. Explicitly saved layouts retain their existing padding.
 A strict formatVersion=1 schema permits only physical size presets,
 orientation, display switches, two optional field descriptors, name size, alignment
 and paddingMm (integer 0–10). Non-null layouts must explicitly include paddingMm;
@@ -1861,7 +1861,10 @@ content rather than account/profile/Staff projection. These fields have no new e
 in 29A. New authoring contracts must not redefine V3 historical parsing.
 
 Upload uses POST /api/events/[eventId]/cover/uploads with raw image bytes and exact
-image/jpeg, image/png or image/webp Content-Type. Fresh verified session (no cookie
+image/jpeg, image/png or image/webp Content-Type. The optional X-Event-Cover-Crop
+header is strict JSON {x, y, zoom}: finite positions in [0,1], zoom in [1,4],
+at most 200 characters. Omission selects the centered crop at zoom 1. Invalid
+parameters are rejected before reserving an upload. Fresh verified session (no cookie
 cache/session refresh), exact configured Origin, then Event FOR UPDATE and post-lock
 event.edit OWNER authorization are required. Cancelled/Completed/Archived workspaces
 refuse upload and attachment. The server reserves an UPLOADING row before filesystem
@@ -1882,7 +1885,11 @@ Magic/container boundaries, decoded format,
 single-frame status, individual 4096 dimensions and 16,777,216 pixels are checked.
 Animated PNG/WebP, malformed images and appended payloads are rejected. This is not
 a claim of universal polyglot detection: only newly encoded pixels are retained/served.
-Sharp applies EXIF orientation, sRGB conversion and metadata stripping. Fixed WebP
+Sharp applies EXIF orientation, then a server-computed integer 16:9 extraction
+within the oriented source bounds, sRGB conversion and metadata stripping.
+The source must be at least 16 × 9 oriented pixels. Client preview and server share
+the crop geometry; server decoding and validation remain authoritative. Existing
+READY assets and revision references are never recropped or rewritten. Fixed WebP
 640/1280/1920-width and JPEG social (1200-width) variants never upscale; each output
 is capped at 5 MiB and each encoding has a ten-second processing timeout. The full
 manifest records dimensions, MIME, bytes and SHA-256. All files are written outside
@@ -1964,6 +1971,13 @@ remote media fetch remain unsupported.
 
 
 ## 38. Rich authoring and EventTemplateV2 (29B)
+
+The description editor uses Markdown only: its form state and submitted
+descriptionFormat are MARKDOWN for Create/Edit and Import/Duplicate Review.
+Opening a plain-text draft/template does not write data; saving the reviewed
+description explicitly adopts Markdown. The persisted enum and frozen template/
+snapshot readers still accept PLAIN_TEXT, preserving existing data and historical
+meaning. No migration or historical revision rewrite is performed.
 
 The shared Event authoring schema extends the existing Create/Edit/Review path.
 It reuses location/publicOrganizer constraints and the schedule entry shape from

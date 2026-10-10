@@ -1,6 +1,10 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
+import {
+  coverCropSchema,
+  initialCoverCrop,
+} from "@/features/events/cover-crop";
 import { workspaceReadOnly } from "@/features/events/event-lifecycle";
 import { mediaManifestSchema } from "@/features/events/schemas/event-rich-content";
 import { authorizeEventActor } from "@/features/events/server/event-access";
@@ -74,6 +78,21 @@ export async function uploadEventCover(
     throw new MediaError(415, "Upload JPEG, PNG or WebP image bytes.");
   }
 
+  const cropHeader = request.headers.get("x-event-cover-crop");
+  let crop = initialCoverCrop;
+
+  if (cropHeader !== null) {
+    try {
+      if (cropHeader.length > 200) {
+        throw new Error("Crop header too large.");
+      }
+
+      crop = coverCropSchema.parse(JSON.parse(cropHeader));
+    } catch {
+      throw new MediaError(422, "Choose a valid cover crop.");
+    }
+  }
+
   return withImageSlot(async () => {
     const asset = await prisma.$transaction(
       async (tx) => {
@@ -120,7 +139,7 @@ export async function uploadEventCover(
     // A failed/uncertain request leaves a tracked record for cleanup; never delete
     // files based on an uncertain DB commit outcome.
     const bytes = await readUpload(request);
-    const image = await normalizeImage(bytes, contentType);
+    const image = await normalizeImage(bytes, contentType, crop);
     const storage = mediaStorage(asset.backend);
 
     for (const [variant, data] of image.variants) {

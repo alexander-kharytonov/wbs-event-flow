@@ -32,13 +32,7 @@ export default async function PreviewPage({
       const event = await tx.event.findFirst({
         where: { id, organizerId: organizer.id },
         include: {
-          ...workspaceInclude,
-          _count: {
-            select: {
-              applications: true,
-              revisions: true,
-            },
-          },
+          registrationForm: workspaceInclude.registrationForm,
         },
       });
 
@@ -46,11 +40,15 @@ export default async function PreviewPage({
         return null;
       }
 
-      const attendeeCount = await tx.attendee.count({
-        where: { registration: { eventId: id }, revokedAt: null },
-      });
+      // Read sibling relations sequentially on the transaction's connection.
+      const coverAsset = event.coverAssetId
+        ? await tx.mediaAsset.findUnique({
+            where: { id: event.coverAssetId },
+            select: workspaceInclude.coverAsset.select,
+          })
+        : null;
 
-      return { ...event, attendeeCount };
+      return { ...event, coverAsset };
     },
     { isolationLevel: "RepeatableRead" },
   );
@@ -75,6 +73,8 @@ export default async function PreviewPage({
           cover={
             snapshot.data.cover && (
               <EventCover
+                fill
+                priority
                 key={snapshot.data.cover.assetId}
                 image={eventCoverImage(
                   snapshot.data.cover,

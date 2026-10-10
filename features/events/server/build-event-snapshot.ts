@@ -31,7 +31,7 @@ export const workspaceInclude = {
 } satisfies Prisma.EventInclude;
 
 type EventWorkspace = Prisma.EventGetPayload<{
-  include: typeof workspaceInclude;
+  include: Pick<typeof workspaceInclude, "coverAsset" | "registrationForm">;
 }>;
 
 export function buildEventSnapshot(event: EventWorkspace) {

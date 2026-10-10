@@ -11,6 +11,7 @@ import {
 } from "@mui/material";
 import type { ReactNode } from "react";
 import { DateTime } from "@/components/ui/date-time";
+import { EventCoverBackdrop } from "@/features/events/components/event-cover";
 import { EventRichContent } from "@/features/events/components/event-rich-content";
 import { formatEventTime } from "@/features/events/format-event-time";
 import {
@@ -58,13 +59,27 @@ export function EventGuestView({
           variant="outlined"
           sx={{
             overflow: "hidden",
+            position: "relative",
+            bgcolor: "background.paper",
+            color: cover ? "#fff" : undefined,
             borderTop: cover ? undefined : 3,
             borderTopColor: "primary.main",
           }}
         >
-          {cover}
-          <Stack spacing={1.5} sx={{ p: { xs: 2.5, sm: 3 } }}>
-            <Typography variant="overline" color="primary.main">
+          {cover && <EventCoverBackdrop>{cover}</EventCoverBackdrop>}
+          <Stack
+            spacing={1.5}
+            sx={{
+              position: "relative",
+              p: { xs: 2.5, sm: 4 },
+              aspectRatio: { xs: "auto", lg: cover ? "16 / 9" : "auto" },
+              justifyContent: "flex-end",
+            }}
+          >
+            <Typography
+              variant="overline"
+              color={cover ? "inherit" : "primary.main"}
+            >
               {cancelled
                 ? "Event cancelled"
                 : hasEnded
@@ -87,6 +102,7 @@ export function EventGuestView({
               </Alert>
             )}
             <DateTime
+              inverse={Boolean(cover)}
               date={snapshot.startsAt}
               endDate={snapshot.endsAt}
               timezone={snapshot.timezone}
@@ -95,7 +111,10 @@ export function EventGuestView({
               <Stack
                 direction="row"
                 spacing={1}
-                sx={{ alignItems: "center", color: "text.secondary" }}
+                sx={{
+                  alignItems: "center",
+                  color: cover ? "rgba(255,255,255,0.85)" : "text.secondary",
+                }}
               >
                 <PlaceOutlined fontSize="small" />
                 <Typography variant="body2">
@@ -128,6 +147,7 @@ export function EventGuestView({
                 component="a"
                 href="#event-registration"
                 variant="outlined"
+                color={cover ? "inherit" : "primary"}
               >
                 Registration details
               </Button>

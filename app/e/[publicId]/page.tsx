@@ -136,6 +136,8 @@ export default async function PublicEventPage({ params }: Props) {
       cover={
         snapshot.cover && (
           <EventCover
+            fill
+            priority
             key={snapshot.cover.assetId}
             image={eventCoverImage(
               snapshot.cover,

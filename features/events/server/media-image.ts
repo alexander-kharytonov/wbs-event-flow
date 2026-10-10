@@ -2,6 +2,12 @@ import "server-only";
 import { createHash } from "node:crypto";
 import sharp from "sharp";
 import {
+  type CoverCrop,
+  coverCropRectangle,
+  coverCropSchema,
+  initialCoverCrop,
+} from "@/features/events/cover-crop";
+import {
   type MediaManifest,
   type MediaVariant,
   mediaManifestSchema,
@@ -199,7 +205,11 @@ function inputFormat(bytes: Buffer, contentType: string) {
   return invalidImage();
 }
 
-export async function normalizeImage(bytes: Buffer, contentType: string) {
+export async function normalizeImage(
+  bytes: Buffer,
+  contentType: string,
+  crop: CoverCrop = initialCoverCrop,
+) {
   if (bytes.length > maxUploadBytes) {
     throw new MediaError(413, "The image must be at most 5 MiB.");
   }
@@ -227,10 +237,22 @@ export async function normalizeImage(bytes: Buffer, contentType: string) {
 
     const manifest: Record<string, unknown> = {};
     const variants = new Map<MediaVariant, Buffer>();
+    const parsedCrop = coverCropSchema.safeParse(crop);
+    const { width, height } = metadata.autoOrient;
+
+    if (!parsedCrop.success || width < 16 || height < 9) {
+      throw new MediaError(
+        422,
+        "Choose a valid 16:9 crop from an image at least 16 × 9 pixels.",
+      );
+    }
+
+    const rectangle = coverCropRectangle(width, height, parsedCrop.data);
 
     for (const variant of mediaVariants) {
       const pipeline = sharp(bytes, options)
         .autoOrient()
+        .extract(rectangle)
         .toColourspace("srgb")
         .resize({
           width: variant === "social" ? 1200 : Number(variant),

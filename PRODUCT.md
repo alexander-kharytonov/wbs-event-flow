@@ -5,6 +5,22 @@ can attend. This document is the product-level source of truth for implemented
 capabilities. [DOMAIN.md](DOMAIN.md) defines their invariants and boundaries;
 [README.md](README.md) covers development setup.
 
+## Product landing page
+
+The home page explains the implemented organizer journey from draft and publication
+through application review, tickets and check-in. It introduces event pages, custom
+forms, team roles, communications, badges, duplication and exports, with a separate
+attendee path and FAQ. It makes no pricing, payment, customer-count or testimonial
+claims. The organizer CTA preserves the existing signed-in/onboarding flow; public
+event discovery and account registration remain available as separate paths.
+
+Page content and links render on the server. Motion enhances visible sections after
+hydration with a headline reveal, a sequential flow diagram, section accents and
+staggered attendee steps. Feature icons and CTA arrows react subtly to hover.
+Animations run once on entry without continuous loops; they do not hide SSR content or
+require JavaScript for reading, navigation or the native FAQ disclosures. Reduced
+motion disables these animations. No business data is created by the landing page.
+
 ## Identity
 
 An Event Flow account uses email and password with email verification. A User is
@@ -141,7 +157,8 @@ Sign out is available in the shared account menu.
 ## Form feedback and shared UI
 
 Text fields and selects use the shared theme's outlined appearance, including
-focus, error and disabled states. Empty collection views reuse EmptyState with
+focus, error and disabled states. Disabled fields have a muted background and
+dashed outline to distinguish them from editable fields. Empty collection views reuse EmptyState with
 an icon, title, description and an optional action.
 
 Form submission actions are disabled while required values are missing or their
@@ -354,7 +371,8 @@ Each Event has one operational layout, independent of Publish/Republish. A null 
 uses the built-in defaults. One layout supports 90 × 60, 85 × 54 and 100 × 70 mm,
 either orientation, limited text settings and optional Event/type/
 Ticket/QR fields. Padding sets the inner spacing on all sides from 0 to 10 mm
-in whole millimeters (default 3 mm), shared by preview and print. Save affects newly
+in whole millimeters (default 10 mm), shared by preview and print. Saved layouts
+retain their explicitly configured padding. Save affects newly
 opened print documents.
 
 Owners explicitly select up to two SHORT_TEXT, LONG_TEXT, SINGLE_CHOICE or
@@ -818,9 +836,13 @@ Owners with verified accounts can upload cover images for existing editable Even
 through the media API, then explicitly attach, replace or remove the draft cover.
 The 29B editor below uses these APIs; the public landing page is described in 29C.
 Create/Import/Duplicate Review performs no media upload or persistence before Create.
+An info alert before Basic information explains that cover images become available
+after creation.
 
 Uploads accept one static JPEG, PNG or WebP, at most 5 MiB and 4096 × 4096 pixels.
-The server validates and re-encodes images, applies orientation, strips metadata,
+The editor offers a fixed 16:9 crop with drag positioning, zoom and keyboard-accessible
+position sliders. Upload sends the original file and the chosen crop to the server.
+The server validates and re-encodes images, applies orientation and the crop, strips metadata,
 and creates immutable responsive WebP variants plus a JPEG social variant.
 Original files and names are not retained. At most two upload-processing operations
 run per application process. New upload admission is refused when the organizer
@@ -854,8 +876,13 @@ its revision. Operators must invoke cleanup and maintain storage/backups.
 ## Rich Event editor and Template V2 (29B)
 
 The existing Create/Edit and Import/Duplicate Review forms share rich authoring.
-Descriptions have an explicit Plain Text/Markdown selector and a 20,000-character
-limit. Switching format never transforms text. The accessible Markdown preview and
+Descriptions always use Markdown in the editor, with a 20,000-character limit.
+Create/Edit and Import/Duplicate Review save the reviewed description as MARKDOWN;
+there is no Plain text selector. The editor combines Write/Preview tabs with
+grouped formatting toggles for selected text (bold, italic, heading and list)
+and a separate link insertion action. Toggling an active format removes it.
+Existing stored descriptions are not bulk-converted; previously published
+plain-text snapshots retain their original interpretation. The Markdown preview, Overview and
 OWNER Event Preview share a renderer permitting headings, paragraphs, emphasis,
 lists and absolute HTTP(S) links without credentials. Raw HTML, images, MDX and
 iframes are not rendered. Historical plain-text snapshots remain plain text.
@@ -875,13 +902,21 @@ Public organizer information is optional, Event-local and authored explicitly:
 display name, optional description and optional website URL. It never automatically
 includes account email, staff email or private profile metadata.
 
-Existing editable Events also show the cover editor: Select file -> Upload ->
+Existing editable Events also show the cover editor: Select file -> Adjust 16:9 crop -> Upload ->
 normalized preview -> Save cover; replace/remove and alt text up to 500 characters
 use the existing authorized attachment action. Cover and Event Save cannot overlap.
+Image preparation/upload uses a cover-shaped skeleton, not a progress bar.
+An info alert explains selection, crop, upload/save and the accepted image limits.
+Cover editor previews use 16:9 without stretching images. Previously stored media is not rewritten.
 A successful cover response alone updates the local optimistic token and preserves
-all other edits. Feedback says: "Cover saved. Other event changes are not saved yet."
+all other edits. A success notification (not an inline alert) says: "Cover saved. Other event changes are not saved yet."
 A conflict requires reload. Draft changes never alter the currently published cover;
 abandoned uploads follow the existing 24-hour/7-day cleanup rules.
+
+For owners eligible to publish, an alert above the Event title explains draft,
+unpublished or unpublished-changes status and exposes Publish, Republish or
+Publish changes. The existing menu action remains available. Both use the same
+publication action, version checks, conflict feedback and lifecycle guards.
 
 Template V2 preserves portable settings including description format, location,
 exact agenda and public organizer. Its cover marker is NONE if absent or OMITTED
@@ -900,9 +935,19 @@ storage backend; the public presentation is extended by 29C below.
 The direct Event page presents the current published revision in a responsive
 Hero with title, dates/timezone, location summary and registration navigation.
 An optional cover uses existing fixed variants, their actual widths and a reserved
-image area; proportions are preserved without cropping. Failed images show a
-neutral message in the same area. Without a cover the Hero stays compact. No
+image area. Hero details sit over the image with a dark gradient for readability in both themes;
+its responsive height follows the content instead of adding a full image above it.
+Covered heroes and cards prefer a 16:9 frame from the lg breakpoint; smaller screens use content height. Content can increase its height on
+narrow screens; the poster fills the resulting frame with object-fit: fill, without another crop. Failed images retain the dark backdrop.
+Without a cover the Hero stays compact. No
 stock image, image optimizer or public media cache is used.
+Catalog descriptions use the same format-aware restricted Markdown renderer.
+Covers sit behind card content with a dark gradient in both themes in both the public catalog and
+My events; cards without covers retain their usual appearance. Only the background image of a fully clickable Event card scales slightly
+on hover with a fine pointer; reduced-motion preferences disable this effect.
+Public catalog cards show only published covers. My events cards show draft covers
+for owned Events through the owner-only media route; assigned staff cards do not
+request private owner media.
 
 Description, location, schedule and public organizer sections appear only when
 present. V3 uses its explicit description format and the same restricted Markdown

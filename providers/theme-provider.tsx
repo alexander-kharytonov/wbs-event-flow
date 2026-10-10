@@ -195,6 +195,14 @@ const theme = createTheme({
           "&.Mui-disabled .MuiOutlinedInput-notchedOutline": {
             borderColor: "var(--mui-palette-divider)",
           },
+          "&.Mui-disabled": {
+            backgroundColor: "var(--mui-palette-action-disabledBackground)",
+            cursor: "not-allowed",
+          },
+          "& .MuiInputBase-input.Mui-disabled": {
+            WebkitTextFillColor: "var(--mui-palette-text-disabled)",
+            cursor: "not-allowed",
+          },
         },
       },
     },

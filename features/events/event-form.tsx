@@ -23,7 +23,7 @@ import {
   type EditableCover,
   EventCoverEditor,
 } from "@/features/events/components/event-cover-editor";
-import { EventDescription } from "@/features/events/components/event-description";
+import { EventDescriptionEditor } from "@/features/events/components/event-description-editor";
 import {
   EventRichFields,
   richRequiredMissing,
@@ -45,7 +45,7 @@ import { formatTimezone } from "@/features/events/format-timezone";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 
 const emptyValues: EventFormValues = {
-  descriptionFormat: "PLAIN_TEXT",
+  descriptionFormat: "MARKDOWN",
   location: null,
   schedule: [],
   publicOrganizer: null,
@@ -93,7 +93,6 @@ export function EventForm({
   const feedback = useFormFeedback(initialErrors);
   const mutationBusy = useRef(false);
   const [coverBusy, setCoverBusy] = useState(false);
-  const [markdownPreview, setMarkdownPreview] = useState(false);
   const [state, action, pending] = useActionState(
     async (previous: EventFormState, formData: FormData) => {
       let next: EventFormState;
@@ -117,7 +116,10 @@ export function EventForm({
     },
     {},
   );
-  const [values, setValues] = useState(initialValues);
+  const [values, setValues] = useState<EventFormValues>({
+    ...initialValues,
+    descriptionFormat: "MARKDOWN",
+  });
   const [editedDates, setEditedDates] = useState<EventDateField[]>([]);
   const dateSource = edit?.dates ?? importedDates;
   const validExactSchedule = dateSource
@@ -204,7 +206,7 @@ export function EventForm({
         setValues((current) => ({ ...current, [name]: event.target.value }));
       },
       ...feedback.field(name),
-      disabled: pending || coverBusy,
+      disabled: disabled || pending || coverBusy,
       fullWidth: true,
     };
   }
@@ -300,6 +302,12 @@ export function EventForm({
           onSaved={setOpenedVersion}
         />
       )}
+      {!edit && (
+        <Alert severity="info">
+          Cover image will be available after you create the event. You can
+          upload and crop it before publishing.
+        </Alert>
+      )}
       <Box
         component="section"
         sx={{ pb: 3, borderBottom: 1, borderColor: "divider" }}
@@ -314,58 +322,16 @@ export function EventForm({
             required
             slotProps={{ htmlInput: { maxLength: 200 } }}
           />
-          <TextField
-            {...field("descriptionFormat")}
-            label="Description format"
-            select
-          >
-            <MenuItem value="PLAIN_TEXT">Plain text</MenuItem>
-            <MenuItem value="MARKDOWN">Markdown</MenuItem>
-          </TextField>
-          <TextField
-            {...field("description")}
-            label="Description"
-            multiline
-            minRows={3}
-            slotProps={{ htmlInput: { maxLength: 20000 } }}
+          <EventDescriptionEditor
+            value={values.description}
+            disabled={disabled || pending || coverBusy}
+            error={feedback.errors.description}
+            formatError={feedback.errors.descriptionFormat}
+            onChange={(description) => {
+              feedback.clear("description");
+              setValues((current) => ({ ...current, description }));
+            }}
           />
-          {values.descriptionFormat === "MARKDOWN" && (
-            <>
-              <Typography variant="body2" color="text.secondary">
-                Headings, paragraphs, emphasis, lists and HTTP(S) links are
-                supported. HTML and embedded images are not rendered.
-              </Typography>
-              <Button
-                type="button"
-                aria-expanded={markdownPreview}
-                aria-controls="event-markdown-preview"
-                onClick={() => setMarkdownPreview((current) => !current)}
-                sx={{ alignSelf: "flex-start" }}
-              >
-                {markdownPreview
-                  ? "Hide Markdown preview"
-                  : "Show Markdown preview"}
-              </Button>
-              {markdownPreview && (
-                <Box
-                  id="event-markdown-preview"
-                  role="region"
-                  aria-label="Markdown preview"
-                  sx={{
-                    p: 2,
-                    border: 1,
-                    borderColor: "divider",
-                    borderRadius: 1,
-                  }}
-                >
-                  <EventDescription
-                    text={values.description}
-                    format="MARKDOWN"
-                  />
-                </Box>
-              )}
-            </>
-          )}
         </Stack>
       </Box>
       <Box
@@ -418,7 +384,7 @@ export function EventForm({
           </Box>
           <input type="hidden" name="timezone" value={values.timezone} />
           <Autocomplete
-            disabled={pending || coverBusy}
+            disabled={disabled || pending || coverBusy}
             freeSolo
             options={timezones}
             getOptionLabel={formatTimezone}
@@ -495,7 +461,7 @@ export function EventForm({
               control={
                 <Switch
                   checked={values.maxGuestsPerRegistration !== "0"}
-                  disabled={pending || coverBusy}
+                  disabled={disabled || pending || coverBusy}
                   onChange={(_, enabled) => {
                     feedback.clear("maxGuestsPerRegistration");
                     setValues((current) => ({
