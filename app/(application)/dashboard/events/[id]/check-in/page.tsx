@@ -36,43 +36,45 @@ export default async function CheckInPage({
 
   return (
     <Stack spacing={3}>
-      <EventHeader eventId={id} active="check-in" />
-      {lifecycle === "Ongoing" && (
-        <Alert severity="info">
-          Start the scanner to scan an attendee’s ticket QR. The camera stays on
-          between scans. Choose Scan next when you’re ready for the next ticket.
-        </Alert>
-      )}
-      <Stack
-        direction={{ xs: "column", sm: "row" }}
-        sx={{
-          gap: 1,
-          justifyContent: "space-between",
-          alignItems: { sm: "center" },
-        }}
-      >
-        <Typography
-          variant="h6"
-          component="h2"
-          sx={{ minHeight: 42, display: "flex", alignItems: "center" }}
+      <EventHeader eventId={id} active="check-in">
+        {lifecycle === "Ongoing" && (
+          <Alert severity="info">
+            Start the scanner to scan an attendee’s ticket QR. The camera stays
+            on between scans. Choose Scan next when you’re ready for the next
+            ticket.
+          </Alert>
+        )}
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          sx={{
+            gap: 1,
+            justifyContent: "space-between",
+            alignItems: { sm: "center" },
+          }}
         >
-          Check-in
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {checkedIn} checked in · {active.length} active attendees
-        </Typography>
-      </Stack>
-      {lifecycle === "Ongoing" ? (
-        <TicketScanner eventId={id} timezone={event.timezone} />
-      ) : (
-        <Alert severity={lifecycle === "Cancelled" ? "error" : "info"}>
-          {lifecycle === "Cancelled"
-            ? "This event is cancelled. New check-ins are unavailable."
-            : lifecycle === "Upcoming"
-              ? `Check-in opens ${formatEventTime(event.startsAt, event.timezone)} (${event.timezone}). Reload when the event starts.`
-              : `Check-in closed ${formatEventTime(event.endsAt, event.timezone)} (${event.timezone}). Attendance history remains available in Attendees.`}
-        </Alert>
-      )}
+          <Typography
+            variant="h6"
+            component="h2"
+            sx={{ minHeight: 42, display: "flex", alignItems: "center" }}
+          >
+            Check-in
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {checkedIn} checked in · {active.length} active attendees
+          </Typography>
+        </Stack>
+        {lifecycle === "Ongoing" ? (
+          <TicketScanner eventId={id} timezone={event.timezone} />
+        ) : (
+          <Alert severity={lifecycle === "Cancelled" ? "error" : "info"}>
+            {lifecycle === "Cancelled"
+              ? "This event is cancelled. New check-ins are unavailable."
+              : lifecycle === "Upcoming"
+                ? `Check-in opens ${formatEventTime(event.startsAt, event.timezone)} (${event.timezone}). Reload when the event starts.`
+                : `Check-in closed ${formatEventTime(event.endsAt, event.timezone)} (${event.timezone}). Attendance history remains available in Attendees.`}
+          </Alert>
+        )}
+      </EventHeader>
     </Stack>
   );
 }

@@ -1,12 +1,6 @@
 "use client";
 
-import Add from "@mui/icons-material/Add";
-import ArrowDownward from "@mui/icons-material/ArrowDownward";
-import ArrowUpward from "@mui/icons-material/ArrowUpward";
-import DeleteOutlined from "@mui/icons-material/DeleteOutlined";
-import EditOutlined from "@mui/icons-material/EditOutlined";
 import LockOutlined from "@mui/icons-material/LockOutlined";
-import QuizOutlined from "@mui/icons-material/QuizOutlined";
 import {
   Alert,
   Box,
@@ -17,20 +11,18 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
-  IconButton,
   Paper,
   Stack,
   Typography,
 } from "@mui/material";
 import { useState, useTransition } from "react";
-import { EmptyState } from "@/components/ui/empty-state";
 import { RegistrationFieldForm } from "@/features/events/components/registration-field-form";
+import { RegistrationQuestions } from "@/features/events/components/registration-questions";
 import { changeRegistrationForm } from "@/features/events/registration-form-actions";
-import {
-  type BuilderField,
-  type BuilderForm,
-  fieldTypeLabels,
-  type RegistrationFieldInput,
+import type {
+  BuilderField,
+  BuilderForm,
+  RegistrationFieldInput,
 } from "@/features/events/schemas/registration-form";
 import { useNotifications } from "@/hooks/use-notifications";
 
@@ -165,149 +157,24 @@ export function RegistrationFormBuilder({
           ))}
         </Stack>
       </Paper>
-      <Stack component="section" spacing={2}>
-        <Stack
-          direction="row"
-          sx={{ alignItems: "center", justifyContent: "space-between" }}
-          spacing={1}
-        >
-          <Typography
-            variant="h6"
-            component="h2"
-            sx={{ minHeight: 42, display: "flex", alignItems: "center" }}
-          >
-            Questions
-          </Typography>
-          {
-            <Button
-              startIcon={<Add />}
-              variant="contained"
-              disabled={disabled}
-              onClick={() => {
-                setError(null);
-                setEditor({});
-              }}
-            >
-              Add question
-            </Button>
-          }
-        </Stack>
-        {form.fields.length === 0 && (
-          <EmptyState
-            icon={<QuizOutlined />}
-            title="No custom questions yet"
-            description="Add questions to collect the information you need from your guests."
-          />
-        )}
-        {form.fields.map((field, index) => (
-          <Paper
-            key={field.id}
-            variant="outlined"
-            sx={{ p: { xs: 2, sm: 2.5 } }}
-          >
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: {
-                  xs: "minmax(0, 1fr)",
-                  md: "minmax(0, 1fr) auto",
-                },
-                gap: 2,
-              }}
-            >
-              <Stack spacing={1}>
-                <Typography
-                  variant="subtitle1"
-                  component="h3"
-                  sx={{ overflowWrap: "anywhere" }}
-                >
-                  {index + 1}. {field.label}
-                </Typography>
-                <Stack direction="row" spacing={1}>
-                  <Chip size="small" label={fieldTypeLabels[field.type]} />
-                  <Chip
-                    size="small"
-                    variant="outlined"
-                    label={field.required ? "Required" : "Optional"}
-                  />
-                </Stack>
-                {field.description && (
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}
-                  >
-                    {field.description}
-                  </Typography>
-                )}
-                {field.options.length > 0 && (
-                  <Box
-                    component="ol"
-                    sx={{ m: 0, pl: 3, overflowWrap: "anywhere" }}
-                  >
-                    {field.options.map((option) => (
-                      <Typography
-                        component="li"
-                        variant="body2"
-                        key={option.label}
-                      >
-                        {option.label}
-                      </Typography>
-                    ))}
-                  </Box>
-                )}
-              </Stack>
-              {
-                <Stack
-                  direction="row"
-                  spacing={0.5}
-                  sx={{
-                    alignItems: "center",
-                    alignSelf: "start",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <IconButton
-                    aria-label={`Move question ${index + 1} up`}
-                    disabled={disabled || index === 0}
-                    onClick={() => move(index, -1)}
-                  >
-                    <ArrowUpward fontSize="small" />
-                  </IconButton>
-                  <IconButton
-                    aria-label={`Move question ${index + 1} down`}
-                    disabled={disabled || index === form.fields.length - 1}
-                    onClick={() => move(index, 1)}
-                  >
-                    <ArrowDownward fontSize="small" />
-                  </IconButton>
-                  <Button
-                    startIcon={<EditOutlined />}
-                    disabled={disabled}
-                    onClick={() => {
-                      setError(null);
-                      setEditor({ field });
-                    }}
-                  >
-                    Edit
-                  </Button>
-                  <Button
-                    startIcon={<DeleteOutlined />}
-                    color="error"
-                    disabled={disabled}
-                    onClick={() => {
-                      setError(null);
-                      setDeleting(field);
-                    }}
-                  >
-                    Delete
-                  </Button>
-                </Stack>
-              }
-            </Box>
-          </Paper>
-        ))}
-      </Stack>
+      <RegistrationQuestions
+        fields={form.fields}
+        getKey={(field) => field.id}
+        disabled={disabled}
+        onAdd={() => {
+          setError(null);
+          setEditor({});
+        }}
+        onEdit={(field) => {
+          setError(null);
+          setEditor({ field });
+        }}
+        onDelete={(field) => {
+          setError(null);
+          setDeleting(field);
+        }}
+        onMove={move}
+      />
       <Dialog
         open={editor !== null}
         onClose={() => {

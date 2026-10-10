@@ -30,8 +30,7 @@ import NextLink from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useState, useTransition } from "react";
 import { changeEventLifecycle } from "@/features/events/event-lifecycle-action";
-import { publishEvent } from "@/features/events/publish-event-action";
-import type { PublishResult } from "@/features/events/server/publish-event";
+import { useEventPublication } from "@/features/events/use-event-publication";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { useNotifications } from "@/hooks/use-notifications";
 
@@ -82,10 +81,15 @@ export function EventActions({
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [action, setAction] = useState<Action | null>(null);
   const [reason, setReason] = useState("");
-  const [pending, startTransition] = useTransition();
+  const [lifecyclePending, startTransition] = useTransition();
+  const {
+    publication,
+    pending: publishPending,
+    publish,
+  } = useEventPublication(eventId, contentVersion);
+  const pending = lifecyclePending || publishPending;
 
   const menuId = useId();
-  const [publication, setPublication] = useState<PublishResult>({});
 
   return (
     <Stack
@@ -144,36 +148,7 @@ export function EventActions({
             disabled={pending || publication.conflict}
             onClick={() => {
               setAnchor(null);
-              notifications.close(`publish:${eventId}`);
-              startTransition(async () => {
-                try {
-                  const result = await publishEvent({
-                    eventId,
-                    contentVersion,
-                  });
-                  setPublication(result);
-
-                  if (result.success) {
-                    notifications.show("Event published.", {
-                      severity: "success",
-                      autoHideDuration: 4000,
-                      key: `publish:${eventId}`,
-                    });
-                    router.refresh();
-                  } else if (result.message && !result.conflict) {
-                    notifications.show(result.message, {
-                      severity: "error",
-                      key: `publish:${eventId}`,
-                    });
-                  }
-                } catch {
-                  setPublication({
-                    conflict: true,
-                    message:
-                      "We couldn’t confirm publication. Reload the event to check its status.",
-                  });
-                }
-              });
+              publish();
             }}
           >
             <ListItemIcon sx={{ color: "inherit" }}>

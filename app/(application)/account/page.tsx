@@ -1,6 +1,4 @@
 import { Box, Button, Paper, Stack, Typography } from "@mui/material";
-import { PageHeader } from "@/components/ui/page-header";
-import { AccountNavigation } from "@/features/auth/components/account-navigation";
 import { prisma } from "@/lib/prisma";
 import { requireVerifiedUser } from "@/lib/session";
 
@@ -13,16 +11,17 @@ export default async function AccountPage() {
 
   return (
     <Stack spacing={3}>
-      <PageHeader title="My account" />
-      <AccountNavigation active="overview" />
+      <Typography variant="h6" component="h2">
+        Overview
+      </Typography>
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: { xs: "1fr", md: "1.4fr 1fr" },
+          gridTemplateColumns: { xs: "1fr", lg: "1.4fr 1fr" },
           gap: 3,
         }}
       >
-        <Paper variant="outlined" sx={{ p: { xs: 3, sm: 4 } }}>
+        <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
           <Stack
             spacing={2}
             sx={{ alignItems: "flex-start", overflowWrap: "anywhere" }}
@@ -44,7 +43,7 @@ export default async function AccountPage() {
             </Stack>
           </Stack>
         </Paper>
-        <Paper variant="outlined" sx={{ p: { xs: 3, sm: 4 } }}>
+        <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
           <Stack spacing={2} sx={{ alignItems: "flex-start" }}>
             <Stack spacing={1}>
               <Typography variant="h6" component="h2">

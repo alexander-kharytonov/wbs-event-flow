@@ -11,6 +11,7 @@ import {
   Typography,
 } from "@mui/material";
 import { ArrivalTimeline } from "@/features/events/components/arrival-timeline";
+import { EventDescription } from "@/features/events/components/event-description";
 import { RegistrationAvailabilityStatus } from "@/features/events/components/registration-availability-status";
 import type { EventOverview } from "@/features/events/server/event-overview";
 
@@ -272,15 +273,12 @@ export function EventOverviewContent({ data }: { data: EventOverview }) {
           >
             Description
           </Typography>
-          <Typography
-            sx={{
-              whiteSpace: "pre-wrap",
-              overflowWrap: "anywhere",
-              maxWidth: "75ch",
-            }}
-          >
-            {data.description}
-          </Typography>
+          <Box sx={{ maxWidth: "75ch" }}>
+            <EventDescription
+              text={data.description}
+              format={data.descriptionFormat}
+            />
+          </Box>
         </Paper>
       )}
     </Stack>

@@ -388,6 +388,13 @@ export function parseEventWithPreservedDates(
 export type EventFormValues = z.input<typeof eventInputSchema>;
 
 export type EventFormState = {
+  createdId?: string;
+  saved?: {
+    version: string;
+    values: EventFormValues;
+    dates: import("@/features/events/event-form-values").EventDateSource;
+    startLocked: boolean;
+  };
   errors?: Record<string, string[]>;
   message?: string;
   conflict?: boolean;

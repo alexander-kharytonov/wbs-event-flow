@@ -17,6 +17,8 @@ export async function OrganizerEventList() {
       id: true,
       publicId: true,
       title: true,
+      coverAssetId: true,
+      coverAlt: true,
       visibility: true,
       startsAt: true,
       endsAt: true,

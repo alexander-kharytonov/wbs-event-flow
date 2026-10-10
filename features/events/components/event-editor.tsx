@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import { BackLink } from "@/components/ui/back-link";
-import { EventFormDialog } from "@/features/events/components/event-form-dialog";
+import { EditorNavigationGuard } from "@/components/ui/editor-navigation-guard";
 import { EventForm } from "@/features/events/event-form";
 import {
   eventDateSource,
@@ -30,10 +30,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function CreateEventView({
-  modal = false,
   duplicateFrom,
 }: {
-  modal?: boolean;
   duplicateFrom?: string | string[];
 }) {
   if (duplicateFrom !== undefined) {
@@ -89,7 +87,6 @@ export async function CreateEventView({
     return (
       <CreateEventModes
         key={reviewKey}
-        modal={modal}
         initialTemplate={initialTemplate}
         duplicateError={
           initialTemplate
@@ -102,16 +99,10 @@ export async function CreateEventView({
 
   await requireOrganizer();
 
-  return <CreateEventModes modal={modal} />;
+  return <CreateEventModes />;
 }
 
-export async function EditEventView({
-  eventId: id,
-  modal = false,
-}: {
-  eventId: string;
-  modal?: boolean;
-}) {
+export async function EditEventView({ eventId: id }: { eventId: string }) {
   await requireEventPermission(id, "event.edit");
   const organizer = await requireOrganizer();
 
@@ -128,11 +119,9 @@ export async function EditEventView({
   }
 
   const content = (
-    <Stack spacing={3} sx={{ width: "100%" }}>
-      {!modal && (
+    <EditorNavigationGuard key={event.id}>
+      <Stack spacing={3} sx={{ width: "100%" }}>
         <BackLink href={`/dashboard/events/${id}`}>Back to event</BackLink>
-      )}
-      {!modal && (
         <Typography
           variant="h4"
           component="h1"
@@ -140,32 +129,30 @@ export async function EditEventView({
         >
           {event.title}
         </Typography>
-      )}
-      {workspaceReadOnly(event, new Date()) ? (
-        <Alert severity="info">
-          This event is read-only. Its information and history remain available.
-        </Alert>
-      ) : (
-        <EventForm
-          initialCover={{ assetId: event.coverAssetId, alt: event.coverAlt }}
-          startLocked={eventLifecycle(event, new Date()) === "Ongoing"}
-          initialValues={eventFormValues(event)}
-          serverAction={updateEvent}
-          edit={{
-            id: event.id,
-            dates: eventDateSource(event),
-            version: Buffer.from(event.updatedAt.toISOString()).toString(
-              "base64url",
-            ),
-          }}
-        />
-      )}
-    </Stack>
+        {workspaceReadOnly(event, new Date()) ? (
+          <Alert severity="info">
+            This event is read-only. Its information and history remain
+            available.
+          </Alert>
+        ) : (
+          <EventForm
+            key={event.id}
+            initialCover={{ assetId: event.coverAssetId, alt: event.coverAlt }}
+            startLocked={eventLifecycle(event, new Date()) === "Ongoing"}
+            initialValues={eventFormValues(event)}
+            serverAction={updateEvent}
+            edit={{
+              id: event.id,
+              dates: eventDateSource(event),
+              version: Buffer.from(event.updatedAt.toISOString()).toString(
+                "base64url",
+              ),
+            }}
+          />
+        )}
+      </Stack>
+    </EditorNavigationGuard>
   );
 
-  return modal ? (
-    <EventFormDialog title={event.title}>{content}</EventFormDialog>
-  ) : (
-    content
-  );
+  return content;
 }

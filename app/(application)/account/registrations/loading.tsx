@@ -9,11 +9,10 @@ export default function Loading() {
       aria-busy="true"
     >
       <Skeleton width="45%" height={48} />
-      <Skeleton width="60%" height={32} />
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+          gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" },
           gap: 2,
         }}
       >

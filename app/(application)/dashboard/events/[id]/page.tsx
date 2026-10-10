@@ -40,8 +40,9 @@ export default async function EventPage({
         active="overview"
         data={data.header}
         now={data.now}
-      />
-      <EventOverviewContent data={data} />
+      >
+        <EventOverviewContent data={data} />
+      </EventHeader>
     </Stack>
   );
 }

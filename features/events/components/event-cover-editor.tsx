@@ -1,16 +1,26 @@
 "use client";
 
+import AddPhotoAlternateOutlined from "@mui/icons-material/AddPhotoAlternateOutlined";
+import CloudUploadOutlined from "@mui/icons-material/CloudUploadOutlined";
 import {
   Alert,
   Box,
   Button,
-  LinearProgress,
+  Chip,
+  Skeleton,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
 import { useEffect, useRef, useState } from "react";
+import { EmptyState } from "@/components/ui/empty-state";
+import {
+  CoverCropper,
+  type CoverSource,
+} from "@/features/events/components/cover-cropper";
+import { initialCoverCrop } from "@/features/events/cover-crop";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
+import { useNotifications } from "@/hooks/use-notifications";
 
 export type EditableCover = { assetId: string | null; alt: string | null };
 
@@ -22,6 +32,8 @@ export function EventCoverEditor({
   begin,
   end,
   onSaved,
+  onDirtyChange,
+  onConflictChange,
 }: {
   eventId: string;
   initial: EditableCover;
@@ -30,26 +42,105 @@ export function EventCoverEditor({
   begin: () => boolean;
   end: () => void;
   onSaved: (version: string) => void;
+  onDirtyChange: (dirty: boolean) => void;
+  onConflictChange: (conflict: boolean) => void;
 }) {
   const [cover, setCover] = useState(initial);
   const [assetId, setAssetId] = useState(initial.assetId);
   const [alt, setAlt] = useState(initial.alt ?? "");
   const [file, setFile] = useState<File>();
-  const [pending, setPending] = useState<"upload" | "save" | null>(null);
-  const [saved, setSaved] = useState(false);
+  const [pending, setPending] = useState<"select" | "upload" | "save" | null>(
+    null,
+  );
+  const [source, setSource] = useState<CoverSource | null>(null);
+  const [crop, setCrop] = useState(initialCoverCrop);
+  const selection = useRef(0);
+  const notifications = useNotifications();
   const [conflict, setConflict] = useState(false);
   const [failedAssetId, setFailedAssetId] = useState<string>();
   const fileInput = useRef<HTMLInputElement>(null);
   const request = useRef<AbortController | null>(null);
   const feedback = useFormFeedback();
-  useEffect(() => () => request.current?.abort(), []);
+  useEffect(
+    () => () => {
+      request.current?.abort();
+      selection.current++;
+    },
+    [],
+  );
+  useEffect(
+    () => () => {
+      if (source) {
+        URL.revokeObjectURL(source.url);
+      }
+    },
+    [source],
+  );
+
+  async function selectFile(next: File | undefined) {
+    if (!next || disabled || pending) {
+      return;
+    }
+
+    feedback.reset();
+
+    if (
+      !["image/jpeg", "image/png", "image/webp"].includes(next.type) ||
+      next.size > 5 * 1024 * 1024
+    ) {
+      feedback.setMessage("Choose a JPEG, PNG or WebP image up to 5 MiB.");
+
+      return;
+    }
+
+    if (!begin()) {
+      return;
+    }
+
+    const current = ++selection.current;
+    setPending("select");
+
+    try {
+      const bitmap = await createImageBitmap(next, {
+        imageOrientation: "from-image",
+      });
+      const { width, height } = bitmap;
+      bitmap.close();
+
+      if (current !== selection.current) {
+        return;
+      }
+
+      if (width > 4096 || height > 4096 || width < 16 || height < 9) {
+        feedback.setMessage(
+          "Choose an image from 16 × 9 up to 4096 × 4096 pixels.",
+        );
+
+        return;
+      }
+
+      setSource({ url: URL.createObjectURL(next), width, height });
+      setFile(next);
+      setCrop(initialCoverCrop);
+    } catch {
+      if (current === selection.current) {
+        feedback.setMessage(
+          "This image could not be opened. Choose a valid JPEG, PNG or WebP.",
+        );
+      }
+    } finally {
+      if (current === selection.current) {
+        setPending(null);
+        end();
+      }
+    }
+  }
 
   async function mutate(kind: "upload" | "save", remove = false) {
     if (disabled || pending || (kind === "upload" && !file)) {
       return;
     }
     feedback.reset();
-    setSaved(false);
 
     if (kind === "save" && !remove && alt.trim().length > 500) {
       feedback.setErrors({ alt: "Use at most 500 characters." });
@@ -72,6 +163,9 @@ export function EventCoverEditor({
           headers: {
             "Content-Type":
               kind === "upload" ? (file?.type ?? "") : "application/json",
+            ...(kind === "upload"
+              ? { "X-Event-Cover-Crop": JSON.stringify(crop) }
+              : {}),
           },
           body:
             kind === "upload"
@@ -102,6 +196,7 @@ export function EventCoverEditor({
       if (kind === "upload") {
         setAssetId(result.assetId);
         setFile(undefined);
+        setSource(null);
       } else {
         const next = {
           assetId: remove ? null : assetId,
@@ -111,8 +206,16 @@ export function EventCoverEditor({
         setAssetId(next.assetId);
         setAlt(next.alt ?? "");
         setFile(undefined);
+        setSource(null);
         onSaved(result.version);
-        setSaved(true);
+        notifications.show(
+          `${remove ? "Cover removed." : "Cover saved."} Other event changes are not saved yet.`,
+          {
+            severity: "success",
+            autoHideDuration: 5000,
+            key: `cover:${eventId}`,
+          },
+        );
         setConflict(false);
       }
     } catch {
@@ -127,6 +230,27 @@ export function EventCoverEditor({
     }
   }
 
+  const busy = disabled || Boolean(pending);
+  const changed =
+    assetId !== cover.assetId || (alt.trim() || null) !== cover.alt;
+  useEffect(() => {
+    onDirtyChange(changed || Boolean(source));
+  }, [changed, source, onDirtyChange]);
+  useEffect(() => {
+    onConflictChange(conflict);
+  }, [conflict, onConflictChange]);
+  const chooseButton = (
+    <Button
+      type="button"
+      variant="outlined"
+      startIcon={<AddPhotoAlternateOutlined />}
+      disabled={busy || conflict}
+      onClick={() => fileInput.current?.click()}
+    >
+      {assetId || source ? "Choose another image" : "Choose image"}
+    </Button>
+  );
+
   return (
     <Stack
       component="section"
@@ -134,120 +258,172 @@ export function EventCoverEditor({
       aria-label="Event cover"
       aria-busy={Boolean(pending)}
     >
-      <Typography variant="h6" component="h2">
-        Cover image
-      </Typography>
-      <Typography variant="body2" color="text.secondary">
-        JPEG, PNG or WebP, up to 5 MiB and 4096 × 4096. Upload, review the
-        normalized preview, then save the cover. Only Republish updates the
-        published cover.
-      </Typography>
-      <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-        <Button
-          type="button"
-          variant="outlined"
-          disabled={disabled || Boolean(pending)}
-          onClick={() => fileInput.current?.click()}
-        >
-          {cover.assetId ? "Choose replacement" : "Choose image"}
-        </Button>
-        <input
-          ref={fileInput}
-          hidden
-          type="file"
-          aria-label="Cover image file"
-          disabled={disabled || Boolean(pending)}
-          accept="image/jpeg,image/png,image/webp"
-          onChange={(event) => {
-            setFile(event.target.files?.[0]);
-            event.target.value = "";
-            feedback.clear("file");
-            setSaved(false);
-          }}
-        />
-        <Button
-          type="button"
-          disabled={!file || disabled || Boolean(pending)}
-          onClick={() => void mutate("upload")}
-        >
-          Upload
-        </Button>
-      </Stack>
-      {file && (
-        <Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>
-          Selected: {file.name}
+      <Stack
+        direction="row"
+        sx={{ alignItems: "center", justifyContent: "space-between", gap: 1 }}
+      >
+        <Typography variant="h6" component="h2">
+          Cover image
         </Typography>
-      )}
-      {pending && (
-        <Box role="status" aria-live="polite">
-          <Typography variant="body2">
-            {pending === "upload"
-              ? "Uploading and processing image…"
-              : "Saving cover…"}
-          </Typography>
-          <LinearProgress />
-        </Box>
-      )}
-      {assetId && (
-        <>
-          <Box
-            sx={{
-              width: "100%",
-              height: { xs: 220, sm: 280 },
-              display: "grid",
-              placeItems: "center",
-              bgcolor: "action.hover",
-              borderRadius: 1,
-              overflow: "hidden",
-            }}
-          >
-            {failedAssetId === assetId ? (
-              <Typography
-                role="status"
-                variant="body2"
-                color="text.secondary"
-                sx={{ p: 2 }}
-              >
-                Cover image unavailable. Choose another image to replace it.
-              </Typography>
-            ) : (
-              <Box
-                component="img"
-                src={`/api/events/${eventId}/cover/${assetId}/640`}
-                alt={alt || "Cover preview"}
-                onError={() => setFailedAssetId(assetId)}
-                ref={(element: HTMLImageElement | null) => {
-                  if (element?.complete && element.naturalWidth === 0) {
-                    setFailedAssetId(assetId);
-                  }
-                }}
-                sx={{
-                  width: "100%",
-                  height: "100%",
-                  minHeight: 0,
-                  objectFit: "contain",
-                }}
-              />
-            )}
-          </Box>
-          <TextField
-            label="Cover alternative text"
-            value={alt}
-            onChange={(event) => {
-              setAlt(event.target.value);
-              feedback.clear("alt");
-              setSaved(false);
-            }}
-            {...feedback.field("alt")}
-            helperText={
-              feedback.errors.alt ??
-              "Describe the image for people using a screen reader. Leave blank for a decorative image."
-            }
-            disabled={disabled || Boolean(pending)}
-            fullWidth
-            slotProps={{ htmlInput: { maxLength: 500 } }}
+        <Chip
+          size="small"
+          variant="outlined"
+          label={
+            source
+              ? "Adjust crop · 16:9"
+              : assetId !== cover.assetId
+                ? "Ready to save"
+                : assetId
+                  ? "Saved cover · 16:9"
+                  : "16:9"
+          }
+        />
+      </Stack>
+      <Alert severity="info">
+        Cover saves independently from event fields. Choose an image, adjust the
+        crop, then upload and save your cover. JPEG, PNG or WebP, up to 5 MiB
+        and 4096 × 4096 pixels.
+      </Alert>
+      <input
+        ref={fileInput}
+        hidden
+        type="file"
+        aria-label="Cover image file"
+        disabled={busy || conflict}
+        accept="image/jpeg,image/png,image/webp"
+        onChange={(event) => {
+          const next = event.target.files?.[0];
+          event.target.value = "";
+          void selectFile(next);
+        }}
+      />
+      {pending === "upload" || pending === "select" ? (
+        <Stack spacing={1} role="status" aria-live="polite">
+          <Skeleton
+            variant="rounded"
+            animation="wave"
+            sx={{ width: "100%", height: "auto", aspectRatio: "16 / 9" }}
           />
-        </>
+          <Typography variant="body2" color="text.secondary">
+            {pending === "upload"
+              ? "Uploading and processing your crop…"
+              : "Preparing image…"}
+          </Typography>
+        </Stack>
+      ) : source ? (
+        <CoverCropper
+          source={source}
+          crop={crop}
+          onChange={setCrop}
+          disabled={busy || conflict}
+        />
+      ) : assetId ? (
+        <Box
+          sx={{
+            aspectRatio: "16 / 9",
+            bgcolor: "action.hover",
+            borderRadius: 1,
+            overflow: "hidden",
+            display: "grid",
+            placeItems: "center",
+          }}
+        >
+          {failedAssetId === assetId ? (
+            <Typography
+              role="status"
+              variant="body2"
+              color="text.secondary"
+              sx={{ p: 2 }}
+            >
+              Cover image unavailable. Choose another image to replace it.
+            </Typography>
+          ) : (
+            <Box
+              component="img"
+              src={`/api/events/${eventId}/cover/${assetId}/1280`}
+              alt={alt || "Cover preview"}
+              onError={() => setFailedAssetId(assetId)}
+              ref={(element: HTMLImageElement | null) => {
+                if (element?.complete && element.naturalWidth === 0) {
+                  setFailedAssetId(assetId);
+                }
+              }}
+              sx={{
+                width: "100%",
+                height: "100%",
+                minHeight: 0,
+                objectFit: "cover",
+              }}
+            />
+          )}
+        </Box>
+      ) : (
+        <EmptyState
+          icon={<AddPhotoAlternateOutlined />}
+          title="Give your event a cover"
+          description="Add a photo or illustration to introduce your event. You’ll choose exactly what appears in the frame."
+          action={chooseButton}
+        />
+      )}
+      {(source || file || assetId !== cover.assetId) && (
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={1}
+          sx={{ alignItems: { sm: "center" } }}
+        >
+          {source && (
+            <Button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setFile(undefined);
+                setSource(null);
+              }}
+            >
+              Cancel selection
+            </Button>
+          )}
+          {assetId !== cover.assetId && !source && (
+            <Button
+              type="button"
+              disabled={busy || conflict}
+              onClick={() => {
+                setAssetId(cover.assetId);
+                setAlt(cover.alt ?? "");
+                feedback.reset();
+              }}
+            >
+              Discard upload
+            </Button>
+          )}
+          {file && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ overflowWrap: "anywhere", minWidth: 0 }}
+            >
+              {file.name}
+            </Typography>
+          )}
+        </Stack>
+      )}
+      {(assetId || source) && (
+        <TextField
+          label="Alternative text (optional)"
+          value={alt}
+          onChange={(event) => {
+            setAlt(event.target.value);
+            feedback.clear("alt");
+          }}
+          {...feedback.field("alt")}
+          helperText={
+            feedback.errors.alt ??
+            "Describe the image for screen readers. Leave blank if it is purely decorative."
+          }
+          disabled={busy || conflict}
+          fullWidth
+          slotProps={{ htmlInput: { maxLength: 500 } }}
+        />
       )}
       {feedback.message && <Alert severity="error">{feedback.message}</Alert>}
       {conflict && (
@@ -262,37 +438,58 @@ export function EventCoverEditor({
           </Button>
         </Alert>
       )}
-      {saved && (
-        <Alert severity="success" role="status">
-          Cover saved. Other event changes are not saved yet.
+      {assetId && assetId !== cover.assetId && !source && (
+        <Alert severity="info">
+          Your cropped image is uploaded. Save cover to apply it to the event.
         </Alert>
       )}
-      <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-        <Button
-          type="button"
-          variant="outlined"
-          disabled={
-            !assetId ||
-            Boolean(file) ||
-            disabled ||
-            Boolean(pending) ||
-            conflict
-          }
-          onClick={() => void mutate("save")}
+      {(source || assetId || pending) && (
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={1}
+          useFlexGap
+          sx={{ alignItems: { xs: "stretch", sm: "center" } }}
         >
-          Save cover
-        </Button>
-        {cover.assetId && (
-          <Button
-            type="button"
-            color="error"
-            disabled={disabled || Boolean(pending) || conflict}
-            onClick={() => void mutate("save", true)}
+          {cover.assetId && (
+            <Button
+              type="button"
+              color="error"
+              sx={{ alignSelf: { xs: "flex-start", sm: "center" } }}
+              disabled={busy || conflict}
+              onClick={() => void mutate("save", true)}
+            >
+              Remove cover
+            </Button>
+          )}
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={1}
+            sx={{ ml: { sm: "auto" } }}
           >
-            Remove cover
-          </Button>
-        )}
-      </Stack>
+            {chooseButton}
+            {source ? (
+              <Button
+                type="button"
+                variant="contained"
+                startIcon={<CloudUploadOutlined />}
+                disabled={busy || conflict}
+                onClick={() => void mutate("upload")}
+              >
+                {pending === "upload" ? "Uploading…" : "Upload cropped image"}
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="contained"
+                disabled={!assetId || !changed || busy || conflict}
+                onClick={() => void mutate("save")}
+              >
+                {pending === "save" ? "Saving…" : "Save cover"}
+              </Button>
+            )}
+          </Stack>
+        </Stack>
+      )}
     </Stack>
   );
 }

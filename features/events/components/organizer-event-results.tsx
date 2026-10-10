@@ -27,6 +27,10 @@ import { DateTime } from "@/components/ui/date-time";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { CreateEventButton } from "@/features/events/components/create-event-button";
+import {
+  EventCover,
+  EventCoverBackdrop,
+} from "@/features/events/components/event-cover";
 import { EventLifecycleStatus } from "@/features/events/components/event-lifecycle-status";
 import { EventStatusChip } from "@/features/events/components/event-status-chip";
 import { PublicationStatus } from "@/features/events/components/publication-status";
@@ -39,6 +43,8 @@ type EventSummary = {
   role: keyof typeof accessLabels;
   publicId?: string | null;
   title: string;
+  coverAssetId?: string | null;
+  coverAlt?: string | null;
   visibility?: "PUBLIC" | "PRIVATE";
   startsAt: Date;
   endsAt: Date;
@@ -347,20 +353,62 @@ export function OrganizerEventResults({
               key={event.id}
               sx={{
                 opacity: event.cancelledAt ? 0.5 : 1,
+                alignSelf: "stretch",
+                display: "flex",
+                position: "relative",
+                overflow: "hidden",
+                color: event.coverAssetId ? "#fff" : undefined,
               }}
             >
               <CardActionArea
                 href={`/dashboard/events/${event.id}`}
                 aria-labelledby={`event-title-${event.id}`}
                 sx={{
-                  p: { xs: 2, sm: 3 },
-                  height: "100%",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "flex-start",
+                  overflow: "hidden",
+                  width: "100%",
+                  aspectRatio: {
+                    xs: "auto",
+                    lg: event.coverAssetId ? "16 / 9" : "auto",
+                  },
                   borderRadius: "inherit",
+                  "& .event-cover-image": {
+                    transition: "transform 240ms ease",
+                  },
+                  "@media (hover: hover) and (pointer: fine)": {
+                    "&:hover .event-cover-image": { transform: "scale(1.1)" },
+                  },
+                  "@media (prefers-reduced-motion: reduce)": {
+                    "& .event-cover-image": { transition: "none" },
+                    "&:hover .event-cover-image": { transform: "none" },
+                  },
                 }}
               >
+                {event.role === "OWNER" && event.coverAssetId && (
+                  <EventCoverBackdrop>
+                    <EventCover
+                      fill
+                      key={event.coverAssetId}
+                      image={{
+                        src: `/api/events/${event.id}/cover/${event.coverAssetId}/640`,
+                        alt: event.coverAlt ?? "",
+                      }}
+                    />
+                  </EventCoverBackdrop>
+                )}
                 <Stack
                   spacing={2}
-                  sx={{ height: "100%", alignItems: "flex-start" }}
+                  useFlexGap
+                  sx={{
+                    position: "relative",
+                    p: { xs: 2, sm: 3 },
+                    width: "100%",
+                    flexGrow: 1,
+                    alignItems: "flex-start",
+                    justifyContent: "space-between",
+                  }}
                 >
                   <Stack
                     direction="row"
@@ -375,7 +423,12 @@ export function OrganizerEventResults({
                     <Stack
                       direction="row"
                       spacing={0.75}
-                      sx={{ alignItems: "center", color: "text.secondary" }}
+                      sx={{
+                        alignItems: "center",
+                        color: event.coverAssetId
+                          ? "rgba(255,255,255,0.85)"
+                          : "text.secondary",
+                      }}
                     >
                       {event.visibility ===
                       undefined ? null : event.visibility === "PUBLIC" ? (
@@ -391,7 +444,16 @@ export function OrganizerEventResults({
                     </Stack>
                     <Stack
                       direction="row"
-                      sx={{ gap: 1, alignItems: "center", flexWrap: "wrap" }}
+                      sx={{
+                        gap: 1,
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        bgcolor: event.coverAssetId
+                          ? "background.paper"
+                          : undefined,
+                        borderRadius: 1,
+                        p: event.coverAssetId ? 0.5 : 0,
+                      }}
                     >
                       <EventStatusChip
                         icon={<BadgeOutlined />}
@@ -414,13 +476,14 @@ export function OrganizerEventResults({
                     id={`event-title-${event.id}`}
                     component="h2"
                     variant="h6"
-                    color="primary.main"
-                    sx={{ overflowWrap: "anywhere" }}
+                    color={event.coverAssetId ? "inherit" : "primary.main"}
+                    sx={{ overflowWrap: "anywhere", mb: "auto" }}
                   >
                     {event.title}
                   </Typography>
-                  <Box sx={{ flexGrow: 1 }}>
+                  <Box>
                     <DateTime
+                      inverse={Boolean(event.coverAssetId)}
                       date={event.startsAt}
                       endDate={event.endsAt}
                       timezone={event.timezone}

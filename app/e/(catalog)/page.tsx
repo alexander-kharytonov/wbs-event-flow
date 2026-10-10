@@ -13,7 +13,13 @@ import { connection } from "next/server";
 import { DateTime } from "@/components/ui/date-time";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
+import {
+  EventCover,
+  EventCoverBackdrop,
+} from "@/features/events/components/event-cover";
+import { EventDescription } from "@/features/events/components/event-description";
 import { RegistrationAvailabilityStatus } from "@/features/events/components/registration-availability-status";
+import { eventCoverImage } from "@/features/events/event-cover";
 import { getPublicEvents } from "@/features/events/server/get-public-events";
 
 export const metadata: Metadata = {
@@ -73,12 +79,38 @@ export default async function PublicEventsPage() {
           variant="outlined"
           sx={{
             p: { xs: 2, sm: 3 },
-            borderTop: 3,
+            aspectRatio: {
+              xs: "auto",
+              lg: featured.snapshot.cover ? "16 / 9" : "auto",
+            },
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "flex-end",
+            position: "relative",
+            overflow: "hidden",
+            color: featured.snapshot.cover ? "#fff" : undefined,
+            borderTop: featured.snapshot.cover ? undefined : 3,
             borderTopColor: "primary.main",
           }}
         >
+          {featured.snapshot.cover && (
+            <EventCoverBackdrop>
+              <EventCover
+                fill
+                priority
+                image={{
+                  ...eventCoverImage(
+                    featured.snapshot.cover,
+                    `/e/${featured.publicId}/cover/${featured.snapshot.cover.assetId}`,
+                  ),
+                  sizes: "(min-width: 1200px) 1152px, calc(100vw - 32px)",
+                }}
+              />
+            </EventCoverBackdrop>
+          )}
           <Box
             sx={{
+              position: "relative",
               display: "grid",
               gridTemplateColumns: { xs: "1fr", md: "minmax(0, 1fr) 320px" },
               gap: 3,
@@ -88,7 +120,10 @@ export default async function PublicEventsPage() {
               <Stack
                 direction="row"
                 spacing={1}
-                sx={{ alignItems: "center", color: "primary.main" }}
+                sx={{
+                  alignItems: "center",
+                  color: featured.snapshot.cover ? "inherit" : "primary.main",
+                }}
               >
                 <EventOutlined fontSize="small" />
                 <Typography variant="overline" sx={{ fontWeight: 700 }}>
@@ -109,20 +144,25 @@ export default async function PublicEventsPage() {
                   {featured.snapshot.title}
                 </Typography>
                 {featured.snapshot.description && (
-                  <Typography
-                    color="text.secondary"
+                  <Box
                     sx={{
+                      color: featured.snapshot.cover
+                        ? "rgba(255,255,255,0.85)"
+                        : "text.secondary",
+                      "& a": { color: "inherit", textDecoration: "underline" },
                       display: "-webkit-box",
                       WebkitBoxOrient: "vertical",
                       WebkitLineClamp: 3,
                       overflow: "hidden",
                       overflowWrap: "anywhere",
-                      whiteSpace: "pre-line",
                       maxWidth: 640,
                     }}
                   >
-                    {featured.snapshot.description}
-                  </Typography>
+                    <EventDescription
+                      text={featured.snapshot.description}
+                      format={featured.snapshot.descriptionFormat}
+                    />
+                  </Box>
                 )}
               </Stack>
             </Stack>
@@ -131,16 +171,22 @@ export default async function PublicEventsPage() {
               sx={{
                 justifyContent: "center",
                 borderLeft: { md: 1 },
-                borderColor: { md: "divider" },
+                borderColor: {
+                  md: featured.snapshot.cover
+                    ? "rgba(255,255,255,0.3)"
+                    : "divider",
+                },
                 pl: { md: 3 },
               }}
             >
               <DateTime
+                inverse={Boolean(featured.snapshot.cover)}
                 date={featured.snapshot.startsAt}
                 endDate={featured.snapshot.endsAt}
                 timezone={featured.snapshot.timezone}
               />
               <RegistrationAvailabilityStatus
+                inverse={Boolean(featured.snapshot.cover)}
                 snapshot={featured.snapshot}
                 now={now}
               />
@@ -190,31 +236,85 @@ export default async function PublicEventsPage() {
                 }}
               >
                 {group.events.map(({ publicId, snapshot }) => (
-                  <Paper key={publicId} component="li" variant="outlined">
+                  <Paper
+                    key={publicId}
+                    component="li"
+                    variant="outlined"
+                    sx={{
+                      alignSelf: "start",
+                      display: "flex",
+                      position: "relative",
+                      overflow: "hidden",
+                      color: snapshot.cover ? "#fff" : undefined,
+                    }}
+                  >
                     <CardActionArea
                       href={`/e/${encodeURIComponent(publicId)}`}
                       aria-labelledby={`event-title-${publicId}`}
                       sx={{
-                        p: { xs: 2, sm: 3 },
-                        height: "100%",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "flex-start",
+                        overflow: "hidden",
+                        width: "100%",
+                        aspectRatio: {
+                          xs: "auto",
+                          lg: snapshot.cover ? "16 / 9" : "auto",
+                        },
                         borderRadius: "inherit",
+                        "& .event-cover-image": {
+                          transition: "transform 240ms ease",
+                        },
+                        "@media (hover: hover) and (pointer: fine)": {
+                          "&:hover .event-cover-image": {
+                            transform: "scale(1.1)",
+                          },
+                        },
+                        "@media (prefers-reduced-motion: reduce)": {
+                          "& .event-cover-image": { transition: "none" },
+                          "&:hover .event-cover-image": { transform: "none" },
+                        },
                       }}
                     >
+                      {snapshot.cover && (
+                        <EventCoverBackdrop>
+                          <EventCover
+                            fill
+                            image={{
+                              ...eventCoverImage(
+                                snapshot.cover,
+                                `/e/${publicId}/cover/${snapshot.cover.assetId}`,
+                              ),
+                              sizes:
+                                "(min-width: 1200px) 560px, (min-width: 600px) calc(50vw - 36px), calc(100vw - 32px)",
+                            }}
+                          />
+                        </EventCoverBackdrop>
+                      )}
                       <Stack
                         spacing={2}
-                        sx={{ height: "100%", alignItems: "flex-start" }}
+                        useFlexGap
+                        sx={{
+                          position: "relative",
+                          p: { xs: 2, sm: 3 },
+                          width: "100%",
+                          flexGrow: 1,
+                          alignItems: "flex-start",
+                          justifyContent: "flex-end",
+                        }}
                       >
                         <Typography
                           id={`event-title-${publicId}`}
                           variant="h6"
                           component="h3"
-                          color="primary.main"
-                          sx={{ overflowWrap: "anywhere" }}
+                          color={snapshot.cover ? "inherit" : "primary.main"}
+                          sx={{ overflowWrap: "anywhere", mb: "auto" }}
                         >
                           {snapshot.title}
                         </Typography>
-                        <Box sx={{ flexGrow: 1 }}>
+                        <Box>
                           <DateTime
+                            inverse={Boolean(snapshot.cover)}
                             date={snapshot.startsAt}
                             endDate={snapshot.endsAt}
                             timezone={snapshot.timezone}
@@ -222,6 +322,7 @@ export default async function PublicEventsPage() {
                         </Box>
                         {group.id !== "past-events" && (
                           <RegistrationAvailabilityStatus
+                            inverse={Boolean(snapshot.cover)}
                             snapshot={snapshot}
                             now={now}
                           />

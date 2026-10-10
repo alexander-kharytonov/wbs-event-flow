@@ -23,26 +23,27 @@ export default async function RegistrationFormPage({
 
   return (
     <Stack spacing={3}>
-      <EventHeader eventId={id} active="registration-form" />
-      {workspaceReadOnly(event, new Date()) ? (
-        <Alert
-          severity="info"
-          sx={{ alignItems: "center", "& .MuiAlert-action": { py: 0 } }}
-          action={
-            <Button href={`/dashboard/events/${id}/preview`} size="small">
-              View form
-            </Button>
-          }
-        >
-          This registration form is read-only.
-        </Alert>
-      ) : (
-        <RegistrationFormBuilder
-          key={id}
-          eventId={id}
-          initialForm={event.form}
-        />
-      )}
+      <EventHeader eventId={id} active="registration-form">
+        {workspaceReadOnly(event, new Date()) ? (
+          <Alert
+            severity="info"
+            sx={{ alignItems: "center", "& .MuiAlert-action": { py: 0 } }}
+            action={
+              <Button href={`/dashboard/events/${id}/preview`} size="small">
+                View form
+              </Button>
+            }
+          >
+            This registration form is read-only.
+          </Alert>
+        ) : (
+          <RegistrationFormBuilder
+            key={id}
+            eventId={id}
+            initialForm={event.form}
+          />
+        )}
+      </EventHeader>
     </Stack>
   );
 }

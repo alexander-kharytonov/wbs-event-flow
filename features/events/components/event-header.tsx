@@ -1,8 +1,9 @@
-import { Alert, Stack, Typography } from "@mui/material";
+import { Alert, Box, Stack, Typography } from "@mui/material";
 import { notFound } from "next/navigation";
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { DateTime } from "@/components/ui/date-time";
 import { EventAccessStatus } from "@/features/events/components/event-access-status";
+import { EventPublicationAlert } from "@/features/events/components/event-publication-alert";
 import {
   type EventPermission,
   hasEventPermission,
@@ -85,6 +86,23 @@ type EventHeaderData = EventLifecycleData & {
   } | null;
 };
 
+function eventPublishLabel(event: EventHeaderData, now: Date) {
+  const state = publicationState(event);
+  const lifecycle = eventLifecycle(event, now);
+  const canPublish =
+    !workspaceReadOnly(event, now) &&
+    state !== "Published" &&
+    (lifecycle === "Upcoming" || Boolean(event.publicId));
+
+  return !canPublish
+    ? null
+    : event.publishedRevision
+      ? "Publish changes"
+      : event.publicId
+        ? "Republish"
+        : "Publish";
+}
+
 function OwnerEventControls({
   eventId: id,
   event,
@@ -97,19 +115,8 @@ function OwnerEventControls({
   event: EventHeaderData;
 }) {
   const readOnly = workspaceReadOnly(event, now);
-  const state = publicationState(event);
   const lifecycle = eventLifecycle(event, now);
-  const canPublish =
-    !readOnly &&
-    state !== "Published" &&
-    (lifecycle === "Upcoming" || Boolean(event.publicId));
-  const publishLabel = !canPublish
-    ? null
-    : event.publishedRevision
-      ? "Publish changes"
-      : event.publicId
-        ? "Republish"
-        : "Publish";
+  const publishLabel = eventPublishLabel(event, now);
 
   const actions: ("cancel" | "unpublish" | "archive" | "restore" | "delete")[] =
     [];
@@ -158,13 +165,17 @@ function OwnerEventControls({
 export async function EventHeader({
   eventId,
   active,
+  children,
   data: suppliedData,
   now = new Date(),
+  contentPadding = true,
 }: {
   eventId: string;
   active: ComponentProps<typeof EventNavigation>["active"];
+  children: ReactNode;
   data?: EventHeaderProjection;
   now?: Date;
+  contentPadding?: boolean;
 }) {
   let data = suppliedData;
 
@@ -182,6 +193,7 @@ export async function EventHeader({
   }
 
   const { context, access, ownerEvent, attendeeCount, applicationCount } = data;
+  const publishLabel = ownerEvent ? eventPublishLabel(ownerEvent, now) : null;
   const snapshot =
     ownerEvent?.publishedRevision?.snapshot ??
     data.published?.publishedRevision?.snapshot;
@@ -189,25 +201,27 @@ export async function EventHeader({
   return (
     <Stack spacing={2}>
       <BackLink href="/dashboard">My events</BackLink>
+      {ownerEvent && publishLabel && (
+        <EventPublicationAlert
+          key={`${eventId}:${ownerEvent.contentVersion}`}
+          eventId={eventId}
+          contentVersion={ownerEvent.contentVersion}
+          label={publishLabel}
+        />
+      )}
+      <Typography variant="h4" component="h1" sx={{ overflowWrap: "anywhere" }}>
+        {context.title}
+      </Typography>
       <Stack
         direction={{ xs: "column", sm: "row" }}
         spacing={2}
         sx={{ justifyContent: "space-between", alignItems: { sm: "center" } }}
       >
-        <Stack spacing={1.5} sx={{ minWidth: 0 }}>
-          <Typography
-            variant="h4"
-            component="h1"
-            sx={{ overflowWrap: "anywhere" }}
-          >
-            {context.title}
-          </Typography>
-          <DateTime
-            date={context.startsAt}
-            endDate={context.endsAt}
-            timezone={context.timezone}
-          />
-        </Stack>
+        <DateTime
+          date={context.startsAt}
+          endDate={context.endsAt}
+          timezone={context.timezone}
+        />
         <Stack
           direction="row"
           sx={{ gap: 1, alignItems: "center", flexWrap: "wrap" }}
@@ -243,7 +257,7 @@ export async function EventHeader({
       )}
       <Stack
         direction="row"
-        sx={{ gap: 1, alignItems: "center", flexWrap: "wrap" }}
+        sx={{ minHeight: 42, gap: 1, alignItems: "center", flexWrap: "wrap" }}
       >
         <EventAccessStatus role={access.role} />
         <EventLifecycleStatus event={context} now={now} />
@@ -260,17 +274,52 @@ export async function EventHeader({
       {snapshot && (
         <EventCapacity snapshot={snapshot} occupied={attendeeCount} />
       )}
-      <EventNavigation
-        eventId={eventId}
-        active={active}
-        sections={eventSections
-          .filter(({ permission }) =>
-            hasEventPermission(access.role, permission),
-          )
-          .map(({ id, label }) => ({ id, label }))}
-        applicationCount={applicationCount}
-        attendeeCount={attendeeCount}
-      />
+      <Box
+        sx={{
+          bgcolor: "background.paper",
+          border: 1,
+          borderColor: "divider",
+          borderRadius: 1,
+          display: "grid",
+          gridTemplateColumns: {
+            xs: "minmax(0, 1fr)",
+            md: "240px minmax(0, 1fr)",
+          },
+        }}
+      >
+        <Box
+          sx={{
+            minWidth: 0,
+            borderStyle: "solid",
+            borderWidth: 0,
+            borderRightWidth: { md: 1 },
+            borderBottomWidth: { xs: 1, md: 0 },
+            borderColor: "divider",
+          }}
+        >
+          <EventNavigation
+            eventId={eventId}
+            active={active}
+            sections={eventSections
+              .filter(({ permission }) =>
+                hasEventPermission(access.role, permission),
+              )
+              .map(({ id, label }) => ({ id, label }))}
+            applicationCount={applicationCount}
+            attendeeCount={attendeeCount}
+          />
+        </Box>
+        <Stack
+          id="event-section-panel"
+          role="tabpanel"
+          aria-labelledby={`event-nav-${active}`}
+          tabIndex={0}
+          spacing={3}
+          sx={{ minWidth: 0, p: contentPadding ? { xs: 2, sm: 4 } : 0 }}
+        >
+          {children}
+        </Stack>
+      </Box>
     </Stack>
   );
 }

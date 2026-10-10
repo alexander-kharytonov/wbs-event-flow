@@ -24,32 +24,33 @@ export default async function ApplicationsPage({
 
   return (
     <Stack spacing={3}>
-      <EventHeader eventId={id} active="applications" />
-      <Stack
-        direction={{ xs: "column", sm: "row" }}
-        sx={{
-          gap: 1,
-          justifyContent: "space-between",
-          alignItems: { sm: "center" },
-        }}
-      >
-        <Typography
-          variant="h6"
-          component="h2"
-          sx={{ minHeight: 42, display: "flex", alignItems: "center" }}
+      <EventHeader eventId={id} active="applications">
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          sx={{
+            gap: 1,
+            justifyContent: "space-between",
+            alignItems: { sm: "center" },
+          }}
         >
-          Applications
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {pendingCount} pending review · {event.applications.length} submitted
-          attempts
-        </Typography>
-      </Stack>
-      <ApplicationsList
-        eventId={id}
-        applications={event.applications}
-        timezone={event.timezone}
-      />
+          <Typography
+            variant="h6"
+            component="h2"
+            sx={{ minHeight: 42, display: "flex", alignItems: "center" }}
+          >
+            Applications
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {pendingCount} pending review · {event.applications.length}{" "}
+            submitted attempts
+          </Typography>
+        </Stack>
+        <ApplicationsList
+          eventId={id}
+          applications={event.applications}
+          timezone={event.timezone}
+        />
+      </EventHeader>
     </Stack>
   );
 }

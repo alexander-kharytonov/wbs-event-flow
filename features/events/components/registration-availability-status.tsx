@@ -10,12 +10,14 @@ import type { EventSnapshot } from "@/features/events/schemas/event-snapshot";
 export function RegistrationAvailabilityStatus({
   snapshot,
   now,
+  inverse = false,
 }: {
   snapshot: Pick<
     EventSnapshot,
     "endsAt" | "registrationOpensAt" | "registrationClosesAt" | "timezone"
   >;
   now: Date;
+  inverse?: boolean;
 }) {
   const status = registrationAvailability(snapshot, now);
   const labels = {
@@ -47,11 +49,16 @@ export function RegistrationAvailabilityStatus({
         }
         size="small"
         variant="outlined"
+        sx={
+          inverse
+            ? { color: "#fff", borderColor: "rgba(255,255,255,0.5)" }
+            : undefined
+        }
       />
       {boundary && (
         <Typography
           variant="body2"
-          color="text.secondary"
+          color={inverse ? "rgba(255,255,255,0.85)" : "text.secondary"}
           sx={{ overflowWrap: "anywhere" }}
         >
           {timing} {formatEventTime(new Date(boundary), snapshot.timezone)} (

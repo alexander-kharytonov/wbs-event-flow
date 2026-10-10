@@ -36,7 +36,7 @@ export const defaultBadgeLayout: BadgeLayout = {
   tertiaryField: null,
   nameSize: "MEDIUM",
   alignment: "LEFT",
-  paddingMm: 3,
+  paddingMm: 10,
 };
 
 export const badgeSizes = {

@@ -151,11 +151,7 @@ export default async function RegistrationDetailPage({
         }}
       >
         <BackLink href="/account/registrations">All registrations</BackLink>
-        <Typography
-          variant="h3"
-          component="h1"
-          sx={{ fontSize: { xs: "2rem", sm: "2.5rem" } }}
-        >
+        <Typography variant="h5" component="h2">
           {context?.title ?? "Event details unavailable"}
         </Typography>
         {registration.cancelledAt && (
@@ -192,7 +188,7 @@ export default async function RegistrationDetailPage({
           display: "grid",
           gridTemplateColumns: {
             xs: "minmax(0, 1fr)",
-            md: current.admission ? "minmax(0, 1fr) 320px" : "minmax(0, 1fr)",
+            lg: current.admission ? "minmax(0, 1fr) 320px" : "minmax(0, 1fr)",
           },
           gap: 3,
           alignItems: "start",

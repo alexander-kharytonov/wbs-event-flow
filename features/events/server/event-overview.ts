@@ -31,16 +31,24 @@ export async function getEventOverview(eventId: string) {
 
       const event = header.context;
       const lifecycle = eventLifecycle(event, now);
-      const { description } = await tx.event.findUniqueOrThrow({
-        where: { id: eventId },
-        select: { description: true },
-      });
+      const { description, descriptionFormat } =
+        await tx.event.findUniqueOrThrow({
+          where: { id: eventId },
+          select: { description: true, descriptionFormat: true },
+        });
       const active = header.attendeeCount;
       const activeWhere = {
         revokedAt: null,
         registration: { eventId, revokedAt: null },
       };
-      const common = { header, now, lifecycle, description, active };
+      const common = {
+        header,
+        now,
+        lifecycle,
+        description,
+        descriptionFormat,
+        active,
+      };
 
       // Reception never queries application aggregates, methods, policy or timeline.
       if (!hasEventPermission(header.access.role, "attendees.read.full")) {

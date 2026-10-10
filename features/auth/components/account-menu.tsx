@@ -18,6 +18,7 @@ import {
 import NextLink from "next/link";
 import { usePathname } from "next/navigation";
 import { useId, useState } from "react";
+import { requestEditorLeave } from "@/components/ui/editor-navigation-guard";
 import { useNotifications } from "@/hooks/use-notifications";
 import { authClient } from "@/lib/auth-client";
 
@@ -62,7 +63,7 @@ export function AccountMenu({
     colorHash = (colorHash * 31 + (character.codePointAt(0) ?? 0)) % 360;
   }
 
-  async function signOut() {
+  async function signOut(navigate: (action: () => void) => void) {
     setPending(true);
     notifications.close("sign-out");
 
@@ -78,7 +79,7 @@ export function AccountMenu({
         return;
       }
 
-      window.location.assign("/");
+      navigate(() => window.location.assign("/"));
     } catch {
       notifications.show("Could not sign out. Please try again.", {
         severity: "error",
@@ -208,7 +209,12 @@ export function AccountMenu({
           </ListItemText>
         </MenuItem>
         <Divider />
-        <MenuItem onClick={signOut} disabled={pending}>
+        <MenuItem
+          onClick={() =>
+            requestEditorLeave((navigate) => void signOut(navigate))
+          }
+          disabled={pending}
+        >
           <ListItemIcon>
             <Logout fontSize="small" />
           </ListItemIcon>
