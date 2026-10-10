@@ -303,8 +303,8 @@ Email grants no identity or ownership. Guests have no account association or own
 browser capability; their normal Tickets and Attendance use the existing QR flow.
 
 Organizers configure 0–10 maximum active guests per registration in the Event
-workspace and publish the policy. Zero disables adding guests. Historical v1
-snapshots imply zero; current publications use v3. Add requires a current published
+workspace and publish the policy. Zero disables adding guests. Snapshot V3
+always carries the explicit limit. Add requires a current published
 permission and available published capacity. Remove needs neither publication nor
 a positive limit. Both require an active party, a non-cancelled Event, and time
 strictly before the persisted event start; party composition then freezes.
@@ -496,8 +496,8 @@ partial file, persistent export file, export history or background job is create
 Owners can download **Export template** from the Event header Export menu.
 The menu groups CSV datasets and JSON configuration separately. Template filenames
 include a sanitized Event title followed by `-template-v2.json`, preserving Unicode.
-The original EventTemplateV1 contract below remains valid for Import; current V2
-adds rich configuration as described in 29B below. A template is portable
+EventTemplate V2 is the only supported format and includes the rich
+configuration described in 29B below. A template is portable
 configuration, not a backup or a public artifact:
 it contains current staff emails. It uses current saved workspace configuration,
 including unpublished Event, Registration Form and Badge Design changes.
@@ -515,17 +515,18 @@ identities are excluded. Badge bindings use those keys only when the saved
 field ID, type and label exactly match a current question. A historical, deleted,
 recreated or changed binding rejects the whole export and asks the owner to
 update Badge Design. Invalid saved layouts also fail; null remains null and
-legacy missing padding becomes 3 mm. Physical badge constraints remain unchanged.
+saved layouts require explicit padding and reject obsolete preset fields. Physical
+badge constraints remain unchanged.
 
 Staff contains only current Manager/Reception assignments, ordered by assignment
 creation time then user ID, with normalized email and role. The owner is excluded.
 There are no Applications, Registrations, Attendees, Guests, Tickets, QR credentials,
 Attendance, internal IDs, publication history, lifecycle state or notifications.
 
-Template v1 allows at most 100 questions, 100 options per question, 1,000 options
+Template V2 allows at most 100 questions, 100 options per question, 1,000 options
 in total, 100 staff and 512 KiB of serialized UTF-8 JSON. Exports are complete or
 fail; these limits do not restrict manual editing. Downloads are private and
-uncached. The v1 export contract remains unchanged by Import/Create (26C).
+uncached. Import/Create uses the same strict V2 contract.
 Duplicate Event reuses this portable configuration (see iteration 28 below).
 
 
@@ -535,7 +536,7 @@ Create event defaults to manual entry in both the page and modal. A **Use templa
 switch in the header opens template import.
 Upload a UTF-8 JSON file or paste JSON, then Validate. Both use the same strict
 parser, reject unsupported versions/unknown properties/internal identity fields,
-and enforce the existing v1 limits. Preview performs no writes or account lookup.
+and enforce the same template limits. Preview performs no writes or account lookup.
 
 Review allows editing Event settings, local questions/options, staff email/role,
 and Badge Design before an explicit Create event. Loading another template resets
@@ -835,13 +836,14 @@ archive and restore preserve media and the existing public-page availability rul
 Draft/upload previews are owner-only and Event-scoped; public media is available
 only when it is the cover of the current valid published revision.
 
-New publications use snapshot v3; existing v1/v2 content and registration history
-remain readable and unchanged. Existing descriptions stay plain text. Location,
+Snapshot V3 is the only supported publication and historical format. Old local
+V1/V2 data is discarded by the pre-deployment reset. V3 revisions remain immutable;
+PLAIN_TEXT descriptions are never interpreted as Markdown. Location,
 agenda, public organizer and description-format fields use the existing v3
 contract; 29B adds their authoring UI and OWNER Preview rendering.
 
-Strict Template v1 Import remains supported. Current Export/Duplicate use Template
-v2, preserving rich configuration and explicitly reporting omitted cover images.
+Import, Export and Duplicate support only Template V2, preserving rich
+configuration and explicitly reporting omitted cover images.
 
 Media cleanup is an explicit maintenance command, not a worker: incomplete uploads
 expire after 24 hours, unused ready assets after seven days, and assets referenced
@@ -881,12 +883,11 @@ all other edits. Feedback says: "Cover saved. Other event changes are not saved 
 A conflict requires reload. Draft changes never alter the currently published cover;
 abandoned uploads follow the existing 24-hour/7-day cleanup rules.
 
-Template V2 preserves all V1 portable settings plus description format, location,
+Template V2 preserves portable settings including description format, location,
 exact agenda and public organizer. Its cover marker is NONE if absent or OMITTED
 if the source has a cover. Images/asset IDs/storage keys are never copied. Export,
 Import Review and Duplicate Review explain omission; the new Event has no cover.
-V1 Import retains strict validation before defaulting new fields to plain text,
-null location/organizer, empty agenda and NONE. Existing Staff/Badge identity rules,
+V1 Import is rejected without conversion. Existing Staff/Badge identity rules,
 size limits, atomic Create and Duplicate refresh/revocation semantics are preserved.
 
 OWNER Preview displays the draft cover and rich content from the workspace's V3
@@ -904,9 +905,8 @@ neutral message in the same area. Without a cover the Hero stays compact. No
 stock image, image optimizer or public media cache is used.
 
 Description, location, schedule and public organizer sections appear only when
-present. V1/V2 descriptions stay literal plain text; V3 uses its explicit format
-and the same restricted Markdown renderer as the editor. Agenda entries retain
-their original order and instants, grouped by day in the Event timezone. Times
+present. V3 uses its explicit description format and the same restricted Markdown
+renderer as the editor. Agenda entries retain their original order and instants, grouped by day in the Event timezone. Times
 include UTC offsets to distinguish repeated local times at a DST transition.
 Public organizer details are exclusively Event-local authored content.
 

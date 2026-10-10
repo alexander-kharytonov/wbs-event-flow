@@ -79,9 +79,8 @@ Sources: [create](features/events/create-event.ts),
 `publishOwnedEvent` locks the owned Event, checks the requested contentVersion,
 builds a snapshot, creates a new EventRevision, and changes publishedRevisionId
 atomically. Publishing the already-current contentVersion with a valid v3 snapshot
-and matching cover FK succeeds without creating another revision. A current v1/v2
-can republish to v3 at the same contentVersion. Older revisions are not rewritten
-by application code.
+and matching cover FK succeeds without creating another revision. Snapshot V3
+is the only supported format. Older revisions are not rewritten by application code.
 
 The first publication generates a separate UUIDv7 publicId via PostgreSQL
 `uuidv7()` and assigns the first publishedAt. publicId is stored as `uuid`.
@@ -102,21 +101,22 @@ Sources: [publisher](features/events/server/publish-event.ts),
 
 ## 4. Snapshot contracts
 
-New snapshots have `schemaVersion: 3`; historical v1/v2 remain readable and immutable. Responsibilities are separate:
+All supported snapshots have `schemaVersion: 3`. V1/V2 are rejected after the
+authorized pre-deployment local reset. V3 historical revisions remain immutable.
+Responsibilities are separate:
 
 | Contract | Responsibility | Implementation |
 | --- | --- | --- |
 | Current authoring | Validate mutable questions/options | [registrationFieldSchema](features/events/schemas/registration-form.ts) |
-| Historical v1 | Read the frozen serialized format independently of authoring | [eventSnapshotSchema](features/events/schemas/event-snapshot.ts) |
-| Historical v2/v3 | Read frozen serialized fields independently of future editors | [eventSnapshotSchema](features/events/schemas/event-snapshot.ts) |
+| Historical V3 | Read frozen serialized fields independently of future editors | [eventSnapshotSchema](features/events/schemas/event-snapshot.ts) |
 | Current publication | Require valid v3 plus current authoring/publication rules | [eventPublicationSnapshotSchema](features/events/schemas/event-publication-snapshot.ts) |
 
-V1 contains event content, schedule/timezone, visibility, account requirement,
+V3 contains event content, schedule/timezone, visibility, account requirement,
 capacity, registration dates, and ordered fields/options. Each field retains id,
 type, label, description, required, and options; options retain id and label.
 Array order expresses display order. Historical field constraints are defined
-locally in the v1 parser, without runtime imports of mutable authoring validation.
-Future authoring changes must not silently redefine that compatibility contract.
+locally in the V3 parser, without runtime imports of mutable authoring validation.
+Future authoring changes must not silently redefine that frozen historical contract.
 
 `buildEventSnapshot` constructs v3 from workspace and applies the current
 publication validator, also for Preview. New publication forbids registration
@@ -422,8 +422,9 @@ to support Better Auth-owned identifiers; ordinary Prisma-created rows still get
 the `uuid(7)` default. All other internal entity IDs remain native PostgreSQL UUID
 with UUIDv7 generation. Our email-verification slot uses a namespaced identifier,
 not its row ID. Provider `Account.accountId`/`providerId`, tokens,
-and verification identifiers remain text. Snapshot v1 identifiers remain strings;
-new snapshots contain UUIDs without changing the frozen historical parser.
+and verification identifiers remain text. The frozen snapshot parser accepts
+nonempty identifiers independently of mutable authoring; current writers use UUIDs
+and answer columns remain UUID-typed.
 Prisma manages internal generated IDs and updatedAt; these are not database-generated
 defaults/triggers. The publisher explicitly generates publicId in PostgreSQL.
 
@@ -493,7 +494,7 @@ removes the mutation, Communication and outbox. Withdrawal creates no email.
 Legacy EmailOutbox has no direct Event/Application foreign keys; 27A adds an optional
 Communication relation (section 32). Its unique deduplicationKey is
 Application.id + purpose. Recipient and versioned JSON payload are immutable
-delivery snapshots (v1 contracts; APPLICATION_APPROVED additionally supports v2
+delivery snapshots (v1 contracts except APPLICATION_APPROVED, which requires v2
 with a Ticket reference, described below). They contain only the fields needed by that
 email, not answers, rendered HTML/subject, or an absolute hostname. Separate Zod
 contracts validate each type on creation and again before rendering. Received,
@@ -552,16 +553,18 @@ Sources: [creation](features/communications/server/enqueue.ts),
 - Public UI can briefly be stale; authoritative mutations recheck conditions.
 
 These are current boundaries, not a roadmap. The single PostgreSQL 18 migration
-`20261008180000_baseline` creates the current schema, including all 17 custom CHECK
+`20261010000000_baseline` creates the current schema, including all 23 custom CHECK
 constraints. It replaces disposable local development history without data
 transformation or seeding. Replacing applied history is not a deployment strategy
 for persistent production data. Fresh databases use `prisma migrate deploy`.
 
 `db:check` uses one read-only RepeatableRead snapshot. It reports counts for all
-20 application tables and aggregate violations for Application/Registration
+21 application tables and aggregate violations for Application/Registration
 correspondence, PRIMARY identity/cardinality, party activity, Ticket lifecycle,
 QR/MANUAL Attendance, publication references and Communication/Outbox consistency.
-Strict Communication context validation uses bounded keyset pages and the existing
+Every revision is checked against the strict V3 snapshot contract and its cover
+reference, including revisions without media. Strict Communication context
+validation uses bounded keyset pages and the existing
 versioned contract. Empty databases pass with explicit zero data coverage. No
 repair, credential decryption, raw payload/identity logging or email occurs.
 
@@ -600,7 +603,7 @@ The owner supplies a trimmed 1–2000 character reason. A DB CHECK requires both
 cancellation columns null, or a non-null cancellation date and a non-null reason
 containing non-whitespace text. No mutation changes a saved cancellation reason.
 Within the Event-locked transaction, Cancel updates the domain fact, selects
-PENDING attempts and active Registrations, deduplicates normalized emails, validates frozen v1
+PENDING attempts and active Registrations, deduplicates normalized emails, validates frozen email
 EVENT_CANCELLED payloads and creates one Communication with nested bulk Outbox
 intents (section 33). A single outbox wake-up accompanies a nonempty batch;
 zero recipients still record the cancellation Communication without deliveries. Each event/address has a unique
@@ -743,8 +746,9 @@ as the delivery reference. Rendering reads current Ticket/Registration/cancellat
 state, decrypts only the anonymous access secret when needed, and constructs an
 absolute CTA from BETTER_AUTH_URL. Linked CTA uses authenticated detail. Revoked
 or cancelled state removes the Ticket CTA and explains the change. A User deleted
-before delivery receives no authenticated or newly invented anonymous CTA. v1
-payloads remain supported. Existing durable leases/retries/deduplication remain;
+before delivery receives no authenticated or newly invented anonymous CTA. Approval
+v1 payloads are rejected; the current writer always includes ticketId in v2.
+Existing durable leases/retries/deduplication remain;
 state is checked at rendering, not atomically with remote SMTP delivery, and Ticket
 pages always recheck current state. No QR credential enters approval payloads.
 Existing applications.changed routing and empty browser invalidation refresh
@@ -893,9 +897,9 @@ a trimmed name (1–200), and an optional trimmed/lowercase validated email cont
 snapshot (empty becomes null). No email uniqueness or User lookup applies.
 
 Event.maxGuestsPerRegistration is draft authority: NOT NULL DEFAULT 0, CHECK 0–10.
-Only current published snapshot policy authorizes Add. Frozen v1 parsing is
-unchanged and implies effective limit 0; v2 requires the explicit field. New
-Publish/Preview use v2. Historical EventRevision JSON is never rewritten. Lowering
+Only current published snapshot policy authorizes Add. Snapshot V3 requires the
+explicit maxGuestsPerRegistration field. Publish/Preview and history use V3.
+Historical EventRevision JSON is never rewritten. Lowering
 the limit, including to zero, preserves all existing guests and Tickets.
 
 Both mutations authorize before and again after Event FOR UPDATE, then use its
@@ -1233,7 +1237,7 @@ Staff exports owner first with OWNER role, then EventStaff ordered createdAt/use
 ascending with MANAGER/RECEPTION roles. Projections never query Tickets or auth data.
 
 Historical column identity is (eventRevisionId, fieldId). Only referenced revisions
-are read; each frozen v1/v2 snapshot is parsed once. Columns order by revision number
+are read; each frozen V3 snapshot is parsed once. Columns order by revision number
 then snapshot question order; headers are <Label> [v<revision> Q<position> <TYPE>],
 followed immediately by <header> — state. Duplicate labels and recreated questions
 remain separate. Nonmatching revisions and Guest cells have NOT_APPLICABLE state.
@@ -1273,16 +1277,17 @@ export history/jobs, schema changes, migrations or dependencies. Template export
 and Import/Create were outside 26A; they are now implemented in 26B and 26C
 (sections 30 and 31).
 
-## 30. Portable EventTemplateV1 / export (26B)
+## 30. Portable EventTemplateV2 / export (26B, updated in 29B)
 
-This section defines the frozen V1 transport contract, still accepted by Import.
-Current export uses V2 and the filename suffix `-template-v2.json` (section 38).
+This section defines the sole supported V2 transport contract. Import rejects V1;
+export uses the filename suffix `-template-v2.json` (section 38).
 
 The transport-independent strict envelope is {format: "event-flow-template",
-version: 1, event: {...}}. The explicit event DTO has exactly title, description,
+version: 2, event: {...}}. The explicit event DTO has exactly title, description,
 startsAt, endsAt, timezone, visibility, accountRequirement, capacity,
 maxGuestsPerRegistration, registrationOpensAt, registrationClosesAt,
-registrationForm, staff and badgeLayout. Nullable values are required explicit
+registrationForm, staff, badgeLayout, descriptionFormat, location, schedule,
+publicOrganizer and cover. Nullable values are required explicit
 nulls. Dates are original UTC ISO instants with milliseconds, without shifting
 past Events or copying Completed/Cancelled/Archived state.
 
@@ -1291,15 +1296,16 @@ description, required and options; each option contains only label. Array order
 is current position order. Field keys are exactly field_1 through field_N in
 that order. No field/form/option/revision IDs or built-in full name/email fields
 are serialized. Validation reuses current registrationFieldSchema semantics;
-Template v1 limits are additional portability constraints, not authoring limits.
+Template V2 limits are additional portability constraints, not authoring limits.
 
 badgeLayout is null or the constrained current badge format with secondaryField
 and tertiaryField descriptors {fieldKey, type, label}. Bindings map only by exact
 current fieldId/type/label. Missing, historical, deleted/recreated or mismatched
 bindings reject the entire export with a generic request to update Badge Design.
 No label-only mapping, silent removal or historical-question insertion occurs.
-The stored-layout parser remains authority: missing padding normalizes to 3 mm,
-obsolete preset is discarded and invalid layouts fail without a default fallback.
+The stored-layout parser requires explicit padding and rejects obsolete preset
+fields; invalid layouts fail without a default fallback. A null layout still selects
+the explicit default design.
 Portable padding is explicit. Arbitrary HTML/CSS/custom dimensions are forbidden.
 
 staff contains current EventStaff only, ordered createdAt ASC/userId ASC, with
@@ -1325,7 +1331,7 @@ CSV dataset route. It checks a fresh verified unexpired session with cookie cach
 and refresh disabled. Unknown/foreign/unauthorized Events share a neutral 404.
 OWNER alone has event.edit; Manager/Reception cannot download or see the menu item.
 Success has application/json; charset=utf-8, attachment filename
-`<sanitized-event-title>-template-v1.json` (up to 80 Unicode letters/numbers and
+`<sanitized-event-title>-template-v2.json` (up to 80 Unicode letters/numbers and
 hyphens in the title slug, or `event` if empty), with UTF-8 `filename*` and an ASCII
 `filename`, private/no-store/max-age=0, nosniff, no-referrer and
 noindex/nofollow/noarchive. Errors retain privacy headers, use generic plain text
@@ -1841,14 +1847,14 @@ must preserve bytes/checksums and references, not rewrite historical snapshots.
 
 Event.coverAssetId is the mutable draft FK. EventRevision.coverAssetId is the frozen
 reference with ON DELETE RESTRICT; any draft/revision reference prevents cleanup.
-Cover alt belongs to Event authoring and is copied into the snapshot. V3 retains all
-v2 fields and adds descriptionFormat, nullable cover/location/publicOrganizer and
+Cover alt belongs to Event authoring and is copied into the snapshot. V3 includes
+descriptionFormat, nullable cover/location/publicOrganizer and
 ordered schedule. Description reuses Event.description, defaults to PLAIN_TEXT, and
 old snapshots are never reinterpreted as Markdown. V3's frozen validators cap agenda
 at 100 chronological entries with UTC millisecond instants inside the Event interval;
 location is PHYSICAL/ONLINE/HYBRID, and organizer display data is explicit public
 content rather than account/profile/Staff projection. These fields have no new editor
-in 29A. New authoring contracts must not redefine v1/v2/v3 historical parsing.
+in 29A. New authoring contracts must not redefine V3 historical parsing.
 
 Upload uses POST /api/events/[eventId]/cover/uploads with raw image bytes and exact
 image/jpeg, image/png or image/webp Content-Type. Fresh verified session (no cookie
@@ -1948,16 +1954,16 @@ SQL CHECKs enforce locator, lifecycle/nullability, manifest container shape,
 timestamps and Event rich-field/alt shape. Full manifest/snapshot validity, asset
 ownership/scope, state transitions and immutability are server-enforced, like existing
 EventRevision invariants. db:check checks media references and serialized contracts.
-Template v1 has no new fields and remains a strict import contract. The current
-Template v2 boundary below replaces the 29A rich-content export rejection. Binary
-inclusion, shared media cloning and remote media fetch remain unsupported.
+Template V2 below is the only supported portable contract, replacing the earlier
+29A rich-content export rejection. Binary inclusion, shared media cloning and
+remote media fetch remain unsupported.
 
 
 ## 38. Rich authoring and EventTemplateV2 (29B)
 
 The shared Event authoring schema extends the existing Create/Edit/Review path.
 It reuses location/publicOrganizer constraints and the schedule entry shape from
-29A without changing frozen v1/v2/v3 snapshot parsers. Nullable JSON authoring
+29A without changing the frozen V3 snapshot parser. Nullable JSON authoring
 writes use Prisma.DbNull for SQL NULL. Existing fresh OWNER checks, Event lock,
 version/contentVersion, lifecycle/Ongoing-start guards, atomic Create and realtime
 invalidation remain authoritative. No new persistence model or migration is needed.
@@ -1988,19 +1994,18 @@ Public /e/[publicId] retains its published-revision authority and Staff DTOs are
 expanded. Public landing/metadata is defined by 29C below. Iterations 29A/B/C/D
 are implemented and accepted; 29D polish preserves these domain contracts.
 
-EventTemplateV2 retains the format identifier and version 2, the V1 portable Event
-configuration and rich fields descriptionFormat, nullable location/publicOrganizer,
-ordered exact schedule and strict cover {status: NONE|OMITTED}. The same V1 semantic
+EventTemplateV2 is the only template contract: format event-flow-template and
+version 2, portable Event configuration and rich fields descriptionFormat,
+nullable location/publicOrganizer,
+ordered exact schedule and strict cover {status: NONE|OMITTED}. The strict semantic
 constraints/limits, deterministic serialization, explicit nulls, field_N identity,
 normalized Staff and Badge remapping apply. Unknown fields and private/internal
 identities are rejected. NONE describes no source cover; OMITTED describes a source
 cover excluded from portability. No media IDs, bytes, filenames or keys are exported.
 
-Import dispatches by version before strict parsing. V1 is parsed unchanged, then
-normalized to current V2 defaults: PLAIN_TEXT, null location/publicOrganizer, [],
-and cover NONE. Size validation applies to the original version before adding
-internal defaults. Review/Create retain V1 transport while rich fields are defaults;
-adding rich content promotes the complete payload to V2 with unchanged V2 limits.
+Import requires version 2 before strict parsing, rejecting unsupported versions
+without normalization or conversion. Review/Create use the same V2 transport.
+UTF-8 byte limits apply at text input, validated Create and serialized Export.
 V2 validates the complete rich configuration and agenda interval.
 Export and the existing authorized Duplicate source reader project V2. Review
 warns about OMITTED; Create always creates without a cover using the existing atomic
@@ -2012,7 +2017,7 @@ cloning service, media copy, worker, polling or cloud backend.
 
 The public page, route-layout guard and generateMetadata share the request-scoped
 getPublishedEvent cache. The reader validates the current EventRevision with the
-frozen V1/V2/V3 parser and checks its cover descriptor against the revision FK.
+frozen V3 parser and checks its cover descriptor against the revision FK.
 No mutable title, description, location, agenda, organizer or form is a fallback.
 The only added DTO field is an archived boolean from Event.archivedAt. Existing
 cancellation facts and lifecycleEndsAt remain operational guards, not substitutes

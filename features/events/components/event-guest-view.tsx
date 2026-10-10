@@ -46,7 +46,7 @@ export function EventGuestView({
 }) {
   const state = cancelled ? "CLOSED" : registrationAvailability(snapshot, now);
   const hasEnded = now.getTime() >= Date.parse(snapshot.endsAt);
-  const location = snapshot.schemaVersion === 3 ? snapshot.location : null;
+  const location = snapshot.location;
   const hasStarted = now.getTime() >= Date.parse(snapshot.startsAt);
   const format = (instant: string) =>
     formatEventTime(new Date(instant), snapshot.timezone);

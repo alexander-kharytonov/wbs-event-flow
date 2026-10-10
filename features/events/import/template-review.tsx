@@ -175,11 +175,9 @@ function ReviewBadge({
 
 export function TemplateReview({
   initial: initialTemplate,
-  sourceVersion = 2,
   onBusyChange,
 }: {
   initial: TemplateEvent;
-  sourceVersion?: 1 | 2;
   onBusyChange: (busy: boolean) => void;
 }) {
   // One mounted review owns one source snapshot, including every exact date.
@@ -367,19 +365,16 @@ export function TemplateReview({
             }
 
             const values = parsed.data;
-            const reviewed = canonicalizeReview(
-              {
-                ...event,
-                ...values,
-                startsAt: values.startsAt.toISOString(),
-                endsAt: values.endsAt.toISOString(),
-                registrationOpensAt:
-                  values.registrationOpensAt?.toISOString() ?? null,
-                registrationClosesAt:
-                  values.registrationClosesAt?.toISOString() ?? null,
-              },
-              sourceVersion,
-            );
+            const reviewed = canonicalizeReview({
+              ...event,
+              ...values,
+              startsAt: values.startsAt.toISOString(),
+              endsAt: values.endsAt.toISOString(),
+              registrationOpensAt:
+                values.registrationOpensAt?.toISOString() ?? null,
+              registrationClosesAt:
+                values.registrationClosesAt?.toISOString() ?? null,
+            });
 
             if (!reviewed.success) {
               return showIssues(reviewed.issues, eventFormInput(formData));
@@ -393,12 +388,7 @@ export function TemplateReview({
               const payload = new FormData();
               payload.set(
                 "template",
-                JSON.stringify(
-                  templateCreateInput(
-                    reviewed.template.event,
-                    reviewed.sourceVersion,
-                  ),
-                ),
+                JSON.stringify(templateCreateInput(reviewed.template.event)),
               );
               outcome = await importTemplate(payload);
             } catch {

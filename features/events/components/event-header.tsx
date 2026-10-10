@@ -70,7 +70,6 @@ import {
   workspaceReadOnly,
 } from "@/features/events/event-lifecycle";
 import { publicationState } from "@/features/events/publication-state";
-import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 
 type EventHeaderData = EventLifecycleData & {
   cancellationReason: string | null;
@@ -85,12 +84,6 @@ type EventHeaderData = EventLifecycleData & {
     snapshot: unknown;
   } | null;
 };
-
-function isLegacyPublication(value: unknown) {
-  const parsed = eventSnapshotSchema.safeParse(value);
-
-  return parsed.success && parsed.data.schemaVersion !== 3;
-}
 
 function OwnerEventControls({
   eventId: id,
@@ -108,8 +101,7 @@ function OwnerEventControls({
   const lifecycle = eventLifecycle(event, now);
   const canPublish =
     !readOnly &&
-    (state !== "Published" ||
-      isLegacyPublication(event.publishedRevision?.snapshot)) &&
+    state !== "Published" &&
     (lifecycle === "Upcoming" || Boolean(event.publicId));
   const publishLabel = !canPublish
     ? null

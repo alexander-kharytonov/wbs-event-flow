@@ -320,10 +320,6 @@ async function main() {
           const revisions = await tx.eventRevision.findMany({
             where: {
               ...(revisionCursor ? { id: { gt: revisionCursor } } : {}),
-              OR: [
-                { coverAssetId: { not: null } },
-                { snapshot: { path: ["schemaVersion"], equals: 3 } },
-              ],
             },
             orderBy: { id: "asc" },
             take: 200,
@@ -347,7 +343,6 @@ async function main() {
 
             if (
               !snapshot.success ||
-              snapshot.data.schemaVersion !== 3 ||
               (snapshot.data.cover?.assetId ?? null) !==
                 revision.coverAssetId ||
               (snapshot.data.cover &&

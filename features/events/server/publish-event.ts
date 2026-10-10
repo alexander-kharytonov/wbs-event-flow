@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { eventLifecycle } from "@/features/events/event-lifecycle";
-import { eventSnapshotV3Schema } from "@/features/events/schemas/event-snapshot";
+import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 import {
   buildEventSnapshot,
   workspaceInclude,
@@ -80,7 +80,7 @@ export async function publishOwnedEvent(
           };
         }
 
-        const currentSnapshot = eventSnapshotV3Schema.safeParse(
+        const currentSnapshot = eventSnapshotSchema.safeParse(
           event.publishedRevision?.snapshot,
         );
 

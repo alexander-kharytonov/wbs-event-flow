@@ -25,7 +25,7 @@ import {
   TemplateIssues,
   TemplateReview,
 } from "@/features/events/import/template-review";
-import { TEMPLATE_V1_LIMITS } from "@/features/exports/event-template";
+import { TEMPLATE_LIMITS } from "@/features/exports/event-template";
 
 export function CreateEventModes({
   modal = false,
@@ -44,7 +44,6 @@ export function CreateEventModes({
   const [issues, setIssues] = useState<TemplateIssue[]>([]);
   const [review, setReview] = useState<{
     generation: number;
-    sourceVersion: 1 | 2;
     event: TemplateEvent;
   }>();
   const [busy, setBusy] = useState(false);
@@ -119,7 +118,7 @@ export function CreateEventModes({
                 setIssues([]);
                 setText("");
 
-                if (file.size > TEMPLATE_V1_LIMITS.bytes) {
+                if (file.size > TEMPLATE_LIMITS.bytes) {
                   setIssues([
                     {
                       code: "limit",
@@ -187,7 +186,6 @@ export function CreateEventModes({
               if (result.success) {
                 setReview({
                   generation: ++generation.current,
-                  sourceVersion: result.sourceVersion,
                   event: result.template.event,
                 });
               } else {
@@ -209,7 +207,6 @@ export function CreateEventModes({
               <TemplateReview
                 key={review.generation}
                 initial={review.event}
-                sourceVersion={review.sourceVersion}
                 onBusyChange={setBusy}
               />
             </>

@@ -28,9 +28,8 @@ export const getPublishedEvent = cache(async (publicId: string) => {
 
   return snapshot.success &&
     event?.publishedRevision &&
-    (snapshot.data.schemaVersion !== 3 ||
-      (snapshot.data.cover?.assetId ?? null) ===
-        event.publishedRevision.coverAssetId)
+    (snapshot.data.cover?.assetId ?? null) ===
+      event.publishedRevision.coverAssetId
     ? {
         snapshot: snapshot.data,
         eventRevisionId: event.publishedRevision.id,

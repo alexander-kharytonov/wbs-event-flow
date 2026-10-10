@@ -125,7 +125,6 @@ export async function serveEventMedia(
 
       if (
         !snapshot.success ||
-        snapshot.data.schemaVersion !== 3 ||
         snapshot.data.cover?.assetId !== assetId ||
         revision?.coverAssetId !== assetId ||
         !publishedAsset ||
