@@ -101,73 +101,74 @@ export async function renderOutboxEmail(
       greeting = `Hello ${data.applicantName},`;
       introduction =
         "Your application has been approved. We look forward to seeing you at the event.";
-      action = { label: "View event", url: eventUrl };
 
-      if ("ticketId" in data) {
-        const ticket = await prisma.ticket.findUniqueOrThrow({
-          where: { id: data.ticketId },
-          select: {
-            attendeeId: true,
-            revokedAt: true,
-            anonymousAccessHash: true,
-            anonymousAccessEncrypted: true,
-            attendee: {
-              select: {
-                revokedAt: true,
-                registration: {
-                  select: {
-                    eventId: true,
-                    userId: true,
-                    revokedAt: true,
-                    event: { select: { cancelledAt: true } },
-                  },
+      if (!("ticketId" in data)) {
+        throw new Error("Invalid approval payload.");
+      }
+
+      const ticket = await prisma.ticket.findUniqueOrThrow({
+        where: { id: data.ticketId },
+        select: {
+          attendeeId: true,
+          revokedAt: true,
+          anonymousAccessHash: true,
+          anonymousAccessEncrypted: true,
+          attendee: {
+            select: {
+              revokedAt: true,
+              registration: {
+                select: {
+                  eventId: true,
+                  userId: true,
+                  revokedAt: true,
+                  event: { select: { cancelledAt: true } },
                 },
               },
             },
           },
-        });
+        },
+      });
 
-        if (
-          ticket.revokedAt ||
-          ticket.attendee.revokedAt ||
-          ticket.attendee.registration.revokedAt ||
-          ticket.attendee.registration.event.cancelledAt
-        ) {
-          introduction = ticket.attendee.registration.event.cancelledAt
-            ? "Your application was approved, but the event has since been cancelled. Your ticket history is preserved."
-            : "Your application was approved, but your admission has since been revoked. Your ticket history is preserved.";
-          action = undefined;
-        } else if (
-          ticket.anonymousAccessHash &&
-          ticket.anonymousAccessEncrypted
-        ) {
-          const access = decryptTicketSecret(
-            ticket.anonymousAccessEncrypted,
-            ticket.attendeeId,
-            "access",
-            ticket.anonymousAccessHash,
-          );
-          introduction =
-            "Your application has been approved and your ticket is ready. Keep this private ticket link safe; anyone with it can view your ticket.";
-          action = {
-            label: "View ticket",
-            url: absoluteUrl(`/ticket/${access}`),
-          };
-        } else if (ticket.attendee.registration.userId) {
-          introduction =
-            "Your application has been approved and your ticket is ready. Sign in to view it in your registration.";
-          action = {
-            label: "View ticket",
-            url: absoluteUrl(
-              `/account/registrations/${ticket.attendee.registration.eventId}`,
-            ),
-          };
-        } else {
-          // A deleted linked User never turns this into an anonymous Ticket.
-          introduction =
-            "Your application was approved. The account previously linked to this registration is no longer available.";
-          action = undefined;
-        }
+      if (
+        ticket.revokedAt ||
+        ticket.attendee.revokedAt ||
+        ticket.attendee.registration.revokedAt ||
+        ticket.attendee.registration.event.cancelledAt
+      ) {
+        introduction = ticket.attendee.registration.event.cancelledAt
+          ? "Your application was approved, but the event has since been cancelled. Your ticket history is preserved."
+          : "Your application was approved, but your admission has since been revoked. Your ticket history is preserved.";
+        action = undefined;
+      } else if (
+        ticket.anonymousAccessHash &&
+        ticket.anonymousAccessEncrypted
+      ) {
+        const access = decryptTicketSecret(
+          ticket.anonymousAccessEncrypted,
+          ticket.attendeeId,
+          "access",
+          ticket.anonymousAccessHash,
+        );
+        introduction =
+          "Your application has been approved and your ticket is ready. Keep this private ticket link safe; anyone with it can view your ticket.";
+        action = {
+          label: "View ticket",
+          url: absoluteUrl(`/ticket/${access}`),
+        };
+      } else if (ticket.attendee.registration.userId) {
+        introduction =
+          "Your application has been approved and your ticket is ready. Sign in to view it in your registration.";
+        action = {
+          label: "View ticket",
+          url: absoluteUrl(
+            `/account/registrations/${ticket.attendee.registration.eventId}`,
+          ),
+        };
+      } else {
+        // A deleted linked User never turns this into an anonymous Ticket.
+        introduction =
+          "Your application was approved. The account previously linked to this registration is no longer available.";
+        action = undefined;
       }
     }
   }

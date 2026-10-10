@@ -6,13 +6,13 @@ import {
   scheduleSchema,
 } from "@/features/events/schemas/event-rich-content";
 
-// Frozen serialized v1 contract. Do not derive these rules from current authoring.
-const snapshotV1OptionSchema = z.strictObject({
+// Frozen serialized v3 contract. Do not derive these rules from current authoring.
+const snapshotOptionSchema = z.strictObject({
   id: z.string().min(1),
   label: z.string().trim().min(1).max(200),
 });
 
-const snapshotV1FieldSchema = z
+const snapshotFieldSchema = z
   .strictObject({
     id: z.string().min(1),
     type: z.enum([
@@ -25,7 +25,7 @@ const snapshotV1FieldSchema = z
     label: z.string().trim().min(1).max(200),
     description: z.string().max(500).nullable(),
     required: z.boolean(),
-    options: z.array(snapshotV1OptionSchema),
+    options: z.array(snapshotOptionSchema),
   })
   .superRefine((field, ctx) => {
     const choice =
@@ -49,9 +49,15 @@ const snapshotV1FieldSchema = z
     }
   });
 
-export const eventSnapshotV1Schema = z
+export const eventSnapshotSchema = z
   .strictObject({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(3),
+    maxGuestsPerRegistration: z.number().int().min(0).max(10),
+    descriptionFormat: z.enum(["PLAIN_TEXT", "MARKDOWN"]),
+    cover: coverDescriptorSchema.nullable(),
+    location: locationSchema.nullable(),
+    schedule: scheduleSchema,
+    publicOrganizer: publicOrganizerSchema.nullable(),
     title: z.string().trim().min(1).max(200),
     description: z.string().max(20000).nullable(),
     startsAt: z.iso.datetime({ precision: 3 }),
@@ -71,10 +77,24 @@ export const eventSnapshotV1Schema = z
     registrationOpensAt: z.iso.datetime({ precision: 3 }).nullable(),
     registrationClosesAt: z.iso.datetime({ precision: 3 }).nullable(),
     registrationForm: z.strictObject({
-      fields: z.array(snapshotV1FieldSchema),
+      fields: z.array(snapshotFieldSchema),
     }),
   })
   .superRefine((event, ctx) => {
+    for (const [index, entry] of event.schedule.entries()) {
+      if (
+        entry.startsAt < event.startsAt ||
+        entry.startsAt >= event.endsAt ||
+        (index > 0 && entry.startsAt < event.schedule[index - 1].startsAt)
+      ) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["schedule", index, "startsAt"],
+          message:
+            "Agenda must be chronological and within the event interval.",
+        });
+      }
+    }
     const fieldIds = event.registrationForm.fields.map((field) => field.id);
 
     if (new Set(fieldIds).size !== fieldIds.length) {
@@ -99,89 +119,5 @@ export const eventSnapshotV1Schema = z
       });
     }
   });
-
-// Extend the serialized shape while retaining v1's historical refinements.
-export const eventSnapshotV2Schema = z
-  .strictObject({
-    ...eventSnapshotV1Schema.shape,
-    schemaVersion: z.literal(2),
-    maxGuestsPerRegistration: z.number().int().min(0).max(10),
-  })
-  .superRefine((snapshot, ctx) => {
-    const { maxGuestsPerRegistration: _limit, ...fields } = snapshot;
-    const historical = eventSnapshotV1Schema.safeParse({
-      ...fields,
-      schemaVersion: 1,
-    });
-
-    if (!historical.success) {
-      for (const issue of historical.error.issues) {
-        ctx.addIssue({
-          code: "custom",
-          path: issue.path,
-          message: issue.message,
-        });
-      }
-    }
-  });
-
-export const eventSnapshotV3Schema = z
-  .strictObject({
-    ...eventSnapshotV2Schema.shape,
-    schemaVersion: z.literal(3),
-    descriptionFormat: z.enum(["PLAIN_TEXT", "MARKDOWN"]),
-    cover: coverDescriptorSchema.nullable(),
-    location: locationSchema.nullable(),
-    schedule: scheduleSchema,
-    publicOrganizer: publicOrganizerSchema.nullable(),
-  })
-  .superRefine((snapshot, ctx) => {
-    const {
-      descriptionFormat: _format,
-      cover: _cover,
-      location: _location,
-      schedule,
-      publicOrganizer: _organizer,
-      ...legacy
-    } = snapshot;
-    const result = eventSnapshotV2Schema.safeParse({
-      ...legacy,
-      schemaVersion: 2,
-    });
-
-    if (!result.success) {
-      for (const issue of result.error.issues) {
-        ctx.addIssue({
-          code: "custom",
-          path: issue.path,
-          message: issue.message,
-        });
-      }
-    }
-
-    for (const [index, entry] of schedule.entries()) {
-      if (
-        entry.startsAt < snapshot.startsAt ||
-        entry.startsAt >= snapshot.endsAt ||
-        (index > 0 && entry.startsAt < schedule[index - 1].startsAt)
-      ) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["schedule", index, "startsAt"],
-          message:
-            "Agenda must be chronological and within the event interval.",
-        });
-      }
-    }
-  });
-
-export const eventSnapshotSchema = z.union([
-  eventSnapshotV1Schema.transform((snapshot) => ({
-    ...snapshot,
-    maxGuestsPerRegistration: 0,
-  })),
-  eventSnapshotV2Schema,
-  eventSnapshotV3Schema,
-]);
 
 export type EventSnapshot = z.infer<typeof eventSnapshotSchema>;

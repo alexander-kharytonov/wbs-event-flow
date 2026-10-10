@@ -12,12 +12,12 @@ export function publicEventMetadata(
   const description =
     eventDescriptionText(
       snapshot.description ?? "",
-      snapshot.schemaVersion === 3 ? snapshot.descriptionFormat : "PLAIN_TEXT",
+      snapshot.descriptionFormat,
     ).slice(0, 160) ||
     "Event details and registration information on Event Flow.";
   const url = new URL(`/e/${encodeURIComponent(publicId)}`, origin).href;
   const isPublic = snapshot.visibility === "PUBLIC";
-  const cover = snapshot.schemaVersion === 3 ? snapshot.cover : null;
+  const cover = snapshot.cover;
   const image = cover
     ? {
         url: new URL(

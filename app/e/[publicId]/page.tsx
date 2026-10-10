@@ -134,7 +134,6 @@ export default async function PublicEventPage({ params }: Props) {
       now={now}
       occupied={occupied}
       cover={
-        snapshot.schemaVersion === 3 &&
         snapshot.cover && (
           <EventCover
             key={snapshot.cover.assetId}

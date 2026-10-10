@@ -11,9 +11,8 @@ import {
 import { normalizeStaff } from "@/features/events/staff-input";
 import {
   type EventTemplateV2,
-  eventTemplateV1Schema,
   eventTemplateV2Schema,
-  TEMPLATE_V1_LIMITS,
+  TEMPLATE_LIMITS,
 } from "@/features/exports/event-template";
 
 export type TemplateIssue = { code: string; path: string; message: string };
@@ -22,7 +21,6 @@ export type TemplateResult =
   | {
       success: true;
       template: EventTemplateV2;
-      sourceVersion: 1 | 2;
       duplicateWarnings: string[];
     }
   | { success: false; issues: TemplateIssue[] };
@@ -171,20 +169,18 @@ export function validateTemplateCreate(input: unknown): TemplateResult {
     );
   }
 
-  if (!("version" in input) || ![1, 2].includes(input.version as number)) {
+  if (!("version" in input) || input.version !== 2) {
     return templateFailure(
       "unsupported_version",
       "version",
-      "Unsupported template version. Versions 1 and 2 are supported.",
+      "Unsupported template version. Only version 2 is supported.",
     );
   }
 
-  const parsed = (
-    input.version === 1 ? eventTemplateV1Schema : eventTemplateV2Schema
-  ).safeParse(input);
+  const parsed = eventTemplateV2Schema.safeParse(input);
 
   if (!parsed.success) {
-    // v1's binding/count refinements have root paths. Supply useful known paths
+    // Binding/count refinements have root paths. Supply useful known paths
     // without echoing input or altering the accepted export contract.
     const issues = safeTemplateIssues(parsed.error);
 
@@ -266,7 +262,7 @@ export function validateTemplateCreate(input: unknown): TemplateResult {
   // Retain duplicates in review so the final server result can report them.
   if (
     new TextEncoder().encode(JSON.stringify(parsed.data)).byteLength >
-    TEMPLATE_V1_LIMITS.bytes
+    TEMPLATE_LIMITS.bytes
   ) {
     return templateFailure(
       "limit",
@@ -275,26 +271,9 @@ export function validateTemplateCreate(input: unknown): TemplateResult {
     );
   }
 
-  const template: EventTemplateV2 =
-    parsed.data.version === 1
-      ? {
-          ...parsed.data,
-          version: 2,
-          event: {
-            ...parsed.data.event,
-            descriptionFormat: "PLAIN_TEXT",
-            location: null,
-            schedule: [],
-            publicOrganizer: null,
-            cover: { status: "NONE" },
-          },
-        }
-      : parsed.data;
-
   return {
     success: true,
-    template,
-    sourceVersion: parsed.data.version,
+    template: parsed.data,
     duplicateWarnings: staff.duplicates,
   };
 }
@@ -308,7 +287,7 @@ export function parseTemplateText(text: unknown): TemplateResult {
     );
   }
 
-  if (new TextEncoder().encode(text).byteLength > TEMPLATE_V1_LIMITS.bytes) {
+  if (new TextEncoder().encode(text).byteLength > TEMPLATE_LIMITS.bytes) {
     return templateFailure(
       "limit",
       "template",
@@ -331,41 +310,13 @@ export function parseTemplateText(text: unknown): TemplateResult {
   return validateTemplateCreate(input);
 }
 
-// Keep legacy transport through Review/Create while all rich fields are defaults.
-// A rich edit promotes the payload to strict V2; it is never silently dropped.
-export function templateCreateInput(
-  event: TemplateEvent,
-  sourceVersion: 1 | 2,
-) {
-  const {
-    descriptionFormat,
-    location,
-    schedule,
-    publicOrganizer,
-    cover,
-    ...legacy
-  } = event;
-
-  if (
-    sourceVersion === 1 &&
-    descriptionFormat === "PLAIN_TEXT" &&
-    location === null &&
-    schedule.length === 0 &&
-    publicOrganizer === null &&
-    cover.status === "NONE"
-  ) {
-    return { format: "event-flow-template", version: 1, event: legacy };
-  }
-
+export function templateCreateInput(event: TemplateEvent) {
   return { format: "event-flow-template", version: 2, event };
 }
 
 // Review keys remain stable across edits/reorder. Check references BEFORE renumbering.
 
-export function canonicalizeReview(
-  event: TemplateEvent,
-  sourceVersion: 1 | 2 = 2,
-): TemplateResult {
+export function canonicalizeReview(event: TemplateEvent): TemplateResult {
   const issues = portableBindingIssues(event);
   const keys = new Map(
     event.registrationForm.fields.map((field, index) => [
@@ -391,25 +342,22 @@ export function canonicalizeReview(
   ) => (value ? { ...value, fieldKey: keys.get(value.fieldKey) ?? "" } : null);
 
   return validateTemplateCreate(
-    templateCreateInput(
-      {
-        ...event,
-        registrationForm: {
-          fields: event.registrationForm.fields.map((field) => ({
-            ...field,
-            key: keys.get(field.key) ?? "",
-          })),
-        },
-        badgeLayout: event.badgeLayout
-          ? {
-              ...event.badgeLayout,
-              secondaryField: binding(event.badgeLayout.secondaryField),
-              tertiaryField: binding(event.badgeLayout.tertiaryField),
-            }
-          : null,
+    templateCreateInput({
+      ...event,
+      registrationForm: {
+        fields: event.registrationForm.fields.map((field) => ({
+          ...field,
+          key: keys.get(field.key) ?? "",
+        })),
       },
-      sourceVersion,
-    ),
+      badgeLayout: event.badgeLayout
+        ? {
+            ...event.badgeLayout,
+            secondaryField: binding(event.badgeLayout.secondaryField),
+            tertiaryField: binding(event.badgeLayout.tertiaryField),
+          }
+        : null,
+    }),
   );
 }
 

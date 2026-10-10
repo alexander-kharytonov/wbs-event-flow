@@ -1,11 +1,11 @@
-import { eventSnapshotV3Schema } from "@/features/events/schemas/event-snapshot";
+import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 import {
   isChoice,
   registrationFieldSchema,
 } from "@/features/events/schemas/registration-form";
 
 // New publications satisfy the frozen v3 contract AND today's authoring rules.
-export const eventPublicationSnapshotSchema = eventSnapshotV3Schema.superRefine(
+export const eventPublicationSnapshotSchema = eventSnapshotSchema.superRefine(
   (event, ctx) => {
     for (const [index, field] of event.registrationForm.fields.entries()) {
       const validated = registrationFieldSchema.safeParse({

@@ -26,7 +26,7 @@ export async function importTemplate(
   const result = await createTemplateEvent(
     user.id,
     organizer.id,
-    templateCreateInput(parsed.template.event, parsed.sourceVersion),
+    templateCreateInput(parsed.template.event),
   );
 
   if (result.success) {

@@ -64,12 +64,11 @@ settings. `lib/prisma.ts` is the shared server-only client. DATABASE_URL expands
 from the POSTGRES variables in `.env.example`; use a URL-safe local password or
 percent-encode credentials when constructing a URL.
 
-The migration directory contains `20261008180000_baseline`, replacing all earlier
-local development migrations. It creates the current schema and preserves 17
-custom SQL CHECK constraints alongside Prisma-managed keys and indexes. Future
-schema changes use new incremental migrations; do not edit an applied baseline.
-`20261009000000_event_media_v3` adds the media foundation incrementally; the baseline
-is unchanged. Prisma drift alone does not verify the custom CHECK constraints.
+The migration directory contains only `20261010000000_baseline`, replacing the
+pre-deployment local migration history. It creates the current schema, including
+media, and preserves all 23 custom SQL CHECK constraints alongside Prisma-managed
+keys and indexes. Future schema changes use incremental migrations; do not edit
+an applied baseline. Prisma drift alone does not verify custom CHECK constraints.
 
 A disposable local database with the removed history requires an explicitly
 authorized reset, including its migration ledger. Immediately before resetting,
@@ -228,31 +227,10 @@ backend/key locators after verifying checksums. It must retain asset IDs, immuta
 bytes and historical references; public DTOs/URLs must remain independent of storage.
 No cloud integration is present; the SQL backend CHECK currently permits LOCAL only.
 
-New publications are v3; v1/v2 remain readable without backfill. Template export
-and Duplicate now use V2, preserving rich configuration and explicitly omitting
-cover images. Strict V1 Import remains supported.
-
-Requested targeted verification can be repeated with:
-
-```bash
-node --expose-gc --conditions=react-server --import tsx scripts/check-event-media.ts
-```
-
-It requires loopback PostgreSQL with CREATE DATABASE privileges and write access to
-the current user's Application Support directory. It creates an isolated database
-and private media directory. SIGINT/SIGTERM request interruption at verification
-checkpoints; repeated signals preserve the first interruption and allow cleanup to
-finish. Cleanup independently attempts child termination (SIGTERM, then SIGKILL),
-DB disconnects, disposable database removal and media removal with bounded waits.
-Failures retain the original cause and report cleanup errors with a nonzero exit.
-No existing application data is modified and no SMTP is called. A failed cleanup
-must be investigated using the reported disposable resource identity.
-
-Focused signal and cleanup-failure verification:
-
-```bash
-node --conditions=react-server --import tsx scripts/check-event-media-cleanup.ts
-```
+Snapshot V3 is the only supported serialized publication/history format.
+Template Export, Import and Duplicate use only V2, preserving rich configuration
+and explicitly omitting cover images. Older formats are rejected; the authorized
+pre-deployment reset discards old local records without conversion.
 
 ## Rich Event authoring and Template V2 (29B)
 
@@ -277,9 +255,8 @@ Create/Import/Duplicate cannot upload until the new Event exists.
 
 Export downloads `-template-v2.json`. V2 includes rich configuration and an explicit
 cover status NONE/OMITTED; no asset identity, storage locator or bytes are included.
-The Export menu and Import/Duplicate Review explain omission. V1 files retain their
-strict parser and normalize to plain text, null location/organizer, empty agenda
-and no cover. Every new Event starts without a cover.
+The Export menu and Import/Duplicate Review explain omission. Import rejects
+unsupported versions and unknown fields. Every new Event starts without a cover.
 
 OWNER Preview reads the draft workspace through snapshot V3. Public pages still
 read only the published revision; publish/republish is required to expose changes.
@@ -287,19 +264,13 @@ Overview and Staff projections remain operational. The media foundation (29A),
 rich authoring (29B), public landing/SEO (29C), and UX/integration polish (29D)
 are implemented and accepted.
 
-Targeted verification (in addition to the media regression script above):
+## Engineering verification
 
-```bash
-node --import tsx scripts/check-event-rich-rendering.tsx
-node --conditions=react-server --import tsx scripts/check-event-rich-content.ts
-```
-
-Use `--pure` for the boundary, schema and child/cleanup checks without a database.
-The rich-content script otherwise uses a disposable PostgreSQL database. Cleanup
-attempts child shutdown, each disconnect, database removal and media removal
-independently with deadlines; failures retain the original error and exit nonzero. It needs CREATE DATABASE privileges and does not use real SMTP or modify
-the development DB. For an interactive browser smoke check, run `pnpm build`, then
-append `--browser` to that script. It starts the production app at 127.0.0.1:3029
-with isolated credentials/media, prints the verification login and file path, and
-waits for Enter before stopping the server and removing the disposable resources.
-Do not point these fixtures or media at an existing application database/root.
+`scripts/` contains only the read-only `db:check` and explicit `media:cleanup`
+maintenance commands. Iteration-specific verification scripts have been removed.
+Use lint, TypeScript, build, Prisma validation/migration drift and `db:check` as
+routine gates. Changes to domain contracts also require focused verification with
+isolated disposable data; an empty development database is not domain coverage.
+Publication snapshots, historical answers, concurrency, authorization and immutable
+media references remain authoritative. No compatibility with discarded local
+Snapshot V1/V2 or Template V1 data is provided.

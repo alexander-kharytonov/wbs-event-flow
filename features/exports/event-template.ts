@@ -17,7 +17,7 @@ import {
   registrationFieldSchema,
 } from "@/features/events/schemas/registration-form";
 
-export const TEMPLATE_V1_LIMITS = {
+export const TEMPLATE_LIMITS = {
   bytes: 512 * 1024,
   fields: 100,
   optionsPerField: 100,
@@ -48,11 +48,11 @@ export function checkTemplateCounts(
   staff: number,
 ) {
   if (
-    fields > TEMPLATE_V1_LIMITS.fields ||
-    staff > TEMPLATE_V1_LIMITS.staff ||
-    optionCounts.some((count) => count > TEMPLATE_V1_LIMITS.optionsPerField) ||
+    fields > TEMPLATE_LIMITS.fields ||
+    staff > TEMPLATE_LIMITS.staff ||
+    optionCounts.some((count) => count > TEMPLATE_LIMITS.optionsPerField) ||
     optionCounts.reduce((sum, count) => sum + count, 0) >
-      TEMPLATE_V1_LIMITS.optionsTotal
+      TEMPLATE_LIMITS.optionsTotal
   ) {
     throw new EventTemplateError("limits");
   }
@@ -68,7 +68,7 @@ const portableFieldSchema = z
     required: registrationFieldSchema.shape.required,
     options: z
       .array(z.strictObject({ label: z.string() }))
-      .max(TEMPLATE_V1_LIMITS.optionsPerField),
+      .max(TEMPLATE_LIMITS.optionsPerField),
   })
   .superRefine((field, ctx) => {
     const result = registrationFieldSchema.safeParse({
@@ -99,17 +99,20 @@ const portableBadgeFieldSchema = z.strictObject({
 const portableBadgeLayoutSchema = badgeLayoutSchema.extend({
   secondaryField: portableBadgeFieldSchema.nullable(),
   tertiaryField: portableBadgeFieldSchema.nullable(),
-  // Defaults belong to stored-layout parsing, not the strict portable contract.
-  paddingMm: badgeLayoutSchema.shape.paddingMm.removeDefault(),
 });
 const instantSchema = z.iso.datetime({ precision: 3 });
 const eventFields = eventInputSchema.in.shape;
 
-export const eventTemplateV1Schema = z
+export const eventTemplateV2Schema = z
   .strictObject({
     format: z.literal("event-flow-template"),
-    version: z.literal(1),
+    version: z.literal(2),
     event: z.strictObject({
+      descriptionFormat: z.enum(["PLAIN_TEXT", "MARKDOWN"]),
+      location: locationSchema.nullable(),
+      schedule: scheduleSchema,
+      publicOrganizer: publicOrganizerSchema.nullable(),
+      cover: z.strictObject({ status: z.enum(["NONE", "OMITTED"]) }),
       title: eventFields.title,
       description: eventFields.description.nullable(),
       startsAt: instantSchema,
@@ -122,7 +125,7 @@ export const eventTemplateV1Schema = z
       registrationOpensAt: instantSchema.nullable(),
       registrationClosesAt: instantSchema.nullable(),
       registrationForm: z.strictObject({
-        fields: z.array(portableFieldSchema).max(TEMPLATE_V1_LIMITS.fields),
+        fields: z.array(portableFieldSchema).max(TEMPLATE_LIMITS.fields),
       }),
       staff: z
         .array(
@@ -131,16 +134,27 @@ export const eventTemplateV1Schema = z
             role: z.enum(["MANAGER", "RECEPTION"]),
           }),
         )
-        .max(TEMPLATE_V1_LIMITS.staff),
+        .max(TEMPLATE_LIMITS.staff),
       badgeLayout: portableBadgeLayoutSchema.nullable(),
     }),
   })
   .superRefine(({ event }, ctx) => {
+    validateScheduleRange(
+      event.schedule,
+      new Date(event.startsAt),
+      new Date(event.endsAt),
+      (index, message) =>
+        ctx.addIssue({
+          code: "custom",
+          path: ["event", "schedule", index, "startsAt"],
+          message,
+        }),
+    );
     const fields = event.registrationForm.fields;
 
     if (
       fields.reduce((sum, field) => sum + field.options.length, 0) >
-      TEMPLATE_V1_LIMITS.optionsTotal
+      TEMPLATE_LIMITS.optionsTotal
     ) {
       ctx.addIssue({ code: "custom", message: "Too many options." });
     }
@@ -176,70 +190,15 @@ export const eventTemplateV1Schema = z
     }
   });
 
-export type EventTemplateV1 = z.infer<typeof eventTemplateV1Schema>;
-
-export const eventTemplateV2Schema = z
-  .strictObject({
-    format: z.literal("event-flow-template"),
-    version: z.literal(2),
-    event: eventTemplateV1Schema.shape.event.extend({
-      descriptionFormat: z.enum(["PLAIN_TEXT", "MARKDOWN"]),
-      location: locationSchema.nullable(),
-      schedule: scheduleSchema,
-      publicOrganizer: publicOrganizerSchema.nullable(),
-      cover: z.strictObject({ status: z.enum(["NONE", "OMITTED"]) }),
-    }),
-  })
-  .superRefine(({ event }, ctx) => {
-    const {
-      descriptionFormat: _format,
-      location: _location,
-      schedule,
-      publicOrganizer: _organizer,
-      cover: _cover,
-      ...legacy
-    } = event;
-    const result = eventTemplateV1Schema.safeParse({
-      format: "event-flow-template",
-      version: 1,
-      event: legacy,
-    });
-
-    if (!result.success) {
-      for (const issue of result.error.issues) {
-        ctx.addIssue({
-          code: "custom",
-          path: issue.path,
-          message: issue.message,
-        });
-      }
-    }
-    validateScheduleRange(
-      schedule,
-      new Date(event.startsAt),
-      new Date(event.endsAt),
-      (index, message) =>
-        ctx.addIssue({
-          code: "custom",
-          path: ["event", "schedule", index, "startsAt"],
-          message,
-        }),
-    );
-  });
-
 export type EventTemplateV2 = z.infer<typeof eventTemplateV2Schema>;
 
-export function serializeEventTemplate(
-  template: EventTemplateV1 | EventTemplateV2,
-) {
+export function serializeEventTemplate(template: EventTemplateV2) {
   checkTemplateCounts(
     template.event.registrationForm.fields.length,
     template.event.registrationForm.fields.map((field) => field.options.length),
     template.event.staff.length,
   );
-  const parsed = (
-    template.version === 1 ? eventTemplateV1Schema : eventTemplateV2Schema
-  ).safeParse(template);
+  const parsed = eventTemplateV2Schema.safeParse(template);
 
   if (!parsed.success) {
     throw new EventTemplateError("configuration");
@@ -248,7 +207,7 @@ export function serializeEventTemplate(
   // Schema parsing fixes property order independently of the caller's insertion order.
   const json = `${JSON.stringify(parsed.data, null, 2)}\n`;
 
-  if (new TextEncoder().encode(json).byteLength > TEMPLATE_V1_LIMITS.bytes) {
+  if (new TextEncoder().encode(json).byteLength > TEMPLATE_LIMITS.bytes) {
     throw new EventTemplateError("limits");
   }
 

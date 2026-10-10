@@ -4,10 +4,9 @@ import type { EventSnapshot } from "@/features/events/schemas/event-snapshot";
 
 // Presentation only: the caller authorizes and chooses draft or published data.
 export function EventRichContent({ snapshot }: { snapshot: EventSnapshot }) {
-  const location = snapshot.schemaVersion === 3 ? snapshot.location : null;
-  const schedule = snapshot.schemaVersion === 3 ? snapshot.schedule : [];
-  const publicOrganizer =
-    snapshot.schemaVersion === 3 ? snapshot.publicOrganizer : null;
+  const location = snapshot.location;
+  const schedule = snapshot.schedule;
+  const publicOrganizer = snapshot.publicOrganizer;
   const dayFormatter = new Intl.DateTimeFormat("en-GB", {
     timeZone: snapshot.timezone,
     dateStyle: "full",
@@ -46,11 +45,7 @@ export function EventRichContent({ snapshot }: { snapshot: EventSnapshot }) {
           </Typography>
           <EventDescription
             text={snapshot.description}
-            format={
-              snapshot.schemaVersion === 3
-                ? snapshot.descriptionFormat
-                : "PLAIN_TEXT"
-            }
+            format={snapshot.descriptionFormat}
           />
         </Stack>
       )}
