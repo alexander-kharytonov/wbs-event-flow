@@ -1,4 +1,10 @@
 import { z } from "zod";
+import {
+  coverDescriptorSchema,
+  locationSchema,
+  publicOrganizerSchema,
+  scheduleSchema,
+} from "@/features/events/schemas/event-rich-content";
 
 // Frozen serialized v1 contract. Do not derive these rules from current authoring.
 const snapshotV1OptionSchema = z.strictObject({
@@ -119,12 +125,63 @@ export const eventSnapshotV2Schema = z
     }
   });
 
+export const eventSnapshotV3Schema = z
+  .strictObject({
+    ...eventSnapshotV2Schema.shape,
+    schemaVersion: z.literal(3),
+    descriptionFormat: z.enum(["PLAIN_TEXT", "MARKDOWN"]),
+    cover: coverDescriptorSchema.nullable(),
+    location: locationSchema.nullable(),
+    schedule: scheduleSchema,
+    publicOrganizer: publicOrganizerSchema.nullable(),
+  })
+  .superRefine((snapshot, ctx) => {
+    const {
+      descriptionFormat: _format,
+      cover: _cover,
+      location: _location,
+      schedule,
+      publicOrganizer: _organizer,
+      ...legacy
+    } = snapshot;
+    const result = eventSnapshotV2Schema.safeParse({
+      ...legacy,
+      schemaVersion: 2,
+    });
+
+    if (!result.success) {
+      for (const issue of result.error.issues) {
+        ctx.addIssue({
+          code: "custom",
+          path: issue.path,
+          message: issue.message,
+        });
+      }
+    }
+
+    for (const [index, entry] of schedule.entries()) {
+      if (
+        entry.startsAt < snapshot.startsAt ||
+        entry.startsAt >= snapshot.endsAt ||
+        (index > 0 && entry.startsAt < schedule[index - 1].startsAt)
+      ) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["schedule", index, "startsAt"],
+          message:
+            "Agenda must be chronological and within the event interval.",
+        });
+      }
+    }
+  });
+
 export const eventSnapshotSchema = z.union([
   eventSnapshotV1Schema.transform((snapshot) => ({
     ...snapshot,
     maxGuestsPerRegistration: 0,
   })),
   eventSnapshotV2Schema,
+  eventSnapshotV3Schema,
 ]);
 
 export type EventSnapshot = z.infer<typeof eventSnapshotSchema>;

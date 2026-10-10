@@ -147,6 +147,7 @@ export async function EditEventView({
         </Alert>
       ) : (
         <EventForm
+          initialCover={{ assetId: event.coverAssetId, alt: event.coverAlt }}
           startLocked={eventLifecycle(event, new Date()) === "Ongoing"}
           initialValues={eventFormValues(event)}
           serverAction={updateEvent}

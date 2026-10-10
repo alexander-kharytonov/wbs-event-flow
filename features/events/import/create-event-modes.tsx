@@ -44,6 +44,7 @@ export function CreateEventModes({
   const [issues, setIssues] = useState<TemplateIssue[]>([]);
   const [review, setReview] = useState<{
     generation: number;
+    sourceVersion: 1 | 2;
     event: TemplateEvent;
   }>();
   const [busy, setBusy] = useState(false);
@@ -186,6 +187,7 @@ export function CreateEventModes({
               if (result.success) {
                 setReview({
                   generation: ++generation.current,
+                  sourceVersion: result.sourceVersion,
                   event: result.template.event,
                 });
               } else {
@@ -207,6 +209,7 @@ export function CreateEventModes({
               <TemplateReview
                 key={review.generation}
                 initial={review.event}
+                sourceVersion={review.sourceVersion}
                 onBusyChange={setBusy}
               />
             </>

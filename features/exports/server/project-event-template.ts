@@ -6,11 +6,11 @@ import {
 import {
   checkTemplateCounts,
   EventTemplateError,
-  type EventTemplateV1,
-  eventTemplateV1Schema,
+  type EventTemplateV2,
+  eventTemplateV2Schema,
 } from "@/features/exports/event-template";
 
-type PortableEvent = EventTemplateV1["event"];
+type PortableEvent = EventTemplateV2["event"];
 
 export type EventTemplateSource = Omit<
   PortableEvent,
@@ -37,7 +37,7 @@ export type EventTemplateSource = Omit<
 // Input arrays are already in current workspace order; no HTTP or database dependency.
 export function projectEventTemplate(
   source: EventTemplateSource,
-): EventTemplateV1 {
+): EventTemplateV2 {
   const fields = source.registrationForm.fields;
   checkTemplateCounts(
     fields.length,
@@ -102,10 +102,15 @@ export function projectEventTemplate(
     };
   }
 
-  const result = eventTemplateV1Schema.safeParse({
+  const result = eventTemplateV2Schema.safeParse({
     format: "event-flow-template",
-    version: 1,
+    version: 2,
     event: {
+      descriptionFormat: source.descriptionFormat,
+      location: source.location,
+      schedule: source.schedule,
+      publicOrganizer: source.publicOrganizer,
+      cover: source.cover,
       title: source.title,
       description: source.description,
       startsAt: source.startsAt.toISOString(),

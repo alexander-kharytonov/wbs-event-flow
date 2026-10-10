@@ -1,3 +1,4 @@
+import PlaceOutlined from "@mui/icons-material/PlaceOutlined";
 import {
   Alert,
   AlertTitle,
@@ -10,6 +11,7 @@ import {
 } from "@mui/material";
 import type { ReactNode } from "react";
 import { DateTime } from "@/components/ui/date-time";
+import { EventRichContent } from "@/features/events/components/event-rich-content";
 import { formatEventTime } from "@/features/events/format-event-time";
 import {
   registrationAvailability,
@@ -19,6 +21,8 @@ import type { EventSnapshot } from "@/features/events/schemas/event-snapshot";
 
 export function EventGuestView({
   snapshot,
+  content,
+  cover,
   cancelled = false,
   cancellationReason,
   now,
@@ -26,7 +30,10 @@ export function EventGuestView({
   children,
   notice,
   showApplicationLink = false,
+  applicationLinkLabel = "Apply to attend",
 }: {
+  content?: ReactNode;
+  cover?: ReactNode;
   cancelled?: boolean;
   cancellationReason?: string | null;
   snapshot: EventSnapshot;
@@ -35,55 +42,98 @@ export function EventGuestView({
   children?: ReactNode;
   notice?: ReactNode;
   showApplicationLink?: boolean;
+  applicationLinkLabel?: string;
 }) {
   const state = cancelled ? "CLOSED" : registrationAvailability(snapshot, now);
   const hasEnded = now.getTime() >= Date.parse(snapshot.endsAt);
+  const location = snapshot.schemaVersion === 3 ? snapshot.location : null;
+  const hasStarted = now.getTime() >= Date.parse(snapshot.startsAt);
   const format = (instant: string) =>
     formatEventTime(new Date(instant), snapshot.timezone);
 
   return (
     <Box>
       <Stack spacing={3} sx={{ overflowWrap: "anywhere" }}>
-        <Stack
-          spacing={2}
-          sx={{ pb: 3, borderBottom: 1, borderColor: "divider" }}
+        <Paper
+          variant="outlined"
+          sx={{
+            overflow: "hidden",
+            borderTop: cover ? undefined : 3,
+            borderTopColor: "primary.main",
+          }}
         >
-          <Typography variant="overline" color="primary.main">
-            {cancelled
-              ? "Event cancelled"
-              : hasEnded
-                ? "Past event"
-                : "Event details"}
-          </Typography>
-          <Typography
-            variant="h3"
-            component="h1"
-            sx={{ fontSize: { xs: "2rem", sm: "2.5rem" } }}
-          >
-            {snapshot.title}
-          </Typography>
-          {cancelled && (
-            <Alert severity="error" sx={{ whiteSpace: "pre-wrap" }}>
-              <AlertTitle>Event cancelled</AlertTitle>
-              {cancellationReason}
-            </Alert>
-          )}
-          <DateTime
-            date={snapshot.startsAt}
-            endDate={snapshot.endsAt}
-            timezone={snapshot.timezone}
-          />
-          <Stack direction="row" sx={{ gap: 1, flexWrap: "wrap" }}>
-            {showApplicationLink && (
-              <Button href="#event-application" variant="contained">
-                Apply to attend
-              </Button>
+          {cover}
+          <Stack spacing={1.5} sx={{ p: { xs: 2.5, sm: 3 } }}>
+            <Typography variant="overline" color="primary.main">
+              {cancelled
+                ? "Event cancelled"
+                : hasEnded
+                  ? "Past event"
+                  : hasStarted
+                    ? "Happening now"
+                    : "Upcoming event"}
+            </Typography>
+            <Typography
+              variant="h3"
+              component="h1"
+              sx={{ fontSize: { xs: "2rem", sm: "2.75rem" }, maxWidth: "28ch" }}
+            >
+              {snapshot.title}
+            </Typography>
+            {cancelled && (
+              <Alert severity="error" sx={{ whiteSpace: "pre-wrap" }}>
+                <AlertTitle>Event cancelled</AlertTitle>
+                {cancellationReason}
+              </Alert>
             )}
-            <Button href="#event-registration" variant="outlined">
-              Registration details
-            </Button>
+            <DateTime
+              date={snapshot.startsAt}
+              endDate={snapshot.endsAt}
+              timezone={snapshot.timezone}
+            />
+            {location && (
+              <Stack
+                direction="row"
+                spacing={1}
+                sx={{ alignItems: "center", color: "text.secondary" }}
+              >
+                <PlaceOutlined fontSize="small" />
+                <Typography variant="body2">
+                  {location.type === "ONLINE"
+                    ? location.onlineLabel
+                    : location.venueName}
+                  {location.type === "HYBRID" && ` · ${location.onlineLabel}`}
+                </Typography>
+              </Stack>
+            )}
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              sx={{
+                gap: 1,
+                flexWrap: "wrap",
+                alignItems: { sm: "center" },
+                pt: 1,
+              }}
+            >
+              {showApplicationLink && (
+                <Button
+                  component="a"
+                  href="#event-application"
+                  variant="contained"
+                >
+                  {applicationLinkLabel}
+                </Button>
+              )}
+              <Button
+                component="a"
+                href="#event-registration"
+                variant="outlined"
+              >
+                Registration details
+              </Button>
+            </Stack>
           </Stack>
-        </Stack>
+        </Paper>
         <Box
           sx={{
             display: "grid",
@@ -95,34 +145,17 @@ export function EventGuestView({
             alignItems: "start",
           }}
         >
-          <Stack spacing={4} sx={{ minWidth: 0 }}>
-            {snapshot.description && (
-              <Typography sx={{ whiteSpace: "pre-wrap", maxWidth: "80ch" }}>
-                {snapshot.description}
-              </Typography>
-            )}
-            <Box
-              id="event-application"
-              tabIndex={-1}
-              sx={{
-                "&:empty": { display: "none" },
-                bgcolor: "background.paper",
-                border: 1,
-                borderColor: "divider",
-                borderRadius: 1,
-                p: { xs: 2, sm: 3 },
-              }}
-            >
-              {children}
-            </Box>
-          </Stack>
           <Paper
             component="section"
             variant="outlined"
             id="event-registration"
             aria-labelledby="event-registration-title"
             tabIndex={-1}
-            sx={{ p: 3, order: { xs: -1, md: 0 } }}
+            sx={{
+              p: { xs: 2, sm: 3 },
+              gridColumn: { md: 2 },
+              gridRow: { md: 1 },
+            }}
           >
             <Stack spacing={2}>
               <Stack
@@ -263,6 +296,26 @@ export function EventGuestView({
               </Stack>
             </Stack>
           </Paper>
+          <Stack
+            spacing={4}
+            sx={{ minWidth: 0, gridColumn: { md: 1 }, gridRow: { md: 1 } }}
+          >
+            {content ?? <EventRichContent snapshot={snapshot} />}
+            <Box
+              id="event-application"
+              tabIndex={-1}
+              sx={{
+                "&:empty": { display: "none" },
+                bgcolor: "background.paper",
+                border: 1,
+                borderColor: "divider",
+                borderRadius: 1,
+                p: { xs: 2, sm: 3 },
+              }}
+            >
+              {children}
+            </Box>
+          </Stack>
         </Box>
       </Stack>
     </Box>

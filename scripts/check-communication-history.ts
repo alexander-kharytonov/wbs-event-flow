@@ -232,7 +232,7 @@ async function checkFailurePaths() {
 
 async function checkSummaries() {
   const { communicationDeliverySummary } = await import(
-    "@/features/communications/server/history"
+    "@/features/communications/delivery-status"
   );
 
   for (let pending = 0; pending <= 4; pending++) {
@@ -473,8 +473,12 @@ async function main() {
     const { queryCommunicationDetails } = await import(
       "@/features/communications/server/read-details"
     );
-    const { communicationDeliverySummary, projectCommunicationContext } =
-      await import("@/features/communications/server/history");
+    const { communicationDeliverySummary } = await import(
+      "@/features/communications/delivery-status"
+    );
+    const { projectCommunicationContext } = await import(
+      "@/features/communications/server/history"
+    );
     const { claimEmailBatch, finishEmailDelivery } = await import(
       "@/lib/email-outbox/delivery"
     );

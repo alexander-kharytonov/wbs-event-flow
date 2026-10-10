@@ -4,7 +4,10 @@ import {
   checkTemplateCounts,
   EventTemplateError,
 } from "@/features/exports/event-template";
-import { projectEventTemplate } from "@/features/exports/server/project-event-template";
+import {
+  type EventTemplateSource,
+  projectEventTemplate,
+} from "@/features/exports/server/project-event-template";
 import { prisma } from "@/lib/prisma";
 
 // Only a fresh, verified session-derived userId is accepted by the caller.
@@ -42,6 +45,12 @@ export async function readEventTemplate(userId: string, eventId: string) {
         select: {
           title: true,
           description: true,
+          descriptionFormat: true,
+          coverAssetId: true,
+          coverAlt: true,
+          location: true,
+          schedule: true,
+          publicOrganizer: true,
           startsAt: true,
           endsAt: true,
           timezone: true,
@@ -83,6 +92,12 @@ export async function readEventTemplate(userId: string, eventId: string) {
 
       return projectEventTemplate({
         ...event,
+        // Serialized rich values are validated by the strict projector, never omitted.
+        location: event.location as EventTemplateSource["location"],
+        schedule: event.schedule as EventTemplateSource["schedule"],
+        publicOrganizer:
+          event.publicOrganizer as EventTemplateSource["publicOrganizer"],
+        cover: { status: event.coverAssetId ? "OMITTED" : "NONE" },
         registrationForm: event.registrationForm,
         staff: event.staff.map((member) => ({
           email: member.user.email,

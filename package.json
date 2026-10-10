@@ -14,7 +14,8 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "db:check": "node --conditions=react-server --import tsx scripts/db-check.ts"
+    "db:check": "node --conditions=react-server --import tsx scripts/db-check.ts",
+    "media:cleanup": "node --conditions=react-server --import tsx scripts/media-cleanup.ts"
   },
   "dependencies": {
     "@emotion/cache": "11.14.0",
@@ -35,7 +36,9 @@
     "qrcode": "1.5.4",
     "react": "19.3.0",
     "react-dom": "19.3.0",
+    "react-markdown": "^10.1.0",
     "server-only": "^0.0.1",
+    "sharp": "0.35.4",
     "zod": "^4.6.5"
   },
   "devDependencies": {

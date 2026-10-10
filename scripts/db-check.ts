@@ -3,6 +3,8 @@ import {
   communicationContextSchema,
   deliveryAssociationSchema,
 } from "@/features/communications/server/contracts";
+import { mediaManifestSchema } from "@/features/events/schemas/event-rich-content";
+import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 
 async function main() {
   loadEnvConfig(process.cwd(), true);
@@ -23,6 +25,7 @@ async function main() {
           UNION ALL SELECT 'OrganizerProfile', count(*) FROM "OrganizerProfile"
           UNION ALL SELECT 'Event', count(*) FROM "Event"
           UNION ALL SELECT 'EventRevision', count(*) FROM "EventRevision"
+          UNION ALL SELECT 'MediaAsset', count(*) FROM "MediaAsset"
           UNION ALL SELECT 'EventStaff', count(*) FROM "EventStaff"
           UNION ALL SELECT 'RegistrationForm', count(*) FROM "RegistrationForm"
           UNION ALL SELECT 'RegistrationField', count(*) FROM "RegistrationField"
@@ -263,6 +266,106 @@ async function main() {
           violations.push({
             invariant: "communication_context_contract",
             invalid_count: invalidContexts,
+          });
+        }
+
+        const mediaReferences = await tx.$queryRaw<
+          { invariant: string; invalid_count: bigint }[]
+        >`
+          SELECT 'draft_media_reference' AS invariant, count(*) AS invalid_count
+          FROM "Event" e JOIN "MediaAsset" m ON m.id = e."coverAssetId"
+          WHERE m.state <> 'READY' OR m."organizerId" <> e."organizerId" OR m."eventId" IS DISTINCT FROM e.id
+          UNION ALL
+          SELECT 'revision_media_reference', count(*)
+          FROM "EventRevision" r JOIN "Event" e ON e.id = r."eventId" JOIN "MediaAsset" m ON m.id = r."coverAssetId"
+          WHERE m.state <> 'READY' OR m."organizerId" <> e."organizerId" OR m."eventId" IS DISTINCT FROM e.id
+          UNION ALL
+          SELECT 'untracked_ready_media_retention', count(*) FROM "MediaAsset" m
+          WHERE m.state = 'READY' AND m."unusedSince" IS NULL
+          AND NOT EXISTS (SELECT 1 FROM "Event" e WHERE e."coverAssetId" = m.id)
+          AND NOT EXISTS (SELECT 1 FROM "EventRevision" r WHERE r."coverAssetId" = m.id)
+        `;
+        violations.push(
+          ...mediaReferences.filter((row) => row.invalid_count > BigInt(0)),
+        );
+        let mediaCursor: string | undefined;
+        let invalidMedia = BigInt(0);
+
+        while (true) {
+          const assets = await tx.mediaAsset.findMany({
+            where: {
+              state: "READY",
+              ...(mediaCursor ? { id: { gt: mediaCursor } } : {}),
+            },
+            orderBy: { id: "asc" },
+            take: 200,
+            select: { id: true, manifest: true },
+          });
+
+          if (assets.length === 0) {
+            break;
+          }
+
+          invalidMedia += BigInt(
+            assets.filter(
+              (asset) => !mediaManifestSchema.safeParse(asset.manifest).success,
+            ).length,
+          );
+          mediaCursor = assets[assets.length - 1].id;
+        }
+
+        let revisionCursor: string | undefined;
+
+        while (true) {
+          const revisions = await tx.eventRevision.findMany({
+            where: {
+              ...(revisionCursor ? { id: { gt: revisionCursor } } : {}),
+              OR: [
+                { coverAssetId: { not: null } },
+                { snapshot: { path: ["schemaVersion"], equals: 3 } },
+              ],
+            },
+            orderBy: { id: "asc" },
+            take: 200,
+            select: {
+              id: true,
+              snapshot: true,
+              coverAssetId: true,
+              coverAsset: { select: { manifest: true } },
+            },
+          });
+
+          if (revisions.length === 0) {
+            break;
+          }
+
+          for (const revision of revisions) {
+            const snapshot = eventSnapshotSchema.safeParse(revision.snapshot);
+            const manifest = mediaManifestSchema.safeParse(
+              revision.coverAsset?.manifest,
+            );
+
+            if (
+              !snapshot.success ||
+              snapshot.data.schemaVersion !== 3 ||
+              (snapshot.data.cover?.assetId ?? null) !==
+                revision.coverAssetId ||
+              (snapshot.data.cover &&
+                (!manifest.success ||
+                  JSON.stringify(snapshot.data.cover.variants) !==
+                    JSON.stringify(manifest.data)))
+            ) {
+              invalidMedia++;
+            }
+          }
+
+          revisionCursor = revisions[revisions.length - 1].id;
+        }
+
+        if (invalidMedia > BigInt(0)) {
+          violations.push({
+            invariant: "media_serialized_contract",
+            invalid_count: invalidMedia,
           });
         }
 

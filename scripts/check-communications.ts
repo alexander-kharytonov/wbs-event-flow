@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { loadEnvConfig } from "@next/env";
+import { deliveryStatusMeaning } from "@/features/communications/delivery-status";
 import {
   assertManualAdmissionCapacity,
   checkManualCommunicationAdmission,
@@ -21,7 +22,6 @@ import {
 import { enqueueTransactionalCommunication } from "@/features/communications/server/enqueue";
 import {
   communicationSummarySelect,
-  deliveryStatusMeaning,
   projectCommunicationActor,
   projectCommunicationContext,
   projectDeliveryCounts,
@@ -126,21 +126,6 @@ async function main() {
       FAILED: 0,
     });
     assert.equal(deliveryStatusMeaning.SENT, "SMTP transport accepted");
-    const statusRow = {
-      id: randomUUID(),
-      recipientEmail: "a@example.test",
-      status: "SENT" as const,
-      sentAt: new Date(),
-      payload: { secret: "hidden" },
-      lastError: "hidden",
-      lockedBy: "hidden",
-    };
-    assert.deepEqual(Object.keys(projectSafeRecipientStatus(statusRow)), [
-      "id",
-      "recipientEmail",
-      "status",
-      "sentAt",
-    ]);
 
     for (const role of ["OWNER", "MANAGER", "RECEPTION"] as const) {
       for (const permission of [
@@ -358,6 +343,25 @@ async function main() {
             where: { communicationId: first.id },
           });
           assert.equal(outbox.recipientEmail, "a@example.test");
+          // Verify the current safe DTO against the persisted row, including
+          // fields omitted from the public projection (payload, errors, lease).
+          const safeStatus = projectSafeRecipientStatus(outbox);
+          assert.deepEqual(Object.keys(safeStatus), [
+            "id",
+            "recipientEmail",
+            "status",
+            "attempts",
+            "createdAt",
+            "sentAt",
+          ]);
+          assert.deepEqual(safeStatus, {
+            id: outbox.id,
+            recipientEmail: outbox.recipientEmail,
+            status: outbox.status,
+            attempts: outbox.attempts,
+            createdAt: outbox.createdAt,
+            sentAt: outbox.sentAt,
+          });
           const summary = await tx.communication.findUniqueOrThrow({
             where: { id: first.id },
             select: communicationSummarySelect,

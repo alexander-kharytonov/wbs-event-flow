@@ -5,13 +5,16 @@ import { connection } from "next/server";
 import { applicationPrefill } from "@/features/events/application-prefill";
 import { applicationStatusLabels } from "@/features/events/application-status-labels";
 import { ApplicationRealtime } from "@/features/events/components/application-realtime";
+import { EventCover } from "@/features/events/components/event-cover";
 import { EventGuestView } from "@/features/events/components/event-guest-view";
 import { RegistrationAdmission } from "@/features/events/components/registration-admission";
 import { RegistrationApplicationForm } from "@/features/events/components/registration-application-form";
 import { WithdrawApplicationButton } from "@/features/events/components/withdraw-application-button";
+import { eventCoverImage } from "@/features/events/event-cover";
+import { publicEventMetadata } from "@/features/events/public-event-metadata";
 import { registrationAvailability } from "@/features/events/registration-availability";
 import { getPublishedEvent } from "@/features/events/server/get-published-event";
-
+import { getServerEnv } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 
@@ -30,18 +33,14 @@ async function publishedSnapshot(params: Props["params"]) {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { snapshot } = await publishedSnapshot(params);
+  const published = await publishedSnapshot(params);
+  const { publicId } = await params;
 
-  return {
-    title: `${snapshot.title} | Event Flow`,
-    description:
-      snapshot.description?.replace(/\s+/g, " ").trim().slice(0, 160) ||
-      "Event details and registration information on Event Flow.",
-    robots: {
-      index: snapshot.visibility === "PUBLIC",
-      follow: snapshot.visibility === "PUBLIC",
-    },
-  };
+  return publicEventMetadata(
+    published,
+    publicId,
+    getServerEnv().BETTER_AUTH_URL,
+  );
 }
 
 export default async function PublicEventPage({ params }: Props) {
@@ -134,11 +133,25 @@ export default async function PublicEventPage({ params }: Props) {
       snapshot={snapshot}
       now={now}
       occupied={occupied}
-      showApplicationLink={
-        !ownedEvent &&
-        !application &&
-        open &&
-        (snapshot.accountRequirement === "OPTIONAL" || Boolean(user))
+      cover={
+        snapshot.schemaVersion === 3 &&
+        snapshot.cover && (
+          <EventCover
+            key={snapshot.cover.assetId}
+            image={eventCoverImage(
+              snapshot.cover,
+              `/e/${publicId}/cover/${snapshot.cover.assetId}`,
+            )}
+          />
+        )
+      }
+      showApplicationLink={!ownedEvent && !application && open}
+      applicationLinkLabel={
+        snapshot.accountRequirement === "REQUIRED" && !user
+          ? "Sign in to apply"
+          : withdrawn
+            ? "Apply again"
+            : "Apply to attend"
       }
       notice={
         <>

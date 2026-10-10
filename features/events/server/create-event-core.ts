@@ -12,7 +12,7 @@ import {
   registrationFieldData,
 } from "@/features/events/schemas/registration-form";
 import type { StaffInput } from "@/features/events/staff-input";
-import type { Prisma } from "@/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 
 type EventConfiguration = z.output<typeof eventInputSchema>;
 
@@ -30,6 +30,10 @@ export async function createEventCore(
       organizerId,
       title: configuration.title,
       description: configuration.description,
+      descriptionFormat: configuration.descriptionFormat,
+      location: configuration.location ?? Prisma.DbNull,
+      schedule: configuration.schedule,
+      publicOrganizer: configuration.publicOrganizer ?? Prisma.DbNull,
       startsAt: configuration.startsAt,
       endsAt: configuration.endsAt,
       timezone: configuration.timezone,

@@ -1,9 +1,11 @@
 import { Alert, Stack, Typography } from "@mui/material";
 import { notFound } from "next/navigation";
 import { z } from "zod";
+import { EventCover } from "@/features/events/components/event-cover";
 import { EventGuestView } from "@/features/events/components/event-guest-view";
 import { EventHeader } from "@/features/events/components/event-header";
 import { RegistrationFormPreview } from "@/features/events/components/registration-form-preview";
+import { eventCoverImage } from "@/features/events/event-cover";
 import {
   buildEventSnapshot,
   workspaceInclude,
@@ -67,7 +69,21 @@ export default async function PreviewPage({
         Registration is unavailable in preview.
       </Alert>
       {snapshot.success ? (
-        <EventGuestView snapshot={snapshot.data} now={new Date()}>
+        <EventGuestView
+          snapshot={snapshot.data}
+          now={new Date()}
+          cover={
+            snapshot.data.cover && (
+              <EventCover
+                key={snapshot.data.cover.assetId}
+                image={eventCoverImage(
+                  snapshot.data.cover,
+                  `/api/events/${id}/cover/${snapshot.data.cover.assetId}`,
+                )}
+              />
+            )
+          }
+        >
           <Stack spacing={3}>
             <Stack spacing={0.5}>
               <Typography

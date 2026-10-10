@@ -3,7 +3,15 @@ import {
   badgeFieldSchema,
   badgeLayoutSchema,
 } from "@/features/badges/badge-layout";
-import { eventInputSchema } from "@/features/events/event-input-schema";
+import {
+  eventInputSchema,
+  validateScheduleRange,
+} from "@/features/events/event-input-schema";
+import {
+  locationSchema,
+  publicOrganizerSchema,
+  scheduleSchema,
+} from "@/features/events/schemas/event-rich-content";
 import {
   isChoice,
   registrationFieldSchema,
@@ -19,7 +27,7 @@ export const TEMPLATE_V1_LIMITS = {
 
 const errorMessages = {
   limits:
-    "This event exceeds Template v1 limits (100 questions, 100 options per question, 1,000 options total, 100 staff, 512 KiB). No partial file was produced.",
+    "This event exceeds template limits (100 questions, 100 options per question, 1,000 options total, 100 staff, 512 KiB). No partial file was produced.",
   binding:
     "The badge design references a field no longer present in the current form. Update Badge Design before exporting the template.",
   layout:
@@ -29,7 +37,7 @@ const errorMessages = {
 } as const;
 
 export class EventTemplateError extends Error {
-  constructor(code: keyof typeof errorMessages) {
+  constructor(public readonly code: keyof typeof errorMessages) {
     super(errorMessages[code]);
   }
 }
@@ -170,13 +178,68 @@ export const eventTemplateV1Schema = z
 
 export type EventTemplateV1 = z.infer<typeof eventTemplateV1Schema>;
 
-export function serializeEventTemplate(template: EventTemplateV1) {
+export const eventTemplateV2Schema = z
+  .strictObject({
+    format: z.literal("event-flow-template"),
+    version: z.literal(2),
+    event: eventTemplateV1Schema.shape.event.extend({
+      descriptionFormat: z.enum(["PLAIN_TEXT", "MARKDOWN"]),
+      location: locationSchema.nullable(),
+      schedule: scheduleSchema,
+      publicOrganizer: publicOrganizerSchema.nullable(),
+      cover: z.strictObject({ status: z.enum(["NONE", "OMITTED"]) }),
+    }),
+  })
+  .superRefine(({ event }, ctx) => {
+    const {
+      descriptionFormat: _format,
+      location: _location,
+      schedule,
+      publicOrganizer: _organizer,
+      cover: _cover,
+      ...legacy
+    } = event;
+    const result = eventTemplateV1Schema.safeParse({
+      format: "event-flow-template",
+      version: 1,
+      event: legacy,
+    });
+
+    if (!result.success) {
+      for (const issue of result.error.issues) {
+        ctx.addIssue({
+          code: "custom",
+          path: issue.path,
+          message: issue.message,
+        });
+      }
+    }
+    validateScheduleRange(
+      schedule,
+      new Date(event.startsAt),
+      new Date(event.endsAt),
+      (index, message) =>
+        ctx.addIssue({
+          code: "custom",
+          path: ["event", "schedule", index, "startsAt"],
+          message,
+        }),
+    );
+  });
+
+export type EventTemplateV2 = z.infer<typeof eventTemplateV2Schema>;
+
+export function serializeEventTemplate(
+  template: EventTemplateV1 | EventTemplateV2,
+) {
   checkTemplateCounts(
     template.event.registrationForm.fields.length,
     template.event.registrationForm.fields.map((field) => field.options.length),
     template.event.staff.length,
   );
-  const parsed = eventTemplateV1Schema.safeParse(template);
+  const parsed = (
+    template.version === 1 ? eventTemplateV1Schema : eventTemplateV2Schema
+  ).safeParse(template);
 
   if (!parsed.success) {
     throw new EventTemplateError("configuration");
