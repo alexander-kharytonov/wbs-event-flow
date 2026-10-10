@@ -1012,13 +1012,15 @@ is derived from Attendee, Event operational layout, available active Ticket and,
 for PRIMARY, submitted Application answers. Printing does not write Attendance or
 change admission. Guest answers are never inferred from their Registration PRIMARY.
 
-Event.badgeLayout is nullable JSON: SQL null means the built-in default.
+Event.badgeLayout is nullable JSON: SQL null means the current built-in default,
+including paddingMm=3.
 A strict formatVersion=1 schema permits only physical size presets,
 orientation, display switches, two optional field descriptors, name size, alignment
-and paddingMm (integer 0–10). Missing paddingMm in existing layouts defaults to 3 mm.
+and paddingMm (integer 0–10). Non-null layouts must explicitly include paddingMm;
+missing padding is rejected. The obsolete preset property is rejected, with no
+legacy normalization or discarding of unknown properties. Strict schema validation
+remains authoritative for reads and writes. All badges use one layout.
 Padding applies equally on all sides within the fixed physical dimensions.
-Presets are removed: existing stored preset values are accepted only when reading
-and discarded. All badges use one layout; new saves omit preset.
 No arbitrary HTML/CSS/coordinates or custom dimensions are accepted. One authoritative
 size mapping serves preview and print. Owner Save locks Event, rereads badges.configure
 permission after the lock and validates descriptors against the Event's catalog.
@@ -1350,9 +1352,11 @@ review editor are now implemented in 26C (section 31). Duplicate Event reuses th
 ## 31. Event template import / atomic create (26C)
 
 Create page and intercepted modal share manual/import modes. Upload and Paste use
-one UTF-8 byte-limit -> JSON parse -> format/version -> strict versioned template ->
-create-domain validation pipeline. Versions 1 and 2 are supported (section 38);
-unknown fields and database identity properties fail. Limits remain 512 KiB,
+one UTF-8 byte-limit -> JSON parse -> format/version -> strict EventTemplate V2 ->
+create-domain validation pipeline. EventTemplate V2 is the only supported format
+(section 38). V1 and unknown versions are rejected without legacy normalization
+or conversion; unknown fields and database identity properties fail.
+Portability limits remain 512 KiB,
 100 fields, 100 options/field, 1,000 total options and 100 Staff, including after
 review edits. Errors expose only code/known path/safe message, never raw parser,
 Zod or database errors. No payload/email logging or untrusted deep merge occurs.
