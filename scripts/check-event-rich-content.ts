@@ -182,6 +182,7 @@ function waitForBrowser(child: ChildProcess) {
     child.once("error", failed);
     process.once("SIGINT", interrupted);
     process.once("SIGTERM", interrupted);
+    process.stdin.resume();
 
     if (childTerminated(child)) {
       stopped();

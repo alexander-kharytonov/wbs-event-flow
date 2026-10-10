@@ -38,6 +38,8 @@ export function EventCoverEditor({
   const [pending, setPending] = useState<"upload" | "save" | null>(null);
   const [saved, setSaved] = useState(false);
   const [conflict, setConflict] = useState(false);
+  const [failedAssetId, setFailedAssetId] = useState<string>();
+  const fileInput = useRef<HTMLInputElement>(null);
   const request = useRef<AbortController | null>(null);
   const feedback = useFormFeedback();
   useEffect(() => () => request.current?.abort(), []);
@@ -108,6 +110,7 @@ export function EventCoverEditor({
         setCover(next);
         setAssetId(next.assetId);
         setAlt(next.alt ?? "");
+        setFile(undefined);
         onSaved(result.version);
         setSaved(true);
         setConflict(false);
@@ -141,31 +144,27 @@ export function EventCoverEditor({
       </Typography>
       <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
         <Button
-          component="label"
+          type="button"
           variant="outlined"
           disabled={disabled || Boolean(pending)}
+          onClick={() => fileInput.current?.click()}
         >
           {cover.assetId ? "Choose replacement" : "Choose image"}
-          <Box
-            component="input"
-            type="file"
-            disabled={disabled || Boolean(pending)}
-            accept="image/jpeg,image/png,image/webp"
-            sx={{
-              clipPath: "inset(50%)",
-              height: 1,
-              width: 1,
-              position: "absolute",
-              overflow: "hidden",
-            }}
-            onChange={(event) => {
-              setFile(event.target.files?.[0]);
-              event.target.value = "";
-              feedback.reset();
-              setSaved(false);
-            }}
-          />
         </Button>
+        <input
+          ref={fileInput}
+          hidden
+          type="file"
+          aria-label="Cover image file"
+          disabled={disabled || Boolean(pending)}
+          accept="image/jpeg,image/png,image/webp"
+          onChange={(event) => {
+            setFile(event.target.files?.[0]);
+            event.target.value = "";
+            feedback.clear("file");
+            setSaved(false);
+          }}
+        />
         <Button
           type="button"
           disabled={!file || disabled || Boolean(pending)}
@@ -192,17 +191,45 @@ export function EventCoverEditor({
       {assetId && (
         <>
           <Box
-            component="img"
-            src={`/api/events/${eventId}/cover/${assetId}/640`}
-            alt={alt || "Cover preview"}
             sx={{
               width: "100%",
-              maxHeight: 280,
-              objectFit: "contain",
+              height: { xs: 220, sm: 280 },
+              display: "grid",
+              placeItems: "center",
               bgcolor: "action.hover",
               borderRadius: 1,
+              overflow: "hidden",
             }}
-          />
+          >
+            {failedAssetId === assetId ? (
+              <Typography
+                role="status"
+                variant="body2"
+                color="text.secondary"
+                sx={{ p: 2 }}
+              >
+                Cover image unavailable. Choose another image to replace it.
+              </Typography>
+            ) : (
+              <Box
+                component="img"
+                src={`/api/events/${eventId}/cover/${assetId}/640`}
+                alt={alt || "Cover preview"}
+                onError={() => setFailedAssetId(assetId)}
+                ref={(element: HTMLImageElement | null) => {
+                  if (element?.complete && element.naturalWidth === 0) {
+                    setFailedAssetId(assetId);
+                  }
+                }}
+                sx={{
+                  width: "100%",
+                  height: "100%",
+                  minHeight: 0,
+                  objectFit: "contain",
+                }}
+              />
+            )}
+          </Box>
           <TextField
             label="Cover alternative text"
             value={alt}

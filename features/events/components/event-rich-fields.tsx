@@ -115,6 +115,7 @@ export function EventRichFields({
   }
 
   function move(index: number, offset: number) {
+    const key = values.schedule[index].key;
     setValues((current) => {
       const schedule = [...current.schedule];
       [schedule[index], schedule[index + offset]] = [
@@ -130,6 +131,11 @@ export function EventRichFields({
 
       return next;
     });
+    requestAnimationFrame(() =>
+      agenda.current
+        ?.querySelector<HTMLInputElement>(`[data-agenda-key="${key}"] input`)
+        ?.focus(),
+    );
   }
 
   return (
