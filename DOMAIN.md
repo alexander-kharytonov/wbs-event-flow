@@ -139,7 +139,7 @@ startsAt <= now < endsAt; Past means endsAt <= now. Content and classification
 never use workspace values. Organizer dashboard filters do use workspace visibility.
 
 Sources: [catalog query](features/events/server/get-public-events.ts),
-[catalog page](app/e/page.tsx), [Public Event](app/e/[publicId]/page.tsx).
+[catalog page](app/e/(catalog)/page.tsx), [Public Event](app/e/[publicId]/page.tsx).
 
 ## 6. Registration availability
 
@@ -1985,7 +1985,7 @@ images/MDX/raw plugins and permits only absolute HTTP(S) URLs without credential
 Links use noopener/noreferrer. PLAIN_TEXT remains literal. Preview uses the current
 workspace V3 builder and controlled OWNER media routes without the image optimizer.
 Public /e/[publicId] retains its published-revision authority and Staff DTOs are not
-expanded. Public landing/metadata work is deferred to 29C and subsequent 29D work.
+expanded. Public landing/metadata is defined by 29C below; 29D remains deferred.
 
 EventTemplateV2 retains the format identifier and version 2, the V1 portable Event
 configuration and rich fields descriptionFormat, nullable location/publicOrganizer,
@@ -2006,3 +2006,47 @@ warns about OMITTED; Create always creates without a cover using the existing at
 core. Source reload/revocation checks, Staff resolution, fresh question/option IDs,
 Badge bindings and rollback behavior are preserved. There is no second editor or
 cloning service, media copy, worker, polling or cloud backend.
+
+## 39. Public landing and metadata (29C)
+
+The public page, route-layout guard and generateMetadata share the request-scoped
+getPublishedEvent cache. The reader validates the current EventRevision with the
+frozen V1/V2/V3 parser and checks its cover descriptor against the revision FK.
+No mutable title, description, location, agenda, organizer or form is a fallback.
+The only added DTO field is an archived boolean from Event.archivedAt. Existing
+cancellation facts and lifecycleEndsAt remain operational guards, not substitutes
+for the published schedule. No cross-request publication cache is introduced.
+
+EventGuestView and EventRichContent render already authorized data. OWNER Preview
+continues to build a workspace V3 snapshot; the public route reads only publication.
+Callers prepare their separate OWNER/public cover URLs. The shared image component
+receives only URL/alt/dimension props, uses actual deduplicated variant widths and
+reserves its layout for errors. No storage locator or new media authority is exposed.
+Schedule grouping uses local calendar days in snapshot.timezone; output retains
+array order, equal timestamps and exact datetime attributes, with offsets on local
+times. Location and organizer are the existing explicit public snapshot fields.
+
+Metadata description reads text nodes from the same restricted react-markdown
+output as presentation, excluding HTML/images and link destinations, then normalizes
+whitespace and caps at 160 characters. Canonical, OG and Twitter URLs use the
+validated configured BETTER_AUTH_URL origin; request Host/forwarded headers are
+never authority. Indexability requires valid current PUBLIC publication and no
+cancellation/archive; completion alone does not prohibit indexing. PRIVATE is
+noindex/nofollow without rich social metadata and retains direct-link access.
+Cancellation/archive retain public content with noindex. Existing controlled
+current-cover social URLs and all media headers remain unchanged; external crawler
+support and card cache freshness are best effort, not a new delivery guarantee.
+
+The catalog page/loading files live in a URL-neutral route group. The Event route
+layout awaits publication validation before its body can stream, with no ancestor
+loading boundary. Invalid/missing/unpublished Events call notFound before HTML
+response commit and emit HTTP 404 without Event-specific canonical or social
+metadata. Valid published HTML documents return HTTP 200. This strict status
+contract applies to HTML documents only. Next.js RSC navigation may return HTTP 200
+with NEXT_HTTP_ERROR_FALLBACK;404, provided the client renders Not Found and no
+protected content is included. RSC status 200 is not proof of a valid publication;
+verification checks the Not Found signal and payload separately. No transport
+override or suppression of Next.js errors is required.
+Page and metadata keep their own guards too; the layout is not an access-control
+replacement. Existing registration rendering/actions, historical form authority,
+capacity/admission rules, media lifecycle and all operational features are unchanged.

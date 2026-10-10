@@ -14,6 +14,7 @@ export const getPublishedEvent = cache(async (publicId: string) => {
     where: { publicId },
     select: {
       cancelledAt: true,
+      archivedAt: true,
       cancellationReason: true,
       endsAt: true,
       publishedRevision: {
@@ -34,6 +35,7 @@ export const getPublishedEvent = cache(async (publicId: string) => {
         snapshot: snapshot.data,
         eventRevisionId: event.publishedRevision.id,
         cancelledAt: event.cancelledAt,
+        archived: Boolean(event.archivedAt),
         cancellationReason: event.cancellationReason,
         lifecycleEndsAt: event.endsAt,
       }

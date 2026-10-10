@@ -891,5 +891,48 @@ size limits, atomic Create and Duplicate refresh/revocation semantics are preser
 
 OWNER Preview displays the draft cover and rich content from the workspace's V3
 snapshot. Public pages still use published revisions only. Overview remains an
-operational view without expanded Staff access. Public landing redesign (29C) and
-29D are deferred; this iteration adds no worker, polling or storage backend.
+operational view without expanded Staff access. 29B adds no worker, polling or
+storage backend; the public presentation is extended by 29C below.
+
+## Public Event landing page and SEO (29C)
+
+The direct Event page presents the current published revision in a responsive
+Hero with title, dates/timezone, location summary and registration navigation.
+An optional cover uses existing fixed variants, their actual widths and a reserved
+image area; proportions are preserved without cropping. Failed images show a
+neutral message in the same area. Without a cover the Hero stays compact. No
+stock image, image optimizer or public media cache is used.
+
+Description, location, schedule and public organizer sections appear only when
+present. V1/V2 descriptions stay literal plain text; V3 uses its explicit format
+and the same restricted Markdown renderer as the editor. Agenda entries retain
+their original order and instants, grouped by day in the Event timezone. Times
+include UTC offsets to distinguish repeated local times at a DST transition.
+Public organizer details are exclusively Event-local authored content.
+
+The existing registration form and all admission/application rules remain in
+force. A full Event still accepts applications while otherwise eligible. The
+Hero links to the form, reapplication form, or existing account requirement prompt;
+registration details and personal status/history remain available. Completed and
+cancelled Events retain published content/history without application actions.
+Archive does not independently remove public access or add an admission rule.
+OWNER Preview shares presentation but reads the workspace and OWNER media URLs;
+the public page never reads draft content.
+
+Metadata uses the published title and a bounded plain-text description from the
+same sanitized Markdown output, with canonical/social URLs based on configured
+origin. Only current valid PUBLIC, non-cancelled, non-archived Events are indexable;
+Completed PUBLIC Events remain indexable. PRIVATE keeps direct-link availability,
+noindex/nofollow and no rich social metadata. Cancelled/archived pages are noindex.
+Unknown, unpublished or invalid Events return HTTP 404 for HTML document requests,
+without Event-specific metadata; valid publications return HTTP 200. The catalog's
+loading boundary is isolated from this publication guard. RSC client navigation
+may use HTTP 200 with NEXT_HTTP_ERROR_FALLBACK;404: the client must display Not Found,
+and the payload must not expose protected content. The transport status is not
+publication authorization; both paths retain the same publication guards.
+
+Public social cards reference the current published JPEG social variant. Existing
+private/no-store and noindex media headers remain; external card display/caching
+is best effort. Old cover URLs stop authorizing after replacement/unpublish, and
+previously downloaded images cannot be recalled. No OG generator, discovery or
+private access controls are added; 29D remains deferred.
