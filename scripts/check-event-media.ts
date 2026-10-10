@@ -1,7 +1,8 @@
 // Requested 29A checks: disposable DB and private storage, no SMTP or app server.
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
+import { type ChildProcess, execFile } from "node:child_process";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
+import { once } from "node:events";
 import {
   chmod,
   link,
@@ -22,6 +23,11 @@ import { promisify } from "node:util";
 import { loadEnvConfig } from "@next/env";
 import { Client } from "pg";
 import sharp from "sharp";
+import {
+  boundedCleanup,
+  stopVerificationServer,
+  verificationControl,
+} from "./public-event-verification-cleanup";
 
 async function main() {
   loadEnvConfig(process.cwd(), true);
@@ -31,21 +37,100 @@ async function main() {
   const url = new URL(originalUrl);
   assert.ok(["127.0.0.1", "localhost", "[::1]"].includes(url.hostname));
   const databaseName = `event_flow_verify_29a_${randomUUID().replaceAll("-", "")}`;
-  const admin = new Client({ connectionString: originalUrl });
+  const admin = new Client({
+    connectionString: originalUrl,
+    connectionTimeoutMillis: 5000,
+    statement_timeout: 10_000,
+    query_timeout: 15_000,
+  });
   let connection: Client | undefined;
   let db: typeof import("@/lib/prisma")["prisma"] | undefined;
   let created = false;
   let root: string | undefined;
-  let failure: unknown;
+  let maintenanceChild: ChildProcess | undefined;
+  const failures: unknown[] = [];
   const results: string[] = [];
+  // Install before connecting or allocating resources; keep active through cleanup.
+  const control = verificationControl(180_000);
+  const { signal } = control;
+  admin.on("error", control.abort);
+
+  async function checkpoint(stage: string) {
+    signal.throwIfAborted();
+
+    if (process.argv.includes(`--cleanup-probe=${stage}`)) {
+      console.log(
+        JSON.stringify({
+          checkpoint: stage,
+          database: databaseName,
+          root,
+          childPid: maintenanceChild?.pid,
+        }),
+      );
+      await delay(30_000, undefined, { signal });
+      throw new Error("Cleanup probe did not receive a signal");
+    }
+  }
+
+  async function runMaintenance(args: string[], probe = false) {
+    signal.throwIfAborted();
+    const task = promisify(execFile)(process.execPath, args, {
+      env: {
+        ...process.env,
+        DATABASE_URL: url.toString(),
+        MEDIA_STORAGE_ROOT: root,
+      },
+      timeout: 30_000,
+      killSignal: "SIGKILL",
+    });
+    maintenanceChild = task.child;
+    // The child can reject while the probe awaits readiness or interruption.
+    void task.catch(() => {});
+    let interrupted = () => {};
+    const cancelled = new Promise<never>((_, reject) => {
+      interrupted = () => reject(signal.reason);
+      signal.addEventListener("abort", interrupted, { once: true });
+    });
+    // Readiness/probe waits may throw before the final race is reached.
+    void cancelled.catch(() => {});
+
+    try {
+      if (probe) {
+        assert.ok(maintenanceChild.stdout);
+        await Promise.race([
+          once(maintenanceChild.stdout, "data", { signal }),
+          task.then(() => {
+            throw new Error("Probe child exited before interruption");
+          }),
+        ]);
+        await checkpoint("child");
+      }
+
+      return await Promise.race([task, cancelled]);
+    } finally {
+      signal.removeEventListener("abort", interrupted);
+    }
+  }
 
   try {
+    signal.throwIfAborted();
     await admin.connect();
+    signal.throwIfAborted();
     await admin.query(`CREATE DATABASE "${databaseName}" TEMPLATE template0`);
     created = true;
+    await checkpoint("database");
     url.pathname = `/${databaseName}`;
+    url.searchParams.set(
+      "options",
+      "-c statement_timeout=10000 -c lock_timeout=5000",
+    );
     process.env.DATABASE_URL = url.toString();
-    connection = new Client({ connectionString: url.toString() });
+    connection = new Client({
+      connectionString: url.toString(),
+      connectionTimeoutMillis: 5000,
+      query_timeout: 15_000,
+    });
+    connection.on("error", control.abort);
     await connection.connect();
 
     for (const migration of (
@@ -54,6 +139,7 @@ async function main() {
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name)
       .sort()) {
+      signal.throwIfAborted();
       await connection.query(
         await readFile(`prisma/migrations/${migration}/migration.sql`, "utf8"),
       );
@@ -63,6 +149,7 @@ async function main() {
     await mkdir(parent, { recursive: true });
     root = await mkdtemp(path.join(parent, "event-flow-verify-29a-"));
     await chmod(root, 0o700);
+    await checkpoint("media");
     process.env.MEDIA_STORAGE_ROOT = root;
     const { prisma } = await import("@/lib/prisma");
     db = prisma;
@@ -74,6 +161,23 @@ async function main() {
       )[0].name,
       databaseName,
     );
+    if (process.argv.includes("--cleanup-probe=child")) {
+      await runMaintenance(
+        [
+          "-e",
+          "process.on('SIGTERM', () => {}); console.log('ready'); setInterval(() => {}, 1000)",
+        ],
+        true,
+      );
+    }
+
+    if (process.argv.includes("--cleanup-failure")) {
+      console.log(
+        JSON.stringify({ checkpoint: "failure", database: databaseName, root }),
+      );
+      throw new Error("Original verification failure");
+    }
+    signal.throwIfAborted();
     const {
       normalizeImage,
       readUpload,
@@ -230,6 +334,7 @@ async function main() {
       404,
     );
     assert.equal(await prisma.mediaAsset.count(), 0);
+    signal.throwIfAborted();
     results.push(
       "fresh real signed sessions, verified OWNER, Event scope and Origin",
     );
@@ -299,6 +404,7 @@ async function main() {
         retained < 8 * 1024 * 1024,
         `Retained heap grew by ${retained}`,
       );
+      signal.throwIfAborted();
       results.push(
         `1-byte chunks: ${length} bytes; retained heap delta ${retained} bytes; bounded backing buffer`,
       );
@@ -385,6 +491,7 @@ async function main() {
     releaseSlots();
     await Promise.all([slotA, slotB]);
     await withImageSlot(async () => {});
+    signal.throwIfAborted();
     results.push(
       "actual 5 MiB boundary, 4096 dimensions/pixels, formats, malformed/appended-polyglot/animation rejection, orientation/metadata, two processing slots",
     );
@@ -475,6 +582,7 @@ async function main() {
         variant: "999",
       }),
     );
+    signal.throwIfAborted();
     results.push(
       "immutable files, private root, traversal/symlink safety, owner Event-bound preview and headers",
     );
@@ -710,6 +818,7 @@ async function main() {
     await assert.rejects(
       prisma.mediaAsset.delete({ where: { id: cover.assetId } }),
     );
+    signal.throwIfAborted();
     results.push(
       "attachment/version guards, V2 cover omission, v3 FK/snapshot, no-op, replace/remove isolation, failed Publish preservation, republish/unpublish and historical FK retention",
     );
@@ -778,6 +887,7 @@ async function main() {
       ).snapshot,
       v2,
     );
+    signal.throwIfAborted();
     results.push(
       "v1/v2/v3 compatibility, v2-to-v3 same-version publication and unchanged history/rejection titles",
     );
@@ -808,7 +918,8 @@ async function main() {
       },
       { timeout: 15000 },
     );
-    await acquired;
+    // A failed lock acquisition must not leave this barrier pending forever.
+    await Promise.race([acquired, deletionClaim]);
     const waitingAttachment = attachEventCover(owner.id, event.id, {
       assetId: raceAsset.assetId,
       alt: null,
@@ -922,6 +1033,7 @@ async function main() {
     assert.equal((await cleanupMedia()).orphans, 1);
     assert.equal((await cleanupMedia()).orphans, 0);
     assert.equal(await readFile(outsideFile, "utf8"), "keep");
+    signal.throwIfAborted();
     results.push(
       "real media-lock race, referenced retention, seven-day grace, concurrent 10-upload quota, 24-hour expiry, interrupted deletion/temp/orphan reconciliation and idempotence",
     );
@@ -1030,6 +1142,7 @@ async function main() {
 
     // Orphan file budget is independent of the DB candidate budget.
     for (let index = 0; index <= mediaCleanupBudget.orphanFiles; index += 1) {
+      signal.throwIfAborted();
       const file = path.join(
         root,
         `${randomBytes(16).toString("hex")}.${randomUUID()}.tmp`,
@@ -1116,6 +1229,7 @@ async function main() {
     );
     assert.equal((await cleanupMedia()).deleted, 10);
     await uploadEventCover(foreign.id, foreignEvent.id, request(foreign.id));
+    signal.throwIfAborted();
     results.push(
       "unsafe ancestor/symlink rejection; cleanup 0/1/101 budgets and continuation; concurrent collectors counted once; interrupted DELETING recovery; 101 orphan files; historical retention; concurrent detach/admission above ten and admission after cleanup",
     );
@@ -1237,6 +1351,7 @@ async function main() {
     });
     assert.equal((await PUT(badJson, context)).status, 400);
     assert.equal(await prisma.emailOutbox.count(), 0);
+    signal.throwIfAborted();
     results.push(
       "failed filesystem write remains recoverable, pristine draft delete, no cross-owner reuse, cancellation/archive/restore semantics and no mail intents",
     );
@@ -1245,23 +1360,14 @@ async function main() {
     // resources. Never invoke it with the original application DB/storage pair.
     assert.match(databaseName, /^event_flow_verify_29a_[a-f0-9]{32}$/);
     assert.ok(path.basename(root).startsWith("event-flow-verify-29a-"));
-    const maintenance = await promisify(execFile)(
-      process.execPath,
-      [
-        "--conditions=react-server",
-        "--import",
-        "tsx",
-        "scripts/media-cleanup.ts",
-      ],
-      {
-        env: {
-          ...process.env,
-          DATABASE_URL: url.toString(),
-          MEDIA_STORAGE_ROOT: root,
-        },
-        timeout: 30000,
-      },
-    );
+    signal.throwIfAborted();
+    const maintenance = await runMaintenance([
+      "--conditions=react-server",
+      "--import",
+      "tsx",
+      "scripts/media-cleanup.ts",
+    ]);
+    signal.throwIfAborted();
     assert.match(maintenance.stdout, /Media cleanup:/);
     results.push(
       "maintenance CLI executed only against the isolated verification DB and media root",
@@ -1271,33 +1377,82 @@ async function main() {
       console.log(`PASS: ${result}`);
     }
   } catch (error) {
-    failure = error;
+    failures.push(
+      error instanceof Error && error.name === "AbortError" && signal.aborted
+        ? signal.reason
+        : error,
+    );
   } finally {
-    const cleanups = [
-      async () => db?.$disconnect(),
-      async () => connection?.end(),
-      async () => {
-        if (created) {
-          assert.match(databaseName, /^event_flow_verify_29a_[a-f0-9]{32}$/);
-          await admin.query(`DROP DATABASE "${databaseName}" WITH (FORCE)`);
-        }
-      },
-      async () => admin.end(),
-      async () => {
-        if (root) {
-          assert.ok(path.basename(root).startsWith("event-flow-verify-29a-"));
-          await rm(root, { recursive: true, force: true });
-        }
-      },
-    ];
-
-    for (const cleanup of cleanups) {
-      try {
-        await cleanup();
-      } catch (error) {
-        failure ??= error;
-      }
+    // Exercise reporting/continuation without preventing actual resource removal.
+    if (process.argv.includes("--cleanup-failure")) {
+      await boundedCleanup(
+        [
+          {
+            name: "injected failure",
+            run: async () => {
+              throw new Error("Injected cleanup failure");
+            },
+          },
+          {
+            name: "injected timeout",
+            run: () =>
+              new Promise((_, reject) =>
+                setTimeout(
+                  () => reject(new Error("Late cleanup rejection")),
+                  50,
+                ),
+              ),
+          },
+        ],
+        failures,
+        20,
+      );
+      await delay(60);
     }
+    await boundedCleanup(
+      [
+        {
+          name: "maintenance child",
+          run: () => stopVerificationServer(maintenanceChild),
+        },
+        { name: "Prisma disconnect", run: async () => db?.$disconnect() },
+        { name: "SQL disconnect", run: async () => connection?.end() },
+        {
+          name: "verification database removal",
+          run: async () => {
+            if (created) {
+              assert.match(
+                databaseName,
+                /^event_flow_verify_29a_[a-f0-9]{32}$/,
+              );
+              assert.notEqual(
+                databaseName,
+                new URL(originalUrl).pathname.slice(1),
+              );
+              await admin.query(`DROP DATABASE "${databaseName}" WITH (FORCE)`);
+            }
+          },
+        },
+        { name: "admin disconnect", run: async () => admin.end() },
+        {
+          name: "verification media removal",
+          run: async () => {
+            if (root) {
+              assert.equal(
+                path.dirname(root),
+                path.join(homedir(), "Library", "Application Support"),
+              );
+              assert.ok(
+                path.basename(root).startsWith("event-flow-verify-29a-"),
+              );
+              assert.notEqual(root, originalRoot);
+              await rm(root, { recursive: true, force: true });
+            }
+          },
+        },
+      ],
+      failures,
+    );
 
     process.env.DATABASE_URL = originalUrl;
 
@@ -1306,10 +1461,26 @@ async function main() {
     } else {
       process.env.MEDIA_STORAGE_ROOT = originalRoot;
     }
+
+    if (signal.aborted && !failures.includes(signal.reason)) {
+      failures.push(signal.reason);
+    }
+    control.dispose();
   }
 
-  if (failure) {
-    throw failure;
+  if (failures.length) {
+    console.error(
+      JSON.stringify({
+        database: databaseName,
+        root,
+        childPid: maintenanceChild?.pid,
+      }),
+    );
+    throw new AggregateError(
+      failures,
+      "29A verification failed; all cleanup steps attempted",
+      { cause: failures[0] },
+    );
   }
 
   console.log(
@@ -1317,7 +1488,11 @@ async function main() {
   );
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+// Cleanup has finished or timed out; failed drivers must not keep the CLI alive.
+main().then(
+  () => process.exit(0),
+  (error) => {
+    console.error(error);
+    process.exit(1);
+  },
+);

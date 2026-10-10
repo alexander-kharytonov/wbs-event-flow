@@ -193,7 +193,7 @@ this directory as static web content. Provision the root during local/deployment
 setup; upload handlers never create or substitute the root themselves.
 
 The existing Event editor uses the POST/PUT/GET contracts documented in DOMAIN.md.
-The public landing-page redesign remains outside this iteration.
+The public landing page and SEO are implemented in 29C, with final UX polish in 29D.
 POST accepts raw JPEG/PNG/WebP bytes, not multipart or remote URLs. The server checks
 Origin against BETTER_AUTH_URL and verifies OWNER scope. Input limits are 5 MiB,
 4096 × 4096, one frame and two process-local operations. A new upload is refused
@@ -240,8 +240,19 @@ node --expose-gc --conditions=react-server --import tsx scripts/check-event-medi
 
 It requires loopback PostgreSQL with CREATE DATABASE privileges and write access to
 the current user's Application Support directory. It creates an isolated database
-and private media directory and removes both in finally. No existing application
-data is modified and no SMTP is called. Fixtures never remain in the application DB.
+and private media directory. SIGINT/SIGTERM request interruption at verification
+checkpoints; repeated signals preserve the first interruption and allow cleanup to
+finish. Cleanup independently attempts child termination (SIGTERM, then SIGKILL),
+DB disconnects, disposable database removal and media removal with bounded waits.
+Failures retain the original cause and report cleanup errors with a nonzero exit.
+No existing application data is modified and no SMTP is called. A failed cleanup
+must be investigated using the reported disposable resource identity.
+
+Focused signal and cleanup-failure verification:
+
+```bash
+node --conditions=react-server --import tsx scripts/check-event-media-cleanup.ts
+```
 
 ## Rich Event authoring and Template V2 (29B)
 
@@ -272,8 +283,9 @@ and no cover. Every new Event starts without a cover.
 
 OWNER Preview reads the draft workspace through snapshot V3. Public pages still
 read only the published revision; publish/republish is required to expose changes.
-Overview and Staff projections remain operational. Public landing redesign (29C)
-and the subsequent 29D work are not implemented.
+Overview and Staff projections remain operational. The media foundation (29A),
+rich authoring (29B), public landing/SEO (29C), and UX/integration polish (29D)
+are implemented and accepted.
 
 Targeted verification (in addition to the media regression script above):
 

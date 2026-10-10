@@ -815,7 +815,7 @@ there is no server-side exactly-once guarantee after a lost response.
 
 Owners with verified accounts can upload cover images for existing editable Events
 through the media API, then explicitly attach, replace or remove the draft cover.
-The 29B editor below uses these APIs; a new public landing-page layout is deferred.
+The 29B editor below uses these APIs; the public landing page is described in 29C.
 Create/Import/Duplicate Review performs no media upload or persistence before Create.
 
 Uploads accept one static JPEG, PNG or WebP, at most 5 MiB and 4096 × 4096 pixels.
@@ -935,4 +935,5 @@ Public social cards reference the current published JPEG social variant. Existin
 private/no-store and noindex media headers remain; external card display/caching
 is best effort. Old cover URLs stop authorizing after replacement/unpublish, and
 previously downloaded images cannot be recalled. No OG generator, discovery or
-private access controls are added; 29D remains deferred.
+private access controls are added. Iterations 29A/B/C/D are implemented and accepted,
+including the final UX and integration polish.

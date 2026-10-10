@@ -1985,7 +1985,8 @@ images/MDX/raw plugins and permits only absolute HTTP(S) URLs without credential
 Links use noopener/noreferrer. PLAIN_TEXT remains literal. Preview uses the current
 workspace V3 builder and controlled OWNER media routes without the image optimizer.
 Public /e/[publicId] retains its published-revision authority and Staff DTOs are not
-expanded. Public landing/metadata is defined by 29C below; 29D remains deferred.
+expanded. Public landing/metadata is defined by 29C below. Iterations 29A/B/C/D
+are implemented and accepted; 29D polish preserves these domain contracts.
 
 EventTemplateV2 retains the format identifier and version 2, the V1 portable Event
 configuration and rich fields descriptionFormat, nullable location/publicOrganizer,
