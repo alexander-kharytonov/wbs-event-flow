@@ -44,11 +44,7 @@ export function AccountNavigation({
         minWidth: 0,
       }}
     >
-      <WorkspaceTabs
-        mobileScrollButtons
-        value={active}
-        aria-label="Account sections"
-      >
+      <WorkspaceTabs value={active} aria-label="Account sections">
         {sections.map(({ id, label, href, icon }) => (
           <Tab
             key={id}

@@ -168,12 +168,14 @@ export async function EventHeader({
   children,
   data: suppliedData,
   now = new Date(),
+  contentPadding = true,
 }: {
   eventId: string;
   active: ComponentProps<typeof EventNavigation>["active"];
   children: ReactNode;
   data?: EventHeaderProjection;
   now?: Date;
+  contentPadding?: boolean;
 }) {
   let data = suppliedData;
 
@@ -313,7 +315,7 @@ export async function EventHeader({
           aria-labelledby={`event-nav-${active}`}
           tabIndex={0}
           spacing={3}
-          sx={{ minWidth: 0, p: { xs: 2, sm: 4 } }}
+          sx={{ minWidth: 0, p: contentPadding ? { xs: 2, sm: 4 } : 0 }}
         >
           {children}
         </Stack>

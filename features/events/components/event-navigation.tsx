@@ -55,11 +55,7 @@ export function EventNavigation({
       aria-label="Event sections"
       sx={{ minWidth: 0, display: "flex", position: { md: "sticky" }, top: 24 }}
     >
-      <WorkspaceTabs
-        value={active}
-        mobileScrollButtons
-        aria-label="Event sections"
-      >
+      <WorkspaceTabs value={active} aria-label="Event sections">
         {sections.map(({ id, label }) => {
           const count =
             id === "applications"

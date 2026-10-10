@@ -5,12 +5,11 @@ import { Tabs, type TabsProps, useMediaQuery, useTheme } from "@mui/material";
 export function WorkspaceTabs({
   children,
   layout = "responsive",
-  mobileScrollButtons = false,
   ...props
 }: Pick<
   TabsProps,
   "children" | "value" | "onChange" | "selectionFollowsFocus" | "aria-label"
-> & { layout?: "responsive" | "horizontal"; mobileScrollButtons?: boolean }) {
+> & { layout?: "responsive" | "horizontal" }) {
   const theme = useTheme();
   const desktop = useMediaQuery(theme.breakpoints.up("md"));
   const vertical = layout === "responsive" && desktop;
@@ -24,11 +23,12 @@ export function WorkspaceTabs({
       {...props}
       orientation={vertical ? "vertical" : "horizontal"}
       variant="scrollable"
-      scrollButtons={layout === "horizontal" || mobileScrollButtons}
+      scrollButtons="auto"
       allowScrollButtonsMobile
-      visibleScrollbar={layout !== "horizontal" && !mobileScrollButtons}
+      visibleScrollbar={false}
       sx={{
         minWidth: 0,
+        minHeight: 0,
         flex: 1,
         flexDirection: direction,
         "& .MuiTabs-scrollButtons.Mui-disabled": { opacity: 0.3 },
@@ -52,14 +52,6 @@ export function WorkspaceTabs({
       // CSS controls the first paint; orientation supplies MUI keyboard behavior.
       slotProps={{
         list: { sx: { flexDirection: direction } },
-        scrollButtons: {
-          sx: {
-            display: {
-              xs: "inline-flex",
-              md: layout === "horizontal" ? "inline-flex" : "none",
-            },
-          },
-        },
         scroller: {
           sx: {
             overflowX: {

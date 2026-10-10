@@ -65,7 +65,6 @@ export function EditorNavigation({
       }}
     >
       <WorkspaceTabs
-        mobileScrollButtons
         value={section}
         onChange={(_, next: EditorSection) => onChange(next)}
         selectionFollowsFocus

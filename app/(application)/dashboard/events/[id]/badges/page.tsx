@@ -30,7 +30,7 @@ export default async function BadgesPage({
 
   return (
     <Stack spacing={3}>
-      <EventHeader eventId={id} active="badges">
+      <EventHeader eventId={id} active="badges" contentPadding={false}>
         <OperationalBadgeWorkspace
           eventId={id}
           data={data}
