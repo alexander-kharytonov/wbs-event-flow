@@ -36,7 +36,7 @@ Organizers can:
 
 - Open `/dashboard` and filter their events by All, Public, or Private. These
   filters reflect the organizer workspace settings, including unpublished edits.
-- Create and edit event title, description, start/end, timezone, visibility,
+- Create and edit event title, content language, description, start/end, timezone, visibility,
   account requirement, capacity, and registration window.
 - Build a registration form with short text, long text, single choice, multiple
   choice, and checkbox questions; edit, delete, reorder, and mark them required.
@@ -329,7 +329,7 @@ Email grants no identity or ownership. Guests have no account association or own
 browser capability; their normal Tickets and Attendance use the existing QR flow.
 
 Organizers configure 0–10 maximum active guests per registration in the Event
-workspace and publish the policy. Zero disables adding guests. Snapshot V3
+workspace and publish the policy. Zero disables adding guests. EventSnapshot
 always carries the explicit limit. Add requires a current published
 permission and available published capacity. Remove needs neither publication nor
 a positive limit. Both require an active party, a non-cancelled Event, and time
@@ -522,8 +522,8 @@ partial file, persistent export file, export history or background job is create
 
 Owners can download **Export template** from the Event header Export menu.
 The menu groups CSV datasets and JSON configuration separately. Template filenames
-include a sanitized Event title followed by `-template-v2.json`, preserving Unicode.
-EventTemplate V2 is the only supported format and includes the rich
+include a sanitized Event title followed by `-template.json`, preserving Unicode.
+EventTemplate is the only supported format and includes the rich
 configuration described in 29B below. A template is portable
 configuration, not a backup or a public artifact:
 it contains current staff emails. It uses current saved workspace configuration,
@@ -550,10 +550,10 @@ creation time then user ID, with normalized email and role. The owner is exclude
 There are no Applications, Registrations, Attendees, Guests, Tickets, QR credentials,
 Attendance, internal IDs, publication history, lifecycle state or notifications.
 
-Template V2 allows at most 100 questions, 100 options per question, 1,000 options
+EventTemplate allows at most 100 questions, 100 options per question, 1,000 options
 in total, 100 staff and 512 KiB of serialized UTF-8 JSON. Exports are complete or
 fail; these limits do not restrict manual editing. Downloads are private and
-uncached. Import/Create uses the same strict V2 contract.
+uncached. Import/Create uses the same strict EventTemplate contract.
 Duplicate Event reuses this portable configuration (see iteration 28 below).
 
 
@@ -814,7 +814,7 @@ directly in Review, using the current saved workspace, including unpublished
 changes. No JSON download/upload is needed. Manager/Reception and foreign users
 cannot read this configuration through Duplicate.
 
-The original configuration must pass current Template V2 export size/portability checks
+The original configuration must pass current EventTemplate export size/portability checks
 and create validation before Review opens. Invalid or historical Badge bindings
 reject the whole operation; no fields or bindings are silently dropped. A neutral
 error explains that access, template limits and current-form Badge compatibility
@@ -870,13 +870,13 @@ archive and restore preserve media and the existing public-page availability rul
 Draft/upload previews are owner-only and Event-scoped; public media is available
 only when it is the cover of the current valid published revision.
 
-Snapshot V3 is the only supported publication and historical format. Old local
-V1/V2 data is discarded by the pre-deployment reset. V3 revisions remain immutable;
+EventSnapshot is the current unversioned publication and historical format.
+Historical revisions remain immutable;
 PLAIN_TEXT descriptions are never interpreted as Markdown. Location,
-agenda, public organizer and description-format fields use the existing v3
+agenda, public organizer and description-format fields use the existing snapshot
 contract; 29B adds their authoring UI and OWNER Preview rendering.
 
-Import, Export and Duplicate support only Template V2, preserving rich
+Import, Export and Duplicate support only EventTemplate, preserving rich
 configuration and explicitly reporting omitted cover images.
 
 Media cleanup is an explicit maintenance command, not a worker: incomplete uploads
@@ -885,7 +885,7 @@ by any draft or revision are retained. Historical media remains for the lifetime
 its revision. Operators must invoke cleanup and maintain storage/backups.
 
 
-## Rich Event editor and Template V2 (29B)
+## Rich Event editor and EventTemplate (29B)
 
 The existing Create/Edit and Import/Duplicate Review forms share rich authoring.
 Descriptions are authored as Markdown, with a 20,000-character limit. Ordinary
@@ -931,14 +931,14 @@ unpublished or unpublished-changes status and exposes Publish, Republish or
 Publish changes. The existing menu action remains available. Both use the same
 publication action, version checks, conflict feedback and lifecycle guards.
 
-Template V2 preserves portable settings including description format, location,
+EventTemplate preserves portable settings including description format, location,
 exact agenda and public organizer. Its cover marker is NONE if absent or OMITTED
 if the source has a cover. Images/asset IDs/storage keys are never copied. Export,
 Import Review and Duplicate Review explain omission; the new Event has no cover.
 V1 Import is rejected without conversion. Existing Staff/Badge identity rules,
 size limits, atomic Create and Duplicate refresh/revocation semantics are preserved.
 
-OWNER Preview displays the draft cover and rich content from the workspace's V3
+OWNER Preview displays the draft cover and rich content from the workspace's
 snapshot. Public pages still use published revisions only. Overview remains an
 operational view without expanded Staff access. 29B adds no worker, polling or
 storage backend; the public presentation is extended by 29C below.
@@ -1019,7 +1019,7 @@ for owned Events through the owner-only media route; assigned staff cards do not
 request private owner media.
 
 Description, location, schedule and public organizer sections appear only when
-present. V3 uses its explicit description format and the same restricted Markdown
+present. EventSnapshot uses its explicit description format and the same restricted Markdown
 renderer as the editor. Agenda uses MUI Timeline with a vertical rail, time on the opposite side from
 the title, and smaller supporting descriptions below each title. Entries retain their original order and instants, grouped by day
 in the Event timezone. The timezone is stated once above the agenda; individual
@@ -1103,11 +1103,11 @@ including the final UX and integration polish.
 ## V0 development policy
 
 Before the first release, breaking changes are allowed and local development data
-is disposable. Each serialized artifact has one current contract: Snapshot V3 and
-EventTemplateV2 today. Do not add legacy Snapshot/Template readers, converters or
-compatibility paths. Schema changes use incremental migrations; an applied baseline
-must not be rewritten. Disposable data does not authorize an unrequested DB/media
-reset. Historical domain revisions remain immutable within the current contract;
+is disposable. EventSnapshot and EventTemplate each have one current, unversioned
+contract, without format version fields, legacy readers, converters or compatibility
+paths. Schema changes normally use incremental migrations. Consolidating applied
+migrations into a baseline and resetting local DB/media require explicit approval.
+Disposable data alone does not authorize a reset. Historical domain revisions remain immutable within the current contract;
 authorization, concurrency controls and idempotency remain mandatory.
 
 ## UI language foundation (I18N-A)
@@ -1149,7 +1149,7 @@ controls and essential shell labels. MUI built-in labels and the shared DateTime
 component use the active UI locale; Event timezone and instant semantics stay
 unchanged. Other feature text and date formatters remain English pending later
 phases. Event content, Snapshot/Template contracts and transactional emails are
-unchanged; no Event.language is introduced. Server-only translated output updates
+unchanged by I18N-A; I18N-B adds the independent Event language described below. Server-only translated output updates
 on the next server render; immediately switchable labels use client context with
 SSR initial messages. Background translation can receive an explicit locale without
 HTTP context, but current email templates/delivery are not connected to it.
@@ -1169,3 +1169,33 @@ Initial rendering uses the resolved preference before page content is displayed.
 MUI localStorage is not an authority and old local-only preferences are not imported.
 MUI follows OS changes in system mode without persistence requests. The same
 reload-based freshness and request-time session semantics as language apply.
+
+## Event language (I18N-B)
+
+Every Event has one required content language: en, de, pl, uk or ru. This describes
+organizer-authored content; it does not translate content or control the visitor's
+interface. Manual Create initializes it from the active organizer UI locale when
+the form opens. Changing UI locale afterward preserves all form values, including
+Event language. Basics offers explicit language selection in Create, Edit, Import
+Review and Duplicate Review.
+
+Language is a draft field with the existing save/version/lifecycle guards. Publish
+freezes it in EventSnapshot; editing draft language never changes an existing
+publication or historical revision. EventTemplate export/import/duplicate preserve
+the source language regardless of the importing organizer's UI locale. Language
+is required in both current contracts; missing/unsupported values are rejected.
+
+Event cards show uppercase language codes. Organizer/assigned cards show workspace
+language; public and account registration cards show current published language.
+Unavailable registration cards do not infer language from drafts. The public catalog
+has an independent Event language selector, defaulting to All languages. Its URL
+parameter `language` filters published language before choosing the featured event
+and Upcoming/Happening now/Past groups. UI language changes do not alter that filter.
+Unknown or repeated language parameters behave as All languages. Other URL
+parameters are retained. Existing grouping/order is unchanged; this catalog has no
+pagination. Search events filters published titles immediately, using trimmed,
+case-insensitive substring matching as in the organizer dashboard. Search and
+language filters combine before featured selection and grouping; search text
+persists when the language selection changes.
+
+No automatic translation, multilingual content fields or email localization is added.

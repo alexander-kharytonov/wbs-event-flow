@@ -44,6 +44,7 @@ export async function readEventTemplate(userId: string, eventId: string) {
         where: { id: eventId },
         select: {
           title: true,
+          language: true,
           description: true,
           descriptionFormat: true,
           coverAssetId: true,

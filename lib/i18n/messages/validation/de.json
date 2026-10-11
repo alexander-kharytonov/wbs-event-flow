@@ -1,4 +1,5 @@
 {
   "required": "Dieses Feld ist erforderlich.",
-  "maxLength": "Verwende höchstens {count, plural, one {# Zeichen} other {# Zeichen}}."
+  "maxLength": "Verwende höchstens {count, plural, one {# Zeichen} other {# Zeichen}}.",
+  "invalidEventLanguage": "Wähle eine unterstützte Veranstaltungssprache."
 }

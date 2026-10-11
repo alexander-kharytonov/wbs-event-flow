@@ -4,6 +4,7 @@ import {
   EventCover,
   EventCoverBackdrop,
 } from "@/features/events/components/event-cover";
+import { EventLanguageChip } from "@/features/events/components/event-language-chip";
 import { RegistrationAvailabilityStatus } from "@/features/events/components/registration-availability-status";
 import { eventCoverImage } from "@/features/events/event-cover";
 import type { EventSnapshot } from "@/features/events/schemas/event-snapshot";
@@ -17,7 +18,18 @@ export function PublicEventCard({
   preview = false,
   coverBasePath,
 }: {
-  snapshot: EventSnapshot;
+  snapshot: Pick<
+    EventSnapshot,
+    | "title"
+    | "language"
+    | "startsAt"
+    | "endsAt"
+    | "timezone"
+    | "registrationOpensAt"
+    | "registrationClosesAt"
+  > & {
+    cover: (Parameters<typeof eventCoverImage>[0] & { assetId: string }) | null;
+  };
   now: Date;
   component?: "li" | "section";
   showAvailability?: boolean;
@@ -107,6 +119,10 @@ export function PublicEventCard({
           >
             {snapshot.title}
           </Typography>
+          <EventLanguageChip
+            language={snapshot.language}
+            inverse={Boolean(snapshot.cover)}
+          />
           <Box>
             <DateTime
               inverse={Boolean(snapshot.cover)}

@@ -1,5 +1,6 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { z } from "zod";
+import { eventLanguageSchema } from "@/features/events/event-language";
 import {
   locationSchema,
   publicOrganizerSchema,
@@ -112,6 +113,7 @@ function isIanaTimezone(value: string) {
 }
 
 const eventInputFields = z.object({
+  language: eventLanguageSchema,
   title: z
     .string()
     .trim()

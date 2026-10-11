@@ -5,12 +5,12 @@ import {
 } from "@/features/badges/badge-layout";
 import {
   checkTemplateCounts,
+  type EventTemplate,
   EventTemplateError,
-  type EventTemplateV2,
-  eventTemplateV2Schema,
+  eventTemplateSchema,
 } from "@/features/exports/event-template";
 
-type PortableEvent = EventTemplateV2["event"];
+type PortableEvent = EventTemplate["event"];
 
 export type EventTemplateSource = Omit<
   PortableEvent,
@@ -37,7 +37,7 @@ export type EventTemplateSource = Omit<
 // Input arrays are already in current workspace order; no HTTP or database dependency.
 export function projectEventTemplate(
   source: EventTemplateSource,
-): EventTemplateV2 {
+): EventTemplate {
   const fields = source.registrationForm.fields;
   checkTemplateCounts(
     fields.length,
@@ -102,9 +102,8 @@ export function projectEventTemplate(
     };
   }
 
-  const result = eventTemplateV2Schema.safeParse({
+  const result = eventTemplateSchema.safeParse({
     format: "event-flow-template",
-    version: 2,
     event: {
       descriptionFormat: source.descriptionFormat,
       location: source.location,
@@ -112,6 +111,7 @@ export function projectEventTemplate(
       publicOrganizer: source.publicOrganizer,
       cover: source.cover,
       title: source.title,
+      language: source.language,
       description: source.description,
       startsAt: source.startsAt.toISOString(),
       endsAt: source.endsAt.toISOString(),

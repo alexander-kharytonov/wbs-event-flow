@@ -37,6 +37,7 @@ export function eventFormValues(event: Event): EventFormValues {
       event.timezone,
     ),
     title: event.title,
+    language: event.language,
     description: event.description ?? "",
     startsAt: localTime(event.startsAt),
     endsAt: localTime(event.endsAt),

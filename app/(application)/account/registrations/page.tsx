@@ -13,6 +13,7 @@ import { DateTime } from "@/components/ui/date-time";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ApplicationRealtime } from "@/features/events/components/application-realtime";
 import { ApplicationStatus } from "@/features/events/components/application-status";
+import { EventLanguageChip } from "@/features/events/components/event-language-chip";
 import { RegistrationAdmission } from "@/features/events/components/registration-admission";
 import { getMyRegistrations } from "@/features/events/server/get-my-registrations";
 import { requireVerifiedUser } from "@/lib/session";
@@ -124,6 +125,9 @@ export default async function MyRegistrationsPage() {
                         >
                           {registration.title}
                         </Typography>
+                        {registration.language && (
+                          <EventLanguageChip language={registration.language} />
+                        )}
                         <Box sx={{ flexGrow: 1 }}>
                           {registration.startsAt &&
                             registration.endsAt &&

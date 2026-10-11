@@ -73,6 +73,7 @@ export async function createTemplateEvent(
             schedule: event.schedule,
             publicOrganizer: event.publicOrganizer,
             title: event.title,
+            language: event.language,
             description: event.description,
             startsAt: new Date(event.startsAt),
             endsAt: new Date(event.endsAt),

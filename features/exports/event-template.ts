@@ -103,10 +103,9 @@ const portableBadgeLayoutSchema = badgeLayoutSchema.extend({
 const instantSchema = z.iso.datetime({ precision: 3 });
 const eventFields = eventInputSchema.in.shape;
 
-export const eventTemplateV2Schema = z
+export const eventTemplateSchema = z
   .strictObject({
     format: z.literal("event-flow-template"),
-    version: z.literal(2),
     event: z.strictObject({
       descriptionFormat: z.enum(["PLAIN_TEXT", "MARKDOWN"]),
       location: locationSchema.nullable(),
@@ -114,6 +113,7 @@ export const eventTemplateV2Schema = z
       publicOrganizer: publicOrganizerSchema.nullable(),
       cover: z.strictObject({ status: z.enum(["NONE", "OMITTED"]) }),
       title: eventFields.title,
+      language: eventFields.language,
       description: eventFields.description.nullable(),
       startsAt: instantSchema,
       endsAt: instantSchema,
@@ -190,15 +190,15 @@ export const eventTemplateV2Schema = z
     }
   });
 
-export type EventTemplateV2 = z.infer<typeof eventTemplateV2Schema>;
+export type EventTemplate = z.infer<typeof eventTemplateSchema>;
 
-export function serializeEventTemplate(template: EventTemplateV2) {
+export function serializeEventTemplate(template: EventTemplate) {
   checkTemplateCounts(
     template.event.registrationForm.fields.length,
     template.event.registrationForm.fields.map((field) => field.options.length),
     template.event.staff.length,
   );
-  const parsed = eventTemplateV2Schema.safeParse(template);
+  const parsed = eventTemplateSchema.safeParse(template);
 
   if (!parsed.success) {
     throw new EventTemplateError("configuration");

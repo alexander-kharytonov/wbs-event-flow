@@ -42,7 +42,7 @@ Ticket envelopes cannot be recovered without this key. Keep `.env` untracked.
 
 ### Fresh database
 
-For a new, empty PostgreSQL 18 database, apply the baseline and incremental migrations:
+For a new, empty PostgreSQL 18 database, apply the baseline:
 
 ```bash
 pnpm infra:up
@@ -64,9 +64,9 @@ settings. `lib/prisma.ts` is the shared server-only client. DATABASE_URL expands
 from the POSTGRES variables in `.env.example`; use a URL-safe local password or
 percent-encode credentials when constructing a URL.
 
-The migration directory starts with `20261010000000_baseline`, replacing the
+The migration directory contains one migration, `20261011030000_baseline`, replacing the
 pre-deployment local migration history. It creates the current schema, including
-media, and preserves all 23 custom SQL CHECK constraints alongside Prisma-managed
+media, and preserves all 25 custom SQL CHECK constraints alongside Prisma-managed
 keys and indexes. Future schema changes use incremental migrations; do not edit
 an applied baseline. Prisma drift alone does not verify custom CHECK constraints.
 
@@ -119,9 +119,9 @@ These are the scripts currently defined in package.json:
 identity, party activity, Ticket lifecycle, QR/MANUAL Attendance, current publication
 references, and Communication/Outbox counts, types, normalized associated addresses
 and strict versioned contexts. JSON contexts are read in bounded keyset pages.
-It also checks media ownership/references, manifests and v3 cover descriptors.
+It also checks media ownership/references, manifests and snapshot cover descriptors.
 Legacy null-linked Outbox remains supported; snapshot/template readers accept only
-the current V3/V2 contracts.
+the current EventSnapshot/EventTemplate contracts.
 An empty database passes with an explicit zero-data-coverage message. Failures
 exit nonzero; the command never repairs rows, decrypts credentials or sends mail.
 
@@ -228,12 +228,12 @@ backend/key locators after verifying checksums. It must retain asset IDs, immuta
 bytes and historical references; public DTOs/URLs must remain independent of storage.
 No cloud integration is present; the SQL backend CHECK currently permits LOCAL only.
 
-Snapshot V3 is the only supported serialized publication/history format.
-Template Export, Import and Duplicate use only V2, preserving rich configuration
-and explicitly omitting cover images. Older formats are rejected; the authorized
-pre-deployment reset discards old local records without conversion.
+EventSnapshot is the only supported serialized publication/history format.
+Template Export, Import and Duplicate use EventTemplate, preserving rich configuration
+and explicitly omitting cover images. Both contracts are unversioned and strictly
+validate the current shape, without compatibility readers or converters.
 
-## Rich Event authoring and Template V2 (29B)
+## Rich Event authoring and EventTemplate (29B)
 
 Create, Edit, Import Review and Duplicate Review share a full-page, seven-tab
 workspace editor (plus Additional settings for Import/Duplicate Review) and the atomic create path. Edit saves stay open; successful Create
@@ -256,12 +256,12 @@ response advances the form token, preserving other unsaved edits. Replaced or
 abandoned uploads remain tracked for the existing explicit cleanup lifecycle.
 Create/Import/Duplicate cannot upload until the new Event exists.
 
-Export downloads `-template-v2.json`. V2 includes rich configuration and an explicit
+Export downloads `-template.json`. EventTemplate includes rich configuration and an explicit
 cover status NONE/OMITTED; no asset identity, storage locator or bytes are included.
 The Export menu and Import/Duplicate Review explain omission. Import rejects
-unsupported versions and unknown fields. Every new Event starts without a cover.
+unknown fields. Every new Event starts without a cover.
 
-OWNER Preview reads the draft workspace through snapshot V3. Public pages still
+OWNER Preview reads the draft workspace through EventSnapshot. Public pages still
 read only the published revision; publish/republish is required to expose changes.
 Overview and Staff projections remain operational. The media foundation (29A),
 rich authoring (29B), public landing/SEO (29C), and UX/integration polish (29D)
@@ -275,16 +275,15 @@ Use lint, TypeScript, build, Prisma validation/migration drift and `db:check` as
 routine gates. Changes to domain contracts also require focused verification with
 isolated disposable data; an empty development database is not domain coverage.
 Publication snapshots, historical answers, concurrency, authorization and immutable
-media references remain authoritative. No compatibility with discarded local
-Snapshot V1/V2 or Template V1 data is provided.
+media references remain authoritative. Only the current unversioned EventSnapshot
+and EventTemplate contracts are supported.
 
 ## Localization development (I18N-A)
 
 `next-intl` is configured without locale routing or middleware. Existing links and
-paths remain unchanged. Apply `20261011000000_user_ui_locale` and
-`20261011010000_user_ui_mode` using
-`pnpm exec prisma migrate deploy`, regenerate the client with `pnpm db:generate`,
-and restart the development server after the schema/client change. No reset is needed.
+paths remain unchanged. The baseline includes User.uiLocale and User.uiMode.
+Apply the baseline using `pnpm exec prisma migrate deploy`, generate the client
+with `pnpm db:generate`, and restart the server after schema/client changes.
 
 - Request configuration: `lib/i18n/request.ts` (account → cookie → browser → en).
 - Dictionaries: `lib/i18n/messages/{shell,locale,validation}/{en,de,pl,uk,ru}.json`.
@@ -320,3 +319,25 @@ load a new document, while preference switching preserves URLs and unsaved forms
 Writes target only the request's authenticated User; stale tabs can save to the
 currently signed-in account. Normal Better Auth session behavior is retained.
 See PRODUCT.md and DOMAIN.md for the accepted V0 consistency limitations.
+
+## Event language (I18N-B)
+
+The current baseline includes required Event.language (en/de/pl/uk/ru) without a
+database default. Manual Create captures the organizer's active UI locale once;
+explicit edits and template language take precedence thereafter. UI preferences
+and Event language are independent.
+
+EventSnapshot and EventTemplate require language and have no format version fields.
+Missing/unsupported language and unknown fields are rejected without conversion.
+The explicitly authorized pre-release consolidation replaces the local migration
+ledger with `20261011030000_baseline`, preserving authentication/organizer rows.
+It does not require deleting Docker volumes, Mailpit or the media directory.
+Existing installations with removed migration history need an explicitly approved
+local reset; do not apply this consolidation to retained production data.
+
+`/e?language=de` filters by published Event language independently of UI locale.
+Omitting language selects all; unsupported/repeated values also select all.
+Template export/import/duplicate retain the Event language and exact dates.
+
+The catalog also provides immediate, case-insensitive published-title search,
+combined with the language filter in the same field sizing/grid as the organizer dashboard.

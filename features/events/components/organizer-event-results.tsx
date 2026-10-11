@@ -31,10 +31,12 @@ import {
   EventCover,
   EventCoverBackdrop,
 } from "@/features/events/components/event-cover";
+import { EventLanguageChip } from "@/features/events/components/event-language-chip";
 import { EventLifecycleStatus } from "@/features/events/components/event-lifecycle-status";
 import { EventStatusChip } from "@/features/events/components/event-status-chip";
 import { PublicationStatus } from "@/features/events/components/publication-status";
 import { accessLabels } from "@/features/events/event-access-labels";
+import type { EventLanguage } from "@/features/events/event-language";
 import { eventLifecycle } from "@/features/events/event-lifecycle";
 import { publicationState } from "@/features/events/publication-state";
 
@@ -43,6 +45,7 @@ type EventSummary = {
   role: keyof typeof accessLabels;
   publicId?: string | null;
   title: string;
+  language: EventLanguage;
   coverAssetId?: string | null;
   coverAlt?: string | null;
   visibility?: "PUBLIC" | "PRIVATE";
@@ -455,6 +458,7 @@ export function OrganizerEventResults({
                         p: event.coverAssetId ? 0.5 : 0,
                       }}
                     >
+                      <EventLanguageChip language={event.language} />
                       <EventStatusChip
                         icon={<BadgeOutlined />}
                         color="default"

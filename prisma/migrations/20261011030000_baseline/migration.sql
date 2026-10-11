@@ -1,9 +1,11 @@
--- Fresh pre-deployment baseline; local legacy data is intentionally reset.
--- Fresh PostgreSQL 18 schema; no historical data transformations.
-BEGIN;
+-- Current pre-release PostgreSQL 18 baseline.
+-- Replacing an applied migration history requires an explicitly authorized reset.
 
 -- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
+
+-- CreateEnum
+CREATE TYPE "EventLanguage" AS ENUM ('en', 'de', 'pl', 'uk', 'ru');
 
 -- CreateEnum
 CREATE TYPE "EventVisibility" AS ENUM ('PUBLIC', 'PRIVATE');
@@ -46,6 +48,8 @@ CREATE TYPE "StaffRole" AS ENUM ('MANAGER', 'RECEPTION');
 
 -- CreateTable
 CREATE TABLE "user" (
+    "uiLocale" TEXT,
+    "uiMode" TEXT,
     "id" UUID NOT NULL,
     "name" TEXT NOT NULL,
     "email" TEXT NOT NULL,
@@ -69,6 +73,7 @@ CREATE TABLE "OrganizerProfile" (
 
 -- CreateTable
 CREATE TABLE "Event" (
+    "language" "EventLanguage" NOT NULL,
     "id" UUID NOT NULL,
     "organizerId" UUID NOT NULL,
     "title" TEXT NOT NULL,
@@ -617,7 +622,6 @@ ALTER TABLE "Ticket" ADD CONSTRAINT "Ticket_anonymous_access_pair_check" CHECK (
 
 ALTER TABLE "Ticket" ADD CONSTRAINT "Ticket_revocation_time_check" CHECK ("revokedAt" IS NULL OR "revokedAt" >= "issuedAt");
 
-COMMIT;
 
 CREATE TYPE "DescriptionFormat" AS ENUM ('PLAIN_TEXT', 'MARKDOWN');
 CREATE TYPE "MediaAssetState" AS ENUM ('UPLOADING', 'READY', 'DELETING');
@@ -695,3 +699,9 @@ ALTER TABLE "Event" ADD CONSTRAINT "Event_rich_content_shape_check" CHECK (
   AND ("location" IS NULL OR jsonb_typeof("location") = 'object')
   AND ("publicOrganizer" IS NULL OR jsonb_typeof("publicOrganizer") = 'object')
 );
+
+ALTER TABLE "user" ADD CONSTRAINT "user_uiLocale_check"
+  CHECK ("uiLocale" IS NULL OR "uiLocale" IN ('en', 'de', 'pl', 'uk', 'ru'));
+
+ALTER TABLE "user" ADD CONSTRAINT "user_uiMode_check"
+  CHECK ("uiMode" IS NULL OR "uiMode" IN ('light', 'dark', 'system'));

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-// Frozen serialized v3 contracts; do not derive these from future editor rules.
+// Frozen serialized contracts; do not derive these from future editor rules.
 const publicUrl = z
   .string()
   .max(2048)

@@ -1,4 +1,5 @@
 {
   "required": "Это обязательное поле.",
-  "maxLength": "Используйте не более {count, plural, one {# символа} few {# символов} many {# символов} other {# символа}}."
+  "maxLength": "Используйте не более {count, plural, one {# символа} few {# символов} many {# символов} other {# символа}}.",
+  "invalidEventLanguage": "Выберите поддерживаемый язык мероприятия."
 }
