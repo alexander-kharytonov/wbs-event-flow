@@ -422,7 +422,7 @@ Required runtime variables (all server-side; never NEXT_PUBLIC):
 | TICKET_CREDENTIAL_ENCRYPTION_KEY | Stable canonical base64url 32-byte key; preserve with retained Tickets |
 | EMAIL_TRANSPORT | `resend` |
 | RESEND_API_KEY | Sending API key restricted to the verified sender domain |
-| SMTP_FROM | Verified sender email; shared sender setting for both transports |
+| SMTP_FROM | Plain verified sender email; both transports add the display name `Event Flow` |
 | EMAIL_OUTBOX_ENABLED | `true`; `false` during recovery/reconciliation |
 | MEDIA_STORAGE_ROOT | `/data/media` |
 | GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET | Both configured for Google login, or both empty |

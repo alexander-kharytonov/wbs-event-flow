@@ -73,7 +73,7 @@ export async function sendMail(
 
   try {
     const delivery = deliveryTransport.sendMail({
-      from: env.SMTP_FROM,
+      from: { name: "Event Flow", address: env.SMTP_FROM },
       ...message,
     });
     const result =

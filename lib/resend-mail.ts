@@ -48,7 +48,7 @@ export async function sendResendMail(
     }
 
     const body = JSON.stringify({
-      from: env.SMTP_FROM,
+      from: `Event Flow <${env.SMTP_FROM}>`,
       ...message,
       to: [message.to],
     });

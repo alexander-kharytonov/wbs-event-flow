@@ -2435,3 +2435,7 @@ changed live approval content uses a different key. Provider deduplication lasts
 24h; changed content and retries beyond that window retain at-least-once semantics.
 The database idempotency/lease model remains authoritative. EMAIL_OUTBOX_ENABLED=false
 is an operational recovery switch, not cancellation or deletion of queued deliveries.
+
+Both transports use `Event Flow` as the sender display name for all outgoing mail,
+including verification and Outbox deliveries. SMTP_FROM remains a plain email address;
+the transport adds the display name without changing the sender address or recipients.
