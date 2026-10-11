@@ -4,7 +4,9 @@ import { z } from "zod";
 import { EventCover } from "@/features/events/components/event-cover";
 import { EventGuestView } from "@/features/events/components/event-guest-view";
 import { EventHeader } from "@/features/events/components/event-header";
-import { RegistrationFormPreview } from "@/features/events/components/registration-form-preview";
+import { EventPreviewTabs } from "@/features/events/components/event-preview-tabs";
+import { PublicEventCard } from "@/features/events/components/public-event-card";
+import { RegistrationApplicationForm } from "@/features/events/components/registration-application-form";
 import { eventCoverImage } from "@/features/events/event-cover";
 import {
   buildEventSnapshot,
@@ -59,61 +61,70 @@ export default async function PreviewPage({
 
   const snapshot = buildEventSnapshot(event);
 
+  const now = new Date();
+
   return (
     <Stack spacing={3}>
-      <EventHeader eventId={id} active="preview">
-        <Alert severity="info">
-          Preview of your current workspace, including unpublished changes.
-          Registration is unavailable in preview.
-        </Alert>
+      <EventHeader eventId={id} active="preview" contentPadding={false}>
         {snapshot.success ? (
-          <Paper
-            elevation={0}
-            sx={{ bgcolor: "background.default", p: { xs: 2, sm: 4 } }}
-          >
-            <EventGuestView
-              snapshot={snapshot.data}
-              now={new Date()}
-              cover={
-                snapshot.data.cover && (
-                  <EventCover
-                    fill
-                    priority
-                    key={snapshot.data.cover.assetId}
-                    image={eventCoverImage(
-                      snapshot.data.cover,
-                      `/api/events/${id}/cover/${snapshot.data.cover.assetId}`,
-                    )}
-                  />
-                )
-              }
-            >
-              <Stack spacing={3}>
-                <Stack spacing={0.5}>
-                  <Typography
-                    variant="h6"
-                    component="h2"
-                    sx={{
-                      minHeight: 42,
-                      display: "flex",
-                      alignItems: "center",
-                    }}
-                  >
-                    Registration form preview
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    This is the form guests will complete. Fields are read-only
-                    in preview.
-                  </Typography>
-                </Stack>
-                <RegistrationFormPreview
-                  fields={snapshot.data.registrationForm.fields}
+          <EventPreviewTabs
+            landing={
+              <Paper
+                elevation={0}
+                sx={{ bgcolor: "background.default", p: { xs: 2, sm: 4 } }}
+              >
+                <EventGuestView
+                  snapshot={snapshot.data}
+                  now={now}
+                  cover={
+                    snapshot.data.cover && (
+                      <EventCover
+                        fill
+                        priority
+                        key={snapshot.data.cover.assetId}
+                        image={eventCoverImage(
+                          snapshot.data.cover,
+                          `/api/events/${id}/cover/${snapshot.data.cover.assetId}`,
+                        )}
+                      />
+                    )
+                  }
                 />
-              </Stack>
-            </EventGuestView>
-          </Paper>
+              </Paper>
+            }
+            registration={
+              <Paper
+                elevation={0}
+                sx={{ bgcolor: "background.default", p: { xs: 2, sm: 4 } }}
+              >
+                <Stack spacing={3}>
+                  <Typography component="h2" variant="h4">
+                    Register to attend
+                  </Typography>
+                  <RegistrationApplicationForm
+                    key={`registration-preview:${id}`}
+                    preview
+                    fields={snapshot.data.registrationForm.fields}
+                    eventContext={
+                      <PublicEventCard
+                        preview
+                        snapshot={snapshot.data}
+                        now={now}
+                        component="section"
+                        coverBasePath={
+                          snapshot.data.cover
+                            ? `/api/events/${id}/cover/${snapshot.data.cover.assetId}`
+                            : undefined
+                        }
+                      />
+                    }
+                  />
+                </Stack>
+              </Paper>
+            }
+          />
         ) : (
-          <Alert severity="error">
+          <Alert severity="error" sx={{ m: { xs: 2, sm: 4 } }}>
             Check the event details and registration questions before
             previewing.
           </Alert>

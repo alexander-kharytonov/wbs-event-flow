@@ -9,9 +9,11 @@ import type { TicketPresentation } from "@/features/tickets/server/ticket-displa
 export function TicketCard({
   ticket,
   title = "Your ticket",
+  background = "paper",
 }: {
   ticket: TicketPresentation;
   title?: string;
+  background?: "paper" | "default";
 }) {
   const { context, revoked, cancelled, completed, qrDataUrl } = ticket;
   const timezone = context?.timezone ?? "UTC";
@@ -21,6 +23,7 @@ export function TicketCard({
       variant="outlined"
       sx={{
         p: { xs: 2, sm: 3 },
+        bgcolor: `background.${background}`,
         overflowWrap: "anywhere",
         minWidth: 0,
         containerType: "inline-size",

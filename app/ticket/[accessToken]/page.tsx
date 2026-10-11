@@ -52,10 +52,10 @@ export default async function AnonymousTicketPage({
         <Typography variant="h4" component="h1">
           Your ticket
         </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Alert severity="info">
           This private link lets you view tickets and manage guests for your
           registration. Keep it safe.
-        </Typography>
+        </Alert>
         {data.cancelledAt && data.cancellationReason && (
           <Alert severity="error" sx={{ whiteSpace: "pre-wrap" }}>
             {data.cancellationReason}

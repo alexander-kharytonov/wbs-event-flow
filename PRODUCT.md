@@ -1013,23 +1013,72 @@ Catalog descriptions use the same format-aware restricted Markdown renderer.
 Covers sit behind card content with a dark gradient in both themes in both the public catalog and
 My events; cards without covers retain their usual appearance. Only the background image of a fully clickable Event card scales slightly
 on hover with a fine pointer; reduced-motion preferences disable this effect.
-Public catalog cards show only published covers. My events cards show draft covers
+Public catalog cards show only published covers. Cards in the same grid row
+stretch to equal height, including a mix of covered and uncovered events. My events cards show draft covers
 for owned Events through the owner-only media route; assigned staff cards do not
 request private owner media.
 
 Description, location, schedule and public organizer sections appear only when
 present. V3 uses its explicit description format and the same restricted Markdown
-renderer as the editor. Agenda entries retain their original order and instants, grouped by day in the Event timezone. Times
-include UTC offsets to distinguish repeated local times at a DST transition.
-Public organizer details are exclusively Event-local authored content.
+renderer as the editor. Agenda uses MUI Timeline with a vertical rail, time on the opposite side from
+the title, and smaller supporting descriptions below each title. Entries retain their original order and instants, grouped by day
+in the Event timezone. The timezone is stated once above the agenda; individual
+times show hours and minutes without repeated UTC offsets. Exact instants remain
+in the datetime attributes, including at DST transitions.
+Public organizer details are exclusively Event-local authored content. Organizer
+appears below Location and Registration in the sidebar (stacked beneath them on mobile).
+Location uses a separate card above Organizer. When a
+website is supplied, the organizer name is the external link; there is no separate
+website action.
 
-The existing registration form and all admission/application rules remain in
-force. A full Event still accepts applications while otherwise eligible. The
-Hero links to the form, reapplication form, or existing account requirement prompt;
-registration details and personal status/history remain available. Completed and
+The landing page contains event content and registration availability, with prominent
+Register (or Apply again) links in the Hero and registration panel. It does not
+embed the application form. `/e/[publicId]/register` provides compact published event
+context using the shared public catalog card, Back to event, and a focused
+single-page application. The event card and Your details sit side by side on
+desktop and stack on mobile. When the form is unavailable, registration status
+and its available actions occupy an outlined details card beside the event instead.
+Your details keeps name and email stacked vertically.
+Organizer questions use wrapping labels above text and select controls so the full
+question remains visible on narrow screens. Single-choice questions use MUI Select
+with MenuItem options, an explicitly associated label,
+inline helper/error text and the existing empty-selection behavior. Organizer questions sit directly on the page without
+an outer card. The final submission panel uses a theme accent and a prominent action alongside
+the heading on desktop, stacked on mobile. Questions
+use unnumbered labels and generous spacing without dividers; controls use the
+shared light/dark theme. Registration uses the accepted lg page container width
+and uses shared BackLink navigation. Post-submission guidance appears in an Alert.
+Review errors uses the same error color as the Event editor.
+Complete required fields runs the existing client validation without submitting and
+focuses/scrolls to the first invalid control. Review errors returns to the first
+remaining invalid control; field feedback clears individually. Submit remains disabled while required
+values are missing or a request is pending.
+The public landing includes All events navigation above the Hero.
+No wizard or Registration Builder changes are introduced.
+
+Both pages preserve personal application/admission status, withdrawal and history
+navigation. The registration page explains closed, not-yet-open, cancelled, full,
+owner and account-required states; authentication returns to this registration URL.
+A full Event still accepts applications while otherwise eligible. Successful submission
+retains neutral confirmation and organizer review semantics. Existing Server Actions,
+historical revision binding, unchanged-question reapplication prefill, validation,
+and pending protection remain authoritative. Registration pages are noindex/nofollow;
+the landing page retains its existing canonical and social metadata. Completed and
 cancelled Events retain published content/history without application actions.
 Archive does not independently remove public access or add an admission rule.
-OWNER Preview shares presentation but reads the workspace and OWNER media URLs;
+An opened registration form keeps its revision and question definitions across
+server refreshes; current publication updates do not replace entered answers.
+An update notice offers an explicit restart with the latest form, clearing unsaved
+answers. Ordinary applications may submit the opened historical revision;
+reapplications must restart when the current revision changes. Current server
+eligibility still controls whether the form exists. Event, verified identity or
+withdrawn-attempt changes replace the form; closing, cancellation, unpublication,
+owner access or an existing active application removes it as applicable.
+
+
+OWNER Preview uses horizontal Landing and Registration tabs, matching the Badges workspace.
+Landing contains no embedded form; Registration reuses the public form layout in read-only
+preview mode, without the final submission panel or its actions. Both tabs read the workspace and OWNER media URLs;
 the public page never reads draft content.
 
 Metadata uses the published title and a bounded plain-text description from the

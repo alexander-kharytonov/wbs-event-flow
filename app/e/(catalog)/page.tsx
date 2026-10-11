@@ -1,13 +1,6 @@
 import ArrowForward from "@mui/icons-material/ArrowForward";
 import EventOutlined from "@mui/icons-material/EventOutlined";
-import {
-  Box,
-  Button,
-  CardActionArea,
-  Paper,
-  Stack,
-  Typography,
-} from "@mui/material";
+import { Box, Button, Paper, Stack, Typography } from "@mui/material";
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import { DateTime } from "@/components/ui/date-time";
@@ -18,6 +11,7 @@ import {
   EventCoverBackdrop,
 } from "@/features/events/components/event-cover";
 import { EventDescription } from "@/features/events/components/event-description";
+import { PublicEventCard } from "@/features/events/components/public-event-card";
 import { RegistrationAvailabilityStatus } from "@/features/events/components/registration-availability-status";
 import { eventCoverImage } from "@/features/events/event-cover";
 import { getPublicEvents } from "@/features/events/server/get-public-events";
@@ -78,7 +72,7 @@ export default async function PublicEventsPage() {
           aria-labelledby="featured-event-title"
           variant="outlined"
           sx={{
-            p: { xs: 2, sm: 3 },
+            p: { xs: 2.5, sm: 4 },
             aspectRatio: {
               xs: "auto",
               lg: featured.snapshot.cover ? "16 / 9" : "auto",
@@ -236,100 +230,13 @@ export default async function PublicEventsPage() {
                 }}
               >
                 {group.events.map(({ publicId, snapshot }) => (
-                  <Paper
+                  <PublicEventCard
                     key={publicId}
-                    component="li"
-                    variant="outlined"
-                    sx={{
-                      alignSelf: "start",
-                      display: "flex",
-                      position: "relative",
-                      overflow: "hidden",
-                      color: snapshot.cover ? "#fff" : undefined,
-                    }}
-                  >
-                    <CardActionArea
-                      href={`/e/${encodeURIComponent(publicId)}`}
-                      aria-labelledby={`event-title-${publicId}`}
-                      sx={{
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "flex-start",
-                        overflow: "hidden",
-                        width: "100%",
-                        aspectRatio: {
-                          xs: "auto",
-                          lg: snapshot.cover ? "16 / 9" : "auto",
-                        },
-                        borderRadius: "inherit",
-                        "& .event-cover-image": {
-                          transition: "transform 240ms ease",
-                        },
-                        "@media (hover: hover) and (pointer: fine)": {
-                          "&:hover .event-cover-image": {
-                            transform: "scale(1.1)",
-                          },
-                        },
-                        "@media (prefers-reduced-motion: reduce)": {
-                          "& .event-cover-image": { transition: "none" },
-                          "&:hover .event-cover-image": { transform: "none" },
-                        },
-                      }}
-                    >
-                      {snapshot.cover && (
-                        <EventCoverBackdrop>
-                          <EventCover
-                            fill
-                            image={{
-                              ...eventCoverImage(
-                                snapshot.cover,
-                                `/e/${publicId}/cover/${snapshot.cover.assetId}`,
-                              ),
-                              sizes:
-                                "(min-width: 1200px) 560px, (min-width: 600px) calc(50vw - 36px), calc(100vw - 32px)",
-                            }}
-                          />
-                        </EventCoverBackdrop>
-                      )}
-                      <Stack
-                        spacing={2}
-                        useFlexGap
-                        sx={{
-                          position: "relative",
-                          p: { xs: 2, sm: 3 },
-                          width: "100%",
-                          flexGrow: 1,
-                          alignItems: "flex-start",
-                          justifyContent: "flex-end",
-                        }}
-                      >
-                        <Typography
-                          id={`event-title-${publicId}`}
-                          variant="h6"
-                          component="h3"
-                          color={snapshot.cover ? "inherit" : "primary.main"}
-                          sx={{ overflowWrap: "anywhere", mb: "auto" }}
-                        >
-                          {snapshot.title}
-                        </Typography>
-                        <Box>
-                          <DateTime
-                            inverse={Boolean(snapshot.cover)}
-                            date={snapshot.startsAt}
-                            endDate={snapshot.endsAt}
-                            timezone={snapshot.timezone}
-                          />
-                        </Box>
-                        {group.id !== "past-events" && (
-                          <RegistrationAvailabilityStatus
-                            inverse={Boolean(snapshot.cover)}
-                            snapshot={snapshot}
-                            now={now}
-                          />
-                        )}
-                      </Stack>
-                    </CardActionArea>
-                  </Paper>
+                    publicId={publicId}
+                    snapshot={snapshot}
+                    now={now}
+                    showAvailability={group.id !== "past-events"}
+                  />
                 ))}
               </Box>
             </Stack>
