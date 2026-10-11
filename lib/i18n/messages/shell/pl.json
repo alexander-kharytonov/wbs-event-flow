@@ -30,6 +30,5 @@
   "colorMode": "Tryb kolorów",
   "dateTimeRange": "<start>{startTime}</start> – <end>{endTime}</end>",
   "dateTimeUntil": "Do <end>{endDate}, {endTime}</end>",
-  "modeSaveFailed": "Nie udało się zapisać wyglądu. Spróbuj ponownie.",
-  "modeSyncFailed": "Wygląd został zapisany, ale nie udało się potwierdzić aktualnego wyboru. Spróbuj ponownie."
+  "modeSaveFailed": "Nie udało się zapisać wyglądu. Spróbuj ponownie."
 }

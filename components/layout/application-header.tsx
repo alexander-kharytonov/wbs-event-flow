@@ -8,9 +8,13 @@ import { ThemeControl } from "@/components/ui/theme-control";
 import { AccountMenu } from "@/features/auth/components/account-menu";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
+import { getUiPreferences } from "@/lib/ui-preferences";
 
 export async function ApplicationHeader() {
-  const session = await getSession();
+  const [session, preferences] = await Promise.all([
+    getSession(),
+    getUiPreferences(),
+  ]);
   const organizer = session
     ? await prisma.organizerProfile.findUnique({
         where: { userId: session.user.id },
@@ -64,7 +68,7 @@ export async function ApplicationHeader() {
             sx={{ alignItems: "center", gap: 0.5, ml: { xs: "auto", lg: 0 } }}
           >
             <LanguageSelector />
-            <ThemeControl />
+            <ThemeControl initialMode={preferences.mode} />
             {session ? (
               <AccountMenu
                 name={session.user.name}

@@ -5,7 +5,7 @@ import { getLocale, getMessages } from "next-intl/server";
 import { ThemeModeScript } from "@/components/ui/theme-mode-script";
 import type { UiLocale } from "@/lib/i18n/locale";
 import type { Messages } from "@/lib/i18n/messages";
-import { getUiModePreference } from "@/lib/ui-mode-request";
+import { getUiPreferences } from "@/lib/ui-preferences";
 import { LocaleProvider } from "@/providers/locale-provider";
 import "./globals.css";
 import { NotificationsProvider } from "@/providers/notifications-provider";
@@ -30,7 +30,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const [locale, messages, modePreference] = await Promise.all([
     getLocale(),
     getMessages(),
-    getUiModePreference(),
+    getUiPreferences(),
   ]);
 
   return (
@@ -45,9 +45,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           <LocaleProvider
             locale={locale as UiLocale}
             messages={messages as Messages}
-            identity={modePreference.identity}
           >
-            <AppThemeProvider preference={modePreference}>
+            <AppThemeProvider mode={modePreference.mode}>
               <NotificationsProvider>{children}</NotificationsProvider>
             </AppThemeProvider>
           </LocaleProvider>

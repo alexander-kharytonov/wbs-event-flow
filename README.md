@@ -304,26 +304,19 @@ Optional native build scripts introduced transitively by next-intl (`@swc/core`
 and `@parcel/watcher`) are disabled; the application uses neither optional feature.
 
 Appearance uses `User.uiMode` (light/dark/system, nullable) with account → cookie →
-system priority. `lib/ui-mode-request.ts` resolves the initial mode; the MUI
-provider disables localStorage persistence. `GET/PUT /api/preferences/mode`
-reconcile/save the preference without navigation or form resets. Old MUI-only
-localStorage settings are not imported. System follows each device's OS and
-never persists the computed light/dark result.
+system priority. `lib/ui-preferences.ts` resolves both initial preferences using
+the normal session reader and one request-cached User query. The MUI provider
+disables localStorage persistence; old MUI-only settings are not imported.
+System follows each device's OS without saving the computed light/dark result.
 
-Preference reads and writes use a separate non-renewing Better Auth reader, including
-non-destructive handling of expired sessions. Visibility/pageshow bursts are
-coalesced; a signal during a read queues a fresh authority check. Saving remains
-pending through confirmation, with distinct feedback if synchronization cannot be
-confirmed after persistence.
+Preferences use SSR initialization and local client state. Locale loads messages,
+sends PUT, then updates next-intl context. Theme sends PUT, then calls MUI setMode.
+The existing `/api/preferences/locale` and `/api/preferences/mode` routes support
+PUT only; there are no confirmation GETs, identity tokens or reconciliation loops.
+Failed saves preserve the active selection and show a retryable translated error.
 
-Window focus alone does not trigger preference reads, including returning from
-DevTools. Menu open/close stays local; returning to a hidden tab still reconciles.
-
-Both preference resolvers supply an opaque, session-bound `identity` context.
-Selections capture it before asynchronous work and send `X-Preference-Identity`
-with PUT. The server checks it against the current signed-cookie/DB session before
-writing or setting cookies; stale/missing context gets neutral 409
-`preferenceConflict`. The client reconciles without replaying the old write, and
-success requires confirmation of both value and identity. Reauthentication (even
-as the same User) requires a fresh context. This is preference-only continuity,
-not a replacement for authentication or an atomic session-revocation fence.
+External changes appear after full reload. Successful authentication transitions
+load a new document, while preference switching preserves URLs and unsaved forms.
+Writes target only the request's authenticated User; stale tabs can save to the
+currently signed-in account. Normal Better Auth session behavior is retained.
+See PRODUCT.md and DOMAIN.md for the accepted V0 consistency limitations.

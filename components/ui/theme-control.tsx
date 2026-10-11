@@ -14,9 +14,10 @@ import {
   MenuItem,
   Tooltip,
 } from "@mui/material";
+import { useColorScheme } from "@mui/material/styles";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
-import { useModePreference } from "@/providers/mode-preference-provider";
+import { useId, useRef, useState } from "react";
+import type { UiMode } from "@/lib/ui-mode";
 
 const choices = [
   { value: "system", label: "System", icon: DesktopWindowsOutlined },
@@ -24,14 +25,17 @@ const choices = [
   { value: "dark", label: "Dark", icon: DarkModeOutlined },
 ] as const;
 
-export function ThemeControl() {
+export function ThemeControl({ initialMode }: { initialMode: UiMode }) {
   const t = useTranslations("shell");
-  const { mode, pending, changeMode } = useModePreference();
-  const [error, setError] = useState<"modeSaveFailed" | "modeSyncFailed">();
+  const { mode, setMode } = useColorScheme();
+  const [pending, setPending] = useState(false);
+  const busy = useRef(false);
+  const [error, setError] = useState<"modeSaveFailed">();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const id = useId();
   const activeChoice =
-    choices.find((choice) => choice.value === mode) ?? choices[0];
+    choices.find((choice) => choice.value === (mode ?? initialMode)) ??
+    choices[0];
   const ActiveIcon = activeChoice.icon;
   const label = t("appearance", { mode: t(activeChoice.value) });
 
@@ -62,18 +66,35 @@ export function ThemeControl() {
         {choices.map(({ value, icon: Icon }) => (
           <MenuItem
             key={value}
-            selected={mode === value}
+            selected={(mode ?? initialMode) === value}
             disabled={pending}
             onClick={async () => {
+              if (busy.current) {
+                return;
+              }
+              busy.current = true;
+              setPending(true);
               setError(undefined);
-              const result = await changeMode(value);
 
-              if (result === "saved") {
+              try {
+                const response = await fetch("/api/preferences/mode", {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(value),
+                });
+
+                if (!response.ok) {
+                  setError("modeSaveFailed");
+
+                  return;
+                }
+                setMode(value);
                 setAnchor(null);
-              } else {
-                setError(
-                  result === "syncFailed" ? "modeSyncFailed" : "modeSaveFailed",
-                );
+              } catch {
+                setError("modeSaveFailed");
+              } finally {
+                busy.current = false;
+                setPending(false);
               }
             }}
             sx={{ minWidth: 168 }}

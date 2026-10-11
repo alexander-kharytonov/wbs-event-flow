@@ -1121,26 +1121,24 @@ User.uiLocale and the cookie; anonymous selection saves only the cookie.
 
 The language menu is available in the shared application/public header (including
 authentication and public registration) and the anonymous Ticket surface. Selection
-preserves the full URL, scroll position and unsaved form state. Only successful
-persistence followed by confirmation against the current session changes the active
-language. Write failure appears in the menu for retry. If a save succeeds but the
-current selection cannot be confirmed, the menu stays open with a distinct
-synchronization message; it does not report success silently. Language and
-appearance selections are bound to the session that initiated them, including
-anonymous state. If that session changes before the server validates the write,
-the selection is rejected, current preferences are reconciled, and the menu
-shows a retryable save error. The old selection is never automatically saved to
-the new account. Signing in again also requires retrying the selection.
+preserves the full URL, scroll position and unsaved form state. The client loads
+messages, saves the selection with PUT, then updates its locale context. A failed
+load or save keeps the active language and shows a translated retryable error.
+A successful PUT is sufficient; there is no read-back confirmation.
 The cookie is host-only, HttpOnly, SameSite=Lax, one year, and Secure on HTTPS.
-Delayed server renders cannot roll back a confirmed selection. Normal navigation,
-new server props and returning to the page reconcile the current account/cookie
-preference without resetting mounted forms. External changes are picked up on
-these signals, not continuously polled.
 
-Opening/closing preference menus and moving focus between the page and DevTools
-do not reload preferences. Returning to a previously hidden tab does. A switch
-between windows that leaves the page visible waits for another reconciliation
-signal; stale identity context still prevents saving to a different account.
+SSR initializes preferences for each document. Mounted client state is not replaced
+by later server props, navigation, focus, visibility changes or pageshow. External
+changes become visible after a full reload. Successful authentication transitions
+load a new document; preference selection itself never navigates or refreshes
+application data. Server-only text may reflect newer preferences on a subsequent
+server render while mounted client labels retain the current document's choice.
+
+Writes use the session authenticated for that request, not the session present
+when the menu was opened. An old tab can therefore save to the currently signed-in
+account; an expired session saves only the anonymous cookie. There is no automatic
+retry or replay. Concurrent writes use last-write-wins behavior. A lost response
+can leave persistence uncertain; repeating the selection is safe.
 
 This phase translates shared navigation, account navigation, language/appearance
 controls and essential shell labels. MUI built-in labels and the shared DateTime
@@ -1159,13 +1157,10 @@ preference → validated first-party cookie → system. A null account preferenc
 means no explicit selection. Explicit system mode follows the OS of each current
 device; the resolved light/dark appearance is never saved as a preference.
 Signed-in selections save User.uiMode and the cookie; anonymous selections save
-only the cookie. A save remains pending until the current session preference is
-confirmed. Write failure keeps the current mode and shows a translated retryable
-error. A successful save with failed or differing confirmation keeps the menu
-open with a distinct synchronization message; a confirmed current account
-preference remains authoritative.
+only the cookie. The client waits for a successful PUT before calling MUI setMode.
+Write failure keeps the current mode and shows a translated retryable error.
 Changing appearance preserves URL, scroll, component identity and unsaved forms.
 Initial rendering uses the resolved preference before page content is displayed.
-MUI localStorage is no longer an authority and old local-only preferences are not
-imported. Returning to the page, normal navigation and new server props reconcile
-external/account changes; delayed responses cannot undo newer confirmed choices.
+MUI localStorage is not an authority and old local-only preferences are not imported.
+MUI follows OS changes in system mode without persistence requests. The same
+reload-based freshness and request-time session semantics as language apply.

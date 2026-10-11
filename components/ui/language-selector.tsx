@@ -13,7 +13,7 @@ export function LanguageSelector() {
   const { pending, changeLocale } = useLocalePreference();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   // Store stable identifiers, translate at render so errors follow locale changes.
-  const [error, setError] = useState<"saveFailed" | "syncFailed">();
+  const [error, setError] = useState<"saveFailed">();
   const id = useId();
 
   return (

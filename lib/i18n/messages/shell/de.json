@@ -30,6 +30,5 @@
   "colorMode": "Farbmodus",
   "dateTimeRange": "<start>{startTime}</start> – <end>{endTime}</end>",
   "dateTimeUntil": "Bis <end>{endDate}, {endTime}</end>",
-  "modeSaveFailed": "Darstellung konnte nicht gespeichert werden. Bitte erneut versuchen.",
-  "modeSyncFailed": "Die Darstellung wurde gespeichert, aber die aktuelle Auswahl konnte nicht bestätigt werden. Bitte erneut versuchen."
+  "modeSaveFailed": "Darstellung konnte nicht gespeichert werden. Bitte erneut versuchen."
 }

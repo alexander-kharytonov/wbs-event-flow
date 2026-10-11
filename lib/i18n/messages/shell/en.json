@@ -30,6 +30,5 @@
   "colorMode": "Color mode",
   "dateTimeRange": "<start>{startTime}</start> – <end>{endTime}</end>",
   "dateTimeUntil": "Until <end>{endDate}, {endTime}</end>",
-  "modeSaveFailed": "Could not save appearance. Please try again.",
-  "modeSyncFailed": "Appearance was saved, but the current selection could not be confirmed. Please try again."
+  "modeSaveFailed": "Could not save appearance. Please try again."
 }

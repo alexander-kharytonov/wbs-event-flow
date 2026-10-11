@@ -1,25 +1,8 @@
 import { NextResponse } from "next/server";
 import { getServerEnv } from "@/lib/env";
-import {
-  getPreferenceSession,
-  matchesPreferenceIdentity,
-} from "@/lib/preference-session";
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/session";
 import { isUiMode, modeCookie } from "@/lib/ui-mode";
-import { getUiModePreference } from "@/lib/ui-mode-request";
-
-export async function GET() {
-  try {
-    return NextResponse.json(await getUiModePreference(), {
-      headers: { "Cache-Control": "private, no-store" },
-    });
-  } catch {
-    return NextResponse.json(
-      { code: "readFailed" },
-      { status: 500, headers: { "Cache-Control": "private, no-store" } },
-    );
-  }
-}
 
 export async function PUT(request: Request) {
   const origin = new URL(getServerEnv().BETTER_AUTH_URL).origin;
@@ -63,19 +46,7 @@ export async function PUT(request: Request) {
   }
 
   try {
-    const session = await getPreferenceSession();
-
-    if (
-      !matchesPreferenceIdentity(
-        request.headers.get("X-Preference-Identity"),
-        session,
-      )
-    ) {
-      return NextResponse.json(
-        { code: "preferenceConflict" },
-        { status: 409, headers: { "Cache-Control": "private, no-store" } },
-      );
-    }
+    const session = await getSession();
 
     if (session) {
       await prisma.user.update({

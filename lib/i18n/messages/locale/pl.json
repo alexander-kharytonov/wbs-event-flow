@@ -2,6 +2,5 @@
   "label": "Język",
   "saveFailed": "Nie udało się zapisać języka. Spróbuj ponownie.",
   "invalidLocale": "Wybierz obsługiwany język.",
-  "forbidden": "To żądanie jest niedozwolone.",
-  "syncFailed": "Język został zapisany, ale nie udało się potwierdzić aktualnego wyboru. Spróbuj ponownie."
+  "forbidden": "To żądanie jest niedozwolone."
 }

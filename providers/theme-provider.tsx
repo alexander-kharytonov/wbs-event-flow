@@ -8,7 +8,6 @@ import { useLocale } from "next-intl";
 import { useMemo, useState } from "react";
 import type { UiLocale } from "@/lib/i18n/locale";
 import type { UiMode } from "@/lib/ui-mode";
-import { ModePreferenceProvider } from "@/providers/mode-preference-provider";
 
 const theme = createTheme({
   colorSchemes: {
@@ -274,12 +273,12 @@ const muiLocales = { en: enUS, de: deDE, pl: plPL, uk: ukUA, ru: ruRU };
 
 export function AppThemeProvider({
   children,
-  preference,
+  mode,
 }: {
   children: React.ReactNode;
-  preference: { mode: UiMode; identity: string };
+  mode: UiMode;
 }) {
-  const [initialMode] = useState(preference.mode);
+  const [initialMode] = useState(mode);
   const locale = useLocale() as UiLocale;
   const localizedTheme = useMemo(
     () => createTheme(theme, muiLocales[locale]),
@@ -294,9 +293,7 @@ export function AppThemeProvider({
       disableTransitionOnChange
     >
       <CssBaseline enableColorScheme />
-      <ModePreferenceProvider preference={preference}>
-        {children}
-      </ModePreferenceProvider>
+      {children}
     </ThemeProvider>
   );
 }

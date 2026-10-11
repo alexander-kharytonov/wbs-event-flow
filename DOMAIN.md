@@ -2146,9 +2146,13 @@ authorization, concurrency controls and idempotency remain mandatory.
 `User.uiLocale` is nullable text constrained by PostgreSQL to en/de/pl/uk/ru.
 Null means no explicit account preference, not English. It changes no identity,
 verification, ownership, lifecycle, authorization or Event content semantics.
-`lib/i18n/request.ts` resolves locale per request, reading the preference directly
-from User after a preference-only uncached, non-renewing session lookup. No
-process-global user locale or auth cookie-cache authority is introduced.
+`lib/ui-preferences.ts` resolves both preferences with one request-cached User
+query after the normal `getSession()` lookup. Locale precedence is account →
+validated event-flow-locale cookie → Accept-Language → English.
+`lib/i18n/request.ts` supplies the resolved locale and messages to next-intl.
+No process-global locale or auth cookie-cache authority is introduced. Normal
+Better Auth session renewal/expired-session cleanup behavior is accepted;
+preference reads never persist inferred locale or mode values.
 
 `PUT /api/preferences/locale` accepts only a supported JSON string, bounded to
 64 bytes, requires Origin equal to configured BETTER_AUTH_URL origin, derives the
@@ -2161,101 +2165,59 @@ concurrent requests use last committed write. Failures return stable identifiers
 never account details. Locale does not enter Event snapshots, templates, business
 mutation inputs, revision keys or idempotency digests.
 
-The root client provider shares SSR messages/locale and updates context without
-navigation or router refresh. MUI theme updates do not change subtree identity.
-Subsequent server props and normal navigation trigger an uncached, read-only
-`GET /api/preferences/locale` reconciliation using the same request resolver.
-Server props never directly overwrite a confirmed client selection. Visibility
-restoration and pageshow also reconcile account/cookie changes. Window focus alone
-does not reconcile: moving between DevTools and the page or opening/closing menus
-must not cause preference reads. Switching between visible windows without a
-visibility transition waits for another reconciliation signal; identity-bound PUT
-still rejects a stale session context.
-Reads superseded by a selection or a later reconciliation are ignored, including
-delayed message loading. Writes are single-flight per mounted provider; signals
-during a write defer reconciliation until its response has applied the cookie.
-Locale selection rechecks mount status and generation after loading messages,
-immediately before PUT. An invalidated selection sends no PUT and reports a
-retryable save failure; a mounted provider still reconciles the invalidating
-signal. Both preference resolvers also return an opaque identity context with
-SSR props and private, no-store GET responses. The context is an HMAC using the
-server secret and a preference-specific namespace over the current User/session
-IDs, or a distinct anonymous marker. It exposes neither ID nor session credential
-and grants no authority independently of the signed session cookie.
+The root locale provider uses SSR values only to initialize the document. Selection
+loads messages, sends PUT, and updates client context after success, with one
+selection in flight. Failed message loading or PUT leaves the active locale intact
+and reports a retryable save error. There is no confirmation GET or identity token.
+A successful PUT acknowledges that request, not continued freshness across tabs.
+Later server props do not overwrite mounted state. No preference GET endpoints,
+navigation/focus/visibility/pageshow listeners, polling or automatic retries exist.
+External changes become visible after full reload; client-side navigation alone
+need not refresh mounted preferences. Successful sign-in/sign-out loads a new
+document. Language/theme selection never navigates, refreshes domain reads, keys
+providers by locale, resets forms, or changes revision/token bindings.
 
-Each selection captures this context before asynchronous work and sends it in
-`X-Preference-Identity`. After body/Origin validation, PUT reads the current
-session using the same non-renewing reader and compares the context before any
-User update or preference cookie emission. Missing, malformed or stale context
-returns neutral `409 {code: "preferenceConflict"}` with private, no-store caching.
-Switching accounts, signing in from anonymous state, logout, expired/revoked
-sessions, and replacement sessions (even for the same User) therefore invalidate
-old selections without requiring a client signal. A conflict reconciles current
-authority and reports a retryable save failure; it never replays the old choice.
-The binding is to the session validated for that request, not an atomic fence
-against revocation after validation. An accepted request can complete for that
-validated User, but cannot retarget a subsequently signed-in User. Global
-authentication/session behavior is unchanged.
-A successful write remains pending until reconciliation against the current session
-settles. Only a current read matching both the requested value and the initiating
-identity context reports success. A failed read, changed identity or different
-current selection reports a translated synchronization error; the saved preference
-is not reported as a failed write. Reads retain the last
-confirmed locale on failure and retry on the next signal; no polling,
-locale-triggered navigation or domain refresh is introduced.
+The session validated for each PUT is the only account authority. An old tab's
+selection can update the currently authenticated account, even if its displayed
+account is stale. Expired/revoked sessions resolve as anonymous. There is no
+initiating-session continuity guarantee or atomic revocation fence. This changes
+only presentation preference semantics; all domain authorization is unchanged.
+Lost responses may leave a committed save unacknowledged. Concurrent cookie
+responses may differ from the final DB value; account precedence resolves this on
+full reload. Cookie acceptance is not confirmed by the client.
+
 Event dates keep explicit IANA timezones; UTC is the deterministic provider default
 for formatting without an explicit timezone. `createBackgroundTranslator` takes
 an explicit preference (invalid/absent → English), never request headers/cookies.
 It is preparatory only: email payloads, frozen Communications and delivery rendering
-retain their current contracts and English templates.
+retain their current contracts and English templates. Server-only translations
+update on server render; immediately switchable labels consume client context.
 
 ## 41. UI mode preference
 
 `User.uiMode` is nullable text constrained by PostgreSQL to light/dark/system.
 Null defers to the validated event-flow-mode cookie, then system. Explicit system
 is an account preference and overrides the cookie; OS changes are device-local
-presentation changes, never database or cookie writes. No GET persists a mode.
-`lib/ui-mode-request.ts` uses the preference-only non-renewing session lookup and
-a fresh User query, with React cache limited to one request. Neither identity
-details nor uiMode are added to auth payloads, Event content, Snapshot/Template
-or email contracts.
+presentation changes, never database or cookie writes. The shared request resolver
+reads uiMode with uiLocale. Neither field is added to auth payloads, Event content,
+Snapshot/Template or email contracts.
 
 `PUT /api/preferences/mode` accepts only a supported JSON string bounded to 64
 bytes. Origin must equal the configured BETTER_AUTH_URL origin. The User comes
-solely from the session, including unverified authenticated Users; only uiMode
-and Prisma updatedAt are updated. Account persistence must succeed before the
-host-only, HttpOnly, SameSite=Lax, one-year cookie is emitted (Secure on HTTPS).
-Anonymous requests set only the cookie. The identity-continuity protocol described
-in section 40 applies equally to mode writes and confirmation. Responses contain
-presentation values and opaque identity context, or stable error codes, never
-account details. Concurrent writes use last committed write semantics; the mounted provider allows only one write at a time.
+solely from the normal session lookup, including unverified authenticated Users;
+only uiMode and Prisma updatedAt are updated. Account persistence must succeed
+before the host-only, HttpOnly, SameSite=Lax, one-year cookie is emitted (Secure
+on HTTPS). Anonymous requests set only the cookie. Both preference PUT success
+responses contain only presentation values and use private, no-store caching.
 
-`GET /api/preferences/mode` returns the current resolved mode with private,
-no-store caching. The client rechecks on mount, server-prop changes, navigation,
-visibility restoration, pageshow and successful saves. Older reads are
-ignored after a newer read or selection; signals during a write defer to a read
-after its response. A save remains pending through reconciliation and reports
-success only if a current read matches the requested mode and initiating identity
-context. Otherwise the menu reports unresolved synchronization, including when the current account resolves
-to another mode. Failed reads retain the last confirmed mode until a later
-signal retries. No polling, locale/theme-triggered navigation or domain refresh
-is introduced. The MUI provider and forms retain identity; defaultMode is frozen
-at mount and subsequent confirmed values use setMode. MUI storageManager is null;
-a small pre-content initializer uses the server-resolved mode and matchMedia,
-without reading localStorage. It uses the same data-light/data-dark selectors as
-MUI, which continues listening to OS changes in system mode.
+ThemeControl uses MUI useColorScheme directly: PUT, then setMode. A pending guard
+prevents overlapping selections in the control. Failure preserves the current
+mode and shows a retryable translated error. There is no ModePreferenceProvider,
+read-back confirmation or background reconciliation. Section 40's request-time
+session authority, reload-based freshness and concurrent-write limitations apply.
 
-Preference reads share `lib/preference-session.ts`: a private Better Auth reader
-reuses the main auth options with `deferSessionRefresh` enabled only for this
-instance. Its GET lookup also disables refresh and cookie-cache authority. Signed
-cookies, fresh DB session lookup and explicit expiry validation remain mandatory;
-expired sessions resolve as anonymous without deletion. No reader handler is
-exposed, no auth cookie headers are forwarded, and global auth/session behavior
-is unchanged.
-
-Each preference provider batches overlapping visibility/pageshow signals for
-50 ms and permits one reconciliation read at a time. Signals during an in-flight read invalidate its
-result and share one queued fresh read after the burst. Signals during PUT wait
-for its response before reading authority. Failed current reads stop until a new
-signal or explicit selection; there is no periodic retry. Pending saves remain
-single-flight through reconciliation, and unmount invalidates pending results.
+The MUI provider and forms retain identity; defaultMode is frozen at mount.
+The control uses the server-resolved mode until MUI supplies its hydrated mode.
+MUI storageManager is null; the pre-content initializer uses the server-resolved
+mode and matchMedia without reading localStorage. It uses the same data-light /
+data-dark selectors as MUI, which continues listening to OS changes in system mode.

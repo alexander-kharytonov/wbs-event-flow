@@ -30,6 +30,5 @@
   "colorMode": "Колірна тема",
   "dateTimeRange": "<start>{startTime}</start> – <end>{endTime}</end>",
   "dateTimeUntil": "До <end>{endDate}, {endTime}</end>",
-  "modeSaveFailed": "Не вдалося зберегти вигляд. Спробуйте ще раз.",
-  "modeSyncFailed": "Вигляд збережено, але поточний вибір не вдалося підтвердити. Спробуйте ще раз."
+  "modeSaveFailed": "Не вдалося зберегти вигляд. Спробуйте ще раз."
 }
