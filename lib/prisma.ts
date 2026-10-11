@@ -13,6 +13,7 @@ const prisma =
     adapter: new PrismaPg({
       connectionString: env.DATABASE_URL,
       connectionTimeoutMillis: 5000,
+      max: env.DATABASE_POOL_MAX,
     }),
   });
 

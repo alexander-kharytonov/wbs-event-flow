@@ -18,10 +18,9 @@ for domain invariants.
 
 ## Requirements
 
-Use pnpm 11.23.0 (`packageManager` in package.json), Docker with Compose, and a
-Node.js version compatible with Prisma 7.10: `^20.19 || ^22.12 || >=24.0`.
-This checkout's commands were verified with Node.js 25.2.1. Application and CLI
-tooling run on the host. The production build fetches Google Fonts and needs
+Use Node.js 24 (`.node-version` and `engines`) and pnpm 11.23.0
+(`packageManager`), plus Docker with Compose. Application and CLI
+tooling run on the host. The Railway image pins Node.js 24.21.0. The production build fetches Google Fonts and needs
 network access.
 
 ## Local setup
@@ -109,8 +108,9 @@ These are the scripts currently defined in package.json:
 | Command | Purpose |
 | --- | --- |
 | `pnpm dev` | Run the development application |
-| `pnpm build` | Build the production application |
-| `pnpm start` | Run the production build |
+| `pnpm build` | Generate Prisma Client, then build the production application |
+| `pnpm start` | Run production with bounded HTTP/outbox/listener shutdown |
+| `pnpm db:deploy` | Apply production migrations separately from build/start |
 | `pnpm lint` | Run Biome checks without writing fixes |
 | `pnpm format` | Format files with Biome; writes changes |
 | `pnpm infra:up` | Start PostgreSQL/Mailpit and wait for healthchecks |
@@ -210,8 +210,13 @@ A missing historical Ticket is a corruption/investigation case, never a reason t
 generate a replacement credential. Preserve the Ticket encryption key while its
 data is retained; protect database and encryption-key backups separately when
 retaining data. The disposable development baseline reset does not require backups.
-Configure any deployment ingress/CDN/access logger to redact `/ticket/*` URLs;
-application logging excludes these bearer paths but cannot control upstream logs.
+Anonymous Ticket links now use browser fragments and a protected POST exchange,
+followed by a path-scoped two-hour HttpOnly session. Legacy path-based bearer links
+are removed; redirects cannot prevent ingress logs recording the first request.
+Inspect retained environments before cutover. The local DEPLOY-2 preflight found
+zero Tickets, anonymous approval deliveries and Mailpit messages. Do not assume
+this proves another environment has no old links. Never log exchange bodies,
+cookies, fragments or private email content; disable provider click/open tracking.
 
 ## Private Event media (29A)
 
@@ -388,3 +393,103 @@ Template export/import/duplicate retain the Event language and exact dates.
 
 The catalog also provides immediate, case-insensitive published-title search,
 combined with the language filter in the same field sizing/grid as the organizer dashboard.
+
+## Railway Hobby deployment (DEPLOY-2)
+
+Prepared for one always-on service with PostgreSQL 18 and a persistent volume;
+no Redis, worker, cron or replacement queue. This repository does not deploy itself.
+`Dockerfile` retains Prisma CLI and operational scripts. `railway.json` sets the
+separate pre-deploy migration command, `/api/health`, restart policy and 75-second
+draining period. Startup provisions media at runtime, then drops root to UID/GID
+1000 before serving HTTP. A small documented Next.js custom server is required to
+coordinate HTTP, embedded dispatcher and listener shutdown; no standalone bundle.
+
+Configure the Railway service with one replica, sleeping/serverless disabled,
+a volume mounted at `/data`, and a free generated HTTPS domain. Attached volumes
+imply brief deployment downtime; schedule releases outside check-in periods.
+Do not set a start-command override: the image CMD provisions the volume. The
+pre-deploy command runs without that volume and only applies migrations.
+
+Required runtime variables (all server-side; never NEXT_PUBLIC):
+
+| Variable | Production value |
+| --- | --- |
+| DATABASE_URL | Direct private PostgreSQL 18 URL from the database service; no public proxy or transaction pooler |
+| DATABASE_POOL_MAX | `5`; allow two additional listener connections and migration/admin headroom |
+| BETTER_AUTH_URL | `https://<service>.up.railway.app`, exact origin without trailing slash |
+| BETTER_AUTH_TRUSTED_ORIGINS | Empty unless additional exact origins are intentionally supported |
+| BETTER_AUTH_SECRET | Stable random secret, at least 32 characters |
+| TICKET_CREDENTIAL_ENCRYPTION_KEY | Stable canonical base64url 32-byte key; preserve with retained Tickets |
+| EMAIL_TRANSPORT | `resend` |
+| RESEND_API_KEY | Sending API key restricted to the verified sender domain |
+| SMTP_FROM | Verified sender email; shared sender setting for both transports |
+| EMAIL_OUTBOX_ENABLED | `true`; `false` during recovery/reconciliation |
+| MEDIA_STORAGE_ROOT | `/data/media` |
+| GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET | Both configured for Google login, or both empty |
+| RAILWAY_RUN_UID | `0` for the provisioning entry point; it immediately drops the server to UID/GID 1000 |
+| PORT | Supplied by Railway; server binds `0.0.0.0` |
+| NODE_ENV | `production` (image default) |
+
+Use PostgreSQL 18 explicitly (`uuidv7()` is required). Keep its service private,
+in the same environment/region. Never reset retained data or rewrite migration
+history. Review migrations and backup before applying `pnpm db:deploy`; migration
+failure must prevent rollout. Existing schema constraints and contracts remain.
+Build uses nonsecret placeholder environment values only; real secrets are runtime
+variables. `.dockerignore` excludes local environment, Git and generated artifacts.
+
+The startup initializer accepts only `/data/media`; checks parent ownership/modes
+and extended ACLs, creates a missing 0700 directory and gives it to UID 1000.
+Existing directories must already meet ownership/mode requirements. It refuses
+symlinks or unsafe existing permissions rather than repairing them recursively.
+The original media adapter still checks the complete path and files. On imported
+volumes, provision correct owners and exclude extended ACLs on all files before
+startup. Never expose the mount through a static web server. Run the existing
+cleanup command in the running container as UID 1000, against the paired database.
+
+Resend Free needs an owned, verified sending domain with the provider's DNS records;
+the free Railway application domain cannot be used as your verified email domain.
+No domain purchase is performed here. Disable click/open tracking, use a dedicated
+API key/team budget and check current quotas before launch (Free advertises 100/day,
+3,000/month). Auth verification and outbox share the quota and process pacing.
+A quota exhaustion can delay mail until reset; inspect FAILED/PENDING delivery state.
+Retries remain at least once; Resend idempotency is a 24-hour, identical-content aid.
+No automatic replay of terminal failures is added.
+
+Configure Google authorized JavaScript origin to the canonical HTTPS origin and
+redirect URI to `<BETTER_AUTH_URL>/api/auth/callback/google`. Keep the existing
+verified-email, explicit account-linking and no-implicit-merge behavior. Verify
+real OAuth, verification email, Secure cookies and redirects after provisioning.
+Canonical/public metadata and email URLs use BETTER_AUTH_URL, never the Host header.
+
+Security acceptance: only `/ticket`, `/ticket/exchange` and credential-free
+`/ticket/view/<ticketId>` requests may occur in the anonymous flow. Validate with
+an artificial capability and inspect Railway edge logs without exporting secrets.
+Do not open real legacy bearer paths on Railway. Keep tracing/body/header logging
+and analytics disabled on private/auth flows. A fragment exchange requires JS;
+invalid/expired sessions instruct users to reopen their private email link.
+
+Enable backups for both PostgreSQL and the media volume, retain a portable copy
+outside the project, and preserve auth/Ticket keys securely and separately. Define
+acceptable loss and downtime, and rehearse restoration before launch. Database and
+media snapshots are not atomic: restore all immutable files referenced by the
+chosen database point. Keep recovery services private with EMAIL_OUTBOX_ENABLED=false
+and no public auth traffic; reconcile potentially already-sent mail before enabling
+dispatch. A restored old outbox can resend mail. Do not point a recovery clone at
+live delivery credentials. Application rollback does not reverse migrations or
+restore files; verify restored variables/keys/database targets explicitly.
+
+Set Railway usage alerts and a spending limit suited to the account budget before
+launch. Hobby includes a usage allowance, not an unlimited fixed-price deployment.
+A hard limit can stop the service, including outbox and check-in; monitor usage,
+volume space, database connections and mail quota. No purchase or limit is set by
+this preparation. Healthchecks validate deployment readiness (DB SELECT 1 after
+startup media validation); they are not continuous uptime monitoring.
+
+Before production acceptance, verify deployed SSE heartbeat/reconnect, guest actions,
+media upload/authorization, a volume-preserving redeploy, shutdown under delivery,
+real Resend delivery and recovery. Local contract checks cannot establish these
+external results. Platform references: [HTTP logs](https://docs.railway.com/cli/logs),
+[volumes](https://docs.railway.com/volumes/reference),
+[draining](https://docs.railway.com/deployments/deployment-teardown),
+[Resend limits](https://resend.com/docs/api-reference/rate-limit),
+[idempotency](https://resend.com/docs/dashboard/emails/idempotency-keys).

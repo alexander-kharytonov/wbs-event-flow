@@ -186,7 +186,7 @@ export async function renderOutboxEmail(
         introduction = t("email.anonymousTicket");
         action = {
           label: t("email.viewTicket"),
-          url: absoluteUrl(`/ticket/${access}`),
+          url: absoluteUrl(`/ticket#${access}`),
         };
       } else if (ticket.attendee.registration.userId) {
         introduction = t("email.accountTicket");

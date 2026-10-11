@@ -278,11 +278,20 @@ Registration holds the approved party’s ownership and lifecycle. Attendee is t
 concrete admitted person and capacity seat; its Ticket is the immutable credential.
 Registrations contain a PRIMARY and optional GUEST Attendees. Registration ownership and Attendee account association have separate
 responsibilities; the PRIMARY account association matches party ownership, while
-GUEST has no linked account. QR credentials, anonymous access tokens/URLs and
+GUEST has no linked account. QR credentials, anonymous access tokens and
 Ticket history remain immutable. Verified linked attendees see current and historical Tickets on their
 Registration Detail. Applicants who were anonymous at Ticket issue receive a
 separate private bearer link in approval email; no account is required. Anyone
 holding that link can view this party’s Tickets and add/remove its Guests. It never grants whole-party withdrawal or claiming.
+Private email links deliver the existing anonymous capability in a URL fragment
+(`/ticket#<capability>`), which is not sent in the HTTP URL. JavaScript exchanges
+it through a protected POST, clears the fragment on success, and opens a
+credential-free Ticket URL. A Secure production, HttpOnly, same-site cookie is
+scoped to that Ticket path and expires after two hours without automatic renewal.
+Refresh, navigation and locale changes retain the session; after expiry, reopen
+the private email link. Multiple Ticket paths keep independent sessions.
+Invalid or expired access shows neutral feedback. Old path-based bearer links
+are unsupported and must not be opened through production ingress.
 A linked User's deletion preserves history but does not create anonymous access.
 
 Ticket cards show the submitted attendee identity, Event schedule, support number
@@ -647,11 +656,12 @@ alternative, server-owned From, and no custom HTML, Reply-To, CTA or tracking.
 Semantic history never copies Ticket credentials or anonymous capability URLs;
 the existing approval delivery still supplies its private access link when eligible.
 
-Delivery status means queued (PENDING), claimed (PROCESSING), accepted by SMTP
+Delivery status means queued (PENDING), claimed (PROCESSING), accepted by the email transport
 (SENT), or automatic attempts exhausted (FAILED). SENT does not prove mailbox
 delivery or opening. One logical recipient intent can result in at-least-once
-physical SMTP delivery. Existing five attempts and delays of 1 minute, 5 minutes,
-30 minutes and 2 hours remain unchanged.
+physical email delivery. Existing five attempts and delays of 1 minute, 5 minutes,
+30 minutes and 2 hours remain the minimum delays; Resend Retry-After and quota
+reset times can extend them.
 
 Manual admission limits are 1,000 unique recipients per communication,
 5 sends per Event/hour, 10 per actor/hour, and 2,000 outstanding recipients per
@@ -759,7 +769,7 @@ might reduce the final unique count. It never sends a truncated audience.
 
 History shows Manual/Transactional, subject, time, audience/trigger, recipient
 count and Pending/Processing/Sent/Failed counts, newest first, 20 per page.
-Sent means SMTP transport accepted, not mailbox delivery or opening. Enqueue
+Sent means email transport accepted, not mailbox delivery or opening. Enqueue
 reuses routing-only Event SSE invalidation; History also has an explicit refresh.
 27D extends this same History with delivery-status invalidation and safe details;
 historical transactional content is never reconstructed. No new transactional trigger, delivery
@@ -801,15 +811,15 @@ reconstruct an old email from current Event/Application/Ticket state or show raw
 payload, HTML/MIME, SMTP errors, credentials or private capability links.
 
 Recipient deliveries use frozen EmailOutbox addresses, with current status,
-attempts, queued time and SMTP acceptance time. Pages contain at most 50 addresses,
+attempts, queued time and Transport acceptance time. Pages contain at most 50 addresses,
 ordered by immutable email, using validated Event/Communication-scoped opaque ID
 cursors. V1 shows All statuses, without email search or a status filter; status
 changes cannot move recipients across page boundaries. Recipient lists never enter
 the general History DTO or URLs.
 
 Pending means queued and awaiting an attempt; Processing means claimed by the
-dispatcher; Sent means SMTP accepted; Failed means automatic attempts exhausted.
-SMTP acceptance is not mailbox delivery confirmation, opening or click tracking.
+dispatcher; Sent means email transport accepted; Failed means automatic attempts exhausted.
+Transport acceptance is not mailbox delivery confirmation, opening or click tracking.
 Status changes trigger routing-only invalidation through existing Event SSE after
 the DB commit. Updates are best-effort; reconnect and explicit Refresh recover a
 missed signal. Notification failure cannot change delivery results or cause a

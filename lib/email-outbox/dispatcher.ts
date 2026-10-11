@@ -7,6 +7,7 @@ import {
 } from "@/lib/email-outbox/delivery";
 import { emailOutboxChannel } from "@/lib/email-outbox/enqueue";
 import { getServerEnv } from "@/lib/env";
+import { mailCooldownMs } from "@/lib/resend-mail";
 
 class EmailOutboxDispatcher {
   private readonly workerId = randomUUID();
@@ -56,8 +57,14 @@ class EmailOutboxDispatcher {
   private async sweep() {
     do {
       this.requested = false;
+
+      if (getServerEnv().EMAIL_TRANSPORT === "resend" && mailCooldownMs() > 0) {
+        return;
+      }
+
       const rows = await claimEmailBatch(this.workerId);
-      // All five start together: queueing within the batch cannot age a lease.
+      // All five enter bounded delivery together; Resend pacing is included
+      // in its 45-second deadline, well inside the five-minute lease.
       const outcomes = await Promise.allSettled(
         rows
           .filter((row) => row.status === "PROCESSING")
