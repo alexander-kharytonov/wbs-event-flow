@@ -47,6 +47,15 @@ export function GoogleAccount({
     return () => window.removeEventListener("pageshow", restore);
   }, []);
 
+  function showFailure(code?: string) {
+    setReauthenticate(
+      ["SESSION_NOT_FRESH", "LINK_SESSION_REQUIRED", "UNAUTHORIZED"].includes(
+        code ?? "",
+      ),
+    );
+    setFailed(true);
+  }
+
   async function manage(navigate: (action: () => void) => void) {
     if (inFlight.current) {
       return;
@@ -63,14 +72,7 @@ export function GoogleAccount({
         const result = await authClient.unlinkAccount({ accountId });
 
         if (result.error) {
-          setReauthenticate(
-            [
-              "SESSION_NOT_FRESH",
-              "LINK_SESSION_REQUIRED",
-              "UNAUTHORIZED",
-            ].includes(result.error.code ?? ""),
-          );
-          setFailed(true);
+          showFailure(result.error.code);
         } else {
           navigate(() => window.location.assign("/account/profile"));
         }
@@ -84,7 +86,7 @@ export function GoogleAccount({
         });
 
         if (result.error || !result.data?.url) {
-          setFailed(true);
+          showFailure(result.error?.code);
         } else {
           navigate(() => window.location.assign(result.data.url));
         }
