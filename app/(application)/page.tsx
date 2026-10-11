@@ -3,13 +3,41 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { AuthText } from "@/features/auth/components/auth-text";
 import { LandingPage } from "@/features/landing/landing-page";
+import { getServerEnv } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("landing");
+  const title = t("metadataTitle");
+  const description = t("metadataDescription");
+  const origin = getServerEnv().BETTER_AUTH_URL;
+  const image = {
+    url: new URL("/event-flow-social.png", origin).href,
+    width: 1200,
+    height: 630,
+    alt: "Event Flow",
+    type: "image/png",
+  };
 
-  return { title: t("metadataTitle"), description: t("metadataDescription") };
+  return {
+    title,
+    description,
+    openGraph: {
+      type: "website",
+      title,
+      description,
+      url: new URL("/", origin).href,
+      siteName: "Event Flow",
+      images: [image],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [image],
+    },
+  };
 }
 
 export default async function Home({ searchParams }: PageProps<"/">) {
