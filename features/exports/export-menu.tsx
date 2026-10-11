@@ -104,7 +104,7 @@ export function ExportMenu({
         </Box>
         {template && <Divider />}
         {template && (
-          <ListSubheader disableSticky>Event template · V2 JSON</ListSubheader>
+          <ListSubheader disableSticky>Event template · JSON</ListSubheader>
         )}
         {template && (
           <MenuItem

@@ -88,11 +88,20 @@ model MediaAsset {
   @@index([state, unusedSince])
 }
 
+enum EventLanguage {
+  en
+  de
+  pl
+  uk
+  ru
+}
+
 model Event {
   id                   String                  @id @default(uuid(7)) @db.Uuid
   organizerId          String                  @db.Uuid
   organizer            OrganizerProfile        @relation(fields: [organizerId], references: [id])
   title                String
+  language             EventLanguage
   description          String?
   descriptionFormat    DescriptionFormat @default(PLAIN_TEXT)
   coverAssetId         String? @db.Uuid

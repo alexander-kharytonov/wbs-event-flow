@@ -58,6 +58,7 @@ export async function getMyRegistrations(userId: string) {
           cancelledAt: event.cancelledAt,
           cancellationReason: event.cancellationReason,
           title: context?.title ?? "Event unavailable",
+          language: context?.language ?? null,
           startsAt: context?.startsAt ?? null,
           endsAt: context?.endsAt ?? null,
           timezone: context?.timezone ?? null,

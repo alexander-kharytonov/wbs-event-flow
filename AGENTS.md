@@ -61,11 +61,11 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 ## V0 development policy
 
 Before the first release, breaking changes are allowed and local development data
-is disposable. Each serialized artifact has one current contract: Snapshot V3 and
-EventTemplateV2 today. Do not add legacy Snapshot/Template readers, converters or
-compatibility paths. Schema changes use incremental migrations; an applied baseline
-must not be rewritten. Disposable data does not authorize an unrequested DB/media
-reset. Historical domain revisions remain immutable within the current contract;
+is disposable. EventSnapshot and EventTemplate each have one current, unversioned
+contract, without format version fields, legacy readers, converters or compatibility
+paths. Schema changes normally use incremental migrations. Consolidating applied
+migrations into a baseline and resetting local DB/media require explicit approval.
+Disposable data alone does not authorize a reset. Historical domain revisions remain immutable within the current contract;
 authorization, concurrency controls and idempotency remain mandatory.
 
 ## Localization

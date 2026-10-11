@@ -29,6 +29,7 @@ export async function createEventCore(
     data: {
       organizerId,
       title: configuration.title,
+      language: configuration.language,
       description: configuration.description,
       descriptionFormat: configuration.descriptionFormat,
       location: configuration.location ?? Prisma.DbNull,

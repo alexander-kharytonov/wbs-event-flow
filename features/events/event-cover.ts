@@ -2,7 +2,13 @@ import type { z } from "zod";
 import type { coverDescriptorSchema } from "@/features/events/schemas/event-rich-content";
 
 export function eventCoverImage(
-  cover: z.infer<typeof coverDescriptorSchema>,
+  cover: Pick<z.infer<typeof coverDescriptorSchema>, "alt"> & {
+    variants: {
+      "640": { width: number };
+      "1280": { width: number; height: number };
+      "1920": { width: number };
+    };
+  },
   basePath: string,
 ) {
   const widths = new Map<number, string>();

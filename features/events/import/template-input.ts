@@ -10,8 +10,8 @@ import {
 } from "@/features/events/schemas/registration-form";
 import { normalizeStaff } from "@/features/events/staff-input";
 import {
-  type EventTemplateV2,
-  eventTemplateV2Schema,
+  type EventTemplate,
+  eventTemplateSchema,
   TEMPLATE_LIMITS,
 } from "@/features/exports/event-template";
 
@@ -20,12 +20,12 @@ export type TemplateIssue = { code: string; path: string; message: string };
 export type TemplateResult =
   | {
       success: true;
-      template: EventTemplateV2;
+      template: EventTemplate;
       duplicateWarnings: string[];
     }
   | { success: false; issues: TemplateIssue[] };
 
-export type TemplateEvent = EventTemplateV2["event"];
+export type TemplateEvent = EventTemplate["event"];
 
 export type TemplateField = TemplateEvent["registrationForm"]["fields"][number];
 
@@ -43,9 +43,9 @@ const knownSegments = new Set([
   "displayName",
   "websiteUrl",
   "format",
-  "version",
   "event",
   "title",
+  "language",
   "description",
   "startsAt",
   "endsAt",
@@ -169,15 +169,7 @@ export function validateTemplateCreate(input: unknown): TemplateResult {
     );
   }
 
-  if (!("version" in input) || input.version !== 2) {
-    return templateFailure(
-      "unsupported_version",
-      "version",
-      "Unsupported template version. Only version 2 is supported.",
-    );
-  }
-
-  const parsed = eventTemplateV2Schema.safeParse(input);
+  const parsed = eventTemplateSchema.safeParse(input);
 
   if (!parsed.success) {
     // Binding/count refinements have root paths. Supply useful known paths
@@ -311,7 +303,7 @@ export function parseTemplateText(text: unknown): TemplateResult {
 }
 
 export function templateCreateInput(event: TemplateEvent) {
-  return { format: "event-flow-template", version: 2, event };
+  return { format: "event-flow-template", event };
 }
 
 // Review keys remain stable across edits/reorder. Check references BEFORE renumbering.
@@ -376,6 +368,7 @@ export function templateEventValues(event: TemplateEvent) {
     publicOrganizer: event.publicOrganizer,
     schedule: scheduleFormValues(event.schedule, event.timezone),
     title: event.title,
+    language: event.language,
     description: event.description ?? "",
     timezone: event.timezone,
     startsAt: local(event.startsAt),

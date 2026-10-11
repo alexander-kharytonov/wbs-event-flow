@@ -17,6 +17,7 @@ export async function OrganizerEventList() {
       id: true,
       publicId: true,
       title: true,
+      language: true,
       coverAssetId: true,
       coverAlt: true,
       visibility: true,
@@ -38,6 +39,7 @@ export async function OrganizerEventList() {
         select: {
           id: true,
           title: true,
+          language: true,
           startsAt: true,
           endsAt: true,
           timezone: true,

@@ -44,7 +44,6 @@ export function buildEventSnapshot(event: EventWorkspace) {
     asset.state === "READY";
 
   return eventPublicationSnapshotSchema.safeParse({
-    schemaVersion: 3,
     descriptionFormat: event.descriptionFormat,
     cover: event.coverAssetId
       ? validAsset
@@ -56,6 +55,7 @@ export function buildEventSnapshot(event: EventWorkspace) {
     publicOrganizer: event.publicOrganizer,
     maxGuestsPerRegistration: event.maxGuestsPerRegistration,
     title: event.title,
+    language: event.language,
     description: event.description,
     startsAt: event.startsAt.toISOString(),
     endsAt: event.endsAt.toISOString(),

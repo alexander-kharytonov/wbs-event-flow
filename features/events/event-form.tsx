@@ -2,6 +2,7 @@
 
 import { Box, Stack } from "@mui/material";
 import { unstable_rethrow, useRouter } from "next/navigation";
+import { useLocale } from "next-intl";
 import {
   type ReactNode,
   useActionState,
@@ -39,9 +40,10 @@ import {
   eventInputSchema,
   eventIssuePath,
 } from "@/features/events/event-input-schema";
+import { eventLanguageSchema } from "@/features/events/event-language";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 
-const emptyValues: EventFormValues = {
+const emptyValues: Omit<EventFormValues, "language"> = {
   descriptionFormat: "MARKDOWN",
   location: null,
   schedule: [],
@@ -60,7 +62,7 @@ const emptyValues: EventFormValues = {
 };
 
 export function EventForm({
-  initialValues = emptyValues,
+  initialValues,
   serverAction,
   edit,
   startLocked: initialStartLocked = false,
@@ -91,6 +93,7 @@ export function EventForm({
   ) => Promise<EventFormState>;
   edit?: { id: string; version: string; dates: EventDateSource };
 }) {
+  const locale = useLocale();
   const [section, setSection] = useState<EditorSection>("basics");
   const feedback = useFormFeedback(initialErrors);
   const mutationBusy = useRef(false);
@@ -100,7 +103,10 @@ export function EventForm({
   const navigation = useEditorNavigation();
   const form = useRef<HTMLFormElement>(null);
   const [initial] = useState<EventFormValues>(() => ({
-    ...initialValues,
+    ...(initialValues ?? {
+      ...emptyValues,
+      language: eventLanguageSchema.parse(locale),
+    }),
     descriptionFormat: "MARKDOWN",
   }));
   const [values, setValues] = useState<EventFormValues>(initial);
@@ -334,6 +340,7 @@ export function EventForm({
   const requiredMissing =
     richRequiredMissing(values) ||
     !values.title.trim() ||
+    !values.language ||
     !values.startsAt ||
     !values.endsAt ||
     !values.timezone.trim() ||

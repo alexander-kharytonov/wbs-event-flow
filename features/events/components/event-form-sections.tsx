@@ -11,6 +11,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { useTranslations } from "next-intl";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { EventDescriptionEditor } from "@/features/events/components/event-description-editor";
 import { EventRichFields } from "@/features/events/components/event-rich-fields";
@@ -23,6 +24,10 @@ import type {
   EventDateField,
   EventFormValues,
 } from "@/features/events/event-input-schema";
+import {
+  eventLanguageNames,
+  eventLanguages,
+} from "@/features/events/event-language";
 import { formatTimezone } from "@/features/events/format-timezone";
 import type { useFormFeedback } from "@/hooks/use-form-feedback";
 
@@ -80,6 +85,8 @@ export function EventFormSections({
   children,
   scheduleNotice,
 }: Props) {
+  const validation = useTranslations("validation");
+
   return (
     <>
       <Stack
@@ -101,6 +108,23 @@ export function EventFormSections({
               required
               slotProps={{ htmlInput: { maxLength: 200 } }}
             />
+            <TextField
+              {...field("language")}
+              select
+              required
+              label="Event language"
+              helperText={
+                feedback.errors.language
+                  ? validation("invalidEventLanguage")
+                  : "Language of your event content. This does not change the interface language."
+              }
+            >
+              {eventLanguages.map((language) => (
+                <MenuItem key={language} value={language}>
+                  {language.toUpperCase()} — {eventLanguageNames[language]}
+                </MenuItem>
+              ))}
+            </TextField>
             <EventDescriptionEditor
               value={values.description}
               disabled={disabled}

@@ -6,7 +6,7 @@ import {
   scheduleSchema,
 } from "@/features/events/schemas/event-rich-content";
 
-// Frozen serialized v3 contract. Do not derive these rules from current authoring.
+// Frozen serialized contract. Do not derive these rules from current authoring.
 const snapshotOptionSchema = z.strictObject({
   id: z.string().min(1),
   label: z.string().trim().min(1).max(200),
@@ -51,7 +51,7 @@ const snapshotFieldSchema = z
 
 export const eventSnapshotSchema = z
   .strictObject({
-    schemaVersion: z.literal(3),
+    language: z.enum(["en", "de", "pl", "uk", "ru"]),
     maxGuestsPerRegistration: z.number().int().min(0).max(10),
     descriptionFormat: z.enum(["PLAIN_TEXT", "MARKDOWN"]),
     cover: coverDescriptorSchema.nullable(),

@@ -1,4 +1,5 @@
 {
   "required": "Це поле обов’язкове.",
-  "maxLength": "Використайте не більше {count, plural, one {# символу} few {# символів} many {# символів} other {# символу}}."
+  "maxLength": "Використайте не більше {count, plural, one {# символу} few {# символів} many {# символів} other {# символу}}.",
+  "invalidEventLanguage": "Виберіть підтримувану мову події."
 }

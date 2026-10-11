@@ -4,7 +4,7 @@ import {
   registrationFieldSchema,
 } from "@/features/events/schemas/registration-form";
 
-// New publications satisfy the frozen v3 contract AND today's authoring rules.
+// New publications satisfy the frozen snapshot contract AND today's authoring rules.
 export const eventPublicationSnapshotSchema = eventSnapshotSchema.superRefine(
   (event, ctx) => {
     for (const [index, field] of event.registrationForm.fields.entries()) {
