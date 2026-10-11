@@ -1,11 +1,12 @@
 import { z } from "zod";
+import type { Messages } from "@/lib/i18n/messages";
 
 export const fieldTypeLabels = {
-  SHORT_TEXT: "Short text",
-  LONG_TEXT: "Long text",
-  SINGLE_CHOICE: "Single choice",
-  MULTIPLE_CHOICE: "Multiple choice",
-  CHECKBOX: "Checkbox",
+  SHORT_TEXT: "questionShortText",
+  LONG_TEXT: "questionLongText",
+  SINGLE_CHOICE: "questionSingle",
+  MULTIPLE_CHOICE: "questionMultiple",
+  CHECKBOX: "questionCheckbox",
 } as const;
 
 export type FieldType = keyof typeof fieldTypeLabels;
@@ -16,7 +17,7 @@ export function isChoice(type: FieldType) {
 
 export const registrationFieldSchema = z
   .strictObject({
-    label: z.string().trim().min(1, "Enter a question.").max(200),
+    label: z.string().trim().min(1, "questionEnter").max(200),
     description: z.string().trim().max(500).optional(),
     type: z.enum([
       "SHORT_TEXT",
@@ -29,7 +30,7 @@ export const registrationFieldSchema = z
     options: z
       .array(
         z.strictObject({
-          label: z.string().trim().min(1, "Enter an option label.").max(200),
+          label: z.string().trim().min(1, "questionOptionEnter").max(200),
         }),
       )
       .optional(),
@@ -40,7 +41,7 @@ export const registrationFieldSchema = z
         ctx.addIssue({
           code: "custom",
           path: ["options"],
-          message: "This question type cannot have options.",
+          message: "questionNoOptions",
         });
       }
 
@@ -51,7 +52,7 @@ export const registrationFieldSchema = z
       ctx.addIssue({
         code: "custom",
         path: ["options"],
-        message: "Add at least two options.",
+        message: "questionTwoOptions",
       });
     }
 
@@ -62,7 +63,7 @@ export const registrationFieldSchema = z
       ctx.addIssue({
         code: "custom",
         path: ["options"],
-        message: "Option labels must be unique (ignoring case).",
+        message: "questionUniqueOptions",
       });
     }
   });
@@ -97,19 +98,23 @@ export const registrationMutationSchema = z.discriminatedUnion("kind", [
 ]);
 
 export type RegistrationMutation = z.infer<typeof registrationMutationSchema>;
+
 export type RegistrationFieldInput = z.infer<typeof registrationFieldSchema>;
+
 export type BuilderField = Omit<RegistrationFieldInput, "options"> & {
   id: string;
   options: { label: string }[];
 };
+
 export type BuilderForm = { version: string; fields: BuilderField[] };
+
 export type RegistrationResult =
   | { form: BuilderForm; message?: never; conflict?: never }
   | {
       form?: never;
-      message: string;
+      message: keyof Messages["events"];
       conflict?: boolean;
-      fieldErrors?: Record<string, string>;
+      fieldErrors?: Record<string, keyof Messages["events"]>;
     };
 
 // Shared normalized workspace mapping for individual edits and template creation.
@@ -126,4 +131,29 @@ export function registrationFieldData(input: RegistrationFieldInput) {
       position,
     })),
   };
+}
+
+export function registrationFieldIssue(
+  issue: z.core.$ZodIssue,
+): keyof Messages["events"] {
+  const codes = [
+    "questionEnter",
+    "questionOptionEnter",
+    "questionNoOptions",
+    "questionTwoOptions",
+    "questionUniqueOptions",
+  ] as const;
+  const code = codes.find((value) => value === issue.message);
+
+  if (code) {
+    return code;
+  }
+
+  if (issue.code === "too_big") {
+    return issue.path.includes("description")
+      ? "coverAltLong"
+      : "questionMaxLabel";
+  }
+
+  return "questionCheck";
 }

@@ -5,6 +5,7 @@ import {
   type ApplicationFormState,
   applicationAnswersSchema,
   applicationInputSchema,
+  applicationIssue,
 } from "@/features/events/application-input";
 import { applicationsFrozen } from "@/features/events/event-lifecycle";
 import { registrationAvailability } from "@/features/events/registration-availability";
@@ -40,7 +41,7 @@ function admissionError(
   const current = eventSnapshotSchema.safeParse(currentSnapshot);
 
   if (!current.success) {
-    return { message: "This registration form is unavailable." };
+    return { message: { code: "formUnavailable" } };
   }
 
   const availability = registrationAvailability(current.data, decisionNow);
@@ -49,14 +50,14 @@ function admissionError(
     return {
       message:
         availability === "CLOSED"
-          ? "Registration is closed."
-          : "Registration has not opened yet.",
+          ? { code: "registrationClosedError" }
+          : { code: "registrationNotOpenError" },
     };
   }
 
   if (current.data.accountRequirement === "REQUIRED" && !hasVerifiedUser) {
     return {
-      message: "Sign in with a verified email to register for this event.",
+      message: { code: "verifiedSignInRequired" },
     };
   }
 
@@ -77,7 +78,7 @@ export async function submitEventApplication(
     .safeParse(input);
 
   if (!parsed.success) {
-    return { message: "This registration form is invalid." };
+    return { message: { code: "formInvalid" } };
   }
 
   const { publicId, eventRevisionId } = parsed.data;
@@ -100,14 +101,14 @@ export async function submitEventApplication(
     const snapshot = eventSnapshotSchema.safeParse(revision?.snapshot);
 
     if (!revision || !snapshot.success) {
-      return { message: "This registration form is unavailable." };
+      return { message: { code: "formUnavailable" } };
     }
 
     const session = await getSession();
     const user = session?.user.emailVerified ? session.user : null;
 
     if (session?.user.id === revision.event.organizer.userId) {
-      return { message: "You cannot apply to attend your own event." };
+      return { message: { code: "cannotApplyOwn" } };
     }
 
     const applicant = applicationInputSchema.safeParse({
@@ -117,11 +118,11 @@ export async function submitEventApplication(
 
     if (!applicant.success) {
       return {
-        message: "Check your registration details.",
+        message: { code: "checkRegistrationDetails" },
         errors: Object.fromEntries(
           applicant.error.issues.map((issue) => [
             String(issue.path[0]),
-            issue.message,
+            applicationIssue(issue),
           ]),
         ),
       };
@@ -135,11 +136,11 @@ export async function submitEventApplication(
 
     if (!normalized.success) {
       return {
-        message: "Check your answers to the registration questions.",
+        message: { code: "checkRegistrationAnswers" },
         errors: Object.fromEntries(
           normalized.error.issues.map((issue) => [
             `answer:${String(issue.path[0])}`,
-            issue.message,
+            applicationIssue(issue),
           ]),
         ),
       };
@@ -158,7 +159,7 @@ export async function submitEventApplication(
             applicationsFrozen(locked, locked.decisionNow)
           ) {
             return {
-              message: "This event is no longer accepting applications.",
+              message: { code: "noLongerAccepting" },
             };
           }
 
@@ -182,11 +183,11 @@ export async function submitEventApplication(
           }
 
           if (!currentEvent) {
-            return { message: "This registration form is unavailable." };
+            return { message: { code: "formUnavailable" } };
           }
 
           if (session && session.user.id === currentEvent?.organizer.userId) {
-            return { message: "You cannot apply to attend your own event." };
+            return { message: { code: "cannotApplyOwn" } };
           }
 
           // Reapplications must use today's form, not replay a withdrawn form.
@@ -206,8 +207,7 @@ export async function submitEventApplication(
             currentEvent?.publishedRevision?.id !== eventRevisionId
           ) {
             return {
-              message:
-                "The registration form has changed. Reload the event and complete the current form.",
+              message: { code: "reloadCurrentForm" },
             };
           }
 
@@ -335,7 +335,7 @@ export async function submitEventApplication(
     );
 
     return {
-      message: "We couldn’t submit your registration. Please try again.",
+      message: { code: "submitFailed" },
     };
   }
 }

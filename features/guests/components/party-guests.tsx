@@ -1,4 +1,5 @@
 import "server-only";
+import { EventText } from "@/features/events/components/event-text";
 import { PartyGuestsControls } from "@/features/guests/components/party-guests-controls";
 import type { GuestResult } from "@/features/guests/guest-result";
 import type { PartyGuestsPresentation } from "@/features/guests/server/party-presentation";
@@ -24,7 +25,11 @@ export function PartyGuests({
         items: party.items.map(({ id, active }) => ({ id, active })),
       }}
       cards={party.items.map((guest) => (
-        <TicketCard key={guest.id} ticket={guest.ticket} title="Guest ticket" />
+        <TicketCard
+          key={guest.id}
+          ticket={guest.ticket}
+          title={<EventText id="guestTicket" />}
+        />
       ))}
       addAction={addAction}
       removeAction={removeAction}

@@ -2,7 +2,7 @@
 
 import CheckCircleOutlined from "@mui/icons-material/CheckCircleOutlined";
 import { Alert, AlertTitle, Chip, Typography } from "@mui/material";
-import { formatEventTime } from "@/features/events/format-event-time";
+import { useFormatter, useTranslations } from "next-intl";
 
 export function RegistrationAdmission({
   admission,
@@ -13,10 +13,15 @@ export function RegistrationAdmission({
   timezone?: string;
   compact?: boolean;
 }) {
+  const t = useTranslations("events");
+  const format = useFormatter();
+
   return compact ? (
     <Chip
       label={
-        admission.revokedAt ? "Registration revoked" : "Registration confirmed"
+        admission.revokedAt
+          ? t("registrationRevoked")
+          : t("registrationConfirmed")
       }
       color={admission.revokedAt ? "default" : "success"}
       icon={admission.revokedAt ? undefined : <CheckCircleOutlined />}
@@ -28,15 +33,29 @@ export function RegistrationAdmission({
     <Alert severity={admission.revokedAt ? "info" : "success"}>
       <AlertTitle>
         {admission.revokedAt
-          ? "Registration revoked"
-          : "Registration confirmed"}
+          ? t("registrationRevoked")
+          : t("registrationConfirmed")}
       </AlertTitle>
       <Typography variant="body2">
-        Granted {formatEventTime(admission.createdAt, timezone)} ({timezone})
+        {t("admissionGrantedAt", {
+          date: format.dateTime(admission.createdAt, {
+            timeZone: timezone,
+            dateStyle: "medium",
+            timeStyle: "short",
+          }),
+          timezone,
+        })}
       </Typography>
       {admission.revokedAt && (
         <Typography variant="body2" sx={{ mt: 1 }}>
-          Revoked {formatEventTime(admission.revokedAt, timezone)} ({timezone})
+          {t("admissionRevokedAt", {
+            date: format.dateTime(admission.revokedAt, {
+              timeZone: timezone,
+              dateStyle: "medium",
+              timeStyle: "short",
+            }),
+            timezone,
+          })}
         </Typography>
       )}
     </Alert>

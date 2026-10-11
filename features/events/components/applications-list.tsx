@@ -21,9 +21,9 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import { EmptyState } from "@/components/ui/empty-state";
-import { applicationStatusLabels } from "@/features/events/application-status-labels";
 import { ApplicationListItemButton } from "@/features/events/components/application-list-item-button";
 import { ApplicationStatus } from "@/features/events/components/application-status";
 import { RegistrationAdmission } from "@/features/events/components/registration-admission";
@@ -44,6 +44,8 @@ export function ApplicationsList({
   applications: Applications;
   timezone: string;
 }) {
+  const t = useTranslations("events");
+  const locale = useLocale();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<StatusFilter>("ALL");
   const query = search.trim().toLowerCase();
@@ -68,8 +70,8 @@ export function ApplicationsList({
         }}
       >
         <TextField
-          label="Search applications"
-          placeholder="Name or email"
+          label={t("applicationSearch")}
+          placeholder={t("nameOrEmail")}
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           slotProps={{
@@ -85,7 +87,7 @@ export function ApplicationsList({
         />
         <TextField
           select
-          label="Status"
+          label={t("status")}
           value={filter}
           onChange={(event) => {
             const value = event.target.value;
@@ -133,7 +135,18 @@ export function ApplicationsList({
                 ) : (
                   <InboxOutlined fontSize="small" />
                 )}
-                {value === "ALL" ? "All" : applicationStatusLabels[value]}
+                {value === "ALL"
+                  ? t("uiAll")
+                  : t(
+                      (
+                        {
+                          PENDING: "pending",
+                          APPROVED: "approved",
+                          REJECTED: "rejected",
+                          WITHDRAWN: "withdrawn",
+                        } as const
+                      )[value],
+                    )}
               </Box>
             </MenuItem>
           ))}
@@ -144,13 +157,13 @@ export function ApplicationsList({
           icon={<InboxOutlined />}
           title={
             allApplications.length
-              ? "No matching applications"
-              : "No applications yet"
+              ? t("applicationNoMatch")
+              : t("applicationEmpty")
           }
           description={
             allApplications.length
-              ? "Try another search or change the status filter."
-              : "Submitted registrations will appear here for review."
+              ? t("applicationFilterHint")
+              : t("applicationEmptyHint")
           }
           action={
             allApplications.length ? (
@@ -160,14 +173,14 @@ export function ApplicationsList({
                   setFilter("ALL");
                 }}
               >
-                Clear filters
+                {t("clearFilters")}
               </Button>
             ) : undefined
           }
         />
       ) : (
         <Paper variant="outlined" sx={{ overflow: "hidden" }}>
-          <List disablePadding aria-label="Event applications">
+          <List disablePadding aria-label={t("applicationList")}>
             {applications.map((application, index) => {
               const nameParts = application.fullName
                 .trim()
@@ -242,8 +255,12 @@ export function ApplicationsList({
                               variant="caption"
                               sx={{ display: "block", mt: 0.5 }}
                             >
-                              Submitted{" "}
-                              {formatEventTime(application.createdAt, timezone)}{" "}
+                              {t("applicationSubmittedLabel")}{" "}
+                              {formatEventTime(
+                                application.createdAt,
+                                timezone,
+                                locale,
+                              )}{" "}
                               ({timezone})
                             </Typography>
                           </>

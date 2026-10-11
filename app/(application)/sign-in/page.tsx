@@ -12,11 +12,7 @@ export default async function SignInPage({
     <AuthForm
       mode="sign-in"
       returnTo={safeReturnPath(returnTo)}
-      notice={
-        verification === "required" || error
-          ? "Sign in to continue. If your email needs verification, we’ll guide you through the next step."
-          : undefined
-      }
+      notice={verification === "required" || error ? "signInNotice" : undefined}
     />
   );
 }

@@ -2,6 +2,7 @@
 
 import { Alert } from "@mui/material";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { type ReactNode, useEffect, useState } from "react";
 import { readCurrentEventAccess } from "@/features/events/event-access-action";
 import type { EventRole } from "@/features/events/server/event-access";
@@ -15,6 +16,7 @@ export function EventWorkspace({
   role: EventRole;
   children: ReactNode;
 }) {
+  const t = useTranslations("events");
   const router = useRouter();
   const [changed, setChanged] = useState(false);
 
@@ -90,7 +92,7 @@ export function EventWorkspace({
   }, [eventId, role, router]);
 
   return changed ? (
-    <Alert severity="info">Your access to this event has changed.</Alert>
+    <Alert severity="info">{t("accessChanged")}</Alert>
   ) : (
     children
   );

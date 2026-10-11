@@ -9,6 +9,7 @@ import {
 import { lockEventForUpdate } from "@/features/events/server/lock-event-for-update";
 import { lockMediaAsset } from "@/features/events/server/media-assets";
 import { Prisma } from "@/generated/prisma/client";
+import type { Messages } from "@/lib/i18n/messages";
 import { prisma } from "@/lib/prisma";
 import { notifyEventChanged } from "@/lib/realtime/application-notifications";
 
@@ -18,7 +19,7 @@ const publishInput = z.strictObject({
 });
 
 export type PublishResult = {
-  message?: string;
+  message?: keyof Messages["events"];
   conflict?: boolean;
   success?: boolean;
 };
@@ -30,7 +31,7 @@ export async function publishOwnedEvent(
   const parsed = publishInput.safeParse(input);
 
   if (!parsed.success) {
-    return { message: "Reload the event before publishing." };
+    return { message: "publishReload" };
   }
 
   const { eventId, contentVersion } = parsed.data;
@@ -46,7 +47,7 @@ export async function publishOwnedEvent(
         });
 
         if (!owned) {
-          return { message: "This event is unavailable for publishing." };
+          return { message: "publishUnavailable" };
         }
 
         const lifecycle = eventLifecycle(owned, owned.decisionNow);
@@ -62,8 +63,7 @@ export async function publishOwnedEvent(
           (!everPublished && lifecycle !== "Upcoming")
         ) {
           return {
-            message:
-              "This event cannot be published in its current lifecycle state.",
+            message: "publishLifecycle",
           };
         }
 
@@ -75,8 +75,7 @@ export async function publishOwnedEvent(
         if (event.contentVersion !== contentVersion) {
           return {
             conflict: true,
-            message:
-              "The workspace changed. Review the latest version before publishing.",
+            message: "publishConflict",
           };
         }
 
@@ -94,15 +93,14 @@ export async function publishOwnedEvent(
         }
 
         if (!event.registrationForm) {
-          return { message: "The registration form is unavailable." };
+          return { message: "publishFormUnavailable" };
         }
 
         const snapshot = buildEventSnapshot(event);
 
         if (!snapshot.success) {
           return {
-            message:
-              "Check the event details and registration questions before publishing.",
+            message: "publishCheckDetails",
           };
         }
 
@@ -115,8 +113,7 @@ export async function publishOwnedEvent(
             asset.eventId !== eventId
           ) {
             return {
-              message:
-                "The draft cover is unavailable. Reload before publishing.",
+              message: "publishCoverUnavailable",
             };
           }
         }
@@ -165,11 +162,10 @@ export async function publishOwnedEvent(
     ) {
       return {
         conflict: true,
-        message:
-          "The event changed during publication. Reload and review the latest version.",
+        message: "publishChanged",
       };
     }
 
-    return { message: "We couldn’t publish the event. Please try again." };
+    return { message: "publishFailed" };
   }
 }

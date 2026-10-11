@@ -10,9 +10,11 @@ import {
 } from "@mui/material";
 import NextLink from "next/link";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
 export function CommunicationDialog({ children }: { children: ReactNode }) {
+  const t = useTranslations("events");
   const router = useRouter();
 
   return (
@@ -33,9 +35,9 @@ export function CommunicationDialog({ children }: { children: ReactNode }) {
       }}
     >
       <DialogTitle id="communication-dialog-title" sx={{ pr: 7 }}>
-        Communication details
+        {t("commDetails")}
         <IconButton
-          aria-label="Close communication"
+          aria-label={t("commClose")}
           onClick={() => router.back()}
           sx={{ position: "absolute", right: 12, top: 12 }}
         >

@@ -21,6 +21,7 @@ import { prisma } from "@/lib/prisma";
 import { notifyEventChanged } from "@/lib/realtime/application-notifications";
 
 export const uploadLifetimeMs = 24 * 60 * 60 * 1000;
+
 export const unusedGraceMs = 7 * uploadLifetimeMs;
 
 export async function lockMediaAsset(tx: Prisma.TransactionClient, id: string) {
@@ -57,11 +58,11 @@ async function lockEditableEvent(
     event && (await authorizeEventActor(tx, eventId, userId, "event.edit"));
 
   if (!event || actor?.role !== "OWNER") {
-    throw new MediaError(404, "Event media unavailable.");
+    throw new MediaError(404, "mediaUnavailable");
   }
 
   if (workspaceReadOnly(event, event.decisionNow)) {
-    throw new MediaError(409, "This event is read-only.");
+    throw new MediaError(409, "mediaReadOnly");
   }
 
   return event;
@@ -75,7 +76,7 @@ export async function uploadEventCover(
   const contentType = request.headers.get("content-type") ?? "";
 
   if (!["image/jpeg", "image/png", "image/webp"].includes(contentType)) {
-    throw new MediaError(415, "Upload JPEG, PNG or WebP image bytes.");
+    throw new MediaError(415, "mediaType");
   }
 
   const cropHeader = request.headers.get("x-event-cover-crop");
@@ -89,7 +90,7 @@ export async function uploadEventCover(
 
       crop = coverCropSchema.parse(JSON.parse(cropHeader));
     } catch {
-      throw new MediaError(422, "Choose a valid cover crop.");
+      throw new MediaError(422, "mediaCrop");
     }
   }
 
@@ -115,10 +116,7 @@ export async function uploadEventCover(
         });
 
         if (pending >= 10) {
-          throw new MediaError(
-            429,
-            "You have at least 10 pending uploads. Attach an image or run media cleanup after its retention period.",
-          );
+          throw new MediaError(429, "mediaPending");
         }
 
         return tx.mediaAsset.create({
@@ -152,7 +150,7 @@ export async function uploadEventCover(
         active?.state !== "UPLOADING" ||
         active.uploadExpiresAt.getTime() <= Date.now()
       ) {
-        throw new MediaError(409, "This upload has expired.");
+        throw new MediaError(409, "mediaExpired");
       }
 
       await storage.write(asset.storageKey, variant, data);
@@ -169,7 +167,7 @@ export async function uploadEventCover(
           current.organizerId !== event.organizerId ||
           current.uploadExpiresAt <= event.decisionNow
         ) {
-          throw new MediaError(409, "This upload is no longer available.");
+          throw new MediaError(409, "mediaUploadUnavailable");
         }
 
         await tx.mediaAsset.update({
@@ -206,10 +204,7 @@ export async function attachEventCover(
     !parsed.success ||
     (parsed.data.assetId === null && parsed.data.alt !== null)
   ) {
-    throw new MediaError(
-      400,
-      "Check the cover, alternative text and event version.",
-    );
+    throw new MediaError(400, "mediaSettings");
   }
 
   const { assetId, alt, version } = parsed.data;
@@ -221,7 +216,7 @@ export async function attachEventCover(
     updatedAt.toISOString() !== timestamp ||
     Buffer.from(timestamp).toString("base64url") !== version
   ) {
-    throw new MediaError(400, "Reload the event before saving its cover.");
+    throw new MediaError(400, "mediaReload");
   }
 
   return prisma.$transaction(
@@ -229,10 +224,7 @@ export async function attachEventCover(
       const event = await lockEditableEvent(tx, userId, eventId);
 
       if (event.updatedAt.getTime() !== updatedAt.getTime()) {
-        throw new MediaError(
-          409,
-          "The event changed. Reload before saving its cover.",
-        );
+        throw new MediaError(409, "mediaConflict");
       }
 
       // Stable ordering also covers replacement's old and new assets.
@@ -261,10 +253,7 @@ export async function attachEventCover(
           asset.eventId !== eventId ||
           !mediaManifestSchema.safeParse(asset.manifest).success
         ) {
-          throw new MediaError(
-            409,
-            "This cover is unavailable for attachment.",
-          );
+          throw new MediaError(409, "mediaAttachUnavailable");
         }
       }
 

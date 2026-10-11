@@ -15,15 +15,15 @@ export async function GET(
   });
 
   if (!result) {
-    return badgeHtmlResponse(
-      { error: "This print document is unavailable. Please open it again." },
-      selector.eventId,
-      404,
-    );
+    return badgeHtmlResponse({ error: "printReopen" }, selector.eventId, 404);
   }
 
   return badgeHtmlResponse(
-    { presentations: [result.presentation], nextCursor: null },
+    {
+      language: result.language,
+      presentations: [result.presentation],
+      nextCursor: null,
+    },
     selector.eventId,
   );
 }

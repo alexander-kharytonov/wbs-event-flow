@@ -2,6 +2,7 @@ import { Alert, Stack } from "@mui/material";
 import { notFound } from "next/navigation";
 import { EventHeader } from "@/features/events/components/event-header";
 import { EventOverviewContent } from "@/features/events/components/event-overview";
+import { EventText } from "@/features/events/components/event-text";
 import { OverviewBoundaryRefresh } from "@/features/events/components/overview-boundary-refresh";
 import { getEventOverview } from "@/features/events/server/event-overview";
 
@@ -29,7 +30,9 @@ export default async function EventPage({
   return (
     <Stack spacing={3}>
       {(await searchParams).access === "changed" && (
-        <Alert severity="info">Your access to this event has changed.</Alert>
+        <Alert severity="info">
+          <EventText id="accessChanged" />
+        </Alert>
       )}
       <OverviewBoundaryRefresh
         key={id}

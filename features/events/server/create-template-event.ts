@@ -7,7 +7,6 @@ import { createEventCore } from "@/features/events/server/create-event-core";
 import {
   reserveStaffResolution,
   resolveStaff,
-  staffBudgetMessage,
 } from "@/features/events/server/staff-resolution";
 import { normalizeStaff } from "@/features/events/staff-input";
 import { prisma } from "@/lib/prisma";
@@ -50,7 +49,7 @@ export async function createTemplateEvent(
         {
           code: "staff_budget",
           path: "event.staff",
-          message: staffBudgetMessage,
+          message: "staffBudget",
         },
       ],
     };
@@ -110,7 +109,7 @@ export async function createTemplateEvent(
         {
           code: "create_failed",
           path: "template",
-          message: "We couldn’t create the event. Please try again.",
+          message: "templateCreateFailed",
         },
       ],
     };

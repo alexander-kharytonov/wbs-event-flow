@@ -1,5 +1,7 @@
+"use client";
+
 import { Chip, Stack, Typography } from "@mui/material";
-import { formatEventTime } from "@/features/events/format-event-time";
+import { useFormatter, useTranslations } from "next-intl";
 import { formatTimezone } from "@/features/events/format-timezone";
 import {
   registrationAvailability,
@@ -19,27 +21,29 @@ export function RegistrationAvailabilityStatus({
   now: Date;
   inverse?: boolean;
 }) {
+  const t = useTranslations("events");
+  const format = useFormatter();
   const status = registrationAvailability(snapshot, now);
   const labels = {
-    OPEN: "Registration open",
-    NOT_OPEN_YET: "Registration not open yet",
-    CLOSED: "Registration closed",
-  };
+    OPEN: "registrationOpen",
+    NOT_OPEN_YET: "registrationNotOpen",
+    CLOSED: "registrationClosed",
+  } as const;
   const boundary =
     status === "NOT_OPEN_YET"
       ? snapshot.registrationOpensAt
       : registrationDeadline(snapshot);
   const timing =
     status === "NOT_OPEN_YET"
-      ? "Opens"
+      ? "registrationOpensAt"
       : status === "OPEN"
-        ? "Closes"
-        : "Closed";
+        ? "registrationClosesAt"
+        : "registrationClosedAt";
 
   return (
     <Stack spacing={0.75} sx={{ alignItems: "flex-start" }}>
       <Chip
-        label={labels[status]}
+        label={t(labels[status])}
         color={
           status === "OPEN"
             ? "success"
@@ -61,8 +65,14 @@ export function RegistrationAvailabilityStatus({
           color={inverse ? "rgba(255,255,255,0.85)" : "text.secondary"}
           sx={{ overflowWrap: "anywhere" }}
         >
-          {timing} {formatEventTime(new Date(boundary), snapshot.timezone)} (
-          {formatTimezone(snapshot.timezone)})
+          {t(timing, {
+            date: format.dateTime(new Date(boundary), {
+              timeZone: snapshot.timezone,
+              dateStyle: "medium",
+              timeStyle: "short",
+            }),
+            timezone: formatTimezone(snapshot.timezone),
+          })}
         </Typography>
       )}
     </Stack>

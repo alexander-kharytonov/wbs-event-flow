@@ -1,13 +1,55 @@
 import { badgeDimensions } from "@/features/badges/badge-layout";
 import type { BadgePresentation } from "@/features/badges/badge-presentation";
 
-export function Badge({ badge }: { badge: BadgePresentation }) {
+export type BadgeLabels = {
+  title: string;
+  guest: string;
+  attendee: string;
+  organizer: string;
+  manager: string;
+  reception: string;
+  qrAlt: string;
+  qrPreview: string;
+};
+
+export function badgeLabels(
+  t: (
+    key:
+      | "badgeTitle"
+      | "guest"
+      | "badgeAttendee"
+      | "organizer"
+      | "manager"
+      | "reception"
+      | "badgeQrAlt"
+      | "badgeQrPreview",
+  ) => string,
+): BadgeLabels {
+  return {
+    title: t("badgeTitle"),
+    guest: t("guest"),
+    attendee: t("badgeAttendee"),
+    organizer: t("organizer"),
+    manager: t("manager"),
+    reception: t("reception"),
+    qrAlt: t("badgeQrAlt"),
+    qrPreview: t("badgeQrPreview"),
+  };
+}
+
+export function Badge({
+  badge,
+  labels,
+}: {
+  badge: BadgePresentation;
+  labels: BadgeLabels;
+}) {
   const dimensions = badgeDimensions(badge.style);
   const qr = Boolean(badge.qrDataUrl || badge.qrPlaceholder);
 
   return (
     <article
-      aria-label="Badge"
+      aria-label={labels.title}
       className="ef-badge-badge"
       data-orientation={badge.style.orientation}
       data-alignment={badge.style.alignment}
@@ -25,11 +67,17 @@ export function Badge({ badge }: { badge: BadgePresentation }) {
         )}
         <div className="ef-badge-name">{badge.name}</div>
         {badge.variant === "TEAM" && (
-          <div className="ef-badge-type">{badge.role}</div>
+          <div className="ef-badge-type">
+            {badge.role === "Organizer"
+              ? labels.organizer
+              : badge.role === "Manager"
+                ? labels.manager
+                : labels.reception}
+          </div>
         )}
         {badge.attendeeType && (
           <div className="ef-badge-type">
-            {badge.attendeeType === "GUEST" ? "Guest" : "Attendee"}
+            {badge.attendeeType === "GUEST" ? labels.guest : labels.attendee}
           </div>
         )}
         {badge.secondary && (
@@ -47,13 +95,15 @@ export function Badge({ badge }: { badge: BadgePresentation }) {
             <img
               className="ef-badge-qr"
               src={badge.qrDataUrl}
-              alt="Ticket QR"
+              alt={labels.qrAlt}
               width={240}
               height={240}
             />
           )}
           {badge.qrPlaceholder && (
-            <div className="ef-badge-qr ef-badge-placeholder">QR preview</div>
+            <div className="ef-badge-qr ef-badge-placeholder">
+              {labels.qrPreview}
+            </div>
           )}
           {badge.ticketNumber && (
             <div className="ef-badge-number">{badge.ticketNumber}</div>

@@ -3,9 +3,12 @@
 import { useState } from "react";
 
 // Errors belong to the submitted values and clear when that field is edited.
-export function useFormFeedback(initialErrors: Record<string, string> = {}) {
-  const [errors, setErrors] = useState<Record<string, string>>(initialErrors);
-  const [message, setMessage] = useState<string>();
+export function useFormFeedback<Code = string>(
+  initialErrors: Record<string, Code> = {},
+  translate: (code: Code) => string = (code) => String(code),
+) {
+  const [errors, setErrors] = useState<Record<string, Code>>(initialErrors);
+  const [message, setMessage] = useState<Code>();
 
   function clear(field: string) {
     setErrors((current) => {
@@ -27,8 +30,19 @@ export function useFormFeedback(initialErrors: Record<string, string> = {}) {
   }
 
   function field(name: string) {
-    return { error: Boolean(errors[name]), helperText: errors[name] };
+    return {
+      error: Boolean(errors[name]),
+      helperText: errors[name] ? translate(errors[name]) : "",
+    };
   }
 
-  return { errors, setErrors, message, setMessage, clear, reset, field };
+  return {
+    errors,
+    setErrors,
+    message: message ? translate(message) : undefined,
+    setMessage,
+    clear,
+    reset,
+    field,
+  };
 }

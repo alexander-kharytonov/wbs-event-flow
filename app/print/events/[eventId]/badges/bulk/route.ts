@@ -11,8 +11,7 @@ import { getServerEnv } from "@/lib/env";
 export const dynamic = "force-dynamic";
 
 const MAX_BODY_BYTES = 16 * 1024;
-const invalid =
-  "The print request is unavailable. Refresh the workspace and try again.";
+const invalid = "printRequestUnavailable";
 type Context = { params: Promise<{ eventId: string }> };
 
 async function selectedInput(request: Request) {
@@ -155,8 +154,7 @@ async function handle(request: Request, context: Context, post: boolean) {
     if (!parsed.success || (!post && parsed.data.mode === "SELECTED")) {
       return await badgeHtmlResponse(
         {
-          error:
-            "Choose between 1 and 200 unique attendees, or open a valid print batch.",
+          error: "printSelectionLimit",
         },
         eventId,
         400,

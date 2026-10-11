@@ -1,7 +1,9 @@
 import "server-only";
+import { createTranslator } from "use-intl/core";
 import { z } from "zod";
 import {
   type BadgeField,
+  type BadgeFieldContext,
   badgeFieldSchema,
   badgeLayoutSchema,
   readBadgeLayout,
@@ -14,6 +16,7 @@ import {
   type BadgePresentation,
   badgeText,
 } from "@/features/badges/badge-presentation";
+import { badgeLabels } from "@/features/badges/components/badge";
 import { resolveBadgeField } from "@/features/badges/server/historical-field";
 import { canPrintIndividualBadge } from "@/features/badges/server/individual-print-eligibility";
 import { writeBadgeLayout } from "@/features/badges/server/write-badge-layout";
@@ -28,6 +31,7 @@ import {
   ticketQrDataUrl,
 } from "@/features/tickets/server/ticket-display";
 import type { Prisma } from "@/generated/prisma/client";
+import { loadMessages } from "@/lib/i18n/messages";
 import { prisma } from "@/lib/prisma";
 
 const selectorSchema = z.strictObject({
@@ -40,15 +44,15 @@ const saveSchema = z.strictObject({
 });
 
 async function fieldCatalog(tx: Prisma.TransactionClient, eventId: string) {
-  const fields: (BadgeField & { context: string })[] = [];
-  const add = (candidate: unknown, context: string) => {
+  const fields: (BadgeField & BadgeFieldContext)[] = [];
+  const add = (candidate: unknown, context: BadgeFieldContext) => {
     const parsed = badgeFieldSchema.safeParse(candidate);
 
     if (
       parsed.success &&
       !fields.some((field) => sameBadgeField(field, parsed.data))
     ) {
-      fields.push({ ...parsed.data, context });
+      fields.push({ ...parsed.data, ...context });
     }
   };
   const draft = await tx.registrationField.findMany({
@@ -60,7 +64,10 @@ async function fieldCatalog(tx: Prisma.TransactionClient, eventId: string) {
   for (const [position, field] of draft.entries()) {
     add(
       { fieldId: field.id, type: field.type, label: field.label },
-      `Current form · Question ${position + 1}`,
+      {
+        context: "badgeCurrentQuestion",
+        contextValues: { number: position + 1 },
+      },
     );
   }
 
@@ -95,7 +102,10 @@ async function fieldCatalog(tx: Prisma.TransactionClient, eventId: string) {
       ] of parsed.data.registrationForm.fields.entries()) {
         add(
           { fieldId: field.id, type: field.type, label: field.label },
-          `Published version ${revision.number} · Question ${position + 1}`,
+          {
+            context: "badgePublishedQuestion",
+            contextValues: { number: position + 1, revision: revision.number },
+          },
         );
       }
     }
@@ -105,11 +115,11 @@ async function fieldCatalog(tx: Prisma.TransactionClient, eventId: string) {
     const { secondaryField, tertiaryField } = savedLayout.data;
 
     if (secondaryField) {
-      add(secondaryField, "Saved secondary field");
+      add(secondaryField, { context: "badgeSavedSecondary" });
     }
 
     if (tertiaryField) {
-      add(tertiaryField, "Saved tertiary field");
+      add(tertiaryField, { context: "badgeSavedTertiary" });
     }
   }
 
@@ -162,7 +172,13 @@ export async function buildBadgePresentation(
 
       const event = await tx.event.findUniqueOrThrow({
         where: { id: eventId },
-        select: { id: true, title: true, cancelledAt: true, badgeLayout: true },
+        select: {
+          id: true,
+          title: true,
+          language: true,
+          cancelledAt: true,
+          badgeLayout: true,
+        },
       });
       const parsed =
         options.draftLayout === undefined
@@ -218,9 +234,14 @@ export async function buildBadgePresentation(
         return null;
       }
 
+      const t = createTranslator({
+        locale: event.language,
+        messages: await loadMessages(event.language),
+        namespace: "events",
+      });
       const presentation: BadgePresentation = attendeeBadgePresentation(
         layout,
-        person ?? { name: "Attendee name", kind: "PRIMARY" },
+        person ?? { name: t("badgeNamePlaceholder"), kind: "PRIMARY" },
         event.title,
       );
       presentation.qrPlaceholder = options.mode === "PREVIEW" && layout.showQr;
@@ -343,6 +364,8 @@ export async function buildBadgePresentation(
 
       return {
         presentation,
+        language: event.language,
+        labels: badgeLabels(t),
         attendeeId: person?.id ?? null,
         canPrint,
         // Reception gets neither config references nor catalog/issues about Applications.
@@ -373,7 +396,7 @@ export async function saveBadgeLayout(
   if (!parsed.success) {
     return {
       success: false,
-      message: "Check the badge settings and try again.",
+      message: "badgeCheckSettings",
     };
   }
 
@@ -389,7 +412,7 @@ export async function saveBadgeLayout(
       ));
 
     if (!event || !access) {
-      return { success: false, message: "This event is unavailable." };
+      return { success: false, message: "badgeEventUnavailable" };
     }
 
     const catalog = await fieldCatalog(tx, event.id);
@@ -412,7 +435,7 @@ export async function saveBadgeLayout(
 
     return {
       success: true,
-      message: "Badge layout saved. New print documents use these settings.",
+      message: "badgeLayoutSaved",
     };
   });
 }

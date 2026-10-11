@@ -1,6 +1,7 @@
 "use client";
 
 import { Box, Slider, Stack, Typography } from "@mui/material";
+import { useFormatter, useTranslations } from "next-intl";
 import { useId, useRef } from "react";
 import {
   type CoverCrop,
@@ -20,6 +21,8 @@ export function CoverCropper({
   onChange: (crop: CoverCrop) => void;
   disabled: boolean;
 }) {
+  const t = useTranslations("events");
+  const format = useFormatter();
   const rect = coverCropRectangle(source.width, source.height, crop);
   const drag = useRef<{
     pointer: number;
@@ -34,7 +37,7 @@ export function CoverCropper({
     <Stack spacing={2}>
       <Box
         role="group"
-        aria-label="Cover crop preview"
+        aria-label={t("coverCropPreview")}
         aria-describedby={`${id}-hint`}
         onPointerDown={(event) => {
           if (
@@ -107,7 +110,7 @@ export function CoverCropper({
         <Box
           component="img"
           src={source.url}
-          alt="Selected cover crop"
+          alt={t("coverSelectedCrop")}
           draggable={false}
           sx={{
             position: "absolute",
@@ -133,8 +136,7 @@ export function CoverCropper({
         />
       </Box>
       <Typography id={`${id}-hint`} variant="body2" color="text.secondary">
-        Drag to position your image. Use zoom to adjust the crop. Only the area
-        inside this 16:9 frame will be saved.
+        {t("coverDragHint")}
       </Typography>
       <Box
         sx={{
@@ -146,9 +148,9 @@ export function CoverCropper({
       >
         {(
           [
-            ["zoom", "Zoom", 1, 4, 0.01],
-            ["x", "Horizontal position", 0, 1, 0.01],
-            ["y", "Vertical position", 0, 1, 0.01],
+            ["zoom", t("coverZoom"), 1, 4, 0.01],
+            ["x", t("coverHorizontal"), 0, 1, 0.01],
+            ["y", t("coverVertical"), 0, 1, 0.01],
           ] as const
         ).map(([field, label, min, max, step]) => (
           <Box key={field}>
@@ -172,8 +174,11 @@ export function CoverCropper({
               valueLabelDisplay="auto"
               valueLabelFormat={(value) =>
                 field === "zoom"
-                  ? `${value.toFixed(2)}×`
-                  : `${Math.round(value * 100)}%`
+                  ? `${format.number(value, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}×`
+                  : format.number(value, {
+                      style: "percent",
+                      maximumFractionDigits: 0,
+                    })
               }
             />
           </Box>

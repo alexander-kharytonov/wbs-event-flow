@@ -1,4 +1,7 @@
+"use client";
+
 import { Alert, LinearProgress, Stack, Typography } from "@mui/material";
+import { useTranslations } from "next-intl";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 
 export function EventCapacity({
@@ -8,15 +11,11 @@ export function EventCapacity({
   snapshot: unknown;
   occupied: number;
 }) {
+  const t = useTranslations("events");
   const parsed = eventSnapshotSchema.safeParse(snapshot);
 
   if (!parsed.success) {
-    return (
-      <Alert severity="warning">
-        The event's capacity is unavailable. Applications cannot be approved
-        until a valid event revision is published.
-      </Alert>
-    );
+    return <Alert severity="warning">{t("capacityUnavailable")}</Alert>;
   }
 
   const capacity = parsed.data.capacity;
@@ -24,13 +23,11 @@ export function EventCapacity({
   if (capacity !== null && occupied >= capacity) {
     return (
       <Alert severity="warning">
-        {occupied} of {capacity} places filled · 0 available.
+        {t("capacityFilled", { occupied, capacity, available: 0 })}{" "}
         {occupied > capacity
-          ? ` The event is ${occupied - capacity} over capacity. Existing admissions are kept.`
-          : " All places are filled."}
-        {
-          " Further approvals are blocked until a place becomes available. Pending applications remain pending."
-        }
+          ? t("capacityExceeded", { count: occupied - capacity })
+          : t("allPlacesFilled")}{" "}
+        {t("approvalsBlocked")}
       </Alert>
     );
   }
@@ -39,20 +36,24 @@ export function EventCapacity({
     <Stack spacing={1}>
       <Typography variant="body2" sx={{ fontWeight: 600 }}>
         {capacity === null
-          ? `${occupied} admitted · Unlimited capacity`
-          : `${occupied} of ${capacity} places filled · ${capacity - occupied} available`}
+          ? t("capacityUnlimited", { count: occupied })
+          : t("capacityFilled", {
+              occupied,
+              capacity,
+              available: capacity - occupied,
+            })}
       </Typography>
       {capacity !== null && (
         <LinearProgress
           variant="determinate"
           value={(occupied / capacity) * 100}
-          aria-label="Filled places"
-          aria-valuetext={`${occupied} of ${capacity} places filled`}
+          aria-label={t("filledPlaces")}
+          aria-valuetext={t("filledPlacesValue", { occupied, capacity })}
           sx={{ height: 10, borderRadius: 0.5 }}
         />
       )}
       <Typography variant="caption" color="text.secondary">
-        Only active attendees occupy places.
+        {t("activeOccupyPlaces")}
       </Typography>
     </Stack>
   );

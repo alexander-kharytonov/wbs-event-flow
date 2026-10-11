@@ -36,7 +36,7 @@ type Props = {
   revealErrorsKey: number;
   values: EventFormValues;
   setValues: Dispatch<SetStateAction<EventFormValues>>;
-  feedback: ReturnType<typeof useFormFeedback>;
+  feedback: ReturnType<typeof useFormFeedback<string>>;
   disabled: boolean;
   startLocked: boolean;
   edit?: { dates: EventDateSource };
@@ -85,6 +85,7 @@ export function EventFormSections({
   children,
   scheduleNotice,
 }: Props) {
+  const t = useTranslations("events");
   const validation = useTranslations("validation");
 
   return (
@@ -100,11 +101,11 @@ export function EventFormSections({
         <Box component="section">
           <Stack spacing={3}>
             <Typography variant="h6" component="h2">
-              Basic information
+              {t("basicInformation")}
             </Typography>
             <TextField
               {...field("title")}
-              label="Event name"
+              label={t("eventName")}
               required
               slotProps={{ htmlInput: { maxLength: 200 } }}
             />
@@ -112,11 +113,11 @@ export function EventFormSections({
               {...field("language")}
               select
               required
-              label="Event language"
+              label={t("eventLanguage")}
               helperText={
                 feedback.errors.language
                   ? validation("invalidEventLanguage")
-                  : "Language of your event content. This does not change the interface language."
+                  : t("contentLanguageHint")
               }
             >
               {eventLanguages.map((language) => (
@@ -159,7 +160,7 @@ export function EventFormSections({
         <Box component="section">
           <Stack spacing={3}>
             <Typography variant="h6" component="h2">
-              Schedule
+              {t("schedule")}
             </Typography>
             <Box
               sx={{
@@ -173,7 +174,7 @@ export function EventFormSections({
             >
               <TextField
                 {...field("startsAt")}
-                label="Start"
+                label={t("start")}
                 type="datetime-local"
                 required
                 slotProps={{
@@ -187,7 +188,7 @@ export function EventFormSections({
               />
               <TextField
                 {...field("endsAt")}
-                label="End"
+                label={t("end")}
                 type="datetime-local"
                 required
                 slotProps={{
@@ -249,20 +250,14 @@ export function EventFormSections({
               renderInput={(params) => (
                 <TextField
                   {...params}
-                  label="Timezone"
+                  label={t("timezone")}
                   required
                   error={Boolean(feedback.errors.timezone)}
-                  helperText={
-                    feedback.errors.timezone ??
-                    "All dates and times use this IANA timezone."
-                  }
+                  helperText={feedback.errors.timezone ?? t("timezoneHint")}
                 />
               )}
             />
-            <Alert severity="info">
-              Times skipped or repeated during daylight saving changes must be
-              replaced with an unambiguous time.
-            </Alert>
+            <Alert severity="info">{t("dstHint")}</Alert>
             {scheduleNotice?.(values)}
           </Stack>
         </Box>
@@ -301,11 +296,11 @@ export function EventFormSections({
         <Box component="section">
           <Stack spacing={3}>
             <Typography variant="h6" component="h2">
-              Registration
+              {t("registration")}
             </Typography>
             <Stack spacing={1}>
               <FormControlLabel
-                label="Allow attendees to bring guests"
+                label={t("allowGuests")}
                 control={
                   <Switch
                     checked={values.maxGuestsPerRegistration !== "0"}
@@ -323,7 +318,7 @@ export function EventFormSections({
               {values.maxGuestsPerRegistration !== "0" ? (
                 <TextField
                   {...field("maxGuestsPerRegistration")}
-                  label="Maximum guests per registration"
+                  label={t("maxGuests")}
                   type="number"
                   slotProps={{ htmlInput: { min: 1, max: 10 } }}
                 />
@@ -334,20 +329,14 @@ export function EventFormSections({
                   value="0"
                 />
               )}
-              <Alert severity="info">
-                Guests count toward event capacity and can be managed until the
-                event starts.
-              </Alert>
+              <Alert severity="info">{t("guestsCapacityHint")}</Alert>
             </Stack>
             <TextField
               {...field("capacity")}
-              label="Event capacity"
+              label={t("eventCapacity")}
               type="number"
               slotProps={{ htmlInput: { min: 1, max: 2147483647, step: 1 } }}
-              helperText={
-                feedback.errors.capacity ??
-                "Leave blank for no limit on admitted attendees."
-              }
+              helperText={feedback.errors.capacity ?? t("capacityHint")}
             />
             <Box
               sx={{
@@ -361,7 +350,7 @@ export function EventFormSections({
             >
               <TextField
                 {...field("registrationOpensAt")}
-                label="Registration opens"
+                label={t("registrationOpens")}
                 type="datetime-local"
                 slotProps={{
                   inputLabel: { shrink: true },
@@ -374,12 +363,12 @@ export function EventFormSections({
                 }}
                 helperText={
                   feedback.errors.registrationOpensAt ??
-                  "Leave blank to allow registration immediately. Must be no later than the event start and before registration closes."
+                  t("registrationOpenHint")
                 }
               />
               <TextField
                 {...field("registrationClosesAt")}
-                label="Registration closes"
+                label={t("registrationCloses")}
                 type="datetime-local"
                 slotProps={{
                   inputLabel: { shrink: true },
@@ -392,7 +381,7 @@ export function EventFormSections({
                 }}
                 helperText={
                   feedback.errors.registrationClosesAt ??
-                  "Leave blank to close registration when the event ends. Must be after registration opens and no later than the event end."
+                  t("registrationCloseHint")
                 }
               />
             </Box>
@@ -401,35 +390,33 @@ export function EventFormSections({
         <Box component="section">
           <Stack spacing={3}>
             <Typography variant="h6" component="h2">
-              Access
+              {t("access")}
             </Typography>
             <TextField
               {...field("visibility")}
-              label="Who can discover this event?"
+              label={t("discoverability")}
               select
               helperText={
                 feedback.errors.visibility ??
                 (values.visibility === "PRIVATE"
-                  ? "Only people with the event link can find it. The link is not password protected."
-                  : "Your published event appears in Explore events.")
+                  ? t("privateHint")
+                  : t("publicHint"))
               }
             >
-              <MenuItem value="PRIVATE">Private</MenuItem>
-              <MenuItem value="PUBLIC">Public</MenuItem>
+              <MenuItem value="PRIVATE">{t("private")}</MenuItem>
+              <MenuItem value="PUBLIC">{t("public")}</MenuItem>
             </TextField>
             <TextField
               {...field("accountRequirement")}
-              label="Do applicants need an account?"
+              label={t("accountRequirement")}
               helperText={
                 feedback.errors.accountRequirement ??
-                "A required account must have a verified email before applying."
+                t("accountRequirementHint")
               }
               select
             >
-              <MenuItem value="OPTIONAL">No — account optional</MenuItem>
-              <MenuItem value="REQUIRED">
-                Yes — verified account required
-              </MenuItem>
+              <MenuItem value="OPTIONAL">{t("accountOptional")}</MenuItem>
+              <MenuItem value="REQUIRED">{t("accountRequired")}</MenuItem>
             </TextField>
           </Stack>
         </Box>

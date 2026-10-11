@@ -15,6 +15,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
 import { z } from "zod";
 import { BackLink } from "@/components/ui/back-link";
@@ -26,6 +27,7 @@ import {
 } from "@/features/auth/verification-flow";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { authClient } from "@/lib/auth-client";
+import type { Messages } from "@/lib/i18n/messages";
 import { safeReturnPath } from "@/lib/safe-return-path";
 
 export function AuthForm({
@@ -34,15 +36,16 @@ export function AuthForm({
   returnTo,
 }: {
   mode: "register" | "sign-in";
-  notice?: string;
+  notice?: "signInNotice";
   returnTo?: string;
 }) {
+  const t = useTranslations("auth");
   const [showPassword, setShowPassword] = useState(false);
   const [pending, setPending] = useState(false);
   const [email, setEmail] = useState("");
   const router = useRouter();
   const requestInFlight = useRef(false);
-  const feedback = useFormFeedback();
+  const feedback = useFormFeedback<keyof Messages["auth"]>({}, t);
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const registering = mode === "register";
@@ -71,18 +74,18 @@ export function AuthForm({
       return;
     }
 
-    const errors: Record<string, string> = {};
+    const errors: Record<string, keyof Messages["auth"]> = {};
 
     if (registering && !name.trim()) {
-      errors.name = "Enter your name.";
+      errors.name = "enterName";
     }
 
     if (!z.email().safeParse(email.trim()).success) {
-      errors.email = "Enter a valid email address.";
+      errors.email = "invalidEmail";
     }
 
     if (password.length < 10 || password.length > 128) {
-      errors.password = "Use 10–128 characters.";
+      errors.password = "passwordLength";
     }
     feedback.setErrors(errors);
     feedback.setMessage(undefined);
@@ -124,7 +127,7 @@ export function AuthForm({
 
         if (result.error.code === "INVALID_EMAIL") {
           feedback.setErrors({
-            email: result.error.message ?? "Enter a valid email address.",
+            email: "invalidEmail",
           });
         } else if (
           ["PASSWORD_TOO_SHORT", "PASSWORD_TOO_LONG"].includes(
@@ -132,14 +135,13 @@ export function AuthForm({
           )
         ) {
           feedback.setErrors({
-            password: result.error.message ?? "Use 10–128 characters.",
+            password: "passwordLength",
           });
         } else {
           feedback.setMessage(
             !registering && result.error.code === "INVALID_EMAIL_OR_PASSWORD"
-              ? "Invalid email or password. Please try again."
-              : (result.error.message ??
-                  "Unable to complete the request. Please try again."),
+              ? "invalidCredentials"
+              : "requestFailed",
           );
         }
 
@@ -154,7 +156,7 @@ export function AuthForm({
       if (registering) {
         showVerification(String(form.get("email")), true);
       } else {
-        feedback.setMessage("Unable to connect. Please try again.");
+        feedback.setMessage("connectionFailed");
       }
     } finally {
       requestInFlight.current = false;
@@ -167,24 +169,24 @@ export function AuthForm({
       spacing={3}
       sx={{ width: "100%", maxWidth: 480, mx: "auto", my: "auto" }}
     >
-      <BackLink href="/">Back to home</BackLink>
+      <BackLink href="/">{t("backHome")}</BackLink>
       <Paper variant="outlined" sx={{ p: { xs: 3, sm: 4 } }}>
         <Stack spacing={3}>
           <Stack spacing={1}>
             <Typography variant="h4" component="h1">
-              {registering ? "Create your account" : "Welcome back"}
+              {registering ? t("createYourAccount") : t("welcomeBack")}
             </Typography>
             <Typography color="text.secondary">
               {registering
                 ? safeReturnTo
-                  ? "Create your Event Flow account to continue."
-                  : "Create your Event Flow account."
+                  ? t("createToContinue")
+                  : t("createDescription")
                 : safeReturnTo
-                  ? "Sign in to continue to your event."
-                  : "Sign in to your Event Flow account."}
+                  ? t("signInToEvent")
+                  : t("signInDescription")}
             </Typography>
           </Stack>
-          {notice && <Alert severity="info">{notice}</Alert>}
+          {notice && <Alert severity="info">{t(notice)}</Alert>}
           <Stack
             component="form"
             noValidate
@@ -194,7 +196,7 @@ export function AuthForm({
           >
             {registering && (
               <TextField
-                label="Name"
+                label={t("name")}
                 value={name}
                 disabled={pending}
                 {...feedback.field("name")}
@@ -209,7 +211,7 @@ export function AuthForm({
               />
             )}
             <TextField
-              label="Email"
+              label={t("email")}
               name="email"
               type="email"
               value={email}
@@ -224,7 +226,7 @@ export function AuthForm({
               fullWidth
             />
             <TextField
-              label="Password"
+              label={t("password")}
               value={password}
               disabled={pending}
               error={Boolean(feedback.errors.password)}
@@ -242,7 +244,7 @@ export function AuthForm({
                     <InputAdornment position="end">
                       <IconButton
                         aria-label={
-                          showPassword ? "Hide password" : "Show password"
+                          showPassword ? t("hidePassword") : t("showPassword")
                         }
                         aria-pressed={showPassword}
                         onClick={() => setShowPassword((visible) => !visible)}
@@ -259,8 +261,10 @@ export function AuthForm({
                 },
               }}
               helperText={
-                feedback.errors.password ??
-                (registering ? "Use 10–128 characters." : undefined)
+                (feedback.errors.password
+                  ? t(feedback.errors.password)
+                  : undefined) ??
+                (registering ? t("passwordLength") : undefined)
               }
               required
               fullWidth
@@ -277,15 +281,14 @@ export function AuthForm({
               }
             >
               {pending
-                ? "Please wait…"
+                ? t("pleaseWait")
                 : registering
-                  ? "Create account"
-                  : "Sign in"}
+                  ? t("createAccount")
+                  : t("signIn")}
             </Button>
             {registering && (
               <Typography variant="body2" color="text.secondary">
-                We’ll send a verification link to your email before you can
-                start.
+                {t("verificationRequired")}
               </Typography>
             )}
           </Stack>
@@ -295,9 +298,9 @@ export function AuthForm({
             color="text.secondary"
             sx={{ textAlign: "center" }}
           >
-            {registering ? "Already have an account? " : "New to Event Flow? "}
+            {registering ? t("alreadyAccount") : t("newToEventFlow")}
             <Link href={registering ? signInHref : registerHref}>
-              {registering ? "Sign in" : "Create account"}
+              {registering ? t("signIn") : t("createAccount")}
             </Link>
           </Typography>
         </Stack>

@@ -1,6 +1,7 @@
 "use client";
 
 import { Box, Typography } from "@mui/material";
+import { useTranslations } from "next-intl";
 import { type ReactNode, useState } from "react";
 import type { eventCoverImage } from "@/features/events/event-cover";
 
@@ -14,6 +15,7 @@ export function EventCover({
   fill?: boolean;
   priority?: boolean;
 }) {
+  const t = useTranslations("events");
   const [failed, setFailed] = useState(false);
 
   return (
@@ -41,7 +43,7 @@ export function EventCover({
             p: 2,
           }}
         >
-          Cover image unavailable
+          {t("coverUnavailable")}
         </Typography>
       ) : (
         <Box
@@ -61,7 +63,7 @@ export function EventCover({
             inset: 0,
             width: "100%",
             height: "100%",
-            objectFit: "fill",
+            objectFit: "cover",
           }}
         />
       )}

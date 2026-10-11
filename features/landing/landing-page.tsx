@@ -1,3 +1,5 @@
+"use client";
+
 import ArrowDownward from "@mui/icons-material/ArrowDownward";
 import ArrowForward from "@mui/icons-material/ArrowForward";
 import BadgeOutlined from "@mui/icons-material/BadgeOutlined";
@@ -13,75 +15,9 @@ import GroupsOutlined from "@mui/icons-material/GroupsOutlined";
 import QrCodeScannerOutlined from "@mui/icons-material/QrCodeScannerOutlined";
 import TuneOutlined from "@mui/icons-material/TuneOutlined";
 import { Button } from "@mui/material";
+import { useTranslations } from "next-intl";
 import styles from "@/features/landing/landing.module.css";
 import { LandingMotion } from "@/features/landing/landing-motion";
-
-const capabilities = [
-  {
-    icon: EditNoteOutlined,
-    title: "A page that feels like your event",
-    text: "Bring your event to life with a cropped cover, formatted description, schedule, venue or online location, and organizer details.",
-    label: "EVENT PAGES",
-  },
-  {
-    icon: TuneOutlined,
-    title: "Ask the questions that matter",
-    text: "Build your registration form with text, choice and checkbox fields. Set required answers, capacity and an application window.",
-    label: "CUSTOM FORMS",
-  },
-  {
-    icon: GroupsOutlined,
-    title: "The right access for your team",
-    text: "Bring in Managers to help review applications and Reception staff to welcome attendees. Each role gets the tools it needs.",
-    label: "TEAMWORK",
-  },
-  {
-    icon: EmailOutlined,
-    title: "Keep everyone in the loop",
-    text: "Application updates go out by email. Send a message to attendees, pending applicants or your event team, and review delivery status.",
-    label: "COMMUNICATIONS",
-  },
-  {
-    icon: BadgeOutlined,
-    title: "Ready for the welcome desk",
-    text: "Create printable badges, scan QR tickets or check people in manually. See who has arrived in your event workspace.",
-    label: "EVENT DAY",
-  },
-  {
-    icon: ContentCopyOutlined,
-    title: "Make the next one easier",
-    text: "Duplicate an event or reuse its configuration with templates. Export application and attendee data when you need to work with it elsewhere.",
-    label: "REPEAT & REFINE",
-  },
-];
-
-const questions = [
-  {
-    title: "Can I review applications before admitting people?",
-    answer:
-      "Yes. Submissions arrive as pending applications. An organizer or authorized Manager reviews them, and approval grants admission and creates a ticket. A submitted application alone does not reserve a place.",
-  },
-  {
-    title: "Do attendees need an Event Flow account?",
-    answer:
-      "You choose. Events can accept applications without an account or require a verified account. Approved anonymous applicants receive a private ticket link by email.",
-  },
-  {
-    title: "Can I keep an event out of the public catalog?",
-    answer:
-      "Yes. Publish it as Private to exclude it from discovery. People with its direct link can still view it; Private is not password protection.",
-  },
-  {
-    title: "What happens when I edit a published event?",
-    answer:
-      "Your edits stay in the organizer workspace until you publish the changes. You can preview the updated event and registration form before making them public.",
-  },
-  {
-    title: "Can my team help at the event?",
-    answer:
-      "Yes. Assign Manager or Reception access to verified users. Managers can review applications and handle check-in; Reception staff get access to the arrival workflow.",
-  },
-];
 
 export function LandingPage({
   organizerHref,
@@ -92,30 +28,88 @@ export function LandingPage({
   organizer: boolean;
   signedIn: boolean;
 }) {
-  const organizerLabel = organizer ? "Open your workspace" : "Start organizing";
+  const t = useTranslations("landing");
+
+  const capabilities = [
+    {
+      icon: EditNoteOutlined,
+      title: t("pageTitle"),
+      text: t("pageText"),
+      label: t("pageLabel"),
+    },
+    {
+      icon: TuneOutlined,
+      title: t("formTitle"),
+      text: t("formText"),
+      label: t("formLabel"),
+    },
+    {
+      icon: GroupsOutlined,
+      title: t("teamTitle"),
+      text: t("teamText"),
+      label: t("teamLabel"),
+    },
+    {
+      icon: EmailOutlined,
+      title: t("commTitle"),
+      text: t("commText"),
+      label: t("commLabel"),
+    },
+    {
+      icon: BadgeOutlined,
+      title: t("welcomeTitle"),
+      text: t("welcomeText"),
+      label: t("welcomeLabel"),
+    },
+    {
+      icon: ContentCopyOutlined,
+      title: t("repeatTitle"),
+      text: t("repeatText"),
+      label: t("repeatLabel"),
+    },
+  ];
+
+  const questions = [
+    {
+      title: t("reviewQuestion"),
+      answer: t("reviewAnswer"),
+    },
+    {
+      title: t("accountQuestion"),
+      answer: t("accountAnswer"),
+    },
+    {
+      title: t("privateQuestion"),
+      answer: t("privateAnswer"),
+    },
+    {
+      title: t("editQuestion"),
+      answer: t("editAnswer"),
+    },
+    {
+      title: t("teamQuestion"),
+      answer: t("teamAnswer"),
+    },
+  ];
+
+  const organizerLabel = organizer ? t("workspace") : t("organize");
 
   return (
     <div className={styles.landing}>
       <section className={styles.hero} aria-labelledby="landing-title">
         <LandingMotion className={styles.heroCopy} variant="hero">
           <div className={styles.eyebrow}>
-            <span className={styles.signal} /> YOUR EVENT. ONE CONNECTED
-            WORKSPACE.
+            <span className={styles.signal} />
+            {t("eyebrow")}
           </div>
           <h1 id="landing-title">
-            Bring people
-            <br />
-            together.
-            <br />
-            <span>
-              We’ll help with
-              <br className={styles.desktopBreak} /> the details.
-            </span>
+            {t.rich("hero", {
+              br: () => <br />,
+              desktopBr: () => <br className={styles.desktopBreak} />,
+              accent: (chunks) => <span>{chunks}</span>,
+            })}
           </h1>
-          <p className={styles.lead}>
-            From a page worth sharing to the last check-in. Publish your event,
-            review applications and welcome your community with Event Flow.
-          </p>
+          <p className={styles.lead}>{t("lead")}</p>
           <div className={styles.actions}>
             <Button
               href={organizerHref}
@@ -126,17 +120,18 @@ export function LandingPage({
               {organizerLabel}
             </Button>
             <Button href="/e" variant="outlined" size="large">
-              Explore events
+              {t("explore")}
             </Button>
           </div>
           <a href="#how-it-works" className={styles.sectionLink}>
-            See how it all connects <ArrowDownward fontSize="small" />
+            {t("connects")}
+            <ArrowDownward fontSize="small" />
           </a>
         </LandingMotion>
         <LandingMotion className={styles.flow} variant="flow">
           <div className={styles.flowHeader}>
-            <span className={styles.eyebrow}>THE EVENT FLOW</span>
-            <span className={styles.flowMarker}>IDEA → ARRIVAL</span>
+            <span className={styles.eyebrow}>{t("flow")}</span>
+            <span className={styles.flowMarker}>{t("idea")}</span>
           </div>
           <div className={styles.flowTrack}>
             <span
@@ -148,30 +143,30 @@ export function LandingPage({
               {
                 icon: EventAvailableOutlined,
                 number: "01",
-                title: "Make it yours",
-                detail: "Your page. Your form. Your schedule.",
-                status: "Ready to publish",
+                title: t("step1"),
+                detail: t("step1Detail"),
+                status: t("step1Status"),
               },
               {
                 icon: FactCheckOutlined,
                 number: "02",
-                title: "Bring the right people",
-                detail: "Applications, review and admission.",
-                status: "You’re in control",
+                title: t("step2"),
+                detail: t("step2Detail"),
+                status: t("step2Status"),
               },
               {
                 icon: ConfirmationNumberOutlined,
                 number: "03",
-                title: "Give them a way in",
-                detail: "An individual QR ticket on approval.",
-                status: "Ready to attend",
+                title: t("step3"),
+                detail: t("step3Detail"),
+                status: t("step3Status"),
               },
               {
                 icon: QrCodeScannerOutlined,
                 number: "04",
-                title: "Make the welcome count",
-                detail: "Check-in, badges and your event team.",
-                status: "All in one place",
+                title: t("step4"),
+                detail: t("step4Detail"),
+                status: t("step4Status"),
               },
             ].map(({ icon: Icon, number, title, detail, status }) => (
               <div key={number} className={styles.flowStep} data-flow-step>
@@ -191,24 +186,22 @@ export function LandingPage({
               </div>
             ))}
           </div>
-          <p className={styles.flowFooter}>
-            Less switching between tools. More room for people.
-          </p>
+          <p className={styles.flowFooter}>{t("flowFooter")}</p>
         </LandingMotion>
       </section>
 
-      <nav className={styles.contents} aria-label="Discover Event Flow">
+      <nav className={styles.contents} aria-label={t("discoverAria")}>
         <a href="#how-it-works">
-          01 <span>How it works</span>
+          01 <span>{t("how")}</span>
         </a>
         <a href="#features">
-          02 <span>Your toolkit</span>
+          02 <span>{t("toolkit")}</span>
         </a>
         <a href="#for-attendees">
-          03 <span>For attendees</span>
+          03 <span>{t("attendees")}</span>
         </a>
         <a href="#questions">
-          04 <span>Good to know</span>
+          04 <span>{t("know")}</span>
         </a>
       </nav>
 
@@ -219,49 +212,35 @@ export function LandingPage({
       >
         <LandingMotion className={styles.sectionHeading} variant="heading">
           <div>
-            <p className={styles.eyebrow}>FROM PLANNING TO PEOPLE</p>
+            <p className={styles.eyebrow}>{t("planning")}</p>
             <h2 id="workflow-title">
-              A clear next step.
-              <br />
-              At every stage.
+              {t.rich("stagesTitle", {
+                br: () => <br />,
+                accent: (chunks) => <span>{chunks}</span>,
+              })}
             </h2>
           </div>
-          <p className={styles.sectionIntro}>
-            Your event changes as the day gets closer. Keep the planning,
-            admission and arrival work connected from the start.
-          </p>
+          <p className={styles.sectionIntro}>{t("stagesIntro")}</p>
         </LandingMotion>
         <div className={styles.stages}>
           {[
             {
               number: "01",
-              title: "Prepare with confidence",
-              text: "Start in a draft. Add the details, build your form and preview the experience. Publish when everything is ready.",
-              points: [
-                "A cover and schedule that tell your story",
-                "Public discovery or a private direct link",
-                "Changes go live only when you publish",
-              ],
+              title: t("prepare"),
+              text: t("prepareText"),
+              points: [t("prepare1"), t("prepare2"), t("prepare3")],
             },
             {
               number: "02",
-              title: "Know who’s coming",
-              text: "Collect the answers you need, review applications and approve people as places become available.",
-              points: [
-                "Required and optional form questions",
-                "Application review and capacity control",
-                "Tickets and email updates after approval",
-              ],
+              title: t("coming"),
+              text: t("comingText"),
+              points: [t("coming1"), t("coming2"), t("coming3")],
             },
             {
               number: "03",
-              title: "Be ready at the door",
-              text: "Give your team a shared workspace for arrivals. Scan a ticket, find an attendee or print a badge.",
-              points: [
-                "Online QR and manual check-in",
-                "Dedicated access for reception staff",
-                "Attendance overview as people arrive",
-              ],
+              title: t("door"),
+              text: t("doorText"),
+              points: [t("door1"), t("door2"), t("door3")],
             },
           ].map(({ number, title, text, points }) => (
             <LandingMotion
@@ -294,17 +273,15 @@ export function LandingPage({
       >
         <LandingMotion className={styles.sectionHeading} variant="heading">
           <div>
-            <p className={styles.eyebrow}>THOUGHTFUL TOOLS. LESS BUSYWORK.</p>
+            <p className={styles.eyebrow}>{t("tools")}</p>
             <h2 id="features-title">
-              The details make
-              <br />
-              the experience.
+              {t.rich("toolsTitle", {
+                br: () => <br />,
+                accent: (chunks) => <span>{chunks}</span>,
+              })}
             </h2>
           </div>
-          <p className={styles.sectionIntro}>
-            Build the event you have in mind, then keep the practical work in
-            the same place.
-          </p>
+          <p className={styles.sectionIntro}>{t("toolsIntro")}</p>
         </LandingMotion>
         <div className={styles.features}>
           {capabilities.map(({ icon: Icon, title, text, label }) => (
@@ -330,22 +307,21 @@ export function LandingPage({
         aria-labelledby="attendees-title"
       >
         <LandingMotion>
-          <p className={styles.eyebrow}>ON THE OTHER SIDE OF THE INVITATION</p>
+          <p className={styles.eyebrow}>{t("invitation")}</p>
           <h2 id="attendees-title">
-            Something to look
-            <br />
-            forward to.
+            {t.rich("attendeeTitle", {
+              br: () => <br />,
+              desktopBr: () => <br className={styles.desktopBreak} />,
+              accent: (chunks) => <span>{chunks}</span>,
+            })}
           </h2>
-          <p className={styles.lead}>
-            Discover your next event, apply to attend and get the details you
-            need for the day.
-          </p>
+          <p className={styles.lead}>{t("attendeeLead")}</p>
           <div className={styles.actions}>
             <Button variant="contained" href="/e" endIcon={<ArrowForward />}>
-              Find your next event
+              {t("findEvent")}
             </Button>
             <Button href={signedIn ? "/account/registrations" : "/register"}>
-              {signedIn ? "My registrations" : "Create an account"}
+              {signedIn ? t("myRegistrations") : t("createAccount")}
             </Button>
           </div>
         </LandingMotion>
@@ -353,18 +329,18 @@ export function LandingPage({
           {[
             {
               icon: EventAvailableOutlined,
-              title: "Find your people",
-              text: "Browse public events, explore the schedule and see what’s planned.",
+              title: t("findPeople"),
+              text: t("findPeopleText"),
             },
             {
               icon: EditNoteOutlined,
-              title: "Tell the organizer about you",
-              text: "Complete the application and receive its status updates by email.",
+              title: t("aboutYou"),
+              text: t("aboutYouText"),
             },
             {
               icon: ConfirmationNumberOutlined,
-              title: "Keep your ticket close",
-              text: "Once approved, access your QR ticket and get ready to check in.",
+              title: t("ticket"),
+              text: t("ticketText"),
             },
           ].map(({ icon: Icon, title, text }) => (
             <div key={title} className={styles.attendeeStep} data-attendee-step>
@@ -386,15 +362,15 @@ export function LandingPage({
         aria-labelledby="questions-title"
       >
         <LandingMotion>
-          <p className={styles.eyebrow}>GOOD TO KNOW</p>
+          <p className={styles.eyebrow}>{t("faqEyebrow")}</p>
           <h2 id="questions-title">
-            A few details,
-            <br />
-            before you begin.
+            {t.rich("faqTitle", {
+              br: () => <br />,
+              desktopBr: () => <br className={styles.desktopBreak} />,
+              accent: (chunks) => <span>{chunks}</span>,
+            })}
           </h2>
-          <p className={styles.sectionIntro}>
-            A clear picture of how Event Flow works.
-          </p>
+          <p className={styles.sectionIntro}>{t("faqIntro")}</p>
         </LandingMotion>
         <div>
           {questions.map(({ title, answer }) => (
@@ -412,13 +388,15 @@ export function LandingPage({
       <LandingMotion variant="closing">
         <section className={styles.closing} aria-labelledby="closing-title">
           <CheckCircleOutlined className={styles.closingIcon} />
-          <p className={styles.eyebrow}>MAKE THE NEXT GATHERING HAPPEN</p>
+          <p className={styles.eyebrow}>{t("closingEyebrow")}</p>
           <h2 id="closing-title">
-            Your people.
-            <br />
-            Your plans. <span>In flow.</span>
+            {t.rich("closingTitle", {
+              br: () => <br />,
+              desktopBr: () => <br className={styles.desktopBreak} />,
+              accent: (chunks) => <span>{chunks}</span>,
+            })}
           </h2>
-          <p>Start with an idea. Turn it into a place to meet.</p>
+          <p>{t("closingLead")}</p>
           <Button
             href={organizerHref}
             size="large"
@@ -428,7 +406,7 @@ export function LandingPage({
             {organizerLabel}
           </Button>
           <a href="/e" className={styles.closingLink}>
-            Just here to explore? Find an event.
+            {t("closingExplore")}
           </a>
         </section>
       </LandingMotion>

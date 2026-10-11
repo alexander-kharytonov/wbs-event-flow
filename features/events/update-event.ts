@@ -37,7 +37,7 @@ export async function updateEvent(
     typeof version !== "string"
   ) {
     return {
-      message: "We couldn’t save this event. Reload the page and try again.",
+      message: "inputSaveReload",
     };
   }
 
@@ -51,7 +51,7 @@ export async function updateEvent(
     Buffer.from(timestamp).toString("base64url") !== version
   ) {
     return {
-      message: "We couldn’t save this event. Reload the page and try again.",
+      message: "inputSaveReload",
     };
   }
 
@@ -62,7 +62,7 @@ export async function updateEvent(
 
   if (!editedDates.success) {
     return {
-      message: "We couldn’t save this event. Reload the page and try again.",
+      message: "inputSaveReload",
     };
   }
 
@@ -79,18 +79,17 @@ export async function updateEvent(
         });
 
         if (!event) {
-          return { message: "This event is unavailable for editing." };
+          return { message: "inputEditingUnavailable" };
         }
 
         if (workspaceReadOnly(event, event.decisionNow)) {
-          return { message: "This event is read-only." };
+          return { message: "inputReadOnly" };
         }
 
         if (event.updatedAt.getTime() !== updatedAt.getTime()) {
           return {
             conflict: true,
-            message:
-              "This event changed while you were editing it. Reload the latest version and try again.",
+            message: "inputEditConflict",
           };
         }
 
@@ -111,8 +110,7 @@ export async function updateEvent(
             parsed.data.endsAt <= event.decisionNow)
         ) {
           return {
-            message:
-              "An ongoing event must keep its original start and end after the current time.",
+            message: "inputOngoingDates",
           };
         }
 
@@ -132,7 +130,7 @@ export async function updateEvent(
         if (result.count !== 1) {
           return {
             conflict: true,
-            message: "This event changed. Reload and try again.",
+            message: "inputChanged",
           };
         }
 
@@ -158,7 +156,7 @@ export async function updateEvent(
       return outcome;
     }
   } catch {
-    return { message: "We couldn’t save your changes. Please try again." };
+    return { message: "inputChangesSaveFailed" };
   }
 
   revalidatePath("/dashboard");

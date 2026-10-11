@@ -28,19 +28,22 @@ import {
 } from "@mui/material";
 import NextLink from "next/link";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useId, useState, useTransition } from "react";
+import { EventText } from "@/features/events/components/event-text";
 import { changeEventLifecycle } from "@/features/events/event-lifecycle-action";
 import { useEventPublication } from "@/features/events/use-event-publication";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { useNotifications } from "@/hooks/use-notifications";
+import type { Messages } from "@/lib/i18n/messages";
 
 type Action = "cancel" | "unpublish" | "archive" | "restore" | "delete";
-const labels: Record<Action, string> = {
-  cancel: "Cancel event",
-  unpublish: "Unpublish",
-  archive: "Archive",
-  restore: "Restore from archive",
-  delete: "Delete draft",
+const labels: Record<Action, keyof Messages["events"]> = {
+  cancel: "eventCancel",
+  unpublish: "eventUnpublish",
+  archive: "eventArchive",
+  restore: "eventRestore",
+  delete: "eventDeleteDraft",
 };
 const actionIcons = {
   cancel: CancelOutlined,
@@ -49,17 +52,12 @@ const actionIcons = {
   restore: UnarchiveOutlined,
   delete: DeleteOutlined,
 };
-const descriptions: Record<Action, string> = {
-  cancel:
-    "Cancellation is permanent. Pending and approved applicants will be notified. Applications and publication history will be preserved.",
-  unpublish:
-    "The public page will become unavailable. Applications and publication history will be preserved.",
-  archive:
-    "Move this event to Archived. Its public page and attendee registrations will stay as they are.",
-  restore:
-    "Return this event to My events. Completed and cancelled events remain read-only.",
-  delete:
-    "Permanently delete this draft and its registration form. This cannot be undone.",
+const descriptions: Record<Action, keyof Messages["events"]> = {
+  cancel: "eventCancelHint",
+  unpublish: "eventUnpublishHint",
+  archive: "eventArchiveHint",
+  restore: "eventRestoreHint",
+  delete: "eventDeleteHint",
 };
 
 export function EventActions({
@@ -75,9 +73,12 @@ export function EventActions({
   publishLabel: string | null;
   contentVersion: number;
 }) {
+  const t = useTranslations("events");
   const router = useRouter();
   const notifications = useNotifications();
-  const feedback = useFormFeedback();
+  const feedback = useFormFeedback<keyof Messages["events"]>({}, (code) =>
+    t(code),
+  );
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [action, setAction] = useState<Action | null>(null);
   const [reason, setReason] = useState("");
@@ -98,7 +99,7 @@ export function EventActions({
     >
       <ButtonGroup
         variant="outlined"
-        aria-label="Event controls"
+        aria-label={t("eventControls")}
         disabled={pending}
       >
         <Button
@@ -108,11 +109,11 @@ export function EventActions({
           disabled={readOnly || pending}
           startIcon={<EditOutlined />}
         >
-          Edit event
+          {t("eventEdit")}
         </Button>
         <Button
           size="small"
-          aria-label="More event actions"
+          aria-label={t("eventMoreActions")}
           aria-haspopup="menu"
           aria-controls={anchor ? menuId : undefined}
           aria-expanded={Boolean(anchor)}
@@ -140,7 +141,7 @@ export function EventActions({
           <ListItemIcon>
             <ContentCopyOutlined fontSize="small" />
           </ListItemIcon>
-          <ListItemText>Duplicate event</ListItemText>
+          <ListItemText>{t("eventDuplicate")}</ListItemText>
         </MenuItem>
         {(publishLabel || actions.length > 0) && <Divider />}
         {publishLabel && (
@@ -154,7 +155,15 @@ export function EventActions({
             <ListItemIcon sx={{ color: "inherit" }}>
               <PublishOutlined fontSize="small" />
             </ListItemIcon>
-            <ListItemText>{publishLabel}</ListItemText>
+            <ListItemText>
+              {t(
+                publishLabel === "Publish changes"
+                  ? "publishChanges"
+                  : publishLabel === "Republish"
+                    ? "republish"
+                    : "publish",
+              )}
+            </ListItemText>
           </MenuItem>
         )}
         {publishLabel && actions.length > 0 && <Divider />}
@@ -181,16 +190,16 @@ export function EventActions({
               <ListItemIcon sx={{ color: "inherit" }}>
                 <Icon fontSize="small" />
               </ListItemIcon>
-              <ListItemText>{labels[value]}</ListItemText>
+              <ListItemText>{t(labels[value])}</ListItemText>
             </MenuItem>
           );
         })}
       </Menu>
       {publication.conflict && publication.message && (
         <Alert severity="error" sx={{ maxWidth: 320 }}>
-          {publication.message}
+          {publication.message && t(publication.message)}
           <Button component="a" href={`/dashboard/events/${eventId}`}>
-            Reload event
+            {t("eventReload")}
           </Button>
         </Alert>
       )}
@@ -206,16 +215,16 @@ export function EventActions({
         aria-labelledby="event-action-title"
       >
         <DialogTitle id="event-action-title">
-          {action && labels[action]}
+          {action && t(labels[action])}
         </DialogTitle>
         <DialogContent>
           {action === "cancel" || action === "unpublish" ? (
             <Alert severity={action === "cancel" ? "error" : "warning"}>
-              {descriptions[action]}
+              {t(descriptions[action])}
             </Alert>
           ) : (
             <DialogContentText>
-              {action && descriptions[action]}
+              {action && t(descriptions[action])}
             </DialogContentText>
           )}
           {action === "cancel" && (
@@ -225,7 +234,7 @@ export function EventActions({
               required
               multiline
               minRows={3}
-              label="Cancellation reason"
+              label={t("eventCancelReason")}
               value={reason}
               onChange={(event) => {
                 setReason(event.target.value);
@@ -234,8 +243,10 @@ export function EventActions({
               error={Boolean(feedback.errors.reason)}
               slotProps={{ htmlInput: { maxLength: 2000 } }}
               helperText={
-                feedback.errors.reason ??
-                `${reason.trim().length}/2000 · This reason will be shared with applicants.`
+                (feedback.errors.reason
+                  ? t(feedback.errors.reason)
+                  : undefined) ??
+                t("eventReasonHint", { count: reason.trim().length })
               }
               sx={{ mt: 3 }}
             />
@@ -248,7 +259,7 @@ export function EventActions({
         )}
         <DialogActions>
           <Button disabled={pending} onClick={() => setAction(null)}>
-            Keep event
+            {t("eventKeep")}
           </Button>
           <Button
             variant="contained"
@@ -269,7 +280,7 @@ export function EventActions({
                   (!reason.trim() || reason.trim().length > 2000)
                 ) {
                   feedback.setErrors({
-                    reason: "Enter a reason of 1–2000 characters.",
+                    reason: "eventReasonInvalid",
                   });
 
                   return;
@@ -284,15 +295,13 @@ export function EventActions({
 
                   if (!result.success) {
                     feedback.setErrors(result.fieldErrors ?? {});
-                    feedback.setMessage(
-                      result.message ?? "Could not update this event.",
-                    );
+                    feedback.setMessage(result.message ?? "eventUpdateFailed");
 
                     return;
                   }
 
                   setAction(null);
-                  notifications.show("Event updated.", {
+                  notifications.show(<EventText id="eventUpdated" />, {
                     severity: "success",
                     autoHideDuration: 4000,
                   });
@@ -303,14 +312,12 @@ export function EventActions({
 
                   router.refresh();
                 } catch {
-                  feedback.setMessage(
-                    "Could not confirm this action. Reload to check the event.",
-                  );
+                  feedback.setMessage("eventActionUnconfirmed");
                 }
               })
             }
           >
-            {pending ? "Saving…" : action && labels[action]}
+            {pending ? t("saving") : action && t(labels[action])}
           </Button>
         </DialogActions>
       </Dialog>

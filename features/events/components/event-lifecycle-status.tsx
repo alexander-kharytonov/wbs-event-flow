@@ -6,6 +6,7 @@ import PlayCircleOutlined from "@mui/icons-material/PlayCircleOutlined";
 import ScheduleOutlined from "@mui/icons-material/ScheduleOutlined";
 import TaskAlt from "@mui/icons-material/TaskAlt";
 import { Stack } from "@mui/material";
+import { useTranslations } from "next-intl";
 import { EventStatusChip } from "@/features/events/components/event-status-chip";
 import {
   type EventLifecycleData,
@@ -19,6 +20,7 @@ export function EventLifecycleStatus({
   event: EventLifecycleData;
   now: Date;
 }) {
+  const t = useTranslations("events");
   const lifecycle = eventLifecycle(event, now);
   const Icon =
     lifecycle === "Cancelled"
@@ -33,7 +35,16 @@ export function EventLifecycleStatus({
     <Stack direction="row" sx={{ gap: 1, flexWrap: "wrap" }}>
       <EventStatusChip
         icon={<Icon />}
-        label={lifecycle}
+        label={t(
+          (
+            {
+              Cancelled: "cancelled",
+              Ongoing: "ongoing",
+              Completed: "completed",
+              Upcoming: "upcoming",
+            } as const
+          )[lifecycle],
+        )}
         color={
           lifecycle === "Cancelled"
             ? "error"
@@ -47,7 +58,7 @@ export function EventLifecycleStatus({
       {event.archivedAt && (
         <EventStatusChip
           icon={<ArchiveOutlined />}
-          label="Archived"
+          label={t("archived")}
           color="default"
         />
       )}

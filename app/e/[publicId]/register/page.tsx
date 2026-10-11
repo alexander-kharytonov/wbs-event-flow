@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
+import { getTranslations } from "next-intl/server";
 import { PublicEventExperience } from "@/features/events/components/public-event-experience";
 import { getPublishedEvent } from "@/features/events/server/get-published-event";
 
@@ -14,8 +15,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     notFound();
   }
 
+  const t = await getTranslations("events");
+
   return {
-    title: "Event registration",
+    title: t("eventRegistration"),
     robots: { index: false, follow: false },
   };
 }

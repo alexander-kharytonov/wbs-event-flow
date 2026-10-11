@@ -18,6 +18,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { WorkspaceTabs } from "@/components/ui/workspace-tabs";
 import {
@@ -50,12 +51,23 @@ export function EditorNavigation({
   coverEnabled: boolean;
   hasAdditionalSettings: boolean;
 }) {
+  const t = useTranslations("events");
+  const labels = {
+    basics: "basics",
+    cover: "cover",
+    schedule: "schedule",
+    location: "location",
+    agenda: "agenda",
+    registration: "registration",
+    organizer: "organizer",
+    additional: "additionalSettings",
+  } as const;
   const [helpAnchor, setHelpAnchor] = useState<HTMLElement | null>(null);
 
   return (
     <Box
       component="nav"
-      aria-label="Editor sections"
+      aria-label={t("editorSections")}
       sx={{
         position: { xs: "relative", md: "sticky" },
         top: { md: 24 },
@@ -68,9 +80,11 @@ export function EditorNavigation({
         value={section}
         onChange={(_, next: EditorSection) => onChange(next)}
         selectionFollowsFocus
-        aria-label="Event editor sections"
+        aria-label={t("eventEditorSections")}
       >
-        {editorSections.map(({ id, label }) => {
+        {editorSections.map(({ id }) => {
+          const label = t(labels[id]);
+
           if (id === "additional" && !hasAdditionalSettings) {
             return null;
           }
@@ -85,7 +99,7 @@ export function EditorNavigation({
               value={id}
               id={`editor-nav-${id}`}
               aria-controls={`editor-panel-${id}`}
-              aria-label={count ? `${label}, ${count} errors` : label}
+              aria-label={count ? t("sectionErrors", { label, count }) : label}
               disabled={id === "cover" && !coverEnabled}
               icon={icons[id]}
               iconPosition="start"
@@ -111,9 +125,9 @@ export function EditorNavigation({
       </WorkspaceTabs>
       {!coverEnabled && (
         <>
-          <Tooltip title="Why is Cover unavailable?">
+          <Tooltip title={t("coverUnavailableWhy")}>
             <IconButton
-              aria-label="Why is Cover unavailable?"
+              aria-label={t("coverUnavailableWhy")}
               aria-haspopup="dialog"
               aria-expanded={Boolean(helpAnchor)}
               aria-controls={helpAnchor ? "editor-cover-help" : undefined}
@@ -138,14 +152,11 @@ export function EditorNavigation({
           >
             <Box
               role="dialog"
-              aria-label="Cover availability"
+              aria-label={t("coverAvailability")}
               tabIndex={-1}
               sx={{ p: 2, maxWidth: 320 }}
             >
-              <Typography variant="body2">
-                Cover image will be available after you create the event. You
-                can upload and crop it before publishing.
-              </Typography>
+              <Typography variant="body2">{t("coverAfterCreate")}</Typography>
             </Box>
           </Popover>
         </>

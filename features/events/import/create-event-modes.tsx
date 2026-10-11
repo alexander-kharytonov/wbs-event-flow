@@ -11,6 +11,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
+import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
 import { BackLink } from "@/components/ui/back-link";
 import {
@@ -30,6 +31,7 @@ import {
   TemplateReview,
 } from "@/features/events/import/template-review";
 import { TEMPLATE_LIMITS } from "@/features/exports/event-template";
+import type { Messages } from "@/lib/i18n/messages";
 
 function CreateEventModesContent({
   initialTemplate: incomingTemplate,
@@ -38,6 +40,7 @@ function CreateEventModesContent({
   initialTemplate?: TemplateEvent;
   duplicateError?: string;
 }) {
+  const t = useTranslations("events");
   // The server changes this container's key on source changes or confirmed denial.
   // Other refresh outcomes must not replace or remove an acquired snapshot.
   const [initialTemplate, setInitialTemplate] = useState(incomingTemplate);
@@ -61,10 +64,10 @@ function CreateEventModesContent({
   useEditorDirty("template-text", mode === "import" && Boolean(text));
 
   const modeSwitch = (
-    <Tooltip title="Create an event from a JSON template">
+    <Tooltip title={t("templateFromJson")}>
       <FormControlLabel
         sx={{ m: 0, flexShrink: 0 }}
-        label={<Typography variant="body2">Use template</Typography>}
+        label={<Typography variant="body2">{t("templateUse")}</Typography>}
         control={
           <Switch
             size="small"
@@ -81,14 +84,12 @@ function CreateEventModesContent({
   const content = (
     <Stack spacing={3}>
       {duplicateError && !initialTemplate ? (
-        <Alert severity="error">{duplicateError}</Alert>
+        <Alert severity="error">
+          {t(duplicateError as keyof Messages["events"])}
+        </Alert>
       ) : initialTemplate ? (
         <>
-          <Alert severity="info">
-            Review this copy before creating a new unpublished event. Nothing is
-            saved until Create event. Reloading discards your edits and reloads
-            the source configuration.
-          </Alert>
+          <Alert severity="info">{t("templateCopyReview")}</Alert>
           <TemplateReview initial={initialTemplate} onBusyChange={setBusy} />
         </>
       ) : mode === "manual" ? (
@@ -100,10 +101,7 @@ function CreateEventModesContent({
           spacing={3}
           sx={{ border: 0, p: 0, m: 0, minWidth: 0 }}
         >
-          <Alert severity="info">
-            Upload an Event Flow JSON template or paste its contents. Review and
-            edit it before creating a new unpublished event.
-          </Alert>
+          <Alert severity="info">{t("templateImportHint")}</Alert>
           <Button
             component="label"
             variant="outlined"
@@ -111,7 +109,7 @@ function CreateEventModesContent({
             disabled={busy || reading}
             sx={{ alignSelf: "flex-start" }}
           >
-            {reading ? "Reading…" : "Upload JSON"}
+            {reading ? t("templateReading") : t("templateUpload")}
             <input
               hidden
               type="file"
@@ -132,8 +130,7 @@ function CreateEventModesContent({
                     {
                       code: "limit",
                       path: "template",
-                      message:
-                        "The template must not exceed 512 KiB of UTF-8 JSON.",
+                      message: "templateSizeLimit",
                     },
                   ]);
 
@@ -169,7 +166,7 @@ function CreateEventModesContent({
                     {
                       code: "file",
                       path: "template",
-                      message: "Could not read this file as UTF-8 JSON.",
+                      message: "templateReadFailed",
                     },
                   ]);
                 } finally {
@@ -179,7 +176,7 @@ function CreateEventModesContent({
             />
           </Button>
           <TextField
-            label="Template JSON"
+            label={t("templateJson")}
             multiline
             minRows={5}
             maxRows={12}
@@ -202,8 +199,9 @@ function CreateEventModesContent({
             fullWidth
             error={issues.length > 0}
             helperText={
-              issues[0]?.message ??
-              "Maximum 512 KiB of UTF-8 JSON. Templates may contain private staff emails."
+              (issues[0]
+                ? t(issues[0].message as keyof Messages["events"])
+                : undefined) ?? t("templateJsonHint")
             }
           />
           <TemplateIssues issues={issues} />
@@ -234,15 +232,12 @@ function CreateEventModesContent({
               }
             }}
           >
-            Validate
+            {t("templateValidate")}
           </Button>
           {review && (
             <>
               {!busy && (
-                <Alert severity="success">
-                  Template validated. Review the configuration below. Nothing is
-                  saved until Create event.
-                </Alert>
+                <Alert severity="success">{t("templateValidated")}</Alert>
               )}
               <TemplateReview
                 key={review.generation}
@@ -258,7 +253,7 @@ function CreateEventModesContent({
 
   return (
     <Stack spacing={3} sx={{ width: "100%" }}>
-      <BackLink href="/dashboard">My events</BackLink>
+      <BackLink href="/dashboard">{t("myEvents")}</BackLink>
       <Stack
         direction="row"
         sx={{
@@ -269,7 +264,7 @@ function CreateEventModesContent({
         }}
       >
         <Typography variant="h4" component="h1">
-          Create event
+          {t("createEvent")}
         </Typography>
         {!initialTemplate && !duplicateError && modeSwitch}
       </Stack>

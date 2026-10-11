@@ -11,6 +11,7 @@ import SupervisorAccountOutlined from "@mui/icons-material/SupervisorAccountOutl
 import VisibilityOutlined from "@mui/icons-material/VisibilityOutlined";
 import { Badge, Box, Tab } from "@mui/material";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { WorkspaceTabs } from "@/components/ui/workspace-tabs";
 
 type Section =
@@ -49,14 +50,28 @@ export function EventNavigation({
   applicationCount?: number;
   attendeeCount: number;
 }) {
+  const t = useTranslations("events");
+  const labels = {
+    overview: "overview",
+    "registration-form": "registrationForm",
+    preview: "preview",
+    staff: "staff",
+    badges: "badges",
+    applications: "applications",
+    attendees: "attendees",
+    communications: "communications",
+    "check-in": "checkIn",
+  } as const;
+
   return (
     <Box
       component="nav"
-      aria-label="Event sections"
+      aria-label={t("eventSections")}
       sx={{ minWidth: 0, display: "flex", position: { md: "sticky" }, top: 24 }}
     >
-      <WorkspaceTabs value={active} aria-label="Event sections">
-        {sections.map(({ id, label }) => {
+      <WorkspaceTabs value={active} aria-label={t("eventSections")}>
+        {sections.map(({ id }) => {
+          const label = t(labels[id]);
           const count =
             id === "applications"
               ? applicationCount
@@ -73,7 +88,11 @@ export function EventNavigation({
               component={Link}
               href={`/dashboard/events/${eventId}${id === "overview" ? "" : `/${id}`}`}
               aria-current={active === id ? "page" : undefined}
-              aria-label={count === undefined ? label : `${label} (${count})`}
+              aria-label={
+                count === undefined
+                  ? label
+                  : t("sectionCount", { label, count })
+              }
               icon={icons[id]}
               iconPosition="start"
               sx={{ pr: count === undefined ? 3 : 5 }}

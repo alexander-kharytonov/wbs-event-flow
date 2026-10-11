@@ -25,14 +25,16 @@ import {
   Typography,
 } from "@mui/material";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { EventAccessStatus } from "@/features/events/components/event-access-status";
-import { accessLabels } from "@/features/events/event-access-labels";
+import { EventText } from "@/features/events/components/event-text";
 import { updateStaff } from "@/features/events/staff-actions";
 import { staffEmailSchema } from "@/features/events/staff-input";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { useNotifications } from "@/hooks/use-notifications";
+import type { Messages } from "@/lib/i18n/messages";
 
 type Role = "MANAGER" | "RECEPTION";
 type Member = {
@@ -41,9 +43,9 @@ type Member = {
   user: { name: string; email: string };
 };
 const descriptions = {
-  MANAGER: "Can review applications and manage attendees and check-in.",
-  RECEPTION: "Can view admission details and perform check-in.",
-};
+  MANAGER: "managerDescription",
+  RECEPTION: "receptionDescription",
+} as const;
 
 export function StaffList({
   eventId,
@@ -52,9 +54,10 @@ export function StaffList({
   eventId: string;
   members: Member[];
 }) {
+  const t = useTranslations("events");
   const router = useRouter();
   const notifications = useNotifications();
-  const feedback = useFormFeedback();
+  const feedback = useFormFeedback<keyof Messages["events"]>({}, t);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Role | "ALL">("ALL");
   const query = search.trim().toLowerCase();
@@ -89,7 +92,7 @@ export function StaffList({
     feedback.reset();
 
     if (dialog.action === "add" && !staffEmailSchema.safeParse(email).success) {
-      feedback.setErrors({ email: "Enter a valid email address." });
+      feedback.setErrors({ email: "invalidEmail" });
 
       return;
     }
@@ -107,17 +110,21 @@ export function StaffList({
 
         if (!result.success) {
           feedback.setErrors(result.fieldErrors ?? {});
-          feedback.setMessage(result.message ?? "Could not update staff.");
+          feedback.setMessage(result.message ?? "staffUpdateFailed");
 
           return;
         }
 
         notifications.show(
-          dialog.action === "add"
-            ? "Staff member added."
-            : dialog.action === "change"
-              ? "Staff role updated."
-              : "Staff access removed.",
+          <EventText
+            id={
+              dialog.action === "add"
+                ? "staffAdded"
+                : dialog.action === "change"
+                  ? "staffRoleUpdated"
+                  : "staffAccessRemoved"
+            }
+          />,
           {
             severity: "success",
             autoHideDuration: 4000,
@@ -127,7 +134,7 @@ export function StaffList({
         setDialog(null);
         router.refresh();
       } catch {
-        feedback.setMessage("Could not update staff. Please try again.");
+        feedback.setMessage("staffUpdateFailed");
       }
     });
   }
@@ -143,18 +150,18 @@ export function StaffList({
           component="h2"
           sx={{ minHeight: 42, display: "flex", alignItems: "center" }}
         >
-          Staff
+          {t("staff")}
         </Typography>
         <Stack direction="row" sx={{ gap: 2, alignItems: "center" }}>
           <Typography variant="body2" color="text.secondary">
-            {members.length} {members.length === 1 ? "member" : "members"}
+            {t("staffCount", { count: members.length })}
           </Typography>
           <Button
             variant="contained"
             startIcon={<Add />}
             onClick={() => open("add")}
           >
-            Add staff
+            {t("addStaff")}
           </Button>
         </Stack>
       </Stack>
@@ -170,8 +177,8 @@ export function StaffList({
           }}
         >
           <TextField
-            label="Search staff"
-            placeholder="Name or email"
+            label={t("searchStaff")}
+            placeholder={t("nameOrEmail")}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             slotProps={{
@@ -187,7 +194,7 @@ export function StaffList({
           />
           <TextField
             select
-            label="Role"
+            label={t("role")}
             value={filter}
             onChange={(event) => {
               const value = event.target.value;
@@ -213,7 +220,9 @@ export function StaffList({
                   ) : (
                     <BadgeOutlined fontSize="small" />
                   )}
-                  {value === "ALL" ? "All" : accessLabels[value]}
+                  {value === "ALL"
+                    ? t("all")
+                    : t(value === "MANAGER" ? "manager" : "reception")}
                 </Box>
               </MenuItem>
             ))}
@@ -222,14 +231,14 @@ export function StaffList({
         {members.length === 0 ? (
           <EmptyState
             icon={<PeopleOutlined />}
-            title="No staff yet"
-            description="Add a manager or reception member when you need help with applications or check-in."
+            title={t("noStaff")}
+            description={t("noStaffDescription")}
           />
         ) : filteredMembers.length === 0 ? (
           <EmptyState
             icon={<PeopleOutlined />}
-            title="No matching staff"
-            description="Try another search or change the role filter."
+            title={t("noMatchingStaff")}
+            description={t("tryStaffFilters")}
             action={
               <Button
                 onClick={() => {
@@ -237,7 +246,7 @@ export function StaffList({
                   setFilter("ALL");
                 }}
               >
-                Clear filters
+                {t("clearFilters")}
               </Button>
             }
           />
@@ -253,7 +262,9 @@ export function StaffList({
                   >
                     <ListItemButton
                       onClick={() => open("change", member)}
-                      aria-label={`Manage staff member ${member.user.name}`}
+                      aria-label={t("manageNamedStaff", {
+                        name: member.user.name,
+                      })}
                       aria-haspopup="dialog"
                       alignItems="flex-start"
                       sx={{
@@ -311,10 +322,10 @@ export function StaffList({
         >
           <DialogTitle id="staff-dialog-title">
             {dialog?.action === "add"
-              ? "Add staff member"
+              ? t("addStaffMember")
               : dialog?.action === "change"
-                ? "Manage staff member"
-                : "Remove access"}
+                ? t("manageStaffMember")
+                : t("removeAccess")}
           </DialogTitle>
           <Box
             component="form"
@@ -332,7 +343,7 @@ export function StaffList({
                     autoFocus
                     fullWidth
                     disabled={pending}
-                    label="Email"
+                    label={t("email")}
                     type="email"
                     autoComplete="off"
                     required
@@ -343,8 +354,9 @@ export function StaffList({
                     }}
                     error={Boolean(feedback.errors.email)}
                     helperText={
-                      feedback.errors.email ??
-                      "Use their verified Event Flow account email."
+                      (feedback.errors.email
+                        ? t(feedback.errors.email)
+                        : undefined) ?? t("verifiedStaffEmail")
                     }
                   />
                 ) : (
@@ -371,14 +383,13 @@ export function StaffList({
                 )}
                 {dialog?.action === "remove" ? (
                   <Typography color="text.secondary">
-                    This member will lose access to the event. Their previous
-                    reviews and check-ins will be preserved.
+                    {t("removeStaffDescription")}
                   </Typography>
                 ) : (
                   <>
                     <TextField
                       select
-                      label="Role"
+                      label={t("role")}
                       disabled={pending}
                       value={role}
                       onChange={(event) =>
@@ -389,10 +400,10 @@ export function StaffList({
                         )
                       }
                     >
-                      <MenuItem value="MANAGER">Manager</MenuItem>
-                      <MenuItem value="RECEPTION">Reception</MenuItem>
+                      <MenuItem value="MANAGER">{t("manager")}</MenuItem>
+                      <MenuItem value="RECEPTION">{t("reception")}</MenuItem>
                     </TextField>
-                    <Alert severity="warning">{descriptions[role]}</Alert>
+                    <Alert severity="warning">{t(descriptions[role])}</Alert>
                   </>
                 )}
               </Stack>
@@ -410,7 +421,7 @@ export function StaffList({
                   onClick={() => open("remove", dialog.member)}
                   sx={{ mr: "auto" }}
                 >
-                  Remove access
+                  {t("removeAccess")}
                 </Button>
               )}
               <Button
@@ -418,7 +429,7 @@ export function StaffList({
                 disabled={pending}
                 onClick={() => setDialog(null)}
               >
-                Cancel
+                {t("cancel")}
               </Button>
               <Button
                 type="submit"
@@ -430,10 +441,10 @@ export function StaffList({
                 color={dialog?.action === "remove" ? "error" : "primary"}
               >
                 {dialog?.action === "add"
-                  ? "Add staff"
+                  ? t("addStaff")
                   : dialog?.action === "change"
-                    ? "Save role"
-                    : "Remove access"}
+                    ? t("saveRole")
+                    : t("removeAccess")}
               </Button>
             </DialogActions>
           </Box>

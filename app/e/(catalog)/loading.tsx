@@ -1,11 +1,16 @@
+"use client";
+
 import { Box, Paper, Skeleton, Stack } from "@mui/material";
+import { useTranslations } from "next-intl";
 
 export default function Loading() {
+  const t = useTranslations("shell");
+
   return (
     <Stack
       spacing={3}
       role="status"
-      aria-label="Loading events"
+      aria-label={t("loadingEvents")}
       aria-busy="true"
     >
       <Skeleton width="45%" height={48} />

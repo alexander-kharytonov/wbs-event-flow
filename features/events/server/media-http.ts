@@ -23,10 +23,7 @@ export const mediaHeaders = {
 export function mediaFailure(error: unknown) {
   return Response.json(
     {
-      message:
-        error instanceof MediaError
-          ? error.message
-          : "Media is unavailable. Please try again.",
+      code: error instanceof MediaError ? error.code : "mediaFailed",
     },
     {
       status: error instanceof MediaError ? error.status : 503,
@@ -40,7 +37,7 @@ export async function mediaActor(request: Request, mutation = false) {
     mutation &&
     request.headers.get("origin") !== getServerEnv().BETTER_AUTH_URL
   ) {
-    throw new MediaError(403, "This request origin is not allowed.");
+    throw new MediaError(403, "mediaOrigin");
   }
 
   const session = await auth.api.getSession({
@@ -52,7 +49,7 @@ export async function mediaActor(request: Request, mutation = false) {
     !session?.user.emailVerified ||
     session.session.expiresAt.getTime() <= Date.now()
   ) {
-    throw new MediaError(404, "Event media unavailable.");
+    throw new MediaError(404, "mediaUnavailable");
   }
 
   return session.user.id;
@@ -60,7 +57,7 @@ export async function mediaActor(request: Request, mutation = false) {
 
 export function requireMediaId(id: string) {
   if (!z.uuid().safeParse(id).success) {
-    throw new MediaError(404, "Event media unavailable.");
+    throw new MediaError(404, "mediaUnavailable");
   }
 }
 
@@ -78,7 +75,7 @@ export async function serveEventMedia(
   const parsedVariant = z.enum(mediaVariants).safeParse(variant);
 
   if (!parsedVariant.success) {
-    throw new MediaError(404, "Event media unavailable.");
+    throw new MediaError(404, "mediaUnavailable");
   }
 
   const userId = context.eventId ? await mediaActor(request) : null;
@@ -94,7 +91,7 @@ export async function serveEventMedia(
         );
 
         if (actor?.role !== "OWNER") {
-          throw new MediaError(404, "Event media unavailable.");
+          throw new MediaError(404, "mediaUnavailable");
         }
 
         // Event-bound READY uploads may be previewed before explicit attachment.
@@ -132,7 +129,7 @@ export async function serveEventMedia(
         publishedAsset.organizerId !== event?.organizerId ||
         publishedAsset.state !== "READY"
       ) {
-        throw new MediaError(404, "Event media unavailable.");
+        throw new MediaError(404, "mediaUnavailable");
       }
 
       const manifest = mediaManifestSchema.safeParse(publishedAsset.manifest);
@@ -142,7 +139,7 @@ export async function serveEventMedia(
         JSON.stringify(manifest.data) !==
           JSON.stringify(snapshot.data.cover.variants)
       ) {
-        throw new MediaError(404, "Event media unavailable.");
+        throw new MediaError(404, "mediaUnavailable");
       }
 
       return publishedAsset;
@@ -151,7 +148,7 @@ export async function serveEventMedia(
   );
 
   if (!asset) {
-    throw new MediaError(404, "Event media unavailable.");
+    throw new MediaError(404, "mediaUnavailable");
   }
 
   const manifest = mediaManifestSchema.parse(asset.manifest);
@@ -165,7 +162,7 @@ export async function serveEventMedia(
     bytes.length !== descriptor.bytes ||
     createHash("sha256").update(bytes).digest("hex") !== descriptor.sha256
   ) {
-    throw new MediaError(503, "Media is temporarily unavailable.");
+    throw new MediaError(503, "mediaTemporary");
   }
 
   return new Response(new Uint8Array(bytes), {

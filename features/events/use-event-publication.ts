@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { createElement, useState, useTransition } from "react";
+import { EventText } from "@/features/events/components/event-text";
 import { publishEvent } from "@/features/events/publish-event-action";
 import type { PublishResult } from "@/features/events/server/publish-event";
 import { useNotifications } from "@/hooks/use-notifications";
@@ -20,14 +21,17 @@ export function useEventPublication(eventId: string, contentVersion: number) {
         setPublication(result);
 
         if (result.success) {
-          notifications.show("Event published.", {
-            severity: "success",
-            autoHideDuration: 4000,
-            key: `publish:${eventId}`,
-          });
+          notifications.show(
+            createElement(EventText, { id: "publishedSuccess" }),
+            {
+              severity: "success",
+              autoHideDuration: 4000,
+              key: `publish:${eventId}`,
+            },
+          );
           router.refresh();
         } else if (result.message && !result.conflict) {
-          notifications.show(result.message, {
+          notifications.show(createElement(EventText, { id: result.message }), {
             severity: "error",
             key: `publish:${eventId}`,
           });
@@ -35,8 +39,7 @@ export function useEventPublication(eventId: string, contentVersion: number) {
       } catch {
         setPublication({
           conflict: true,
-          message:
-            "We couldn’t confirm publication. Reload the event to check its status.",
+          message: "publishUnconfirmed",
         });
       }
     });

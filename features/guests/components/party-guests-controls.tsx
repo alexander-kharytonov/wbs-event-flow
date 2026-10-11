@@ -13,30 +13,31 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { useTranslations } from "next-intl";
 import { type ReactNode, useState, useTransition } from "react";
 import { z } from "zod";
 import { EmptyState } from "@/components/ui/empty-state";
+import { EventText } from "@/features/events/components/event-text";
 import type { GuestResult } from "@/features/guests/guest-result";
 import type { PartyGuestsPresentation } from "@/features/guests/server/party-presentation";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { useNotifications } from "@/hooks/use-notifications";
+import type { Messages } from "@/lib/i18n/messages";
 
-const messages: Record<GuestResult["code"], string> = {
-  ADDED: "Guest added.",
-  REMOVED: "Guest removed.",
-  ALREADY_REMOVED: "This guest has already been removed.",
-  UNAVAILABLE: "This guest request is unavailable.",
-  GUEST_LIMIT_REACHED: "The published guest limit has been reached.",
-  CAPACITY_REACHED: "The event is full. No guest was added.",
-  GUESTS_NOT_ALLOWED: "Guests are not currently allowed.",
-  NOT_PUBLISHED:
-    "This event is not currently published. Guests cannot be added.",
-  PARTY_FROZEN: "Guest management closed when the event started.",
-  EVENT_CANCELLED: "This event has been cancelled.",
-  REGISTRATION_REVOKED: "This registration has been revoked.",
-  INVALID_INPUT:
-    "Enter a name of 1–200 characters and a valid email, or leave email empty.",
-  FAILED: "Could not update your guests. Please try again.",
+const messages: Record<GuestResult["code"], keyof Messages["events"]> = {
+  ADDED: "guestAdded",
+  REMOVED: "guestRemoved",
+  ALREADY_REMOVED: "guestAlreadyRemoved",
+  UNAVAILABLE: "guestUnavailable",
+  GUEST_LIMIT_REACHED: "guestLimitReached",
+  CAPACITY_REACHED: "guestEventFull",
+  GUESTS_NOT_ALLOWED: "guestsNotAllowed",
+  NOT_PUBLISHED: "guestsNotPublished",
+  PARTY_FROZEN: "guestsFrozen",
+  EVENT_CANCELLED: "eventCancelledMessage",
+  REGISTRATION_REVOKED: "registrationRevokedMessage",
+  INVALID_INPUT: "guestInputInvalid",
+  FAILED: "guestUpdateFailed",
 };
 
 export function PartyGuestsControls({
@@ -52,8 +53,9 @@ export function PartyGuestsControls({
   addAction: (input: { name: string; email: string }) => Promise<GuestResult>;
   removeAction: (guestId: string) => Promise<GuestResult>;
 }) {
+  const t = useTranslations("events");
   const notifications = useNotifications();
-  const feedback = useFormFeedback();
+  const feedback = useFormFeedback<keyof Messages["events"]>({}, t);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [open, setOpen] = useState(false);
@@ -68,7 +70,7 @@ export function PartyGuestsControls({
         if (["ADDED", "REMOVED", "ALREADY_REMOVED"].includes(next.code)) {
           setOpen(false);
           setRemoveId(null);
-          notifications.show(messages[next.code], {
+          notifications.show(<EventText id={messages[next.code]} />, {
             severity: "success",
             autoHideDuration: 5000,
           });
@@ -92,10 +94,13 @@ export function PartyGuestsControls({
       >
         <Box>
           <Typography variant="h6" component="h2">
-            Guests
+            {t("guests")}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {party.activeCount} active / {party.limit} published limit
+            {t("activeGuestCount", {
+              count: party.activeCount,
+              limit: party.limit,
+            })}
           </Typography>
         </Box>
         {party.canAdd && (
@@ -108,16 +113,16 @@ export function PartyGuestsControls({
               setOpen(true);
             }}
           >
-            Add guest
+            {t("addGuest")}
           </Button>
         )}
       </Stack>
-      {party.reason && <Alert severity="info">{party.reason}</Alert>}
+      {party.reason && <Alert severity="info">{t(party.reason)}</Alert>}
       {party.items.length === 0 && (
         <EmptyState
           icon={<PeopleOutlined />}
-          title="No guests added"
-          description="Guests added to your registration will appear here."
+          title={t("noGuests")}
+          description={t("guestsEmptyDescription")}
         />
       )}
       <Box
@@ -152,7 +157,7 @@ export function PartyGuestsControls({
                     setRemoveId(guest.id);
                   }}
                 >
-                  Remove guest
+                  {t("removeGuest")}
                 </Button>
               )}
             </Box>
@@ -173,14 +178,14 @@ export function PartyGuestsControls({
           onSubmit={(event) => {
             event.preventDefault();
             feedback.reset();
-            const errors: Record<string, string> = {};
+            const errors: Record<string, keyof Messages["events"]> = {};
 
             if (!name.trim() || name.trim().length > 200) {
-              errors.name = "Enter a name of 1–200 characters.";
+              errors.name = "nameLength";
             }
 
             if (email.trim() && !z.email().safeParse(email.trim()).success) {
-              errors.email = "Enter a valid email address.";
+              errors.email = "invalidEmail";
             }
             feedback.setErrors(errors);
 
@@ -189,12 +194,12 @@ export function PartyGuestsControls({
             }
           }}
         >
-          <DialogTitle>Add guest</DialogTitle>
+          <DialogTitle>{t("addGuest")}</DialogTitle>
           <DialogContent>
             <Stack spacing={2} sx={{ pt: 1 }}>
               <TextField
                 name="name"
-                label="Guest name"
+                label={t("guestName")}
                 value={name}
                 disabled={pending}
                 {...feedback.field("name")}
@@ -208,7 +213,7 @@ export function PartyGuestsControls({
               />
               <TextField
                 name="email"
-                label="Email (optional)"
+                label={t("emailOptional")}
                 type="email"
                 value={email}
                 disabled={pending}
@@ -219,8 +224,7 @@ export function PartyGuestsControls({
                 }}
               />
               <Typography variant="body2" color="text.secondary">
-                Your guest counts toward event capacity. You can manage guests
-                until the event starts.
+                {t("guestCapacityHint")}
               </Typography>
             </Stack>
           </DialogContent>
@@ -231,14 +235,14 @@ export function PartyGuestsControls({
           )}
           <DialogActions>
             <Button disabled={pending} onClick={() => setOpen(false)}>
-              Cancel
+              {t("cancel")}
             </Button>
             <Button
               type="submit"
               variant="contained"
               disabled={pending || !name.trim()}
             >
-              {pending ? "Adding…" : "Add guest"}
+              {pending ? t("adding") : t("addGuest")}
             </Button>
           </DialogActions>
         </Box>
@@ -251,13 +255,10 @@ export function PartyGuestsControls({
         fullWidth
         maxWidth="xs"
       >
-        <DialogTitle>Remove guest?</DialogTitle>
+        <DialogTitle>{t("removeGuestTitle")}</DialogTitle>
         <DialogContent>
           <Stack spacing={2}>
-            <Typography>
-              The guest’s ticket will be revoked and their place released. Their
-              history will be kept.
-            </Typography>
+            <Typography>{t("removeGuestDescription")}</Typography>
           </Stack>
         </DialogContent>
         {feedback.message && (
@@ -267,7 +268,7 @@ export function PartyGuestsControls({
         )}
         <DialogActions>
           <Button disabled={pending} onClick={() => setRemoveId(null)}>
-            Cancel
+            {t("cancel")}
           </Button>
           <Button
             color="error"
@@ -276,7 +277,7 @@ export function PartyGuestsControls({
               if (removeId) submit(() => removeAction(removeId));
             }}
           >
-            Remove guest
+            {t("removeGuest")}
           </Button>
         </DialogActions>
       </Dialog>

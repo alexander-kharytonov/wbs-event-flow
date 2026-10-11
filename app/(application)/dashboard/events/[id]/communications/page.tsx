@@ -7,6 +7,7 @@ import {
 } from "@/features/communications/components/compose-message";
 import { readCommunicationHistory } from "@/features/communications/server/read";
 import { EventHeader } from "@/features/events/components/event-header";
+import { EventText } from "@/features/events/components/event-text";
 
 export default async function CommunicationsPage({
   params,
@@ -26,8 +27,8 @@ export default async function CommunicationsPage({
   const disabledReason = data.eligibility.allowed
     ? undefined
     : data.eligibility.reason === "ARCHIVED"
-      ? "Restore this event before sending a message."
-      : "Publish this event before sending a message.";
+      ? "commRestore"
+      : "commPublish";
 
   return (
     <Stack spacing={3}>
@@ -49,14 +50,12 @@ export default async function CommunicationsPage({
               component="h2"
               id="communication-history-title"
             >
-              History
+              <EventText id="commHistory" />
             </Typography>
             <RefreshCommunicationHistory />
           </Stack>
           <Alert severity="info">
-            Sent means accepted by the mail transport, not confirmed mailbox
-            delivery. Status counts update automatically; you can also refresh
-            them.
+            <EventText id="commSentExplanation" />
           </Alert>
           <CommunicationHistory
             eventId={id}

@@ -12,6 +12,7 @@ import {
   rejectionEventTitle,
   transactionalEmailSubjects,
 } from "@/lib/email-outbox/payload";
+import type { Messages } from "@/lib/i18n/messages";
 import { prisma } from "@/lib/prisma";
 import { notifyApplicationChanged } from "@/lib/realtime/application-notifications";
 
@@ -28,7 +29,7 @@ export type ReviewResult = {
     | "CAPACITY_REACHED"
     | "PUBLICATION_UNAVAILABLE"
     | "FAILED";
-  message?: string;
+  message?: keyof Messages["events"];
 };
 
 export async function reviewEventApplication(
@@ -39,7 +40,7 @@ export async function reviewEventApplication(
   const parsed = reviewInput.safeParse(input);
   const unavailable: ReviewResult = {
     code: "UNAVAILABLE",
-    message: "This application is unavailable.",
+    message: "applicationUnavailable",
   };
 
   if (!parsed.success) {
@@ -92,7 +93,7 @@ export async function reviewEventApplication(
         if (application.status !== "PENDING") {
           return {
             code: "ALREADY_REVIEWED",
-            message: "This application has already been reviewed.",
+            message: "applicationAlreadyReviewed",
           };
         }
 
@@ -111,8 +112,7 @@ export async function reviewEventApplication(
           if (!snapshot.success) {
             return {
               code: "PUBLICATION_UNAVAILABLE",
-              message:
-                "The published event is unavailable. Approval cannot proceed.",
+              message: "applicationPublicationUnavailable",
             };
           }
 
@@ -126,8 +126,7 @@ export async function reviewEventApplication(
             if (occupied >= capacity) {
               return {
                 code: "CAPACITY_REACHED",
-                message:
-                  "Published capacity reached. This application remains pending.",
+                message: "applicationCapacityReached",
               };
             }
           }
@@ -250,7 +249,7 @@ export async function reviewEventApplication(
   } catch {
     return {
       code: "FAILED",
-      message: "We couldn’t review this application. Please try again.",
+      message: "applicationReviewFailed",
     };
   }
 }

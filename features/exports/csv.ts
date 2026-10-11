@@ -1,8 +1,16 @@
+import type { Messages } from "@/lib/i18n/messages";
+
 export const MAX_EXPORT_ROWS = 10_000;
+
 export const MAX_EXPORT_COLUMNS = 500;
+
 export const MAX_EXPORT_BYTES = 20 * 1024 * 1024;
 
-export class ExportError extends Error {}
+export class ExportError extends Error {
+  constructor(readonly code: keyof Messages["events"]) {
+    super(code);
+  }
+}
 
 export type CsvCell = string | number | boolean | Date | null;
 
@@ -31,17 +39,13 @@ export function quoteCsvCell(value: CsvCell) {
 
 export function checkRowLimit(count: number) {
   if (count > MAX_EXPORT_ROWS) {
-    throw new ExportError(
-      "Export exceeds the 10,000-row limit. No partial file was produced.",
-    );
+    throw new ExportError("exportRows");
   }
 }
 
 export function createCsv(headers: string[]) {
   if (headers.length > MAX_EXPORT_COLUMNS) {
-    throw new ExportError(
-      "Export exceeds the 500-column limit. No partial file was produced.",
-    );
+    throw new ExportError("exportColumns");
   }
 
   const chunks: string[] = ["\uFEFF"];
@@ -52,9 +56,7 @@ export function createCsv(headers: string[]) {
     bytes += Buffer.byteLength(record, "utf8");
 
     if (bytes > MAX_EXPORT_BYTES) {
-      throw new ExportError(
-        "Export exceeds the 20 MiB limit. No partial file was produced.",
-      );
+      throw new ExportError("exportBytes");
     }
 
     chunks.push(record);
@@ -67,7 +69,7 @@ export function createCsv(headers: string[]) {
       checkRowLimit(rows);
 
       if (cells.length !== headers.length) {
-        throw new ExportError("Could not prepare the export.");
+        throw new ExportError("exportFailed");
       }
 
       append(cells);

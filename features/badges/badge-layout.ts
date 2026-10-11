@@ -22,7 +22,18 @@ export const badgeLayoutSchema = z.strictObject({
 });
 
 export type BadgeLayout = z.infer<typeof badgeLayoutSchema>;
+
 export type BadgeField = z.infer<typeof badgeFieldSchema>;
+
+export type BadgeFieldContext = {
+  context:
+    | "badgeCurrentQuestion"
+    | "badgePublishedQuestion"
+    | "badgeSavedSecondary"
+    | "badgeSavedTertiary"
+    | "templateQuestion";
+  contextValues?: { number: number; revision?: number };
+};
 
 export const defaultBadgeLayout: BadgeLayout = {
   formatVersion: 1,

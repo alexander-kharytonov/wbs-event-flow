@@ -22,6 +22,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { DateTime } from "@/components/ui/date-time";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -35,7 +36,7 @@ import { EventLanguageChip } from "@/features/events/components/event-language-c
 import { EventLifecycleStatus } from "@/features/events/components/event-lifecycle-status";
 import { EventStatusChip } from "@/features/events/components/event-status-chip";
 import { PublicationStatus } from "@/features/events/components/publication-status";
-import { accessLabels } from "@/features/events/event-access-labels";
+import type { accessLabels } from "@/features/events/event-access-labels";
 import type { EventLanguage } from "@/features/events/event-language";
 import { eventLifecycle } from "@/features/events/event-lifecycle";
 import { publicationState } from "@/features/events/publication-state";
@@ -65,6 +66,7 @@ export function OrganizerEventResults({
   events: EventSummary[];
   canCreate: boolean;
 }) {
+  const t = useTranslations("events");
   const [access, setAccess] = useState("ALL");
   const hasAssigned = events.some((event) => event.role !== "OWNER");
   const showVisibility = !hasAssigned || access === "OWNED";
@@ -73,8 +75,12 @@ export function OrganizerEventResults({
   const [visibility, setVisibility] = useState<"ALL" | "PUBLIC" | "PRIVATE">(
     "ALL",
   );
-  const labels = { ALL: "All", PUBLIC: "Public", PRIVATE: "Private" };
-  const statusLabels = { ALL: "All", ACTIVE: "Active", ARCHIVED: "Archived" };
+  const labels = { ALL: t("all"), PUBLIC: t("public"), PRIVATE: t("private") };
+  const statusLabels = {
+    ALL: t("all"),
+    ACTIVE: t("active"),
+    ARCHIVED: t("archived"),
+  };
   const [lifecycle, setLifecycle] = useState<
     "All" | ReturnType<typeof eventLifecycle>
   >("All");
@@ -123,15 +129,15 @@ export function OrganizerEventResults({
   return (
     <Stack spacing={3}>
       <PageHeader
-        title="My events"
-        description="Your events and the events you help run."
+        title={t("myEvents")}
+        description={t("dashboardDescription")}
         actions={
           status !== "ARCHIVED" &&
           (canCreate ? (
             <CreateEventButton />
           ) : (
             <Button href="/onboarding/organizer" variant="outlined">
-              Become an organizer
+              {t("becomeOrganizer")}
             </Button>
           ))
         }
@@ -139,15 +145,15 @@ export function OrganizerEventResults({
       {hasAssigned && (
         <TextField
           select
-          label="Access"
+          label={t("access")}
           value={access}
           onChange={(event) => setAccess(event.target.value)}
           size="small"
           sx={{ width: { xs: "100%", sm: 200 } }}
         >
-          <MenuItem value="ALL">All</MenuItem>
-          <MenuItem value="OWNED">Owned</MenuItem>
-          <MenuItem value="ASSIGNED">Assigned</MenuItem>
+          <MenuItem value="ALL">{t("all")}</MenuItem>
+          <MenuItem value="OWNED">{t("owned")}</MenuItem>
+          <MenuItem value="ASSIGNED">{t("assigned")}</MenuItem>
         </TextField>
       )}
       <Stack
@@ -161,8 +167,8 @@ export function OrganizerEventResults({
         }}
       >
         <TextField
-          label="Search events"
-          placeholder="Event title"
+          label={t("searchEvents")}
+          placeholder={t("eventTitle")}
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           slotProps={{
@@ -191,7 +197,7 @@ export function OrganizerEventResults({
         >
           <TextField
             select
-            label="Status"
+            label={t("status")}
             value={status}
             sx={{ minWidth: 0, gridColumn: { xs: "1 / -1", md: "auto" } }}
             onChange={(event) => {
@@ -227,7 +233,7 @@ export function OrganizerEventResults({
           {showVisibility && (
             <TextField
               select
-              label="Visibility"
+              label={t("visibility")}
               value={visibility}
               sx={{ minWidth: 0 }}
               onChange={(event) => {
@@ -267,7 +273,7 @@ export function OrganizerEventResults({
           )}
           <TextField
             select
-            label="Lifecycle"
+            label={t("lifecycle")}
             value={lifecycle}
             sx={{ minWidth: 0 }}
             onChange={(event) => {
@@ -296,7 +302,17 @@ export function OrganizerEventResults({
                   }}
                 >
                   {icon}
-                  {value}
+                  {t(
+                    (
+                      {
+                        All: "all",
+                        Upcoming: "upcoming",
+                        Ongoing: "ongoing",
+                        Completed: "completed",
+                        Cancelled: "cancelled",
+                      } as const
+                    )[value],
+                  )}
                 </Box>
               </MenuItem>
             ))}
@@ -306,15 +322,9 @@ export function OrganizerEventResults({
       {visibleEvents.length === 0 ? (
         <EmptyState
           icon={<EventOutlined />}
-          title={
-            events.length
-              ? "No matching events"
-              : "Your first event starts here"
-          }
+          title={events.length ? t("noMatchingEvents") : t("firstEvent")}
           description={
-            events.length
-              ? "Try another search or change the filters."
-              : "Create a draft to set the schedule and registration details."
+            events.length ? t("trySearchFilters") : t("createDraftHint")
           }
           action={
             events.length ? (
@@ -327,7 +337,7 @@ export function OrganizerEventResults({
                   setLifecycle("All");
                 }}
               >
-                Clear filters
+                {t("clearFilters")}
               </Button>
             ) : status !== "ARCHIVED" && canCreate ? (
               <CreateEventButton />
@@ -442,7 +452,7 @@ export function OrganizerEventResults({
                       <Typography variant="body2">
                         {event.visibility
                           ? labels[event.visibility]
-                          : "Assigned event"}
+                          : t("assignedEvent")}
                       </Typography>
                     </Stack>
                     <Stack
@@ -462,7 +472,15 @@ export function OrganizerEventResults({
                       <EventStatusChip
                         icon={<BadgeOutlined />}
                         color="default"
-                        label={accessLabels[event.role]}
+                        label={t(
+                          (
+                            {
+                              OWNER: "owner",
+                              MANAGER: "manager",
+                              RECEPTION: "reception",
+                            } as const
+                          )[event.role],
+                        )}
                       />
                       <EventLifecycleStatus event={event} now={now} />
                       {event.contentVersion !== undefined && (

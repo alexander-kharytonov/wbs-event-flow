@@ -1,15 +1,16 @@
 import { Alert, Box, Paper, Stack, Typography } from "@mui/material";
 import { notFound } from "next/navigation";
 import { BackLink } from "@/components/ui/back-link";
+import { InlineDateTime } from "@/components/ui/date-time";
 import { ApplicationDialog } from "@/features/events/components/application-dialog";
 import { ApplicationReviewControls } from "@/features/events/components/application-review-controls";
 import { ApplicationStatus } from "@/features/events/components/application-status";
 import { EventCapacity } from "@/features/events/components/event-capacity";
 import { EventHeader } from "@/features/events/components/event-header";
+import { EventText } from "@/features/events/components/event-text";
 import { RegistrationAdmission } from "@/features/events/components/registration-admission";
 import { SubmittedAnswers } from "@/features/events/components/submitted-answers";
 import { applicationsFrozen } from "@/features/events/event-lifecycle";
-import { formatEventTime } from "@/features/events/format-event-time";
 import { historicalAnswers } from "@/features/events/historical-answers";
 import { getEventApplication } from "@/features/events/server/organizer-applications";
 import { requireVerifiedUser } from "@/lib/session";
@@ -41,10 +42,10 @@ export async function ApplicationDetail({
       {!modal && (
         <>
           <BackLink href={`/dashboard/events/${id}/applications`}>
-            All applications
+            <EventText id="applicationAll" />
           </BackLink>
           <Typography variant="h4" component="h2">
-            Application detail
+            <EventText id="applicationDetail" />
           </Typography>
         </>
       )}
@@ -104,16 +105,27 @@ export async function ApplicationDetail({
             }}
           >
             {[
-              { label: "Submitted", date: application.createdAt },
-              { label: "Reviewed", date: application.reviewedAt },
-              { label: "Withdrawn", date: application.withdrawnAt },
+              {
+                label: <EventText id="applicationSubmittedLabel" />,
+                date: application.createdAt,
+              },
+              {
+                label: <EventText id="applicationReviewed" />,
+                date: application.reviewedAt,
+              },
+              {
+                label: <EventText id="withdrawn" />,
+                date: application.withdrawnAt,
+              },
             ]
               .filter(({ date }) => date !== null)
               .map(({ label, date }) => (
-                <Box key={label}>
+                <Box key={date?.toISOString()}>
                   <Typography component="dt">{label}</Typography>
                   <Typography component="dd">
-                    {date && formatEventTime(date, event.timezone)}
+                    {date && (
+                      <InlineDateTime date={date} timezone={event.timezone} />
+                    )}
                   </Typography>
                 </Box>
               ))}
@@ -123,31 +135,32 @@ export async function ApplicationDetail({
             color="text.secondary"
             sx={{ display: "block", mt: 1.5 }}
           >
-            All times in {event.timezone}
+            <EventText id="allTimesIn" values={{ timezone: event.timezone }} />
           </Typography>
         </Box>
       </Stack>
       {application.reviewedAt && (
         <Typography variant="body2" color="text.secondary">
-          Reviewed by {application.reviewedByUser?.name ?? "Unavailable"}
+          <EventText
+            id="applicationReviewedBy"
+            values={{ name: application.reviewedByUser?.name ?? "—" }}
+          />
         </Typography>
       )}
       <Stack spacing={2}>
         <Stack spacing={0.5}>
           <Typography variant="h6" component="h3">
-            Submitted answers
+            <EventText id="applicationAnswers" />
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Questions and options are shown as they were when this application
-            was submitted.
+            <EventText id="applicationHistoricalHint" />
           </Typography>
         </Stack>
         <SubmittedAnswers answers={answers} />
       </Stack>
       {applicationsFrozen(event, new Date()) && (
         <Alert severity="info">
-          Application history is preserved. This event no longer accepts
-          application changes.
+          <EventText id="applicationFrozenHint" />
         </Alert>
       )}
       {application.status === "PENDING" &&
@@ -161,7 +174,7 @@ export async function ApplicationDetail({
           >
             <Stack spacing={2}>
               <Typography variant="h6" component="h3">
-                Review application
+                <EventText id="applicationReview" />
               </Typography>
               {(modal || !event.publishedRevision) && (
                 <EventCapacity

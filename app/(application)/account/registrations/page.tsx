@@ -8,17 +8,22 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
-import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { DateTime } from "@/components/ui/date-time";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ApplicationRealtime } from "@/features/events/components/application-realtime";
 import { ApplicationStatus } from "@/features/events/components/application-status";
 import { EventLanguageChip } from "@/features/events/components/event-language-chip";
+import { EventText } from "@/features/events/components/event-text";
 import { RegistrationAdmission } from "@/features/events/components/registration-admission";
 import { getMyRegistrations } from "@/features/events/server/get-my-registrations";
 import { requireVerifiedUser } from "@/lib/session";
 
-export const metadata: Metadata = { title: "My registrations | Event Flow" };
+export async function generateMetadata() {
+  const t = await getTranslations("events");
+
+  return { title: `${t("myRegistrations")} | Event Flow` };
+}
 
 export default async function MyRegistrationsPage() {
   const user = await requireVerifiedUser();
@@ -26,13 +31,17 @@ export default async function MyRegistrationsPage() {
   const groups = [
     {
       id: "upcoming-registrations",
-      title: "Upcoming",
+      title: <EventText id="upcoming" />,
       registrations: upcoming,
     },
-    { id: "past-registrations", title: "Past", registrations: past },
+    {
+      id: "past-registrations",
+      title: <EventText id="past" />,
+      registrations: past,
+    },
     {
       id: "unavailable-registrations",
-      title: "Unavailable events",
+      title: <EventText id="registrationsUnavailable" />,
       registrations: unavailable,
     },
   ];
@@ -41,18 +50,18 @@ export default async function MyRegistrationsPage() {
     <Stack spacing={3}>
       <ApplicationRealtime streamUrl="/api/account/registrations/stream" />
       <Typography variant="h6" component="h2">
-        My registrations
+        <EventText id="myRegistrations" />
       </Typography>
       {upcoming.length === 0 &&
       past.length === 0 &&
       unavailable.length === 0 ? (
         <EmptyState
           icon={<EventOutlined />}
-          title="No registrations yet"
-          description="Browse public events to find something to attend."
+          title={<EventText id="registrationsEmpty" />}
+          description={<EventText id="registrationsEmptyHint" />}
           action={
             <Button href="/e" variant="contained">
-              Browse events
+              <EventText id="registrationsBrowse" />
             </Button>
           }
         />
@@ -115,7 +124,8 @@ export default async function MyRegistrationsPage() {
                             severity="error"
                             sx={{ whiteSpace: "pre-wrap", width: "100%" }}
                           >
-                            Event cancelled. {registration.cancellationReason}
+                            <EventText id="registrationsCancelled" />
+                            {registration.cancellationReason}
                           </Alert>
                         )}
                         <Typography
@@ -123,7 +133,9 @@ export default async function MyRegistrationsPage() {
                           variant="h6"
                           component="h3"
                         >
-                          {registration.title}
+                          {registration.title ?? (
+                            <EventText id="registrationsEventUnavailable" />
+                          )}
                         </Typography>
                         {registration.language && (
                           <EventLanguageChip language={registration.language} />

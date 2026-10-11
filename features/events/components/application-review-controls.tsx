@@ -1,7 +1,9 @@
 "use client";
 
 import { Button, Stack, Typography } from "@mui/material";
+import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
+import { EventText } from "@/features/events/components/event-text";
 import {
   approveApplication,
   rejectApplication,
@@ -16,6 +18,7 @@ export function ApplicationReviewControls({
   eventId: string;
   applicationId: string;
 }) {
+  const t = useTranslations("events");
   const notifications = useNotifications();
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<ReviewResult>({});
@@ -29,9 +32,13 @@ export function ApplicationReviewControls({
 
         if (outcome.success) {
           notifications.show(
-            action === approveApplication
-              ? "Application approved."
-              : "Application rejected.",
+            <EventText
+              id={
+                action === approveApplication
+                  ? "applicationApproved"
+                  : "applicationRejected"
+              }
+            />,
             {
               severity: "success",
               autoHideDuration: 4000,
@@ -39,7 +46,7 @@ export function ApplicationReviewControls({
             },
           );
         } else if (outcome.message) {
-          notifications.show(outcome.message, {
+          notifications.show(<EventText id={outcome.message} />, {
             severity:
               outcome.code === "CAPACITY_REACHED" ||
               outcome.code === "ALREADY_REVIEWED"
@@ -49,10 +56,10 @@ export function ApplicationReviewControls({
           });
         }
       } catch {
-        notifications.show(
-          "We couldn’t confirm the decision. Reload to check the application status.",
-          { severity: "error", key: `review:${applicationId}` },
-        );
+        notifications.show(<EventText id="applicationConfirmFailed" />, {
+          severity: "error",
+          key: `review:${applicationId}`,
+        });
       }
     });
   }
@@ -60,7 +67,7 @@ export function ApplicationReviewControls({
   return (
     <Stack spacing={1.5} aria-busy={pending}>
       <Typography variant="body2" color="text.secondary">
-        Decisions are final. Submitted details and answers cannot be edited.
+        {t("applicationFinalHint")}
       </Typography>
       <Stack direction="row" spacing={1.5}>
         <Button
@@ -71,7 +78,7 @@ export function ApplicationReviewControls({
           }
           onClick={() => decide(rejectApplication)}
         >
-          Reject
+          {t("applicationReject")}
         </Button>
         <Button
           variant="contained"
@@ -80,12 +87,12 @@ export function ApplicationReviewControls({
           }
           onClick={() => decide(approveApplication)}
         >
-          Approve
+          {t("applicationApprove")}
         </Button>
       </Stack>
       {pending && (
         <Typography variant="body2" role="status">
-          Saving decision…
+          {t("applicationSaving")}
         </Typography>
       )}
     </Stack>

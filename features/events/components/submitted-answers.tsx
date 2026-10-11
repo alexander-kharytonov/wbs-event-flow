@@ -1,20 +1,23 @@
+"use client";
+
 import { Alert, Box, Typography } from "@mui/material";
+import { useFormatter, useTranslations } from "next-intl";
+import type { HistoricalAnswer } from "@/features/events/historical-answers";
 
 export function SubmittedAnswers({
   answers,
 }: {
-  answers: { fieldId: string; label: string; value: string }[] | null;
+  answers: HistoricalAnswer[] | null;
 }) {
+  const t = useTranslations("events");
+  const format = useFormatter();
+
   if (answers === null) {
-    return <Alert severity="warning">Answer unavailable</Alert>;
+    return <Alert severity="warning">{t("answerUnavailable")}</Alert>;
   }
 
   if (answers.length === 0) {
-    return (
-      <Typography color="text.secondary">
-        There were no additional questions on this registration form.
-      </Typography>
-    );
+    return <Typography color="text.secondary">{t("answersNone")}</Typography>;
   }
 
   return (
@@ -37,19 +40,21 @@ export function SubmittedAnswers({
           }}
         >
           <Typography component="dt" variant="body2" color="text.secondary">
-            {index + 1}. {answer.label}
+            {format.number(index + 1)}.{" "}
+            {answer.label ?? t("answerQuestionUnavailable")}
           </Typography>
           <Typography
             component="dd"
             sx={{ m: 0, whiteSpace: "pre-wrap" }}
-            color={
-              answer.value === "Answer unavailable" ||
-              answer.value === "Not provided"
-                ? "text.secondary"
-                : "text.primary"
-            }
+            color={answer.state !== "VALUE" ? "text.secondary" : "text.primary"}
           >
-            {answer.value}
+            {answer.state === "UNAVAILABLE"
+              ? t("answerUnavailable")
+              : answer.state === "NOT_PROVIDED"
+                ? t("answerNotProvided")
+                : typeof answer.value === "boolean"
+                  ? t(answer.value ? "yes" : "no")
+                  : answer.value}
           </Typography>
         </Box>
       ))}

@@ -11,6 +11,7 @@ import {
   eventCancelledPayload,
   transactionalEmailSubjects,
 } from "@/lib/email-outbox/payload";
+import type { Messages } from "@/lib/i18n/messages";
 import { prisma } from "@/lib/prisma";
 import {
   applicationNotificationChannel,
@@ -32,8 +33,8 @@ const commandSchema = z.discriminatedUnion("action", [
 export type LifecycleResult = {
   success?: true;
   deleted?: true;
-  fieldErrors?: Record<string, string>;
-  message?: string;
+  fieldErrors?: Record<string, keyof Messages["events"]>;
+  message?: keyof Messages["events"];
 };
 
 export async function changeOwnedEventLifecycle(
@@ -44,9 +45,9 @@ export async function changeOwnedEventLifecycle(
 
   if (!parsed.success) {
     return {
-      message: "Check the action and cancellation reason (1–2000 characters).",
+      message: "eventActionInvalid",
       ...(parsed.error.issues.some((issue) => issue.path[0] === "reason")
-        ? { fieldErrors: { reason: "Enter a reason of 1–2000 characters." } }
+        ? { fieldErrors: { reason: "eventReasonInvalid" } }
         : {}),
     };
   }
@@ -62,7 +63,7 @@ export async function changeOwnedEventLifecycle(
         });
 
         if (!event) {
-          return { message: "This event is unavailable." };
+          return { message: "eventUnavailable" };
         }
 
         const lifecycle = eventLifecycle(event, event.decisionNow);
@@ -84,15 +85,14 @@ export async function changeOwnedEventLifecycle(
 
         if (event.archivedAt) {
           return {
-            message:
-              "Restore this event from archive before changing its workspace.",
+            message: "eventRestoreRequired",
           };
         }
 
         if (command.action === "archive") {
           if (lifecycle !== "Completed" && lifecycle !== "Cancelled") {
             return {
-              message: "Only completed or cancelled events can be archived.",
+              message: "eventArchiveUnavailable",
             };
           }
 
@@ -107,12 +107,12 @@ export async function changeOwnedEventLifecycle(
         }
 
         if (event.cancelledAt) {
-          return { message: "Cancellation is final. This event is read-only." };
+          return { message: "eventCancellationFinal" };
         }
 
         if (command.action === "unpublish") {
           if (!event.publishedRevisionId) {
-            return { message: "This event is already unpublished." };
+            return { message: "eventAlreadyUnpublished" };
           }
 
           await tx.event.update({
@@ -150,8 +150,7 @@ export async function changeOwnedEventLifecycle(
             event.publishedAt
           ) {
             return {
-              message:
-                "Only a never-published draft without applications can be deleted.",
+              message: "eventDeleteUnavailable",
             };
           }
 
@@ -167,8 +166,7 @@ export async function changeOwnedEventLifecycle(
           lifecycle === "Completed"
         ) {
           return {
-            message:
-              "Only previously published upcoming or ongoing events can be cancelled.",
+            message: "eventCancelUnavailable",
           };
         }
 
@@ -298,6 +296,6 @@ export async function changeOwnedEventLifecycle(
       { isolationLevel: "ReadCommitted" },
     );
   } catch {
-    return { message: "Could not change this event. Reload and try again." };
+    return { message: "eventChangeFailed" };
   }
 }

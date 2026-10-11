@@ -1,5 +1,5 @@
-export function formatEventTime(date: Date, timezone: string) {
-  return new Intl.DateTimeFormat("en-GB", {
+export function formatEventTime(date: Date, timezone: string, locale = "en") {
+  return new Intl.DateTimeFormat(locale, {
     timeZone: timezone,
     dateStyle: "medium",
     timeStyle: "short",

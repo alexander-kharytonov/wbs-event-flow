@@ -12,15 +12,18 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
   CoverCropper,
   type CoverSource,
 } from "@/features/events/components/cover-cropper";
+import { EventText } from "@/features/events/components/event-text";
 import { initialCoverCrop } from "@/features/events/cover-crop";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { useNotifications } from "@/hooks/use-notifications";
+import type { Messages } from "@/lib/i18n/messages";
 
 export type EditableCover = { assetId: string | null; alt: string | null };
 
@@ -45,6 +48,7 @@ export function EventCoverEditor({
   onDirtyChange: (dirty: boolean) => void;
   onConflictChange: (conflict: boolean) => void;
 }) {
+  const t = useTranslations("events");
   const [cover, setCover] = useState(initial);
   const [assetId, setAssetId] = useState(initial.assetId);
   const [alt, setAlt] = useState(initial.alt ?? "");
@@ -60,7 +64,9 @@ export function EventCoverEditor({
   const [failedAssetId, setFailedAssetId] = useState<string>();
   const fileInput = useRef<HTMLInputElement>(null);
   const request = useRef<AbortController | null>(null);
-  const feedback = useFormFeedback();
+  const feedback = useFormFeedback<keyof Messages["events"]>({}, (code) =>
+    t(code),
+  );
   useEffect(
     () => () => {
       request.current?.abort();
@@ -88,7 +94,7 @@ export function EventCoverEditor({
       !["image/jpeg", "image/png", "image/webp"].includes(next.type) ||
       next.size > 5 * 1024 * 1024
     ) {
-      feedback.setMessage("Choose a JPEG, PNG or WebP image up to 5 MiB.");
+      feedback.setMessage("coverChooseValid");
 
       return;
     }
@@ -112,9 +118,7 @@ export function EventCoverEditor({
       }
 
       if (width > 4096 || height > 4096 || width < 16 || height < 9) {
-        feedback.setMessage(
-          "Choose an image from 16 × 9 up to 4096 × 4096 pixels.",
-        );
+        feedback.setMessage("coverDimensions");
 
         return;
       }
@@ -124,9 +128,7 @@ export function EventCoverEditor({
       setCrop(initialCoverCrop);
     } catch {
       if (current === selection.current) {
-        feedback.setMessage(
-          "This image could not be opened. Choose a valid JPEG, PNG or WebP.",
-        );
+        feedback.setMessage("coverOpenFailed");
       }
     } finally {
       if (current === selection.current) {
@@ -143,7 +145,7 @@ export function EventCoverEditor({
     feedback.reset();
 
     if (kind === "save" && !remove && alt.trim().length > 500) {
-      feedback.setErrors({ alt: "Use at most 500 characters." });
+      feedback.setErrors({ alt: "coverAltLong" });
 
       return;
     }
@@ -185,9 +187,10 @@ export function EventCoverEditor({
           setConflict(true);
         }
         feedback.setMessage(
-          typeof result.message === "string"
-            ? result.message
-            : "Could not save this cover.",
+          typeof result.code === "string" &&
+            t.has(result.code as keyof Messages["events"])
+            ? (result.code as keyof Messages["events"])
+            : "coverSaveFailed",
         );
 
         return;
@@ -209,7 +212,7 @@ export function EventCoverEditor({
         setSource(null);
         onSaved(result.version);
         notifications.show(
-          `${remove ? "Cover removed." : "Cover saved."} Other event changes are not saved yet.`,
+          <EventText id={remove ? "coverRemoved" : "coverSaved"} />,
           {
             severity: "success",
             autoHideDuration: 5000,
@@ -220,9 +223,7 @@ export function EventCoverEditor({
       }
     } catch {
       if (!controller.signal.aborted) {
-        feedback.setMessage(
-          "Could not confirm the operation. Reload the event before retrying a cover save.",
-        );
+        feedback.setMessage("coverConfirmFailed");
       }
     } finally {
       setPending(null);
@@ -247,7 +248,7 @@ export function EventCoverEditor({
       disabled={busy || conflict}
       onClick={() => fileInput.current?.click()}
     >
-      {assetId || source ? "Choose another image" : "Choose image"}
+      {assetId || source ? t("coverChooseAnother") : t("coverChoose")}
     </Button>
   );
 
@@ -255,7 +256,7 @@ export function EventCoverEditor({
     <Stack
       component="section"
       spacing={2}
-      aria-label="Event cover"
+      aria-label={t("coverEvent")}
       aria-busy={Boolean(pending)}
     >
       <Stack
@@ -263,32 +264,28 @@ export function EventCoverEditor({
         sx={{ alignItems: "center", justifyContent: "space-between", gap: 1 }}
       >
         <Typography variant="h6" component="h2">
-          Cover image
+          {t("coverImage")}
         </Typography>
         <Chip
           size="small"
           variant="outlined"
           label={
             source
-              ? "Adjust crop · 16:9"
+              ? t("coverAdjust")
               : assetId !== cover.assetId
-                ? "Ready to save"
+                ? t("coverReady")
                 : assetId
-                  ? "Saved cover · 16:9"
+                  ? t("coverSavedLabel")
                   : "16:9"
           }
         />
       </Stack>
-      <Alert severity="info">
-        Cover saves independently from event fields. Choose an image, adjust the
-        crop, then upload and save your cover. JPEG, PNG or WebP, up to 5 MiB
-        and 4096 × 4096 pixels.
-      </Alert>
+      <Alert severity="info">{t("coverHint")}</Alert>
       <input
         ref={fileInput}
         hidden
         type="file"
-        aria-label="Cover image file"
+        aria-label={t("coverFile")}
         disabled={busy || conflict}
         accept="image/jpeg,image/png,image/webp"
         onChange={(event) => {
@@ -305,9 +302,7 @@ export function EventCoverEditor({
             sx={{ width: "100%", height: "auto", aspectRatio: "16 / 9" }}
           />
           <Typography variant="body2" color="text.secondary">
-            {pending === "upload"
-              ? "Uploading and processing your crop…"
-              : "Preparing image…"}
+            {pending === "upload" ? t("coverProcessing") : t("coverPreparing")}
           </Typography>
         </Stack>
       ) : source ? (
@@ -335,13 +330,13 @@ export function EventCoverEditor({
               color="text.secondary"
               sx={{ p: 2 }}
             >
-              Cover image unavailable. Choose another image to replace it.
+              {t("coverUnavailableHint")}
             </Typography>
           ) : (
             <Box
               component="img"
               src={`/api/events/${eventId}/cover/${assetId}/1280`}
-              alt={alt || "Cover preview"}
+              alt={alt || t("coverPreview")}
               onError={() => setFailedAssetId(assetId)}
               ref={(element: HTMLImageElement | null) => {
                 if (element?.complete && element.naturalWidth === 0) {
@@ -360,8 +355,8 @@ export function EventCoverEditor({
       ) : (
         <EmptyState
           icon={<AddPhotoAlternateOutlined />}
-          title="Give your event a cover"
-          description="Add a photo or illustration to introduce your event. You’ll choose exactly what appears in the frame."
+          title={t("coverEmpty")}
+          description={t("coverEmptyHint")}
           action={chooseButton}
         />
       )}
@@ -380,7 +375,7 @@ export function EventCoverEditor({
                 setSource(null);
               }}
             >
-              Cancel selection
+              {t("coverCancelSelection")}
             </Button>
           )}
           {assetId !== cover.assetId && !source && (
@@ -393,7 +388,7 @@ export function EventCoverEditor({
                 feedback.reset();
               }}
             >
-              Discard upload
+              {t("coverDiscard")}
             </Button>
           )}
           {file && (
@@ -409,7 +404,7 @@ export function EventCoverEditor({
       )}
       {(assetId || source) && (
         <TextField
-          label="Alternative text (optional)"
+          label={t("coverAlt")}
           value={alt}
           onChange={(event) => {
             setAlt(event.target.value);
@@ -417,8 +412,8 @@ export function EventCoverEditor({
           }}
           {...feedback.field("alt")}
           helperText={
-            feedback.errors.alt ??
-            "Describe the image for screen readers. Leave blank if it is purely decorative."
+            (feedback.errors.alt ? t(feedback.errors.alt) : undefined) ??
+            t("coverAltHint")
           }
           disabled={busy || conflict}
           fullWidth
@@ -428,20 +423,18 @@ export function EventCoverEditor({
       {feedback.message && <Alert severity="error">{feedback.message}</Alert>}
       {conflict && (
         <Alert severity="error">
-          The event may have changed.{" "}
+          {t("coverChanged")}{" "}
           <Button
             component="a"
             href={`/dashboard/events/${eventId}/edit`}
             color="inherit"
           >
-            Reload latest version
+            {t("reloadLatest")}
           </Button>
         </Alert>
       )}
       {assetId && assetId !== cover.assetId && !source && (
-        <Alert severity="info">
-          Your cropped image is uploaded. Save cover to apply it to the event.
-        </Alert>
+        <Alert severity="info">{t("coverUploadedHint")}</Alert>
       )}
       {(source || assetId || pending) && (
         <Stack
@@ -458,7 +451,7 @@ export function EventCoverEditor({
               disabled={busy || conflict}
               onClick={() => void mutate("save", true)}
             >
-              Remove cover
+              {t("coverRemove")}
             </Button>
           )}
           <Stack
@@ -475,7 +468,9 @@ export function EventCoverEditor({
                 disabled={busy || conflict}
                 onClick={() => void mutate("upload")}
               >
-                {pending === "upload" ? "Uploading…" : "Upload cropped image"}
+                {pending === "upload"
+                  ? t("coverUploading")
+                  : t("coverUploadCrop")}
               </Button>
             ) : (
               <Button
@@ -484,7 +479,7 @@ export function EventCoverEditor({
                 disabled={!assetId || !changed || busy || conflict}
                 onClick={() => void mutate("save")}
               >
-                {pending === "save" ? "Saving…" : "Save cover"}
+                {pending === "save" ? t("saving") : t("coverSave")}
               </Button>
             )}
           </Stack>

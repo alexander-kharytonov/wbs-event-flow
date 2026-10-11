@@ -24,6 +24,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { useTranslations } from "next-intl";
 import { type ReactNode, useState } from "react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { WorkspaceTabs } from "@/components/ui/workspace-tabs";
@@ -111,6 +112,7 @@ export function OperationalBadgeWorkspace({
   data: Workspace;
   designer: ReactNode;
 }) {
+  const t = useTranslations("events");
   const [section, setSection] = useState(
     data.configure ? "design" : "attendees",
   );
@@ -143,12 +145,12 @@ export function OperationalBadgeWorkspace({
           layout="horizontal"
           value={section}
           onChange={(_, value) => setSection(value)}
-          aria-label="Badge workspace sections"
+          aria-label={t("badgeWorkspaceSections")}
         >
           {data.configure && (
             <Tab
               value="design"
-              label="Design"
+              label={t("badgeDesignTab")}
               icon={<DesignServicesOutlined fontSize="small" />}
               iconPosition="start"
               sx={{ pr: 3 }}
@@ -158,7 +160,7 @@ export function OperationalBadgeWorkspace({
           )}
           <Tab
             value="team"
-            label="Staff"
+            label={t("staff")}
             icon={<SupervisorAccountOutlined fontSize="small" />}
             iconPosition="start"
             sx={{ pr: 3 }}
@@ -167,7 +169,7 @@ export function OperationalBadgeWorkspace({
           />
           <Tab
             value="attendees"
-            label="Attendees"
+            label={t("attendees")}
             icon={<PeopleOutlined fontSize="small" />}
             iconPosition="start"
             sx={{ pr: 3 }}
@@ -188,15 +190,10 @@ export function OperationalBadgeWorkspace({
           </Box>
         )}
         {section !== "design" && (
-          <Alert severity="info">
-            Printing always uses the current saved badge design. Unsaved
-            Designer changes are not printed.
-          </Alert>
+          <Alert severity="info">{t("badgePrintingSaved")}</Alert>
         )}
         {data.cancelled && section !== "design" && (
-          <Alert severity="info">
-            Printing is unavailable for a cancelled event.
-          </Alert>
+          <Alert severity="info">{t("badgeCancelled")}</Alert>
         )}
         {section === "attendees" && (
           <Stack
@@ -212,8 +209,8 @@ export function OperationalBadgeWorkspace({
               }}
             >
               <TextField
-                label="Search attendees"
-                placeholder="Name"
+                label={t("attendeeSearch")}
+                placeholder={t("uiName")}
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 slotProps={{
@@ -256,16 +253,19 @@ export function OperationalBadgeWorkspace({
                   startIcon={<PrintOutlined />}
                   disabled={!validSelection || data.cancelled}
                 >
-                  Print selected
+                  {t("badgePrintSelected")}
                 </Button>
                 <Typography variant="body2">
-                  {selected.length} / {MAX_BADGES_PER_DOCUMENT} selected
+                  {t("badgeSelectedCount", {
+                    count: selected.length,
+                    limit: MAX_BADGES_PER_DOCUMENT,
+                  })}
                 </Typography>
                 <Button
                   disabled={!selected.length}
                   onClick={() => setSelected([])}
                 >
-                  Clear selection
+                  {t("badgeClearSelection")}
                 </Button>
                 <Button
                   disabled={
@@ -284,7 +284,7 @@ export function OperationalBadgeWorkspace({
                     ])
                   }
                 >
-                  Select visible
+                  {t("badgeSelectVisible")}
                 </Button>
               </Stack>
             </Box>
@@ -293,7 +293,7 @@ export function OperationalBadgeWorkspace({
                 variant="outlined"
                 sx={{ maxHeight: 480, overflow: "auto" }}
               >
-                <List disablePadding aria-label="Badge attendees">
+                <List disablePadding aria-label={t("badgeAttendees")}>
                   {visible.map((attendee, index) => (
                     <ListItem
                       key={attendee.id}
@@ -303,7 +303,9 @@ export function OperationalBadgeWorkspace({
                       <ListItemButton
                         role="checkbox"
                         aria-checked={selectedSet.has(attendee.id)}
-                        aria-label={`Select ${attendee.name}`}
+                        aria-label={t("badgeSelectName", {
+                          name: attendee.name,
+                        })}
                         disabled={
                           !selectedSet.has(attendee.id) &&
                           selected.length >= MAX_BADGES_PER_DOCUMENT
@@ -331,7 +333,9 @@ export function OperationalBadgeWorkspace({
                           role={
                             <Chip
                               label={
-                                attendee.kind === "GUEST" ? "Guest" : "Primary"
+                                attendee.kind === "GUEST"
+                                  ? t("guest")
+                                  : t("uiPrimary")
                               }
                               size="small"
                               variant="outlined"
@@ -341,7 +345,9 @@ export function OperationalBadgeWorkspace({
                           secondary={
                             attendee.kind === "GUEST" &&
                             attendee.primaryAttendeeName !== null
-                              ? `Guest of ${attendee.primaryAttendeeName}`
+                              ? t("attendeeGuestOf", {
+                                  name: attendee.primaryAttendeeName,
+                                })
                               : undefined
                           }
                         />
@@ -355,26 +361,23 @@ export function OperationalBadgeWorkspace({
                 icon={<PeopleOutlined />}
                 title={
                   data.attendees.length
-                    ? "No matching attendees"
-                    : "No active attendees"
+                    ? t("attendeeNoMatch")
+                    : t("badgeNoActive")
                 }
                 description={
                   data.attendees.length
-                    ? "Try another search."
-                    : "No active attendees are available."
+                    ? t("badgeTrySearch")
+                    : t("badgeNoActiveHint")
                 }
               />
             )}
             <Paper variant="outlined" sx={{ p: 2 }}>
               <Stack spacing={1.5} sx={{ alignItems: "flex-start" }}>
                 <Typography variant="subtitle1">
-                  All active attendees
+                  {t("badgeAllActive")}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Print up to 200 current active attendees, including guests.
-                  Search and selection do not limit this action. If more are
-                  available, use Print next batch in the opened document. Every
-                  batch checks current data.
+                  {t("badgeBatchHint")}
                 </Typography>
                 <Button
                   variant="outlined"
@@ -384,7 +387,7 @@ export function OperationalBadgeWorkspace({
                   rel="noopener noreferrer"
                   disabled={data.cancelled || !data.attendees.length}
                 >
-                  Print all active
+                  {t("badgePrintAll")}
                 </Button>
               </Stack>
             </Paper>
@@ -397,17 +400,12 @@ export function OperationalBadgeWorkspace({
             id="badge-team-panel"
             aria-labelledby="badge-team-tab"
           >
-            <Alert severity="info">
-              Visual badges for the current event team: name and role, with the
-              event name when enabled. No Ticket, QR or registration answers.
-            </Alert>
+            <Alert severity="info">{t("badgeTeamHint")}</Alert>
             {data.teamTooLarge ? (
-              <Alert severity="info">
-                This event team is too large to print in one document.
-              </Alert>
+              <Alert severity="info">{t("badgeTeamTooLarge")}</Alert>
             ) : (
               <Paper variant="outlined" sx={{ overflow: "hidden" }}>
-                <List disablePadding aria-label="Badge event team">
+                <List disablePadding aria-label={t("badgeTeam")}>
                   {data.team.map((person, index) => (
                     <ListItem
                       // biome-ignore lint/suspicious/noArrayIndexKey: read-only roster deliberately has no staff identifiers
@@ -442,7 +440,7 @@ export function OperationalBadgeWorkspace({
               }
               sx={{ alignSelf: "flex-start" }}
             >
-              Print event team
+              {t("badgePrintTeam")}
             </Button>
           </Stack>
         )}

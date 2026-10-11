@@ -8,6 +8,7 @@ import {
 import { MediaError, readUpload } from "@/features/events/server/media-image";
 
 export const runtime = "nodejs";
+
 export const dynamic = "force-dynamic";
 
 export async function PUT(
@@ -20,7 +21,7 @@ export async function PUT(
     const userId = await mediaActor(request, true);
 
     if (request.headers.get("content-type") !== "application/json") {
-      throw new MediaError(415, "Send JSON cover settings.");
+      throw new MediaError(415, "mediaJson");
     }
 
     let input: unknown;
@@ -32,7 +33,7 @@ export async function PUT(
         throw error;
       }
 
-      throw new MediaError(400, "Invalid cover settings.");
+      throw new MediaError(400, "mediaInvalidSettings");
     }
 
     const result = await attachEventCover(userId, eventId, input);

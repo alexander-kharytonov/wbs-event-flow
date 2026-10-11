@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 import {
   EventTemplateError,
@@ -5,6 +6,7 @@ import {
 } from "@/features/exports/event-template";
 import { readEventTemplate } from "@/features/exports/server/event-template";
 import { auth } from "@/lib/auth";
+import type { Messages } from "@/lib/i18n/messages";
 
 export const dynamic = "force-dynamic";
 
@@ -15,8 +17,10 @@ const responseHeaders = {
   "X-Robots-Tag": "noindex, nofollow, noarchive",
 };
 
-function errorResponse(message: string, status: number) {
-  return new Response(message, {
+async function errorResponse(code: keyof Messages["events"], status: number) {
+  const t = await getTranslations("events");
+
+  return new Response(t(code), {
     status,
     headers: {
       ...responseHeaders,
@@ -33,7 +37,7 @@ export async function GET(
     const { eventId } = await context.params;
 
     if (!z.uuid().safeParse(eventId).success) {
-      return errorResponse("Export unavailable.", 404);
+      return errorResponse("exportUnavailable", 404);
     }
 
     const session = await auth.api.getSession({
@@ -45,13 +49,13 @@ export async function GET(
       !session?.user.emailVerified ||
       session.session.expiresAt.getTime() <= Date.now()
     ) {
-      return errorResponse("Export unavailable.", 404);
+      return errorResponse("exportUnavailable", 404);
     }
 
     const template = await readEventTemplate(session.user.id, eventId);
 
     if (!template) {
-      return errorResponse("Export unavailable.", 404);
+      return errorResponse("exportUnavailable", 404);
     }
 
     const slug =
@@ -78,8 +82,15 @@ export async function GET(
   } catch (error) {
     return errorResponse(
       error instanceof EventTemplateError
-        ? error.message
-        : "Could not prepare the export. Please try again.",
+        ? (
+            {
+              limits: "exportTemplateLimits",
+              binding: "exportTemplateBinding",
+              layout: "exportTemplateLayout",
+              configuration: "exportTemplateConfiguration",
+            } as const
+          )[error.code]
+        : "exportFailed",
       error instanceof EventTemplateError ? 409 : 500,
     );
   }

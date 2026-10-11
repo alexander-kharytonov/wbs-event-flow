@@ -1,5 +1,7 @@
+import type { Messages } from "@/lib/i18n/messages";
+
 export type GuestResult = {
-  fieldErrors?: Record<string, string>;
+  fieldErrors?: Record<string, keyof Messages["events"]>;
   code:
     | "ADDED"
     | "REMOVED"

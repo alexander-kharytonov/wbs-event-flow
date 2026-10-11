@@ -10,6 +10,7 @@ import {
   Snackbar,
   SnackbarContent,
 } from "@mui/material";
+import { useTranslations } from "next-intl";
 import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
 import {
   type NotificationOptions,
@@ -23,6 +24,7 @@ type Notification = {
 };
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
+  const t = useTranslations("shell");
   const [queue, setQueue] = useState<Notification[]>([]);
   const sequence = useRef(0);
   const show = useCallback(
@@ -49,14 +51,14 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     <>
       {active.options.onAction && (
         <Button color="inherit" size="small" onClick={active.options.onAction}>
-          {active.options.actionText ?? "Action"}
+          {active.options.actionText ?? t("notificationAction")}
         </Button>
       )}
       <IconButton
         size="small"
         color="inherit"
-        aria-label="Close notification"
-        title="Close"
+        aria-label={t("closeNotification")}
+        title={t("close")}
         onClick={() => close(active.key)}
       >
         <Close fontSize="small" />
@@ -85,7 +87,9 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
               color="primary"
               sx={{ width: "100%" }}
               aria-label={
-                queue.length > 1 ? `${queue.length} notifications` : undefined
+                queue.length > 1
+                  ? t("notificationsCount", { count: queue.length })
+                  : undefined
               }
             >
               {active.options.severity ? (

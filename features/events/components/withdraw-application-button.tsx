@@ -10,7 +10,9 @@ import {
   DialogTitle,
 } from "@mui/material";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
+import { EventText } from "@/features/events/components/event-text";
 import { withdrawApplication } from "@/features/events/withdraw-application-action";
 import { useNotifications } from "@/hooks/use-notifications";
 
@@ -21,6 +23,7 @@ export function WithdrawApplicationButton({
   publicId: string;
   applicationId: string;
 }) {
+  const t = useTranslations("events");
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const notifications = useNotifications();
@@ -33,7 +36,7 @@ export function WithdrawApplicationButton({
 
         if (!result.success) {
           notifications.show(
-            result.message ?? "Could not withdraw your application.",
+            <EventText id={result.message ?? "withdrawFailed"} />,
             { severity: "error" },
           );
 
@@ -41,13 +44,14 @@ export function WithdrawApplicationButton({
         }
 
         setOpen(false);
-        notifications.show("Application withdrawn.", { severity: "success" });
+        notifications.show(<EventText id="withdrawSuccess" />, {
+          severity: "success",
+        });
         router.refresh();
       } catch {
-        notifications.show(
-          "Could not confirm withdrawal. Reload to check your application.",
-          { severity: "error" },
-        );
+        notifications.show(<EventText id="withdrawUnconfirmed" />, {
+          severity: "error",
+        });
       }
     });
   }
@@ -66,7 +70,7 @@ export function WithdrawApplicationButton({
           }),
         })}
       >
-        Withdraw application
+        {t("withdrawApplication")}
       </Button>
       <Dialog
         open={open}
@@ -76,18 +80,14 @@ export function WithdrawApplicationButton({
         aria-labelledby="withdraw-application-title"
       >
         <DialogTitle id="withdraw-application-title">
-          Withdraw your application?
+          {t("withdrawTitle")}
         </DialogTitle>
         <DialogContent>
-          <DialogContentText>
-            If your application was approved, your place will be released. You
-            can submit a new application while registration is open, but it will
-            need organizer review again.
-          </DialogContentText>
+          <DialogContentText>{t("withdrawHint")}</DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpen(false)} disabled={pending}>
-            Keep application
+            {t("withdrawKeep")}
           </Button>
           <Button
             onClick={withdraw}
@@ -95,7 +95,7 @@ export function WithdrawApplicationButton({
             variant="contained"
             loading={pending}
           >
-            Withdraw application
+            {t("withdrawApplication")}
           </Button>
         </DialogActions>
       </Dialog>

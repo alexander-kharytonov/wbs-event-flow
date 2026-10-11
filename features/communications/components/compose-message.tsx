@@ -16,6 +16,7 @@ import {
 } from "@mui/material";
 import type { ButtonBaseActions } from "@mui/material/ButtonBase";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useRef, useState, useTransition } from "react";
 import {
   previewMessage,
@@ -23,6 +24,7 @@ import {
 } from "@/features/communications/actions";
 import { manualAudiences } from "@/features/communications/audiences";
 import type { ManualAudience } from "@/features/communications/server/contracts";
+import type { Messages } from "@/lib/i18n/messages";
 
 type AttemptedSend = Readonly<{
   eventId: string;
@@ -39,6 +41,7 @@ type Preview = {
 };
 
 export function RefreshCommunicationHistory() {
+  const t = useTranslations("events");
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
@@ -48,7 +51,7 @@ export function RefreshCommunicationHistory() {
       disabled={pending}
       onClick={() => startTransition(() => router.refresh())}
     >
-      {pending ? "Refreshing…" : "Refresh History"}
+      {pending ? t("commRefreshing") : t("commRefresh")}
     </Button>
   );
 }
@@ -60,8 +63,9 @@ export function ComposeMessage({
   disabledReason,
 }: {
   eventId: string;
-  disabledReason?: string;
+  disabledReason?: keyof Messages["events"];
 }) {
+  const t = useTranslations("events");
   const router = useRouter();
   const [audience, setAudience] = useState<ManualAudience>(
     "ALL_ACTIVE_ATTENDEES",
@@ -69,8 +73,10 @@ export function ComposeMessage({
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [preview, setPreview] = useState<Preview | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [error, setError] = useState<keyof Messages["events"] | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<
+    Record<string, keyof Messages["events"]>
+  >({});
   const [success, setSuccess] = useState<number | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [ambiguous, setAmbiguous] = useState(false);
@@ -117,7 +123,7 @@ export function ComposeMessage({
       return;
     }
 
-    const errors: Record<string, string> = {};
+    const errors: Record<string, keyof Messages["events"]> = {};
 
     if (openDialog) {
       if (
@@ -126,8 +132,7 @@ export function ComposeMessage({
         [...subject].length > 200 ||
         /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(subject)
       ) {
-        errors.subject =
-          "Use 1–200 Unicode characters on one line, without control characters.";
+        errors.subject = "commSubjectInvalid";
       }
 
       const normalized = message.replace(/\r\n/g, "\n");
@@ -139,8 +144,7 @@ export function ComposeMessage({
         /\p{Cc}/u.test(normalized.replace(/[\n\t]/g, "")) ||
         /[\u202a-\u202e\u2066-\u2069\ufeff]/u.test(normalized)
       ) {
-        errors.message =
-          "Use 1–10,000 Unicode characters without unsafe control characters.";
+        errors.message = "commMessageInvalid";
       }
     }
 
@@ -161,10 +165,7 @@ export function ComposeMessage({
 
         if (!result.success) {
           setPreview(null);
-          setError(
-            result.error ||
-              "Couldn’t refresh the recipient estimate. Please try again.",
-          );
+          setError(result.error || "commEstimateFailed");
 
           return;
         }
@@ -172,7 +173,7 @@ export function ComposeMessage({
         setPreview(result);
         setConfirming(openDialog);
       } catch {
-        setError("Couldn’t refresh the recipient estimate. Please try again.");
+        setError("commEstimateFailed");
       } finally {
         busy.current = false;
       }
@@ -230,9 +231,7 @@ export function ComposeMessage({
       } catch {
         setAmbiguous(true);
         setConfirming(false);
-        setError(
-          "The response was interrupted. This message may already be queued. Retry the same send to recover or complete the original request.",
-        );
+        setError("commInterrupted");
       } finally {
         busy.current = false;
       }
@@ -243,11 +242,12 @@ export function ComposeMessage({
     <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
       <Stack spacing={2.5}>
         <Typography variant="h6" component="h2">
-          New message
+          {t("commNew")}
         </Typography>
         {disabledReason && (
           <Alert severity="info">
-            {disabledReason} History remains available.
+            {t(disabledReason)}
+            {t("commHistoryAvailable")}
           </Alert>
         )}
         {success !== null && (
@@ -260,27 +260,29 @@ export function ComposeMessage({
                 size="small"
                 href="#communication-history"
               >
-                View History
+                {t("commViewHistory")}
               </Button>
             }
           >
-            Queued for {success} recipients
+            {t("commQueued", { count: success })}
           </Alert>
         )}
         {ambiguous && (
-          <Alert severity="warning">
-            Keep this page open. Retry same send uses the original message and
-            request key. It may complete the original send if it was not queued.
-            Starting a new message could send another copy if it succeeded.
-          </Alert>
+          <Alert severity="warning">{t("commAmbiguousHint")}</Alert>
         )}
         <TextField
           select
-          label="Audience"
+          label={t("commAudience")}
           value={audience}
           disabled={locked}
           error={Boolean(fieldErrors.audience)}
-          helperText={fieldErrors.audience ?? selected?.description}
+          helperText={
+            fieldErrors.audience
+              ? t(fieldErrors.audience)
+              : selected
+                ? t(selected.description)
+                : undefined
+          }
           onChange={(event) => {
             edited("audience");
             setAudience(event.target.value as ManualAudience);
@@ -289,7 +291,7 @@ export function ComposeMessage({
         >
           {manualAudiences.map((option) => (
             <MenuItem key={option.value} value={option.value}>
-              {option.label}
+              {t(option.label)}
             </MenuItem>
           ))}
         </TextField>
@@ -304,11 +306,11 @@ export function ComposeMessage({
               }}
             >
               <Stack spacing={0.5} aria-live="polite">
-                <Typography variant="subtitle2">Recipient estimate</Typography>
+                <Typography variant="subtitle2">{t("commEstimate")}</Typography>
                 <Typography variant="body2" color="text.secondary">
                   {preview
-                    ? `Estimated recipients: ${preview.recipientCount}`
-                    : "Update the estimate to see the number of recipients."}
+                    ? t("commEstimated", { count: preview.recipientCount })
+                    : t("commUpdateHint")}
                 </Typography>
               </Stack>
               <Button
@@ -321,27 +323,27 @@ export function ComposeMessage({
                   flexShrink: 0,
                 }}
               >
-                Update recipient estimate
+                {t("commUpdateEstimate")}
               </Button>
             </Stack>
             <Alert severity="info">
-              Unique deliverable email addresses. The actual number may change
-              before Send.
-              {Boolean(preview?.unavailableCount) && (
-                <> Missing or invalid email: {preview?.unavailableCount}.</>
-              )}
+              {t("commUniqueEmails")}
+              {Boolean(preview?.unavailableCount) &&
+                t("commMissingEmails", {
+                  count: preview?.unavailableCount ?? 0,
+                })}
             </Alert>
           </Stack>
         </Paper>
         <TextField
-          label="Subject"
+          label={t("commSubject")}
           required
           value={subject}
           disabled={locked}
           error={Boolean(fieldErrors.subject)}
           helperText={
-            fieldErrors.subject ??
-            `${[...subject].length}/200 Unicode characters`
+            (fieldErrors.subject ? t(fieldErrors.subject) : undefined) ??
+            t("commSubjectCount", { count: [...subject].length })
           }
           onChange={(event) => {
             edited("subject");
@@ -349,7 +351,7 @@ export function ComposeMessage({
           }}
         />
         <TextField
-          label="Message"
+          label={t("commMessage")}
           required
           multiline
           minRows={6}
@@ -358,15 +360,17 @@ export function ComposeMessage({
           disabled={locked}
           error={Boolean(fieldErrors.message)}
           helperText={
-            fieldErrors.message ??
-            `Plain text · ${[...message.replace(/\r\n/g, "\n")].length}/10,000 Unicode characters`
+            (fieldErrors.message ? t(fieldErrors.message) : undefined) ??
+            t("commMessageCount", {
+              count: [...message.replace(/\r\n/g, "\n")].length,
+            })
           }
           onChange={(event) => {
             edited("message");
             setMessage(event.target.value);
           }}
         />
-        {error && <Alert severity="error">{error}</Alert>}
+        {error && <Alert severity="error">{t(error)}</Alert>}
         <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>
           <Button
             disableTouchRipple
@@ -387,10 +391,10 @@ export function ComposeMessage({
             }}
           >
             {pending
-              ? "Please wait…"
+              ? t("commWait")
               : ambiguous
-                ? "Retry same send"
-                : "Review message"}
+                ? t("commRetry")
+                : t("commReview")}
           </Button>
           {ambiguous && (
             <Button
@@ -398,7 +402,7 @@ export function ComposeMessage({
               disabled={pending}
               onClick={() => setStartingNew(true)}
             >
-              Start a new message
+              {t("commStartNew")}
             </Button>
           )}
         </Stack>
@@ -419,25 +423,24 @@ export function ComposeMessage({
         aria-labelledby="queue-message-title"
       >
         <DialogTitle id="queue-message-title">
-          {ambiguous ? "Retry the original send?" : "Queue this message?"}
+          {ambiguous ? t("commRetryTitle") : t("commQueueTitle")}
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2}>
             <Typography>
-              <strong>Audience:</strong> {selected?.label}
+              <strong>{t("commAudience")}:</strong>{" "}
+              {selected && t(selected.label)}
             </Typography>
             <Typography sx={{ overflowWrap: "anywhere" }}>
-              <strong>Subject:</strong> {subject}
+              <strong>{t("commSubject")}:</strong> {subject}
             </Typography>
             {!ambiguous && (
               <Typography>
-                Estimated recipients: {preview?.recipientCount}
+                {t("commEstimated", { count: preview?.recipientCount ?? 0 })}
               </Typography>
             )}
             <Alert severity={ambiguous ? "warning" : "info"}>
-              {ambiguous
-                ? "This repeats the original request with the same message and key. If it was already queued, you will recover its result. If it was not queued, retry may complete the original send using the current audience and sending limits. No new recipient estimate is requested."
-                : "Send uses the current audience and freezes the recipients when the message is queued. The actual count may differ from this estimate."}
+              {ambiguous ? t("commRetryHint") : t("commQueueHint")}
             </Alert>
           </Stack>
         </DialogContent>
@@ -447,7 +450,7 @@ export function ComposeMessage({
             disabled={pending}
             onClick={() => setConfirming(false)}
           >
-            Cancel
+            {t("cancel")}
           </Button>
           <Button
             disableTouchRipple
@@ -455,7 +458,7 @@ export function ComposeMessage({
             disabled={pending}
             onClick={send}
           >
-            {ambiguous ? "Retry same send" : "Queue message"}
+            {ambiguous ? t("commRetry") : t("commQueue")}
           </Button>
         </DialogActions>
       </Dialog>
@@ -464,20 +467,18 @@ export function ComposeMessage({
         onClose={() => setStartingNew(false)}
         aria-labelledby="new-message-title"
       >
-        <DialogTitle id="new-message-title">Start a new message?</DialogTitle>
+        <DialogTitle id="new-message-title">
+          {t("commStartNewTitle")}
+        </DialogTitle>
         <DialogContent>
-          <Alert severity="warning">
-            The previous message may already be queued. This clears the compose
-            fields and abandons its retry key. Check History before sending
-            another copy.
-          </Alert>
+          <Alert severity="warning">{t("commNewWarning")}</Alert>
         </DialogContent>
         <DialogActions>
           <Button disableTouchRipple onClick={() => setStartingNew(false)}>
-            Cancel
+            {t("cancel")}
           </Button>
           <Button disableTouchRipple onClick={reset}>
-            Start a new message
+            {t("commStartNew")}
           </Button>
         </DialogActions>
       </Dialog>

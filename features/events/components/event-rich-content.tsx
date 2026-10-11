@@ -1,3 +1,5 @@
+"use client";
+
 import Timeline from "@mui/lab/Timeline";
 import TimelineConnector from "@mui/lab/TimelineConnector";
 import TimelineContent from "@mui/lab/TimelineContent";
@@ -6,21 +8,24 @@ import TimelineItem from "@mui/lab/TimelineItem";
 import TimelineOppositeContent from "@mui/lab/TimelineOppositeContent";
 import TimelineSeparator from "@mui/lab/TimelineSeparator";
 import { Stack, Typography } from "@mui/material";
+import { useLocale, useTranslations } from "next-intl";
 import { EventDescription } from "@/features/events/components/event-description";
 import type { EventSnapshot } from "@/features/events/schemas/event-snapshot";
 
 // Presentation only: the caller authorizes and chooses draft or published data.
 export function EventRichContent({ snapshot }: { snapshot: EventSnapshot }) {
+  const t = useTranslations("events");
+  const locale = useLocale();
   const schedule = snapshot.schedule;
 
   if (!snapshot.description && schedule.length === 0) {
     return null;
   }
-  const dayFormatter = new Intl.DateTimeFormat("en-GB", {
+  const dayFormatter = new Intl.DateTimeFormat(locale, {
     timeZone: snapshot.timezone,
     dateStyle: "full",
   });
-  const timeFormatter = new Intl.DateTimeFormat("en-GB", {
+  const timeFormatter = new Intl.DateTimeFormat(locale, {
     timeZone: snapshot.timezone,
     hour: "2-digit",
     minute: "2-digit",
@@ -49,7 +54,7 @@ export function EventRichContent({ snapshot }: { snapshot: EventSnapshot }) {
           spacing={2}
         >
           <Typography id="event-description-title" variant="h5" component="h2">
-            About this event
+            {t("aboutEvent")}
           </Typography>
           <EventDescription
             text={snapshot.description}
@@ -64,15 +69,15 @@ export function EventRichContent({ snapshot }: { snapshot: EventSnapshot }) {
           spacing={2}
         >
           <Typography id="event-schedule-title" variant="h5" component="h2">
-            Schedule
+            {t("schedule")}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            All times in {snapshot.timezone}.
+            {t("allTimesIn", { timezone: snapshot.timezone })}
           </Typography>
           {[...days].map(([day, entries]) => (
             <Stack key={day} spacing={1.5}>
               <Typography component="h3" variant="subtitle1">
-                {day}
+                {day.charAt(0).toLocaleUpperCase(locale) + day.slice(1)}
               </Typography>
               <Timeline sx={{ p: 0, m: 0 }}>
                 {entries.map(({ entry, index }, position) => (

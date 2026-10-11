@@ -9,8 +9,10 @@ import {
   Stack,
   TextField,
 } from "@mui/material";
+import { useTranslations } from "next-intl";
 import {
   type BadgeField,
+  type BadgeFieldContext,
   type BadgeLayout,
   badgeSizes,
   sameBadgeField,
@@ -23,9 +25,10 @@ export function BadgeLayoutControls({
   onChange,
 }: {
   layout: BadgeLayout;
-  catalog: (BadgeField & { context: string })[];
+  catalog: (BadgeField & BadgeFieldContext)[];
   onChange: (layout: BadgeLayout) => void;
 }) {
+  const t = useTranslations("events");
   function change<K extends keyof BadgeLayout>(key: K, value: BadgeLayout[K]) {
     onChange({ ...layout, [key]: value });
   }
@@ -47,11 +50,7 @@ export function BadgeLayoutControls({
         label={label}
         value={index < 0 ? (binding ? "invalid" : "") : String(index)}
         error={Boolean(binding && index < 0)}
-        helperText={
-          binding && index < 0
-            ? "Selected question changed or was removed. Select a compatible question or None."
-            : undefined
-        }
+        helperText={binding && index < 0 ? t("badgeBindingHint") : undefined}
         onChange={(event) => {
           if (event.target.value === "") {
             change(key, null);
@@ -65,23 +64,23 @@ export function BadgeLayoutControls({
       >
         {binding && index < 0 && (
           <MenuItem value="invalid" disabled>
-            Unavailable binding: {binding.label}
+            {t("badgeBindingUnavailable", { label: binding.label })}
           </MenuItem>
         )}
-        <MenuItem value="">None</MenuItem>
+        <MenuItem value="">{t("badgeNone")}</MenuItem>
         {catalog.map((field, position) => (
           <MenuItem
             key={`${field.fieldId}:${field.type}:${field.label}`}
             value={String(position)}
             sx={{ whiteSpace: "normal" }}
           >
-            {field.label} · {fieldTypeLabels[field.type]}
+            {field.label} · {t(fieldTypeLabels[field.type])}
             {catalog.some(
               (other) =>
                 other.fieldId !== field.fieldId &&
                 other.label === field.label &&
                 other.type === field.type,
-            ) && ` · ${field.context}`}
+            ) && ` · ${t(field.context, field.contextValues)}`}
           </MenuItem>
         ))}
       </TextField>
@@ -94,7 +93,7 @@ export function BadgeLayoutControls({
         <TextField
           fullWidth
           select
-          label="Size"
+          label={t("badgeSize")}
           value={layout.size}
           onChange={(event) =>
             change("size", event.target.value as BadgeLayout["size"])
@@ -102,20 +101,20 @@ export function BadgeLayoutControls({
         >
           {Object.entries(badgeSizes).map(([value, size]) => (
             <MenuItem key={value} value={value}>
-              {size.label}
+              {t("badgeDimensions", { width: size.width, height: size.height })}
             </MenuItem>
           ))}
         </TextField>
         <TextField
           fullWidth
           select
-          label="Padding (mm)"
+          label={t("badgePadding")}
           value={layout.paddingMm}
           onChange={(event) => change("paddingMm", Number(event.target.value))}
         >
           {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((value) => (
             <MenuItem key={value} value={value}>
-              {value} mm
+              {t("badgeMm", { value })}
             </MenuItem>
           ))}
         </TextField>
@@ -135,7 +134,7 @@ export function BadgeLayoutControls({
         <TextField
           fullWidth
           select
-          label="Orientation"
+          label={t("badgeOrientation")}
           sx={{ gridColumn: { md: "1 / -1", lg: "auto" } }}
           value={layout.orientation}
           onChange={(event) =>
@@ -145,33 +144,33 @@ export function BadgeLayoutControls({
             )
           }
         >
-          <MenuItem value="LANDSCAPE">Landscape</MenuItem>
-          <MenuItem value="PORTRAIT">Portrait</MenuItem>
+          <MenuItem value="LANDSCAPE">{t("badgeLandscape")}</MenuItem>
+          <MenuItem value="PORTRAIT">{t("badgePortrait")}</MenuItem>
         </TextField>
         <TextField
           fullWidth
           select
-          label="Name size"
+          label={t("badgeNameSize")}
           value={layout.nameSize}
           onChange={(event) =>
             change("nameSize", event.target.value as BadgeLayout["nameSize"])
           }
         >
-          <MenuItem value="SMALL">Small</MenuItem>
-          <MenuItem value="MEDIUM">Medium</MenuItem>
-          <MenuItem value="LARGE">Large</MenuItem>
+          <MenuItem value="SMALL">{t("badgeSmall")}</MenuItem>
+          <MenuItem value="MEDIUM">{t("badgeMedium")}</MenuItem>
+          <MenuItem value="LARGE">{t("badgeLarge")}</MenuItem>
         </TextField>
         <TextField
           fullWidth
           select
-          label="Alignment"
+          label={t("badgeAlignment")}
           value={layout.alignment}
           onChange={(event) =>
             change("alignment", event.target.value as BadgeLayout["alignment"])
           }
         >
-          <MenuItem value="LEFT">Left</MenuItem>
-          <MenuItem value="CENTER">Center</MenuItem>
+          <MenuItem value="LEFT">{t("badgeLeft")}</MenuItem>
+          <MenuItem value="CENTER">{t("badgeCenter")}</MenuItem>
         </TextField>
       </Box>
       <Box
@@ -182,10 +181,10 @@ export function BadgeLayoutControls({
       >
         {(
           [
-            ["showEventName", "Event name"],
-            ["showAttendeeType", "Attendee type"],
+            ["showEventName", t("eventName")],
+            ["showAttendeeType", t("badgeAttendeeType")],
             ["showQr", "QR"],
-            ["showTicketNumber", "Ticket number"],
+            ["showTicketNumber", t("ticketNumber")],
           ] as const
         ).map(([key, label]) => (
           <FormControlLabel
@@ -200,12 +199,9 @@ export function BadgeLayoutControls({
           />
         ))}
       </Box>
-      {fieldSelect("secondaryField", "Secondary field")}
-      {fieldSelect("tertiaryField", "Tertiary field")}
-      <Alert severity="info">
-        Selected values are visible to staff who can print badges, including
-        Reception. Guests never inherit these answers.
-      </Alert>
+      {fieldSelect("secondaryField", t("badgeSecondary"))}
+      {fieldSelect("tertiaryField", t("badgeTertiary"))}
+      <Alert severity="info">{t("badgePrivacyHint")}</Alert>
     </Stack>
   );
 }

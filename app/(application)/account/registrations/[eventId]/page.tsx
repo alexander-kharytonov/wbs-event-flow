@@ -11,16 +11,16 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
-import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { BackLink } from "@/components/ui/back-link";
-import { DateTime } from "@/components/ui/date-time";
+import { DateTime, InlineDateTime } from "@/components/ui/date-time";
 import { ApplicationRealtime } from "@/features/events/components/application-realtime";
 import { ApplicationStatus } from "@/features/events/components/application-status";
+import { EventText } from "@/features/events/components/event-text";
 import { RegistrationAdmission } from "@/features/events/components/registration-admission";
 import { SubmittedAnswers } from "@/features/events/components/submitted-answers";
 import { WithdrawApplicationButton } from "@/features/events/components/withdraw-application-button";
-import { formatEventTime } from "@/features/events/format-event-time";
 import { getMyRegistration } from "@/features/events/server/get-my-registration";
 import { PartyGuests } from "@/features/guests/components/party-guests";
 import {
@@ -34,7 +34,11 @@ type Attempt = NonNullable<
   Awaited<ReturnType<typeof getMyRegistration>>
 >["current"];
 
-export const metadata: Metadata = { title: "My registration | Event Flow" };
+export async function generateMetadata() {
+  const t = await getTranslations("events");
+
+  return { title: `${t("myRegistration")} | Event Flow` };
+}
 
 function AttemptDates({ attempt }: { attempt: Attempt }) {
   const timezone = attempt.context?.timezone ?? "UTC";
@@ -54,24 +58,30 @@ function AttemptDates({ attempt }: { attempt: Attempt }) {
         }}
       >
         <Box>
-          <Typography component="dt">Submitted</Typography>
+          <Typography component="dt">
+            <EventText id="applicationSubmittedLabel" />
+          </Typography>
           <Typography component="dd">
-            {formatEventTime(attempt.submittedAt, timezone)}
+            <InlineDateTime date={attempt.submittedAt} timezone={timezone} />
           </Typography>
         </Box>
         {attempt.reviewedAt && (
           <Box>
-            <Typography component="dt">Reviewed</Typography>
+            <Typography component="dt">
+              <EventText id="applicationReviewed" />
+            </Typography>
             <Typography component="dd">
-              {formatEventTime(attempt.reviewedAt, timezone)}
+              <InlineDateTime date={attempt.reviewedAt} timezone={timezone} />
             </Typography>
           </Box>
         )}
         {attempt.status === "WITHDRAWN" && attempt.withdrawnAt && (
           <Box>
-            <Typography component="dt">Withdrawn</Typography>
+            <Typography component="dt">
+              <EventText id="withdrawn" />
+            </Typography>
             <Typography component="dd">
-              {formatEventTime(attempt.withdrawnAt, timezone)}
+              <InlineDateTime date={attempt.withdrawnAt} timezone={timezone} />
             </Typography>
           </Box>
         )}
@@ -81,7 +91,7 @@ function AttemptDates({ attempt }: { attempt: Attempt }) {
         color="text.secondary"
         sx={{ display: "block", mt: 1 }}
       >
-        All times in {timezone}
+        <EventText id="allTimesIn" values={{ timezone }} />
       </Typography>
     </Box>
   );
@@ -92,7 +102,10 @@ function AttemptAnswers({ attempt }: { attempt: Attempt }) {
     <Stack spacing={2} sx={{ overflowWrap: "anywhere" }}>
       {attempt.context && (
         <Typography variant="body2" color="text.secondary">
-          Submitted for {attempt.context.title}
+          <EventText
+            id="registrationsSubmittedFor"
+            values={{ title: attempt.context.title }}
+          />
         </Typography>
       )}
       <Box
@@ -107,16 +120,20 @@ function AttemptAnswers({ attempt }: { attempt: Attempt }) {
         }}
       >
         <Box>
-          <Typography component="dt">Full name</Typography>
+          <Typography component="dt">
+            <EventText id="fullName" />
+          </Typography>
           <Typography component="dd">{attempt.fullName}</Typography>
         </Box>
         <Box>
-          <Typography component="dt">Email</Typography>
+          <Typography component="dt">
+            <EventText id="email" />
+          </Typography>
           <Typography component="dd">{attempt.email}</Typography>
         </Box>
       </Box>
       <Typography variant="h6" component="h3">
-        Submitted answers
+        <EventText id="applicationAnswers" />
       </Typography>
       <SubmittedAnswers answers={attempt.answers} />
     </Stack>
@@ -150,13 +167,16 @@ export default async function RegistrationDetailPage({
           borderColor: "divider",
         }}
       >
-        <BackLink href="/account/registrations">All registrations</BackLink>
+        <BackLink href="/account/registrations">
+          <EventText id="registrationsAll" />
+        </BackLink>
         <Typography variant="h5" component="h2">
-          {context?.title ?? "Event details unavailable"}
+          {context?.title ?? <EventText id="registrationsDetailsUnavailable" />}
         </Typography>
         {registration.cancelledAt && (
           <Alert severity="error" sx={{ whiteSpace: "pre-wrap" }}>
-            Event cancelled. {registration.cancellationReason}
+            <EventText id="registrationsCancelled" />
+            {registration.cancellationReason}
           </Alert>
         )}
         {context && (
@@ -168,9 +188,10 @@ export default async function RegistrationDetailPage({
         )}
         {registration.historicalContext && (
           <Alert severity="info">
-            The current event page is unavailable. Your submitted application is
-            preserved
-            {context ? "; event details reflect its submitted version" : ""}.
+            <EventText
+              id="registrationsHistorical"
+              values={{ context: String(Boolean(context)) }}
+            />
           </Alert>
         )}
         {registration.publicId && (
@@ -179,7 +200,7 @@ export default async function RegistrationDetailPage({
             variant="outlined"
             sx={{ alignSelf: "flex-start" }}
           >
-            View event
+            <EventText id="viewEvent" />
           </Button>
         )}
       </Stack>
@@ -201,7 +222,7 @@ export default async function RegistrationDetailPage({
               sx={{ alignItems: "center", flexWrap: "wrap", gap: 1 }}
             >
               <Typography variant="h6" component="h2">
-                Current application
+                <EventText id="registrationsCurrent" />
               </Typography>
               <ApplicationStatus status={current.status} />
               {registration.publicId &&
@@ -221,8 +242,7 @@ export default async function RegistrationDetailPage({
             </Stack>
             <AttemptDates attempt={current} />
             <Typography variant="body2" color="text.secondary">
-              Questions and options are shown as they were when this application
-              was submitted.
+              <EventText id="applicationHistoricalHint" />
             </Typography>
             <Divider />
             <AttemptAnswers attempt={current} />
@@ -255,7 +275,7 @@ export default async function RegistrationDetailPage({
           spacing={2}
         >
           <Typography id="previous-applications" variant="h5" component="h2">
-            Previous applications
+            <EventText id="registrationsPrevious" />
           </Typography>
           <div>
             {previous.map((attempt, index) => (
@@ -276,11 +296,11 @@ export default async function RegistrationDetailPage({
                   >
                     <ApplicationStatus status={attempt.status} />
                     <Typography variant="body2" color="text.secondary">
-                      Submitted{" "}
-                      {formatEventTime(
-                        attempt.submittedAt,
-                        attempt.context?.timezone ?? "UTC",
-                      )}{" "}
+                      <EventText id="applicationSubmittedLabel" />{" "}
+                      <InlineDateTime
+                        date={attempt.submittedAt}
+                        timezone={attempt.context?.timezone ?? "UTC"}
+                      />{" "}
                       ({attempt.context?.timezone ?? "UTC"})
                     </Typography>
                   </Stack>

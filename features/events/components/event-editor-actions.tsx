@@ -10,6 +10,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
+import { useTranslations } from "next-intl";
 
 type Props = {
   eventId?: string;
@@ -52,6 +53,8 @@ export function EventEditorActions({
   onShowErrors,
   onCheckRequired,
 }: Props) {
+  const t = useTranslations("events");
+
   return (
     <Box
       sx={{
@@ -79,7 +82,7 @@ export function EventEditorActions({
             : (message ??
               unmappedError ??
               serverMessage ??
-              "The cover version changed. Reload the latest version before saving.")}
+              t("coverVersionChanged"))}
           {(conflict || coverConflict || serverMessage) && eventId && (
             <Box sx={{ mt: 1 }}>
               <Button
@@ -88,7 +91,7 @@ export function EventEditorActions({
                 component="a"
                 href={`/dashboard/events/${eventId}/edit`}
               >
-                Reload latest version
+                {t("reloadLatest")}
               </Button>
             </Box>
           )}
@@ -119,10 +122,10 @@ export function EventEditorActions({
           {pending || createdId ? (
             <Typography variant="body2" color="text.secondary">
               {createdId
-                ? "Opening editor…"
+                ? t("openingEditor")
                 : eventId
-                  ? "Saving draft…"
-                  : "Creating event…"}
+                  ? t("savingDraft")
+                  : t("creatingEvent")}
             </Typography>
           ) : validationAttempted && Object.keys(errors).length > 0 ? (
             <Button
@@ -132,7 +135,7 @@ export function EventEditorActions({
               size="small"
               onClick={onShowErrors}
             >
-              Review errors
+              {t("reviewErrors")}
             </Button>
           ) : requiredMissing || disabled ? (
             <Button
@@ -141,7 +144,7 @@ export function EventEditorActions({
               size="small"
               onClick={onCheckRequired}
             >
-              Complete required fields
+              {t("completeRequiredFields")}
             </Button>
           ) : conflict ||
             coverConflict ||
@@ -149,10 +152,10 @@ export function EventEditorActions({
             !eventId ? (
             <Typography variant="body2" color="text.secondary">
               {conflict || coverConflict
-                ? "Reload required"
+                ? t("reloadRequired")
                 : serverMessage && !saved
-                  ? "Save failed — edits kept"
-                  : "Ready to create"}
+                  ? t("saveFailedEditsKept")
+                  : t("readyToCreate")}
             </Typography>
           ) : null}
           {coverDirty && (
@@ -161,7 +164,7 @@ export function EventEditorActions({
               color="text.secondary"
               sx={{ display: "block", mt: 0.5 }}
             >
-              Cover has unsaved changes — save in the Cover tab.
+              {t("coverUnsaved")}
             </Typography>
           )}
         </Box>
@@ -183,58 +186,47 @@ export function EventEditorActions({
         >
           {pending
             ? eventId
-              ? "Saving…"
-              : "Creating…"
+              ? t("saving")
+              : t("creating")
             : eventId
-              ? "Save draft"
-              : "Create event"}
+              ? t("saveDraft")
+              : t("createEvent")}
         </Button>
         <Tooltip
-          title={
-            eventId
-              ? "Save updates the draft. Publish separately from the event overview to update the public event."
-              : "Creates an unpublished draft. You can review it before publishing."
-          }
+          title={eventId ? t("saveDraftHint") : t("createDraftDescription")}
           enterTouchDelay={0}
         >
           <IconButton
             type="button"
             size="small"
             sx={{ gridArea: "help", justifySelf: "end" }}
-            aria-label={
-              eventId
-                ? "Saving and publishing are separate"
-                : "About creating a draft"
-            }
+            aria-label={eventId ? t("savePublishSeparate") : t("aboutDraft")}
           >
             <InfoOutlined fontSize="small" />
           </IconButton>
         </Tooltip>
         {eventId && (
-          <Tooltip
-            title="Opens the last saved draft in a new tab. Unsaved changes are not included."
-            enterTouchDelay={0}
-          >
+          <Tooltip title={t("previewSavedHint")} enterTouchDelay={0}>
             <Button
               component="a"
               href={`/dashboard/events/${eventId}/preview`}
               target="_blank"
               rel="noopener noreferrer"
               endIcon={<OpenInNew fontSize="small" />}
-              aria-label="Preview saved draft (opens in a new tab)"
+              aria-label={t("previewNewTab")}
               sx={{ gridArea: "preview", minHeight: 44, px: { xs: 1, md: 2 } }}
             >
               <Box
                 component="span"
                 sx={{ display: { xs: "inline", md: "none" } }}
               >
-                Preview
+                {t("preview")}
               </Box>
               <Box
                 component="span"
                 sx={{ display: { xs: "none", md: "inline" } }}
               >
-                Preview saved draft
+                {t("previewSaved")}
               </Box>
             </Button>
           </Tooltip>
@@ -242,14 +234,14 @@ export function EventEditorActions({
         <Button
           href={eventId ? `/dashboard/events/${eventId}` : "/dashboard"}
           color="inherit"
-          aria-label={eventId ? "Back to event" : "Cancel"}
+          aria-label={eventId ? t("backEvent") : t("cancel")}
           sx={{ gridArea: "back", minHeight: 44, px: { xs: 1, md: 2 } }}
         >
           <Box component="span" sx={{ display: { xs: "inline", md: "none" } }}>
-            {eventId ? "Back" : "Cancel"}
+            {eventId ? t("back") : t("cancel")}
           </Box>
           <Box component="span" sx={{ display: { xs: "none", md: "inline" } }}>
-            {eventId ? "Back to event" : "Cancel"}
+            {eventId ? t("backEvent") : t("cancel")}
           </Box>
         </Button>
       </Box>

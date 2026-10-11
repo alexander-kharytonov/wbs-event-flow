@@ -14,6 +14,7 @@ import {
   Menu,
   MenuItem,
 } from "@mui/material";
+import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 
 export function ExportMenu({
@@ -25,30 +26,31 @@ export function ExportMenu({
   staff: boolean;
   template: boolean;
 }) {
+  const t = useTranslations("events");
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const id = useId();
   const datasets = [
     {
       key: "applications",
-      label: "Applications",
-      description: "All submission attempts and answers",
+      label: t("applications"),
+      description: t("exportApplicationsHint"),
     },
     {
       key: "attendees",
-      label: "Attendees",
-      description: "Primary attendees and guests, including revoked",
+      label: t("attendees"),
+      description: t("exportAttendeesHint"),
     },
     {
       key: "attendance",
-      label: "Attendance",
-      description: "All recorded arrivals",
+      label: t("attendeeAttendance"),
+      description: t("exportAttendanceHint"),
     },
     ...(staff
       ? [
           {
             key: "staff",
-            label: "Staff",
-            description: "Owner, managers and reception",
+            label: t("staff"),
+            description: t("exportStaffHint"),
           },
         ]
       : []),
@@ -63,7 +65,7 @@ export function ExportMenu({
         aria-expanded={Boolean(anchor)}
         onClick={(event) => setAnchor(event.currentTarget)}
       >
-        Export
+        {t("export")}
       </Button>
       <Menu
         id={id}
@@ -76,7 +78,7 @@ export function ExportMenu({
           paper: { sx: { width: 360, maxWidth: "calc(100vw - 32px)" } },
         }}
       >
-        <ListSubheader disableSticky>Event data · CSV</ListSubheader>
+        <ListSubheader disableSticky>{t("exportData")}</ListSubheader>
         {datasets.map((dataset) => (
           <MenuItem
             key={dataset.key}
@@ -98,13 +100,14 @@ export function ExportMenu({
         ))}
         <Box component="li" sx={{ px: 2, py: 1, listStyle: "none" }}>
           <Alert severity="info" sx={{ fontSize: "0.75rem" }}>
-            Exports include the whole event, regardless of filters.
-            Spreadsheet-safe files may prefix values with an apostrophe.
+            {t("exportCsvHint")}
           </Alert>
         </Box>
         {template && <Divider />}
         {template && (
-          <ListSubheader disableSticky>Event template · JSON</ListSubheader>
+          <ListSubheader disableSticky>
+            {t("exportTemplateGroup")}
+          </ListSubheader>
         )}
         {template && (
           <MenuItem
@@ -119,17 +122,15 @@ export function ExportMenu({
               <CodeOutlined fontSize="small" />
             </ListItemIcon>
             <ListItemText
-              primary="Export template"
-              secondary="Reuse current settings, form and badge design"
+              primary={t("exportTemplate")}
+              secondary={t("exportTemplateHint")}
             />
           </MenuItem>
         )}
         {template && (
           <Box component="li" sx={{ px: 2, py: 1, listStyle: "none" }}>
             <Alert severity="warning" sx={{ fontSize: "0.75rem" }}>
-              Includes private staff emails and unpublished changes. No
-              applications, attendees or attendance. Cover images are omitted;
-              upload a new cover after importing or duplicating.
+              {t("exportPrivacyHint")}
             </Alert>
           </Box>
         )}

@@ -9,11 +9,12 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { useTranslations } from "next-intl";
 import { EventAgendaEditor } from "@/features/events/components/event-agenda-editor";
 import type { EventFormValues } from "@/features/events/event-input-schema";
 import type { useFormFeedback } from "@/hooks/use-form-feedback";
 
-type Feedback = ReturnType<typeof useFormFeedback>;
+type Feedback = ReturnType<typeof useFormFeedback<string>>;
 
 export function richRequiredMissing(values: EventFormValues) {
   const location = values.location;
@@ -45,6 +46,7 @@ export function EventRichFields({
   feedback: Feedback;
   disabled: boolean;
 }) {
+  const t = useTranslations("events");
   const location = values.location;
   const organizer = values.publicOrganizer;
 
@@ -91,11 +93,11 @@ export function EventRichFields({
           />
           <Stack component="section" spacing={2}>
             <Typography variant="h6" component="h2">
-              Location
+              {t("location")}
             </Typography>
             <TextField
               select
-              label="Location type"
+              label={t("locationType")}
               value={location?.type ?? "NONE"}
               disabled={disabled}
               fullWidth
@@ -130,21 +132,21 @@ export function EventRichFields({
                 }));
               }}
             >
-              <MenuItem value="NONE">Not specified</MenuItem>
-              <MenuItem value="PHYSICAL">Physical</MenuItem>
-              <MenuItem value="ONLINE">Online</MenuItem>
-              <MenuItem value="HYBRID">Hybrid</MenuItem>
+              <MenuItem value="NONE">{t("notSpecified")}</MenuItem>
+              <MenuItem value="PHYSICAL">{t("physical")}</MenuItem>
+              <MenuItem value="ONLINE">{t("online")}</MenuItem>
+              <MenuItem value="HYBRID">{t("hybrid")}</MenuItem>
             </TextField>
             {location && "venueName" in location && (
               <>
-                {locationField("venueName", "Venue name", 200)}
-                {locationField("address", "Address", 1000)}
+                {locationField("venueName", t("venueName"), 200)}
+                {locationField("address", t("address"), 1000)}
               </>
             )}
             {location && "onlineLabel" in location && (
               <>
-                {locationField("onlineLabel", "Online meeting label", 200)}
-                {locationField("onlineUrl", "Online meeting URL", 2048)}
+                {locationField("onlineLabel", t("onlineLabel"), 200)}
+                {locationField("onlineUrl", t("onlineUrl"), 2048)}
               </>
             )}
           </Stack>
@@ -175,10 +177,10 @@ export function EventRichFields({
           />
           <Stack component="section" spacing={2}>
             <Typography variant="h6" component="h2">
-              Public organizer
+              {t("publicOrganizer")}
             </Typography>
             <FormControlLabel
-              label="Add public organizer information"
+              label={t("addOrganizerInfo")}
               control={
                 <Switch
                   checked={organizer !== null}
@@ -200,8 +202,7 @@ export function EventRichFields({
               }
             />
             <Typography variant="body2" color="text.secondary">
-              Only information entered here is published. Account and staff
-              details are never filled in automatically.
+              {t("organizerInfoHint")}
             </Typography>
             {feedback.errors.publicOrganizer && (
               <Alert severity="error" tabIndex={-1} data-editor-error>
@@ -211,9 +212,9 @@ export function EventRichFields({
             {organizer &&
               (
                 [
-                  ["displayName", "Display name", 200],
-                  ["description", "Organizer description (optional)", 2000],
-                  ["websiteUrl", "Website URL (optional)", 2048],
+                  ["displayName", t("displayName"), 200],
+                  ["description", t("organizerDescription"), 2000],
+                  ["websiteUrl", t("websiteUrl"), 2048],
                 ] as const
               ).map(([name, label, maxLength]) => (
                 <TextField

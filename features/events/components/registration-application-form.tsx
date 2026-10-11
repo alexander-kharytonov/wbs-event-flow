@@ -20,6 +20,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   type ReactNode,
   type SyntheticEvent,
@@ -31,8 +32,10 @@ import {
 import { BackLink } from "@/components/ui/back-link";
 import {
   type ApplicationFormState,
+  type ApplicationIssue,
   applicationAnswersSchema,
   applicationInputSchema,
+  applicationIssue,
 } from "@/features/events/application-input";
 import type { EventSnapshot } from "@/features/events/schemas/event-snapshot";
 import { submitApplication } from "@/features/events/submit-application-action";
@@ -57,6 +60,7 @@ export function RegistrationApplicationForm({
   | { preview: true; publicId?: never; eventRevisionId?: never }
   | { preview?: false; publicId: string; eventRevisionId: string }
 )) {
+  const t = useTranslations("events");
   // Keep the opened question definitions and revision together across server refreshes.
   // The parent unmounts this component when current eligibility is lost.
   const [openedForm] = useState(() => ({
@@ -69,7 +73,9 @@ export function RegistrationApplicationForm({
     : openedForm.eventRevisionId;
   const formChanged = !preview && currentRevisionId !== eventRevisionId;
   const mustRestart = reapplication && formChanged;
-  const feedback = useFormFeedback();
+  const feedback = useFormFeedback<ApplicationIssue>({}, (issue) =>
+    t(issue.code, issue.values),
+  );
   const router = useRouter();
   const formRef = useRef<HTMLElement>(null);
   const [focusRequest, setFocusRequest] = useState(0);
@@ -144,7 +150,7 @@ export function RegistrationApplicationForm({
   }, [focusRequest, pending]);
 
   function validateFields() {
-    const errors: Record<string, string> = {};
+    const errors: Record<string, ApplicationIssue> = {};
 
     if (preview) {
       return errors;
@@ -161,7 +167,7 @@ export function RegistrationApplicationForm({
 
     if (!input.success) {
       for (const issue of input.error.issues) {
-        errors[String(issue.path[0])] ??= issue.message;
+        errors[String(issue.path[0])] ??= applicationIssue(issue);
       }
     }
     const answers = applicationAnswersSchema({
@@ -174,7 +180,7 @@ export function RegistrationApplicationForm({
 
     if (!answers.success) {
       for (const issue of answers.error.issues) {
-        errors[`answer:${String(issue.path[0])}`] ??= issue.message;
+        errors[`answer:${String(issue.path[0])}`] ??= applicationIssue(issue);
       }
     }
 
@@ -197,14 +203,11 @@ export function RegistrationApplicationForm({
         <Paper variant="outlined" sx={{ p: { xs: 2.5, sm: 4 } }}>
           <Stack spacing={3}>
             <Alert severity="success" role="status">
-              <AlertTitle>Registration received</AlertTitle>
-              Thank you! Your application has been submitted.
+              <AlertTitle>{t("registrationReceived")}</AlertTitle>
+              {t("applicationSubmitted")}
             </Alert>
-            <Alert severity="info">
-              The organizer will review your application. A place is confirmed
-              only after approval.
-            </Alert>
-            <BackLink href={`/e/${publicId}`}>Back to event</BackLink>
+            <Alert severity="info">{t("reviewBeforeAdmission")}</Alert>
+            <BackLink href={`/e/${publicId}`}>{t("backEvent")}</BackLink>
           </Stack>
         </Paper>
       </Stack>
@@ -234,9 +237,7 @@ export function RegistrationApplicationForm({
           feedback.setErrors(errors);
 
           if (Object.keys(errors).length) {
-            feedback.setMessage(
-              "Check the highlighted fields before submitting.",
-            );
+            feedback.setMessage({ code: "checkHighlightedFields" });
             focusFirstError();
           }
         }
@@ -269,28 +270,28 @@ export function RegistrationApplicationForm({
                 variant="h6"
                 component="h2"
               >
-                Your details
+                {t("yourDetails")}
               </Typography>
               <Typography
                 variant="body2"
                 color="text.secondary"
                 sx={{ mt: 0.75 }}
               >
-                Fields marked * are required.
+                {t("requiredFieldsHint")}
               </Typography>
             </Box>
             <Stack spacing={3}>
               <TextField
                 disabled={pending}
                 name="fullName"
-                label="Full name"
+                label={t("fullName")}
                 autoComplete="name"
                 required
                 fullWidth
                 value={values.fullName?.[0] ?? applicant?.name ?? ""}
                 onChange={(event) => update("fullName", [event.target.value])}
                 error={!!feedback.errors.fullName}
-                helperText={feedback.errors.fullName}
+                helperText={feedback.field("fullName").helperText}
                 slotProps={{
                   input: { readOnly: preview },
                   htmlInput: { maxLength: 200 },
@@ -299,7 +300,7 @@ export function RegistrationApplicationForm({
               <TextField
                 disabled={pending}
                 name="email"
-                label="Email"
+                label={t("email")}
                 type="email"
                 autoComplete="email"
                 required
@@ -308,8 +309,13 @@ export function RegistrationApplicationForm({
                 onChange={(event) => update("email", [event.target.value])}
                 error={!!feedback.errors.email}
                 helperText={
-                  feedback.errors.email ??
-                  (applicant ? "Using your verified account email." : undefined)
+                  (feedback.errors.email
+                    ? t(
+                        feedback.errors.email.code,
+                        feedback.errors.email.values,
+                      )
+                    : undefined) ??
+                  (applicant ? t("verifiedEmailHint") : undefined)
                 }
                 slotProps={{ input: { readOnly: preview || !!applicant } }}
               />
@@ -334,14 +340,14 @@ export function RegistrationApplicationForm({
               disabled={pending}
               onClick={() => window.location.reload()}
             >
-              Start over with latest form
+              {t("restartLatestForm")}
             </Button>
           }
         >
           {reapplication
-            ? "The registration form has changed. Reapplying requires the latest form. Your current answers are kept until you start over."
-            : "A newer registration form is available. You can submit this version or start over with the latest form."}{" "}
-          Starting over clears your unsaved answers.
+            ? t("reapplicationFormChanged")
+            : t("newerFormAvailable")}{" "}
+          {t("restartClearsAnswers")}
         </Alert>
       )}
       {fields.length > 0 && (
@@ -357,15 +363,14 @@ export function RegistrationApplicationForm({
                 variant="h5"
                 component="h2"
               >
-                Registration questions
+                {t("registrationQuestions")}
               </Typography>
               <Typography
                 variant="body2"
                 color="text.secondary"
                 sx={{ mt: 0.75 }}
               >
-                {fields.length} {fields.length === 1 ? "question" : "questions"}{" "}
-                from the organizer
+                {t("organizerQuestionsCount", { count: fields.length })}
               </Typography>
             </Box>
             <Stack
@@ -381,7 +386,8 @@ export function RegistrationApplicationForm({
               {fields.map((field) => {
                 const name = `answer:${field.id}`;
                 const selected = values[name] ?? [];
-                const error = feedback.errors[name];
+                const issue = feedback.errors[name];
+                const error = issue ? t(issue.code, issue.values) : undefined;
 
                 if (field.type === "SHORT_TEXT" || field.type === "LONG_TEXT") {
                   return (
@@ -463,7 +469,9 @@ export function RegistrationApplicationForm({
                         fullWidth
                       >
                         <MenuItem value="">
-                          {field.required ? "Choose an option" : "No selection"}
+                          {field.required
+                            ? t("chooseOption")
+                            : t("noSelection")}
                         </MenuItem>
                         {field.options.map((option) => (
                           <MenuItem key={option.id} value={option.id}>
@@ -556,7 +564,9 @@ export function RegistrationApplicationForm({
                     <FormHelperText id={`${field.id}-help`}>
                       {error ??
                         field.description ??
-                        (field.required ? "Required" : "Optional")}
+                        (field.required
+                          ? t("questionRequiredLabel")
+                          : t("optional"))}
                     </FormHelperText>
                   </FormControl>
                 );
@@ -569,7 +579,7 @@ export function RegistrationApplicationForm({
         <Paper
           variant="outlined"
           component="section"
-          aria-label="Submit application"
+          aria-label={t("submitApplication")}
           sx={{
             p: { xs: 2.5, sm: 4 },
             borderTop: 3,
@@ -590,7 +600,7 @@ export function RegistrationApplicationForm({
               )
               .map(([name, message]) => (
                 <Alert severity="error" key={name}>
-                  {message}
+                  {t(message.code, message.values)}
                 </Alert>
               ))}
             <Stack
@@ -614,7 +624,7 @@ export function RegistrationApplicationForm({
                   <SendOutlined />
                 </Box>
                 <Typography variant="h5" component="h2">
-                  Ready to join us?
+                  {t("readyToJoin")}
                 </Typography>
               </Stack>
               <Stack spacing={1} sx={{ flexShrink: 0 }}>
@@ -630,8 +640,8 @@ export function RegistrationApplicationForm({
                     }
                   >
                     {hasFieldErrors
-                      ? "Review errors"
-                      : "Complete required fields"}
+                      ? t("reviewErrors")
+                      : t("completeRequiredFields")}
                   </Button>
                 )}
                 <Button
@@ -646,7 +656,7 @@ export function RegistrationApplicationForm({
                     minWidth: { sm: 220 },
                   }}
                 >
-                  Submit application
+                  {t("submitApplication")}
                 </Button>
               </Stack>
             </Stack>
