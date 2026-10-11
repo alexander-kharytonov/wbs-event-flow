@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { refresh } from "next/cache";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
+import { LanguageSelector } from "@/components/ui/language-selector";
 import { PartyGuests } from "@/features/guests/components/party-guests";
 import { addGuest, removeGuest } from "@/features/guests/server/manage-guests";
 import { TicketCard } from "@/features/tickets/components/ticket-card";
@@ -49,6 +50,7 @@ export default async function AnonymousTicketPage({
   return (
     <Container component="main" maxWidth="md" sx={{ py: { xs: 3, sm: 5 } }}>
       <Stack spacing={3}>
+        <LanguageSelector />
         <Typography variant="h4" component="h1">
           Your ticket
         </Typography>

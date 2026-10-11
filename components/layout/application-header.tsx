@@ -1,13 +1,20 @@
-import { Box, Button, Container, Link, Stack } from "@mui/material";
+import { Box, Container, Link, Stack } from "@mui/material";
 import { PrimaryNavigation } from "@/components/layout/primary-navigation";
+import { SignInLink } from "@/components/layout/sign-in-link";
+import { LanguageSelector } from "@/components/ui/language-selector";
 import { Logo } from "@/components/ui/logo";
+import { ShellText } from "@/components/ui/shell-text";
 import { ThemeControl } from "@/components/ui/theme-control";
 import { AccountMenu } from "@/features/auth/components/account-menu";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
+import { getUiPreferences } from "@/lib/ui-preferences";
 
 export async function ApplicationHeader() {
-  const session = await getSession();
+  const [session, preferences] = await Promise.all([
+    getSession(),
+    getUiPreferences(),
+  ]);
   const organizer = session
     ? await prisma.organizerProfile.findUnique({
         where: { userId: session.user.id },
@@ -32,7 +39,7 @@ export async function ApplicationHeader() {
       }}
     >
       <Link href="#main-content" className="skip-link">
-        Skip to content
+        <ShellText id="skipContent" />
       </Link>
       <Container maxWidth="lg">
         <Stack
@@ -60,7 +67,8 @@ export async function ApplicationHeader() {
             direction="row"
             sx={{ alignItems: "center", gap: 0.5, ml: { xs: "auto", lg: 0 } }}
           >
-            <ThemeControl />
+            <LanguageSelector />
+            <ThemeControl initialMode={preferences.mode} />
             {session ? (
               <AccountMenu
                 name={session.user.name}
@@ -68,9 +76,7 @@ export async function ApplicationHeader() {
                 hasAssignedEvents={Boolean(assigned)}
               />
             ) : (
-              <Button href="/sign-in" variant="outlined">
-                Sign in
-              </Button>
+              <SignInLink />
             )}
           </Stack>
         </Stack>

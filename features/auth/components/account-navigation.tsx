@@ -5,24 +5,25 @@ import PersonOutlined from "@mui/icons-material/PersonOutlined";
 import SpaceDashboardOutlined from "@mui/icons-material/SpaceDashboardOutlined";
 import { Box, Tab } from "@mui/material";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { WorkspaceTabs } from "@/components/ui/workspace-tabs";
 
 const sections = [
   {
     id: "overview",
-    label: "Overview",
+    label: "overview",
     href: "/account",
     icon: <SpaceDashboardOutlined fontSize="small" />,
   },
   {
     id: "registrations",
-    label: "Registrations",
+    label: "registrations",
     href: "/account/registrations",
     icon: <EventOutlined fontSize="small" />,
   },
   {
     id: "profile",
-    label: "Profile",
+    label: "profile",
     href: "/account/profile",
     icon: <PersonOutlined fontSize="small" />,
   },
@@ -33,10 +34,12 @@ export function AccountNavigation({
 }: {
   active: (typeof sections)[number]["id"];
 }) {
+  const t = useTranslations("shell");
+
   return (
     <Box
       component="nav"
-      aria-label="Account sections"
+      aria-label={t("accountSections")}
       sx={{
         position: { md: "sticky" },
         top: { md: 24 },
@@ -44,7 +47,7 @@ export function AccountNavigation({
         minWidth: 0,
       }}
     >
-      <WorkspaceTabs value={active} aria-label="Account sections">
+      <WorkspaceTabs value={active} aria-label={t("accountSections")}>
         {sections.map(({ id, label, href, icon }) => (
           <Tab
             key={id}
@@ -54,7 +57,7 @@ export function AccountNavigation({
             aria-current={active === id ? "page" : undefined}
             component={Link}
             href={href}
-            label={label}
+            label={t(label)}
             icon={icon}
             iconPosition="start"
             sx={{ pr: 3 }}

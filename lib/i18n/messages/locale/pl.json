@@ -1,0 +1,6 @@
+{
+  "label": "Język",
+  "saveFailed": "Nie udało się zapisać języka. Spróbuj ponownie.",
+  "invalidLocale": "Wybierz obsługiwany język.",
+  "forbidden": "To żądanie jest niedozwolone."
+}

@@ -1,4 +1,7 @@
+"use client";
+
 import { Box, Stack, Typography } from "@mui/material";
+import { useLocale, useTranslations } from "next-intl";
 
 type Props = {
   date: Date | string;
@@ -8,27 +11,29 @@ type Props = {
 };
 
 export function DateTime({ date, endDate, timezone, inverse = false }: Props) {
+  const locale = useLocale();
+  const t = useTranslations("shell");
   const start = new Date(date);
   const end = endDate ? new Date(endDate) : null;
-  const fullDate = new Intl.DateTimeFormat("en-US", {
+  const fullDate = new Intl.DateTimeFormat(locale, {
     timeZone: timezone,
     weekday: "long",
     month: "long",
     day: "numeric",
     year: "numeric",
   });
-  const time = new Intl.DateTimeFormat("en-US", {
+  const time = new Intl.DateTimeFormat(locale, {
     timeZone: timezone,
     hour: "numeric",
     minute: "2-digit",
   });
   const startLabel = fullDate.format(start);
   const sameDay = end !== null && fullDate.format(end) === startLabel;
-  const month = new Intl.DateTimeFormat("en-US", {
+  const month = new Intl.DateTimeFormat(locale, {
     timeZone: timezone,
     month: "short",
   }).format(start);
-  const day = new Intl.DateTimeFormat("en-US", {
+  const day = new Intl.DateTimeFormat(locale, {
     timeZone: timezone,
     day: "numeric",
   }).format(start);
@@ -82,12 +87,19 @@ export function DateTime({ date, endDate, timezone, inverse = false }: Props) {
           component="div"
           color={inverse ? "rgba(255,255,255,0.85)" : "text.secondary"}
         >
-          {time.format(start)}
-          {end && sameDay && (
-            <>
-              {" "}
-              – <time dateTime={end.toISOString()}>{time.format(end)}</time>
-            </>
+          {end && sameDay ? (
+            t.rich("dateTimeRange", {
+              startTime: time.format(start),
+              endTime: time.format(end),
+              start: (chunks) => (
+                <time dateTime={start.toISOString()}>{chunks}</time>
+              ),
+              end: (chunks) => (
+                <time dateTime={end.toISOString()}>{chunks}</time>
+              ),
+            })
+          ) : (
+            <time dateTime={start.toISOString()}>{time.format(start)}</time>
           )}
         </Typography>
         {end && !sameDay && (
@@ -95,10 +107,13 @@ export function DateTime({ date, endDate, timezone, inverse = false }: Props) {
             component="div"
             color={inverse ? "rgba(255,255,255,0.85)" : "text.secondary"}
           >
-            Until{" "}
-            <time dateTime={end.toISOString()}>
-              {fullDate.format(end)}, {time.format(end)}
-            </time>
+            {t.rich("dateTimeUntil", {
+              endDate: fullDate.format(end),
+              endTime: time.format(end),
+              end: (chunks) => (
+                <time dateTime={end.toISOString()}>{chunks}</time>
+              ),
+            })}
           </Typography>
         )}
         <Typography

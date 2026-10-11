@@ -1,8 +1,14 @@
+"use client";
+
 import { ArrowForward } from "@mui/icons-material";
 import { Box, Container, Link, Stack, Typography } from "@mui/material";
+import { useTranslations } from "next-intl";
 import { Logo } from "@/components/ui/logo";
+import { ShellText } from "@/components/ui/shell-text";
 
 export function ApplicationFooter() {
+  const t = useTranslations("shell");
+
   return (
     <Box
       component="footer"
@@ -26,12 +32,12 @@ export function ApplicationFooter() {
           <Stack spacing={1} sx={{ alignItems: "flex-start" }}>
             <Logo />
             <Typography variant="body2" color="text.secondary">
-              Bring people together. Keep the details in flow.
+              <ShellText id="tagline" />
             </Typography>
           </Stack>
           <Stack
             component="nav"
-            aria-label="Footer navigation"
+            aria-label={t("footerNavigation")}
             direction="row"
             sx={{
               gap: { xs: 2.5, sm: 3 },
@@ -44,10 +50,10 @@ export function ApplicationFooter() {
               color="text.secondary"
               underline="hover"
             >
-              How it works
+              <ShellText id="howItWorks" />
             </Link>
             <Link href="/#questions" color="text.secondary" underline="hover">
-              FAQ
+              <ShellText id="faq" />
             </Link>
             <Link
               href="/e"
@@ -59,7 +65,7 @@ export function ApplicationFooter() {
                 fontWeight: 600,
               }}
             >
-              Explore events
+              <ShellText id="explore" />
               <ArrowForward sx={{ fontSize: 18 }} />
             </Link>
           </Stack>
@@ -79,7 +85,7 @@ export function ApplicationFooter() {
             © {new Date().getFullYear()} Event Flow
           </Typography>
           <Typography variant="caption" sx={{ letterSpacing: "0.04em" }}>
-            Create. Connect. Welcome.
+            <ShellText id="motto" />
           </Typography>
         </Stack>
       </Container>

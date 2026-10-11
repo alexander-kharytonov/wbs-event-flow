@@ -2,12 +2,14 @@
 
 import { Box, Stack } from "@mui/material";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { EditorNavigationGuard } from "@/components/ui/editor-navigation-guard";
 import { PageHeader } from "@/components/ui/page-header";
 import { AccountNavigation } from "@/features/auth/components/account-navigation";
 
 export function AccountWorkspace({ children }: { children: ReactNode }) {
+  const t = useTranslations("shell");
   const pathname = usePathname();
   const active = pathname.startsWith("/account/registrations")
     ? "registrations"
@@ -18,7 +20,7 @@ export function AccountWorkspace({ children }: { children: ReactNode }) {
   return (
     <EditorNavigationGuard description="Your unsaved profile changes will be lost.">
       <Stack spacing={3}>
-        <PageHeader title="My account" />
+        <PageHeader title={t("account")} />
         <Box
           sx={{
             bgcolor: "background.paper",

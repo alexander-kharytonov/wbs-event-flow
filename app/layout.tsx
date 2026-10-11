@@ -1,7 +1,12 @@
-import InitColorSchemeScript from "@mui/material/InitColorSchemeScript";
 import { AppRouterCacheProvider } from "@mui/material-nextjs/v16-appRouter";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { getLocale, getMessages } from "next-intl/server";
+import { ThemeModeScript } from "@/components/ui/theme-mode-script";
+import type { UiLocale } from "@/lib/i18n/locale";
+import type { Messages } from "@/lib/i18n/messages";
+import { getUiPreferences } from "@/lib/ui-preferences";
+import { LocaleProvider } from "@/providers/locale-provider";
 import "./globals.css";
 import { NotificationsProvider } from "@/providers/notifications-provider";
 import { AppThemeProvider } from "@/providers/theme-provider";
@@ -21,19 +26,30 @@ export const metadata: Metadata = {
   description: "Event Flow",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const [locale, messages, modePreference] = await Promise.all([
+    getLocale(),
+    getMessages(),
+    getUiPreferences(),
+  ]);
+
   return (
     <html
-      lang="en"
+      lang={locale}
       className={`${geistSans.variable} ${geistMono.variable}`}
       suppressHydrationWarning
     >
       <body>
-        <InitColorSchemeScript attribute="data" defaultMode="system" />
+        <ThemeModeScript mode={modePreference.mode} />
         <AppRouterCacheProvider>
-          <AppThemeProvider>
-            <NotificationsProvider>{children}</NotificationsProvider>
-          </AppThemeProvider>
+          <LocaleProvider
+            locale={locale as UiLocale}
+            messages={messages as Messages}
+          >
+            <AppThemeProvider mode={modePreference.mode}>
+              <NotificationsProvider>{children}</NotificationsProvider>
+            </AppThemeProvider>
+          </LocaleProvider>
         </AppRouterCacheProvider>
       </body>
     </html>

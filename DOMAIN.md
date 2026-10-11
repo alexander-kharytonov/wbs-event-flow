@@ -2130,3 +2130,100 @@ the form, and identity/attempt changes replace it. A revision update offers an
 explicit full-page restart; no answers are persisted outside the component. Ordinary
 submission retains historical binding. Reapplication still requires the current
 revision and must restart after a publication change.
+
+## V0 development policy
+
+Before the first release, breaking changes are allowed and local development data
+is disposable. Each serialized artifact has one current contract: Snapshot V3 and
+EventTemplateV2 today. Do not add legacy Snapshot/Template readers, converters or
+compatibility paths. Schema changes use incremental migrations; an applied baseline
+must not be rewritten. Disposable data does not authorize an unrequested DB/media
+reset. Historical domain revisions remain immutable within the current contract;
+authorization, concurrency controls and idempotency remain mandatory.
+
+## 40. UI locale preference (I18N-A)
+
+`User.uiLocale` is nullable text constrained by PostgreSQL to en/de/pl/uk/ru.
+Null means no explicit account preference, not English. It changes no identity,
+verification, ownership, lifecycle, authorization or Event content semantics.
+`lib/ui-preferences.ts` resolves both preferences with one request-cached User
+query after the normal `getSession()` lookup. Locale precedence is account →
+validated event-flow-locale cookie → Accept-Language → English.
+`lib/i18n/request.ts` supplies the resolved locale and messages to next-intl.
+No process-global locale or auth cookie-cache authority is introduced. Normal
+Better Auth session renewal/expired-session cleanup behavior is accepted;
+preference reads never persist inferred locale or mode values.
+
+`PUT /api/preferences/locale` accepts only a supported JSON string, bounded to
+64 bytes, requires Origin equal to configured BETTER_AUTH_URL origin, derives the
+User solely from the session, and updates only uiLocale (plus Prisma updatedAt).
+Anonymous requests set only the validated locale cookie; signed-in requests write
+the cookie only after account persistence succeeds. Unverified authenticated Users
+may set this presentation preference without gaining verified-user permissions.
+No caller-supplied User ID is accepted. Repeated selections are idempotent in value;
+concurrent requests use last committed write. Failures return stable identifiers,
+never account details. Locale does not enter Event snapshots, templates, business
+mutation inputs, revision keys or idempotency digests.
+
+The root locale provider uses SSR values only to initialize the document. Selection
+loads messages, sends PUT, and updates client context after success, with one
+selection in flight. Failed message loading or PUT leaves the active locale intact
+and reports a retryable save notification independent of menu visibility. Retrying
+clears the previous notification; stable notification keys prevent duplicates.
+Notification text consumes the active locale at render time.
+There is no confirmation GET or identity token.
+A successful PUT acknowledges that request, not continued freshness across tabs.
+Later server props do not overwrite mounted state. No preference GET endpoints,
+navigation/focus/visibility/pageshow listeners, polling or automatic retries exist.
+External changes become visible after full reload; client-side navigation alone
+need not refresh mounted preferences. Successful sign-in/sign-out loads a new
+document. Language/theme selection never navigates, refreshes domain reads, keys
+providers by locale, resets forms, or changes revision/token bindings.
+After provider renders, the document language attribute is reasserted from the
+active client locale, including when an RSC refresh changes server locale props.
+
+The session validated for each PUT is the only account authority. An old tab's
+selection can update the currently authenticated account, even if its displayed
+account is stale. Expired/revoked sessions resolve as anonymous. There is no
+initiating-session continuity guarantee or atomic revocation fence. This changes
+only presentation preference semantics; all domain authorization is unchanged.
+Lost responses may leave a committed save unacknowledged. Concurrent cookie
+responses may differ from the final DB value; account precedence resolves this on
+full reload. Cookie acceptance is not confirmed by the client.
+
+Event dates keep explicit IANA timezones; UTC is the deterministic provider default
+for formatting without an explicit timezone. `createBackgroundTranslator` takes
+an explicit preference (invalid/absent → English), never request headers/cookies.
+It is preparatory only: email payloads, frozen Communications and delivery rendering
+retain their current contracts and English templates. Server-only translations
+update on server render; immediately switchable labels consume client context.
+
+## 41. UI mode preference
+
+`User.uiMode` is nullable text constrained by PostgreSQL to light/dark/system.
+Null defers to the validated event-flow-mode cookie, then system. Explicit system
+is an account preference and overrides the cookie; OS changes are device-local
+presentation changes, never database or cookie writes. The shared request resolver
+reads uiMode with uiLocale. Neither field is added to auth payloads, Event content,
+Snapshot/Template or email contracts.
+
+`PUT /api/preferences/mode` accepts only a supported JSON string bounded to 64
+bytes. Origin must equal the configured BETTER_AUTH_URL origin. The User comes
+solely from the normal session lookup, including unverified authenticated Users;
+only uiMode and Prisma updatedAt are updated. Account persistence must succeed
+before the host-only, HttpOnly, SameSite=Lax, one-year cookie is emitted (Secure
+on HTTPS). Anonymous requests set only the cookie. Both preference PUT success
+responses contain only presentation values and use private, no-store caching.
+
+ThemeControl uses MUI useColorScheme directly: PUT, then setMode. A pending guard
+prevents overlapping selections in the control. Failure preserves the current
+mode and shows a retryable translated notification with the same menu-independent
+visibility and retry clearing as locale errors. There is no ModePreferenceProvider,
+read-back confirmation or background reconciliation. Section 40's request-time
+session authority, reload-based freshness and concurrent-write limitations apply.
+
+The MUI provider and forms retain identity; defaultMode is frozen at mount.
+The control uses the server-resolved mode until MUI supplies its hydrated mode.
+MUI storageManager is null; the pre-content initializer uses the server-resolved
+mode and matchMedia without reading localStorage. It uses the same data-light /
+data-dark selectors as MUI, which continues listening to OS changes in system mode.

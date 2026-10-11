@@ -1,8 +1,13 @@
 "use client";
 
 import { CssBaseline } from "@mui/material";
+import { deDE, enUS, plPL, ruRU, ukUA } from "@mui/material/locale";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import NextLink from "next/link";
+import { useLocale } from "next-intl";
+import { useMemo, useState } from "react";
+import type { UiLocale } from "@/lib/i18n/locale";
+import type { UiMode } from "@/lib/ui-mode";
 
 const theme = createTheme({
   colorSchemes: {
@@ -264,9 +269,29 @@ const theme = createTheme({
   },
 });
 
-export function AppThemeProvider({ children }: { children: React.ReactNode }) {
+const muiLocales = { en: enUS, de: deDE, pl: plPL, uk: ukUA, ru: ruRU };
+
+export function AppThemeProvider({
+  children,
+  mode,
+}: {
+  children: React.ReactNode;
+  mode: UiMode;
+}) {
+  const [initialMode] = useState(mode);
+  const locale = useLocale() as UiLocale;
+  const localizedTheme = useMemo(
+    () => createTheme(theme, muiLocales[locale]),
+    [locale],
+  );
+
   return (
-    <ThemeProvider theme={theme} defaultMode="system" disableTransitionOnChange>
+    <ThemeProvider
+      theme={localizedTheme}
+      defaultMode={initialMode}
+      storageManager={null}
+      disableTransitionOnChange
+    >
       <CssBaseline enableColorScheme />
       {children}
     </ThemeProvider>

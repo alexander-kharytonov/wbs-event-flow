@@ -1099,3 +1099,73 @@ is best effort. Old cover URLs stop authorizing after replacement/unpublish, and
 previously downloaded images cannot be recalled. No OG generator, discovery or
 private access controls are added. Iterations 29A/B/C/D are implemented and accepted,
 including the final UX and integration polish.
+
+## V0 development policy
+
+Before the first release, breaking changes are allowed and local development data
+is disposable. Each serialized artifact has one current contract: Snapshot V3 and
+EventTemplateV2 today. Do not add legacy Snapshot/Template readers, converters or
+compatibility paths. Schema changes use incremental migrations; an applied baseline
+must not be rewritten. Disposable data does not authorize an unrequested DB/media
+reset. Historical domain revisions remain immutable within the current contract;
+authorization, concurrency controls and idempotency remain mandatory.
+
+## UI language foundation (I18N-A)
+
+The interface supports English, German, Polish, Ukrainian and Russian. Resolution
+is account preference → validated first-party cookie → browser Accept-Language
+(including regional tags and quality weights) → English. A new/existing account
+without an explicit preference continues to use cookie/browser resolution; GET
+requests never persist inferred language. An explicit signed-in selection saves
+User.uiLocale and the cookie; anonymous selection saves only the cookie.
+
+The language menu is available in the shared application/public header (including
+authentication and public registration) and the anonymous Ticket surface. Selection
+preserves the full URL, scroll position and unsaved form state. The client loads
+messages, saves the selection with PUT, then updates its locale context. A failed
+load or save keeps the active language and shows a translated retryable notification
+that remains visible after the menu closes and clears when selection is retried.
+A successful PUT is sufficient; there is no read-back confirmation.
+The cookie is host-only, HttpOnly, SameSite=Lax, one year, and Secure on HTTPS.
+
+SSR initializes preferences for each document. Mounted client state is not replaced
+by later server props, navigation, focus, visibility changes or pageshow. External
+changes become visible after a full reload. Successful authentication transitions
+load a new document; preference selection itself never navigates or refreshes
+application data. Server-only text may reflect newer preferences on a subsequent
+server render while mounted client labels retain the current document's choice.
+The document language attribute follows that active client choice after RSC refresh.
+Preference and sign-out error notifications translate at render time, including
+when the language changes while a notification is visible.
+
+Writes use the session authenticated for that request, not the session present
+when the menu was opened. An old tab can therefore save to the currently signed-in
+account; an expired session saves only the anonymous cookie. There is no automatic
+retry or replay. Concurrent writes use last-write-wins behavior. A lost response
+can leave persistence uncertain; repeating the selection is safe.
+
+This phase translates shared navigation, account navigation, language/appearance
+controls and essential shell labels. MUI built-in labels and the shared DateTime
+component use the active UI locale; Event timezone and instant semantics stay
+unchanged. Other feature text and date formatters remain English pending later
+phases. Event content, Snapshot/Template contracts and transactional emails are
+unchanged; no Event.language is introduced. Server-only translated output updates
+on the next server render; immediately switchable labels use client context with
+SSR initial messages. Background translation can receive an explicit locale without
+HTTP context, but current email templates/delivery are not connected to it.
+
+## UI appearance preference
+
+The appearance menu offers light, dark and system modes. Resolution is account
+preference → validated first-party cookie → system. A null account preference
+means no explicit selection. Explicit system mode follows the OS of each current
+device; the resolved light/dark appearance is never saved as a preference.
+Signed-in selections save User.uiMode and the cookie; anonymous selections save
+only the cookie. The client waits for a successful PUT before calling MUI setMode.
+Write failure keeps the current mode and shows a translated retryable notification
+that remains visible after the menu closes and clears when selection is retried.
+Changing appearance preserves URL, scroll, component identity and unsaved forms.
+Initial rendering uses the resolved preference before page content is displayed.
+MUI localStorage is not an authority and old local-only preferences are not imported.
+MUI follows OS changes in system mode without persistence requests. The same
+reload-based freshness and request-time session semantics as language apply.
