@@ -59,5 +59,21 @@
   "onboardingDescription": "Erstelle und verwalte Veranstaltungen auf Event Flow.",
   "browsePublicEvents": "Öffentliche Veranstaltungen entdecken",
   "invalidLink": "Der Bestätigungslink ist ungültig oder abgelaufen.",
-  "requestNewLink": "Neuen Link anfordern"
+  "requestNewLink": "Neuen Link anfordern",
+  "googleContinue": "Mit Google fortfahren",
+  "googleSignUp": "Mit Google registrieren",
+  "orGoogle": "oder",
+  "googleCollision": "Google konnte nicht verknüpft werden. Wenn du bereits ein Konto hast, melde dich wie gewohnt an und verknüpfe Google unter Profil.",
+  "googleCancelled": "Die Google-Anmeldung wurde abgebrochen. Du kannst es erneut versuchen.",
+  "googleFailed": "Die Google-Anmeldung konnte nicht abgeschlossen werden. Wähle das Google-Konto mit derselben E-Mail-Adresse und versuche es erneut.",
+  "loginMethods": "Anmeldemethoden",
+  "googleConnected": "Google ist mit deinem Konto verknüpft.",
+  "googleConnectDescription": "Verknüpfe das Google-Konto mit derselben E-Mail-Adresse, um dich mit Google anzumelden. Dein Profilname und deine E-Mail-Adresse bleiben unverändert.",
+  "googleReauthenticate": "Melde dich ab und erneut an, bevor du die Google-Verknüpfung verwaltest.",
+  "googleLastMethod": "Google ist deine einzige Anmeldemethode und kann nicht getrennt werden.",
+  "googleUnavailable": "Die Google-Anmeldung ist nicht konfiguriert.",
+  "googleDisconnect": "Google trennen",
+  "googleConnect": "Google verknüpfen",
+  "googleDisconnectConfirm": "Google trennen? Du kannst dich weiterhin mit E-Mail und Passwort anmelden.",
+  "cancel": "Abbrechen"
 }

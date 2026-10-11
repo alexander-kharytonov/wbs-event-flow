@@ -71,7 +71,7 @@ settings. `lib/prisma.ts` is the shared server-only client. DATABASE_URL expands
 from the POSTGRES variables in `.env.example`; use a URL-safe local password or
 percent-encode credentials when constructing a URL.
 
-The migration directory contains one migration, `20261011030000_baseline`, replacing the
+The migration history starts with `20261011030000_baseline`, replacing the
 pre-deployment local migration history. It creates the current schema, including
 media, and preserves all 25 custom SQL CHECK constraints alongside Prisma-managed
 keys and indexes. Future schema changes use incremental migrations; do not edit
@@ -159,6 +159,44 @@ Sessions last seven days and refresh after one day through Better Auth endpoints
 server session lookups bypass cookie caching. `/account` supports name editing;
 email is read-only. Organizer activation is a separate **Become an organizer**
 action. Auth or onboarding GET requests do not create OrganizerProfile.
+
+### Google OAuth
+
+Google is optional. Set both `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` for a
+Google OAuth **Web application** client, then restart the server. Neither value
+is exposed in client props; never commit the secret. Leaving both empty preserves
+email/password authentication and hides Google buttons on the auth screens.
+Configuring only one fails environment validation.
+
+Apply `20261011180000_account_provider_identity_unique` with
+`pnpm exec prisma migrate deploy`, then regenerate the client with `pnpm db:generate`.
+It adds PostgreSQL uniqueness for Account `(providerId, accountId)` without
+rewriting the baseline or changing rows. Check for duplicate pairs first; if any
+exist, stop for explicit data-remediation approval. Do not delete or merge them
+automatically. PostgreSQL rejects conflicting concurrent OAuth inserts. With
+Better Auth 1.7.6, the losing manual-link callback returns HTTP 500 on this
+unique conflict; retrying the connection resolves the existing provider identity.
+
+Configure the exact authorized redirect URI in Google Cloud Console:
+`<BETTER_AUTH_URL>/api/auth/callback/google` (for local development,
+`http://localhost:3000/api/auth/callback/google`). Use the canonical origin for
+Google flows so session/state cookies remain on the same host. Configure the
+consent screen and test users while the Google app is in testing; use HTTPS for
+deployment. Only the native identity/profile/email scopes are requested.
+
+Existing email collisions require signing in first and connecting Google from
+`/account/profile`; no automatic merging is enabled. Select a Google account with
+the same email. Profile supports disconnecting Google only while a password login
+remains. A Google-only account cannot disconnect its only login method. Native
+fresh-session failures require signing out and signing in again. The profile image
+loads directly from its URL with initials on failure, without server-side storage.
+
+Acceptance with real credentials must cover new/returning Google users, existing
+verified and unverified email collisions, cancellation/retry, same-email manual
+linking, an identity owned by another User, session expiry/account switches during
+OAuth, unlink protection and email/password regression. Check avatar load failure,
+all five locales and desktop/mobile layouts. Simulated provider checks do not
+establish a real Google consent/callback result.
 
 ## Project documentation
 

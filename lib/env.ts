@@ -11,42 +11,55 @@ const httpOrigin = z.url().refine((value) => {
   );
 }, "Expected an HTTP(S) origin without a trailing slash");
 
-const serverEnvSchema = z.object({
-  NODE_ENV: z
-    .enum(["development", "production", "test"])
-    .default("development"),
-  BETTER_AUTH_URL: httpOrigin,
-  BETTER_AUTH_TRUSTED_ORIGINS: z
-    .string()
-    .default("")
-    .transform((value) => (value.trim() === "" ? [] : value.split(",")))
-    .pipe(z.array(httpOrigin)),
-  BETTER_AUTH_SECRET: z.string().min(32),
-  TICKET_CREDENTIAL_ENCRYPTION_KEY: z
-    .string()
-    .regex(/^[A-Za-z0-9_-]{43}$/)
-    .refine((value) => {
-      const key = Buffer.from(value, "base64url");
+const serverEnvSchema = z
+  .object({
+    NODE_ENV: z
+      .enum(["development", "production", "test"])
+      .default("development"),
+    BETTER_AUTH_URL: httpOrigin,
+    BETTER_AUTH_TRUSTED_ORIGINS: z
+      .string()
+      .default("")
+      .transform((value) => (value.trim() === "" ? [] : value.split(",")))
+      .pipe(z.array(httpOrigin)),
+    BETTER_AUTH_SECRET: z.string().min(32),
+    GOOGLE_CLIENT_ID: z.string().trim().default(""),
+    GOOGLE_CLIENT_SECRET: z.string().trim().default(""),
+    TICKET_CREDENTIAL_ENCRYPTION_KEY: z
+      .string()
+      .regex(/^[A-Za-z0-9_-]{43}$/)
+      .refine((value) => {
+        const key = Buffer.from(value, "base64url");
 
-      return key.length === 32 && key.toString("base64url") === value;
-    }, "Expected 32 random bytes encoded as canonical base64url"),
-  SMTP_HOST: z.string().min(1),
-  SMTP_PORT: z.coerce.number().int().min(1).max(65535),
-  SMTP_FROM: z.email(),
-  DATABASE_URL: z.url().refine((value) => {
-    const url = URL.parse(value);
+        return key.length === 32 && key.toString("base64url") === value;
+      }, "Expected 32 random bytes encoded as canonical base64url"),
+    SMTP_HOST: z.string().min(1),
+    SMTP_PORT: z.coerce.number().int().min(1).max(65535),
+    SMTP_FROM: z.email(),
+    DATABASE_URL: z.url().refine((value) => {
+      const url = URL.parse(value);
 
-    return (
-      url !== null &&
-      ["postgresql:", "postgres:"].includes(url.protocol) &&
-      url.hostname.length > 0 &&
-      url.pathname.length > 1
-    );
-  }, "Expected a PostgreSQL URL with a host and database name"),
-});
+      return (
+        url !== null &&
+        ["postgresql:", "postgres:"].includes(url.protocol) &&
+        url.hostname.length > 0 &&
+        url.pathname.length > 1
+      );
+    }, "Expected a PostgreSQL URL with a host and database name"),
+  })
+  .refine(
+    (value) =>
+      Boolean(value.GOOGLE_CLIENT_ID) === Boolean(value.GOOGLE_CLIENT_SECRET),
+    {
+      path: ["GOOGLE_CLIENT_ID"],
+      message: "Configure both Google OAuth credentials or neither",
+    },
+  );
 
 export function getServerEnv() {
   const result = serverEnvSchema.safeParse({
+    GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
     DATABASE_URL: process.env.DATABASE_URL,
     NODE_ENV: process.env.NODE_ENV,
     BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,

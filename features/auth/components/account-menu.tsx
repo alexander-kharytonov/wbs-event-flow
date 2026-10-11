@@ -6,7 +6,6 @@ import EventAvailableOutlined from "@mui/icons-material/EventAvailableOutlined";
 import Logout from "@mui/icons-material/Logout";
 import PersonOutlined from "@mui/icons-material/PersonOutlined";
 import {
-  Avatar,
   ButtonBase,
   Divider,
   ListItemIcon,
@@ -21,15 +20,18 @@ import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { requestEditorLeave } from "@/components/ui/editor-navigation-guard";
 import { ShellText } from "@/components/ui/shell-text";
+import { AccountAvatar } from "@/features/auth/components/account-avatar";
 import { useNotifications } from "@/hooks/use-notifications";
 import { authClient } from "@/lib/auth-client";
 
 export function AccountMenu({
   name,
+  image,
   organizerProfileId,
   hasAssignedEvents = false,
 }: {
   name: string;
+  image?: string | null;
   organizerProfileId?: string;
   hasAssignedEvents?: boolean;
 }) {
@@ -52,20 +54,6 @@ export function AccountMenu({
   const workspaceHref = hasWorkspace ? "/dashboard" : "/onboarding/organizer";
   const workspaceActive =
     pathname === workspaceHref || pathname.startsWith(`${workspaceHref}/`);
-  const parts = name.trim().split(/\s+/u).filter(Boolean);
-  const initials = [
-    parts[0],
-    ...(parts.length > 1 ? [parts[parts.length - 1]] : []),
-  ]
-    .map((part) => Array.from(part ?? "")[0] ?? "")
-    .join("")
-    .toUpperCase();
-  let colorHash = 0;
-
-  for (const character of initials) {
-    colorHash = (colorHash * 31 + (character.codePointAt(0) ?? 0)) % 360;
-  }
-
   async function signOut(navigate: (action: () => void) => void) {
     setPending(true);
     notifications.close("sign-out");
@@ -122,18 +110,7 @@ export function AccountMenu({
         >
           {name}
         </Typography>
-        <Avatar
-          sx={{
-            width: 36,
-            height: 36,
-            fontSize: 14,
-            fontWeight: 600,
-            bgcolor: `hsl(${colorHash}, 55%, 32%)`,
-            color: "#fff",
-          }}
-        >
-          {initials}
-        </Avatar>
+        <AccountAvatar name={name} image={image} />
       </ButtonBase>
       <Menu
         id={id}

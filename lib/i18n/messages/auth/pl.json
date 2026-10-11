@@ -59,5 +59,21 @@
   "onboardingDescription": "Twórz wydarzenia i zarządzaj nimi w Event Flow.",
   "browsePublicEvents": "Przeglądaj publiczne wydarzenia",
   "invalidLink": "Link weryfikacyjny jest nieprawidłowy lub wygasł.",
-  "requestNewLink": "Zamów nowy link"
+  "requestNewLink": "Zamów nowy link",
+  "googleContinue": "Kontynuuj z Google",
+  "googleSignUp": "Zarejestruj się przez Google",
+  "orGoogle": "lub",
+  "googleCollision": "Nie udało się połączyć Google. Jeśli masz już konto, zaloguj się dotychczasową metodą i połącz Google w Profilu.",
+  "googleCancelled": "Logowanie przez Google zostało anulowane. Możesz spróbować ponownie.",
+  "googleFailed": "Nie udało się ukończyć logowania przez Google. Wybierz konto Google z tym samym adresem e-mail i spróbuj ponownie.",
+  "loginMethods": "Metody logowania",
+  "googleConnected": "Google jest połączone z Twoim kontem.",
+  "googleConnectDescription": "Połącz konto Google z tym samym adresem e-mail, aby logować się przez Google. Twoja nazwa profilu i adres e-mail pozostaną bez zmian.",
+  "googleReauthenticate": "Wyloguj się i zaloguj ponownie, zanim zmienisz połączenie z Google.",
+  "googleLastMethod": "Google to Twoja jedyna metoda logowania i nie można jej odłączyć.",
+  "googleUnavailable": "Logowanie przez Google nie jest skonfigurowane.",
+  "googleDisconnect": "Odłącz Google",
+  "googleConnect": "Połącz Google",
+  "googleDisconnectConfirm": "Odłączyć Google? Nadal będzie można logować się adresem e-mail i hasłem.",
+  "cancel": "Anuluj"
 }

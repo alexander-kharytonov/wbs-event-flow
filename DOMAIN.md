@@ -8,6 +8,43 @@ invariant must update this document with its implementation.
 
 ## 1. Identity
 
+Google uses Better Auth's native provider, authorization-code callback, state,
+PKCE, provider identity and account-linking endpoints. `User` remains the domain
+identity; the existing Account and User.image fields hold OAuth data.
+PostgreSQL enforces unique `(providerId, accountId)` through
+`account_providerId_accountId_key`. This is the final authority for concurrent
+OAuth callbacks, including attempts in different sessions. A conflicting insert
+is rejected; it never creates a second provider identity. No application locks or
+custom OAuth synchronization are used. The incremental migration adds only this
+index; existing duplicates must be reviewed explicitly before any data changes.
+Better Auth 1.7.6 surfaces a losing manual-link insert as HTTP 500; retrying the
+native link resolves the existing account. The uniqueness guarantee does not
+require both racing requests to report success.
+`disableImplicitLinking` prevents email-only OAuth account merging, including
+verified-email collisions. Explicit linking requires the verified local session,
+the initiating UI's User identity, and the same verified Google email. Better Auth
+rejects provider identities bound to another User. The native validation hook
+rechecks the current verified session against the state-bound linking User at
+callback time, rejecting sign-out, expiry and account switches before validation.
+Native origin/state/redirect checks remain enabled; app callbacks use safe local
+paths. No custom OAuth protocol or email-based ownership resolver is used.
+
+Only Google Account rows may be unlinked, and only if a credential Account with a
+nonempty password remains for the verified User. Native fresh-session and last-account
+guards also apply. Credential unlink requests are rejected, so competing unlink
+requests cannot remove each other's remaining method. No password deletion or
+additional providers are enabled. Linking/unlinking does not grant OrganizerProfile,
+change RBAC, or revoke unrelated sessions. A session revocation racing after a
+successful authorization check has the same in-flight request limitation as other
+session-authorized mutations.
+
+Native profile synchronization on explicit linking is narrowed by the User update
+hook to the Google image only; name is excluded from the adapter update. Existing
+email, verification, preferences and domain data are not overwritten. New Google
+accounts receive the native profile name and image. Images load directly in the
+browser with no-referrer and fall back to initials on load failure; no image proxy,
+upload or storage is added. The image URL is retained after disconnection.
+
 Email verification uses a single current, one-use delivery token per User in
 the existing Verification table, addressed by the exact namespaced identifier
 `event-flow:email-verification:<userId>`, with an independent row ID.

@@ -1,5 +1,6 @@
 "use client";
 
+import Google from "@mui/icons-material/Google";
 import VisibilityOffOutlined from "@mui/icons-material/VisibilityOffOutlined";
 import VisibilityOutlined from "@mui/icons-material/VisibilityOutlined";
 import {
@@ -16,7 +17,7 @@ import {
 } from "@mui/material";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { BackLink } from "@/components/ui/back-link";
 import {
@@ -34,12 +35,18 @@ export function AuthForm({
   mode,
   notice,
   returnTo,
+  googleEnabled = false,
+  oauthError,
 }: {
   mode: "register" | "sign-in";
   notice?: "signInNotice";
   returnTo?: string;
+  googleEnabled?: boolean;
+  oauthError?: string;
 }) {
   const t = useTranslations("auth");
+  const [googlePending, setGooglePending] = useState(false);
+  const [googleFailed, setGoogleFailed] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [pending, setPending] = useState(false);
   const [email, setEmail] = useState("");
@@ -56,6 +63,44 @@ export function AuthForm({
   const signInHref = `/sign-in${authQuery}`;
   const registerHref = `/register${authQuery}`;
   const callbackURL = safeReturnTo ?? "/account";
+
+  useEffect(() => {
+    const restore = () => {
+      setGooglePending(false);
+      requestInFlight.current = false;
+    };
+    window.addEventListener("pageshow", restore);
+
+    return () => window.removeEventListener("pageshow", restore);
+  }, []);
+
+  async function continueWithGoogle() {
+    if (requestInFlight.current) {
+      return;
+    }
+
+    requestInFlight.current = true;
+    setGooglePending(true);
+    setGoogleFailed(false);
+
+    try {
+      const result = await authClient.signIn.social({
+        provider: "google",
+        callbackURL,
+        errorCallbackURL: registering ? registerHref : signInHref,
+      });
+
+      if (result.error) {
+        setGoogleFailed(true);
+        setGooglePending(false);
+        requestInFlight.current = false;
+      }
+    } catch {
+      setGoogleFailed(true);
+      setGooglePending(false);
+      requestInFlight.current = false;
+    }
+  }
 
   function showVerification(address: string, deliveryFailed = false) {
     rememberVerificationEmail(address);
@@ -198,7 +243,7 @@ export function AuthForm({
               <TextField
                 label={t("name")}
                 value={name}
-                disabled={pending}
+                disabled={pending || googlePending}
                 {...feedback.field("name")}
                 onChange={(event) => {
                   setName(event.target.value);
@@ -219,7 +264,7 @@ export function AuthForm({
                 setEmail(event.target.value);
                 feedback.clear("email");
               }}
-              disabled={pending}
+              disabled={pending || googlePending}
               {...feedback.field("email")}
               autoComplete="email"
               required
@@ -228,7 +273,7 @@ export function AuthForm({
             <TextField
               label={t("password")}
               value={password}
-              disabled={pending}
+              disabled={pending || googlePending}
               error={Boolean(feedback.errors.password)}
               onChange={(event) => {
                 setPassword(event.target.value);
@@ -277,7 +322,11 @@ export function AuthForm({
               variant="contained"
               loading={pending}
               disabled={
-                !email.trim() || !password || (registering && !name.trim())
+                pending ||
+                googlePending ||
+                !email.trim() ||
+                !password ||
+                (registering && !name.trim())
               }
             >
               {pending
@@ -292,13 +341,36 @@ export function AuthForm({
               </Typography>
             )}
           </Stack>
+          {googleEnabled && <Divider>{t("orGoogle")}</Divider>}
+          {(oauthError || googleFailed) && (
+            <Alert severity="error">
+              {t(
+                oauthError === "account_not_linked"
+                  ? "googleCollision"
+                  : oauthError === "access_denied"
+                    ? "googleCancelled"
+                    : "googleFailed",
+              )}
+            </Alert>
+          )}
+          {googleEnabled && (
+            <Button
+              variant="outlined"
+              startIcon={<Google />}
+              loading={googlePending}
+              disabled={pending || googlePending}
+              onClick={() => void continueWithGoogle()}
+            >
+              {t(registering ? "googleSignUp" : "googleContinue")}
+            </Button>
+          )}
           <Divider />
           <Typography
             variant="body2"
             color="text.secondary"
             sx={{ textAlign: "center" }}
           >
-            {registering ? t("alreadyAccount") : t("newToEventFlow")}
+            {registering ? t("alreadyAccount") : t("newToEventFlow")}{" "}
             <Link href={registering ? signInHref : registerHref}>
               {registering ? t("signIn") : t("createAccount")}
             </Link>
