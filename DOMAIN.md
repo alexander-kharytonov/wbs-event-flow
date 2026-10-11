@@ -2070,12 +2070,16 @@ for the published schedule. No cross-request publication cache is introduced.
 
 EventGuestView and EventRichContent render already authorized data. OWNER Preview
 continues to build a workspace V3 snapshot; the public route reads only publication.
+OWNER Preview separates Landing and Registration into tabs. The shared registration
+form runs in read-only preview mode without a submission action or revision binding.
 Callers prepare their separate OWNER/public cover URLs. The shared image component
 receives only URL/alt/dimension props, uses actual deduplicated variant widths and
 reserves its layout for errors. No storage locator or new media authority is exposed.
 Schedule grouping uses local calendar days in snapshot.timezone; output retains
-array order, equal timestamps and exact datetime attributes, with offsets on local
-times. Location and organizer are the existing explicit public snapshot fields.
+array order, equal timestamps and exact datetime attributes. Agenda labels show
+local hours and minutes; the timezone appears once above the schedule instead of
+repeating UTC offsets. Repeated wall-clock times at a DST transition retain their
+distinct instants and original order, without an offset in the visible label. Location and organizer are the existing explicit public snapshot fields.
 
 Metadata description reads text nodes from the same restricted react-markdown
 output as presentation, excluding HTML/images and link destinations, then normalizes
@@ -2101,3 +2105,28 @@ override or suppression of Next.js errors is required.
 Page and metadata keep their own guards too; the layout is not an access-control
 replacement. Existing registration rendering/actions, historical form authority,
 capacity/admission rules, media lifecycle and all operational features are unchanged.
+
+### Public registration route separation
+
+`/e/[publicId]` is the discovery/reading surface; `/e/[publicId]/register` is the
+focused application surface. Both use the shared server-only PublicEventExperience
+and current validated published reader. The existing parent publication guard and
+page/metadata guards apply to direct registration requests as well. No unpublished
+workspace content is used, and the registration route is noindex/nofollow.
+
+Presentation separation adds no admission policy. Linked personal status still
+uses verified session userId, never an email match. Owner, lifecycle, registration
+window, capacity, account requirements, withdrawal and reapplication retain the
+same guards. Authentication returns to the registration route. Form submissions
+still bind the opened eventRevisionId and call the unchanged submitApplication
+Server Action; the transaction rechecks current policy and historical answer
+meaning as described in sections 6–13. No persistence or historical data changes.
+
+The registration client freezes the opened revision and field definitions together
+for its mounted lifetime. Its key identifies the event, verified user (or anonymous
+context), and withdrawn attempt, not the publication revision. Current server
+publication and eligibility guards remain outside that frozen state: denial removes
+the form, and identity/attempt changes replace it. A revision update offers an
+explicit full-page restart; no answers are persisted outside the component. Ordinary
+submission retains historical binding. Reapplication still requires the current
+revision and must restart after a publication change.

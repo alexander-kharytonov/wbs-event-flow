@@ -229,7 +229,7 @@ export default async function RegistrationDetailPage({
           </Stack>
         </Paper>
         {current.admission?.ticket && (
-          <TicketCard ticket={current.admission.ticket} />
+          <TicketCard ticket={current.admission.ticket} background="default" />
         )}
         {current.admission && !current.admission.ticket && (
           <RegistrationAdmission
@@ -304,7 +304,10 @@ export default async function RegistrationDetailPage({
                       <AttemptAnswers attempt={attempt} />
                     </Stack>
                     {attempt.admission?.ticket && (
-                      <TicketCard ticket={attempt.admission.ticket} />
+                      <TicketCard
+                        ticket={attempt.admission.ticket}
+                        background="default"
+                      />
                     )}
                     {attempt.admission && !attempt.admission.ticket && (
                       <RegistrationAdmission

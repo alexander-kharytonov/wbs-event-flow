@@ -2,31 +2,27 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { PublicEventExperience } from "@/features/events/components/public-event-experience";
-import { publicEventMetadata } from "@/features/events/public-event-metadata";
 import { getPublishedEvent } from "@/features/events/server/get-published-event";
-import { getServerEnv } from "@/lib/env";
 
 type Props = { params: Promise<{ publicId: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   await connection();
   const { publicId } = await params;
-  const published = await getPublishedEvent(publicId);
 
-  if (!published) {
+  if (!(await getPublishedEvent(publicId))) {
     notFound();
   }
 
-  return publicEventMetadata(
-    published,
-    publicId,
-    getServerEnv().BETTER_AUTH_URL,
-  );
+  return {
+    title: "Event registration",
+    robots: { index: false, follow: false },
+  };
 }
 
-export default async function PublicEventPage({ params }: Props) {
+export default async function EventRegistrationPage({ params }: Props) {
   await connection();
   const { publicId } = await params;
 
-  return <PublicEventExperience publicId={publicId} />;
+  return <PublicEventExperience publicId={publicId} registration />;
 }
