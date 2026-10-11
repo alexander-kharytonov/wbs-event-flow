@@ -17,8 +17,7 @@ const prisma =
     }),
   });
 
-if (env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
-}
+// Instrumentation, route handlers and SSR bundles must share the same pool.
+globalForPrisma.prisma = prisma;
 
 export { prisma };

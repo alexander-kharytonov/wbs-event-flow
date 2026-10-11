@@ -5,7 +5,7 @@ import {
   hkdfSync,
   randomBytes,
 } from "node:crypto";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { z } from "zod";
 import { getServerEnv, getTrustedAppOrigins } from "@/lib/env";
 import { isTicketSecret } from "@/lib/ticket-crypto";
@@ -116,10 +116,18 @@ export function openTicketSession(
 }
 
 export async function readTicketSession(ticketId: string) {
-  const values = (await cookies()).getAll(ticketSessionCookie());
+  const name = ticketSessionCookie();
+  const cookieHeader = (await headers()).get("cookie") ?? "";
+  // Next.js collapses duplicate names before exposing cookies().
+  const matches = cookieHeader
+    .split(";")
+    .filter((cookie) => cookie.split("=", 1)[0].trim() === name);
 
-  // Reject ambiguous cookies rather than trusting browser ordering.
-  return values.length === 1
-    ? openTicketSession(values[0].value, ticketId)
-    : null;
+  if (matches.length !== 1) {
+    return null;
+  }
+
+  const cookie = (await cookies()).get(name);
+
+  return cookie ? openTicketSession(cookie.value, ticketId) : null;
 }
