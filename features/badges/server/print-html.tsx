@@ -1,11 +1,12 @@
 import "server-only";
 import { getLocale, getTranslations } from "next-intl/server";
 import { renderToReadableStream } from "react-dom/server.edge";
+import { createTranslator } from "use-intl/core";
 import { badgeLabels } from "@/features/badges/components/badge";
 import { BadgePrintPages } from "@/features/badges/components/print-pages";
 import { nextBadgeBatchUrl } from "@/features/badges/print-request";
 import type { BulkBadgeResult } from "@/features/badges/server/bulk";
-import type { Messages } from "@/lib/i18n/messages";
+import { loadMessages, type Messages } from "@/lib/i18n/messages";
 
 export const badgePrintHeaders = {
   "Content-Type": "text/html; charset=utf-8",
@@ -22,6 +23,16 @@ export async function badgeHtmlResponse(
 ) {
   const t = await getTranslations("events");
   const locale = await getLocale();
+  const printLabels =
+    "error" in result
+      ? null
+      : badgeLabels(
+          createTranslator({
+            locale: result.language,
+            messages: await loadMessages(result.language),
+            namespace: "events",
+          }),
+        );
   const stream = await renderToReadableStream(
     <html lang={locale}>
       {/* biome-ignore lint/style/noHeadElement: standalone Route Handler HTML, not a Next page */}
@@ -73,11 +84,13 @@ export async function badgeHtmlResponse(
               {t("printRefresh")}{" "}
             </a>
           </div>
-          {!("error" in result) && (
-            <BadgePrintPages
-              badges={result.presentations}
-              labels={badgeLabels(t)}
-            />
+          {!("error" in result) && printLabels && (
+            <div lang={result.language}>
+              <BadgePrintPages
+                badges={result.presentations}
+                labels={printLabels}
+              />
+            </div>
           )}
         </main>
         {!("error" in result) && <script src="/badge-print.js" defer />}

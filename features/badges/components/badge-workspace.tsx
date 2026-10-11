@@ -10,7 +10,7 @@ import {
   badgeLayoutSchema,
   validBadgeBindings,
 } from "@/features/badges/badge-layout";
-import { Badge, badgeLabels } from "@/features/badges/components/badge";
+import { Badge } from "@/features/badges/components/badge";
 import { BadgeLayoutControls } from "@/features/badges/components/badge-layout-controls";
 import { badgeCss } from "@/features/badges/components/badge-styles";
 import type { buildBadgePresentation } from "@/features/badges/server/badges";
@@ -231,6 +231,7 @@ export function BadgeWorkspace({
                 }}
               >
                 <Box
+                  lang={preview.language}
                   sx={{
                     width: widthPx,
                     height: heightPx,
@@ -240,17 +241,7 @@ export function BadgeWorkspace({
                   }}
                 >
                   <style>{badgeCss}</style>
-                  <Badge
-                    badge={
-                      preview.attendeeId
-                        ? preview.presentation
-                        : {
-                            ...preview.presentation,
-                            name: t("badgeNamePlaceholder"),
-                          }
-                    }
-                    labels={badgeLabels(t)}
-                  />
+                  <Badge badge={preview.presentation} labels={preview.labels} />
                 </Box>
               </Box>
             </Box>

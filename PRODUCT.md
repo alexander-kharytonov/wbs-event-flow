@@ -1162,8 +1162,9 @@ translated. Questions, option labels, Event descriptions, cancellation reasons,
 manual message subjects/bodies and other authored content retain their language.
 
 Technical identifiers, template/CSV field names, ticket numbers, QR payloads and
-email/template content are not localized. Badge print documents use the request UI
-locale, preserving their saved design, authorization and admission snapshot.
+email/template content are not localized. Badge preview and printed labels use the current Event language, read with its operational
+name and saved design in the authorized snapshot. Print controls and errors retain
+the operator UI locale. Authored names/answers and admission credentials are unchanged.
 Localized metadata is resolved on the server; it updates on the next server render.
 UI acceptance must still exercise authenticated organizer workflows and populated
 historical/attendance/communication states in all five locales.

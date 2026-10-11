@@ -81,7 +81,10 @@ export function DateTime({ date, endDate, timezone, inverse = false }: Props) {
       </Box>
       <Stack spacing={0.25} sx={{ minWidth: 0, overflowWrap: "anywhere" }}>
         <Typography component="div" sx={{ fontWeight: 600 }}>
-          <time dateTime={start.toISOString()}>{startLabel}</time>
+          <time dateTime={start.toISOString()}>
+            {startLabel.charAt(0).toLocaleUpperCase(locale) +
+              startLabel.slice(1)}
+          </time>
         </Typography>
         <Typography
           component="div"

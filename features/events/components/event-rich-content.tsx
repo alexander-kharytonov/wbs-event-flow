@@ -77,7 +77,7 @@ export function EventRichContent({ snapshot }: { snapshot: EventSnapshot }) {
           {[...days].map(([day, entries]) => (
             <Stack key={day} spacing={1.5}>
               <Typography component="h3" variant="subtitle1">
-                {day}
+                {day.charAt(0).toLocaleUpperCase(locale) + day.slice(1)}
               </Typography>
               <Timeline sx={{ p: 0, m: 0 }}>
                 {entries.map(({ entry, index }, position) => (

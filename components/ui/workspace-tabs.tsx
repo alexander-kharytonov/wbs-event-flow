@@ -37,6 +37,7 @@ export function WorkspaceTabs({
           pl: 3,
           py: 2,
           justifyContent: "flex-start",
+          textAlign: "left",
           textTransform: "none",
         },
         "& .MuiTab-root.Mui-selected": {

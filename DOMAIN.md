@@ -1012,6 +1012,9 @@ Badge has no persistent entity, issuance, credential or print history. Its prese
 is derived from Attendee, Event operational layout, available active Ticket and, only
 for PRIMARY, submitted Application answers. Printing does not write Attendance or
 change admission. Guest answers are never inferred from their Registration PRIMARY.
+Badge preview and printed presentation labels use Event.language from the same authorized transaction
+as the operational title/layout, independently of the operator UI locale. This does
+not translate authored names/answers or change historical answer authority.
 
 Event.badgeLayout is nullable JSON: SQL null means the current built-in default,
 including paddingMm=10. Explicitly saved layouts retain their existing padding.

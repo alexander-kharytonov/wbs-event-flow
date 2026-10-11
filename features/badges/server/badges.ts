@@ -1,4 +1,5 @@
 import "server-only";
+import { createTranslator } from "use-intl/core";
 import { z } from "zod";
 import {
   type BadgeField,
@@ -15,6 +16,7 @@ import {
   type BadgePresentation,
   badgeText,
 } from "@/features/badges/badge-presentation";
+import { badgeLabels } from "@/features/badges/components/badge";
 import { resolveBadgeField } from "@/features/badges/server/historical-field";
 import { canPrintIndividualBadge } from "@/features/badges/server/individual-print-eligibility";
 import { writeBadgeLayout } from "@/features/badges/server/write-badge-layout";
@@ -29,6 +31,7 @@ import {
   ticketQrDataUrl,
 } from "@/features/tickets/server/ticket-display";
 import type { Prisma } from "@/generated/prisma/client";
+import { loadMessages } from "@/lib/i18n/messages";
 import { prisma } from "@/lib/prisma";
 
 const selectorSchema = z.strictObject({
@@ -169,7 +172,13 @@ export async function buildBadgePresentation(
 
       const event = await tx.event.findUniqueOrThrow({
         where: { id: eventId },
-        select: { id: true, title: true, cancelledAt: true, badgeLayout: true },
+        select: {
+          id: true,
+          title: true,
+          language: true,
+          cancelledAt: true,
+          badgeLayout: true,
+        },
       });
       const parsed =
         options.draftLayout === undefined
@@ -225,9 +234,14 @@ export async function buildBadgePresentation(
         return null;
       }
 
+      const t = createTranslator({
+        locale: event.language,
+        messages: await loadMessages(event.language),
+        namespace: "events",
+      });
       const presentation: BadgePresentation = attendeeBadgePresentation(
         layout,
-        person ?? { name: "Attendee name", kind: "PRIMARY" },
+        person ?? { name: t("badgeNamePlaceholder"), kind: "PRIMARY" },
         event.title,
       );
       presentation.qrPlaceholder = options.mode === "PREVIEW" && layout.showQr;
@@ -350,6 +364,8 @@ export async function buildBadgePresentation(
 
       return {
         presentation,
+        language: event.language,
+        labels: badgeLabels(t),
         attendeeId: person?.id ?? null,
         canPrint,
         // Reception gets neither config references nor catalog/issues about Applications.

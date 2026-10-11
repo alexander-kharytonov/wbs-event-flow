@@ -19,7 +19,11 @@ export async function GET(
   }
 
   return badgeHtmlResponse(
-    { presentations: [result.presentation], nextCursor: null },
+    {
+      language: result.language,
+      presentations: [result.presentation],
+      nextCursor: null,
+    },
     selector.eventId,
   );
 }

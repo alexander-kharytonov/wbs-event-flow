@@ -21,6 +21,7 @@ import {
   ticketDisplaySelect,
   ticketQrDataUrl,
 } from "@/features/tickets/server/ticket-display";
+import type { UiLocale } from "@/lib/i18n/locale";
 import { prisma } from "@/lib/prisma";
 
 export const selectedUnavailable = "printSelectionUnavailable";
@@ -130,7 +131,11 @@ export async function readBadgeWorkspace(
 
 export type BulkBadgeResult =
   | { error: string }
-  | { presentations: BadgePresentation[]; nextCursor: BadgeCursor | null };
+  | {
+      language: UiLocale;
+      presentations: BadgePresentation[];
+      nextCursor: BadgeCursor | null;
+    };
 
 export async function buildBulkBadgeDocument(
   actor: { userId: string },
@@ -161,7 +166,12 @@ export async function buildBulkBadgeDocument(
 
       const event = await tx.event.findUniqueOrThrow({
         where: { id: eventId },
-        select: { title: true, badgeLayout: true, cancelledAt: true },
+        select: {
+          title: true,
+          language: true,
+          badgeLayout: true,
+          cancelledAt: true,
+        },
       });
       const saved = readBadgeLayout(event.badgeLayout);
 
@@ -381,5 +391,9 @@ export async function buildBulkBadgeDocument(
     return { error: unavailable };
   }
 
-  return { presentations, nextCursor: snapshot.nextCursor ?? null };
+  return {
+    language: event.language,
+    presentations,
+    nextCursor: snapshot.nextCursor ?? null,
+  };
 }
