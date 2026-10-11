@@ -55,7 +55,14 @@ pnpm dev
 There are no backfill, cutover or seed steps. Create users and Events through the UI.
 
 Open the configured `BETTER_AUTH_URL`, initially `http://localhost:3000`, and use
-that origin consistently for authentication. Prisma's generated client lives in
+that origin for authentication. To also use another address, set
+`BETTER_AUTH_TRUSTED_ORIGINS` to a comma-separated list of additional exact HTTP(S)
+origins (no paths, wildcards or trailing slashes), then restart the server. For
+phone and laptop testing, use the LAN IP in `BETTER_AUTH_URL` and
+`BETTER_AUTH_TRUSTED_ORIGINS=http://localhost:3000`. Better Auth and the theme/locale
+APIs accept both. Email/public links keep the canonical `BETTER_AUTH_URL`; cookies
+and sign-in sessions remain separate per hostname. `allowedDevOrigins` in Next.js
+is an independent development-server setting. Prisma's generated client lives in
 ignored `generated/prisma/`; generate it after installing or changing the schema.
 Restart a running Next.js server after client regeneration/schema changes.
 
@@ -286,7 +293,7 @@ Apply the baseline using `pnpm exec prisma migrate deploy`, generate the client
 with `pnpm db:generate`, and restart the server after schema/client changes.
 
 - Request configuration: `lib/i18n/request.ts` (account → cookie → browser → en).
-- Dictionaries: `lib/i18n/messages/{shell,locale,validation,auth,events,landing}/{en,de,pl,uk,ru}.json`.
+- Dictionaries: `lib/i18n/messages/{shell,locale,validation,auth,events,landing,email}/{en,de,pl,uk,ru}.json`.
   English is merged per key before rendering. Add new features to the loader.
 - Server: `await getTranslations("shell")`; Client: `useTranslations("shell")`.
   Use a client consumer for text that must change immediately without refreshing
@@ -299,7 +306,7 @@ with `pnpm db:generate`, and restart the server after schema/client changes.
 - Dates: `useFormatter` / `getFormatter`, always supplying Event timezone for
   Event instants. Never reinterpret stored dates when changing UI language.
 - Background work: `createBackgroundTranslator(explicitPreference)` works without
-  a request. Do not wire it into emails until email localization is separately scoped.
+  a request. Email rendering uses it with each delivery’s frozen recipient locale (I18N-D).
 
 Optional native build scripts introduced transitively by next-intl (`@swc/core`
 and `@parcel/watcher`) are disabled; the application uses neither optional feature.

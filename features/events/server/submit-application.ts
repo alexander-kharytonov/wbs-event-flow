@@ -14,6 +14,7 @@ import { lockEventForUpdate } from "@/features/events/server/lock-event-for-upda
 import { Prisma } from "@/generated/prisma/client";
 import { emailEventSnapshot } from "@/lib/email-outbox/enqueue";
 import { transactionalEmailSubjects } from "@/lib/email-outbox/payload";
+import { recipientEmailLocale } from "@/lib/i18n/email-locale";
 import { prisma } from "@/lib/prisma";
 import { notifyApplicationChanged } from "@/lib/realtime/application-notifications";
 import { getSession } from "@/lib/session";
@@ -167,7 +168,10 @@ export async function submitEventApplication(
             where: { id: revision.eventId, publicId },
             select: {
               organizer: {
-                select: { userId: true, user: { select: { email: true } } },
+                select: {
+                  userId: true,
+                  user: { select: { email: true, uiLocale: true } },
+                },
               },
               publishedRevision: { select: { id: true, snapshot: true } },
             },
@@ -237,6 +241,12 @@ export async function submitEventApplication(
           const currentSnapshot = eventSnapshotSchema.parse(
             currentEvent?.publishedRevision?.snapshot,
           );
+          const recipient = user
+            ? await tx.user.findUniqueOrThrow({
+                where: { id: user.id },
+                select: { uiLocale: true },
+              })
+            : null;
           const emailEvent = emailEventSnapshot(currentSnapshot, publicId);
           // Public/applicant flow never exposes the applicant as a history actor.
           const actor = {
@@ -262,6 +272,7 @@ export async function submitEventApplication(
                 deduplicationKey: `${application.id}:APPLICATION_RECEIVED`,
                 payload: {
                   schemaVersion: 1,
+                  locale: recipientEmailLocale(recipient, revision.snapshot),
                   applicantName: fullName,
                   event: emailEvent,
                   linkedApplicant: user !== null,
@@ -287,6 +298,10 @@ export async function submitEventApplication(
                 deduplicationKey: `${application.id}:NEW_APPLICATION`,
                 payload: {
                   schemaVersion: 1,
+                  locale: recipientEmailLocale(
+                    currentEvent.organizer.user,
+                    null,
+                  ),
                   applicantName: fullName,
                   event: emailEvent,
                   eventId: revision.eventId,

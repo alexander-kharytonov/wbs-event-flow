@@ -1,4 +1,11 @@
 import { z } from "zod";
+import { locales } from "@/lib/i18n/locale";
+import english from "@/lib/i18n/messages/email/en.json";
+
+// Absent on already queued deliveries; new writers always freeze a locale.
+const locale = z.enum(locales).optional();
+
+export const manualEmailPayload = z.strictObject({ locale });
 
 // Frozen email contracts, independent of future event authoring rules.
 const title = z.string().min(1).max(200);
@@ -20,6 +27,7 @@ const event = z.strictObject({
 });
 
 export const applicationReceivedPayload = z.strictObject({
+  locale,
   schemaVersion: z.literal(1),
   applicantName: z.string().min(1),
   event,
@@ -27,6 +35,7 @@ export const applicationReceivedPayload = z.strictObject({
 });
 
 export const newApplicationPayload = z.strictObject({
+  locale,
   schemaVersion: z.literal(1),
   applicantName: z.string().min(1),
   event,
@@ -35,6 +44,7 @@ export const newApplicationPayload = z.strictObject({
 
 // The approval writer always creates the ticket-backed V2 payload.
 export const applicationApprovedPayload = z.strictObject({
+  locale,
   schemaVersion: z.literal(2),
   applicantName: z.string().min(1),
   event,
@@ -44,6 +54,7 @@ export const applicationApprovedPayload = z.strictObject({
 // Rejection must not depend on a current publication or usable public link.
 // Even a damaged historical snapshot cannot introduce a new Reject guard.
 export const applicationRejectedPayload = z.strictObject({
+  locale,
   schemaVersion: z.literal(1),
   applicantName: z.string(),
   eventTitle: title.optional(),
@@ -51,6 +62,7 @@ export const applicationRejectedPayload = z.strictObject({
 });
 
 export const eventCancelledPayload = z.strictObject({
+  locale,
   schemaVersion: z.literal(1),
   applicantName: z.string().min(1),
   event: event.omit({ publicId: true }),
@@ -69,7 +81,6 @@ export const emailPayloadSchemas = {
 export function rejectionEventTitle(snapshot: unknown) {
   const parsed = z
     .object({
-      schemaVersion: z.literal(3),
       title,
     })
     .safeParse(snapshot);
@@ -77,11 +88,11 @@ export function rejectionEventTitle(snapshot: unknown) {
   return parsed.success ? parsed.data.title : undefined;
 }
 
-// Shared with Communication history; rendering remains the content authority.
+// Stable English history labels. Recipient subjects come from email dictionaries.
 export const transactionalEmailSubjects = {
-  APPLICATION_RECEIVED: "We received your application",
-  NEW_APPLICATION: "A new application for your event",
-  APPLICATION_APPROVED: "Your application is approved",
-  APPLICATION_REJECTED: "An update on your application",
-  EVENT_CANCELLED: "Event cancelled",
+  APPLICATION_RECEIVED: english.receivedSubject,
+  NEW_APPLICATION: english.organizerSubject,
+  APPLICATION_APPROVED: english.approvedSubject,
+  APPLICATION_REJECTED: english.rejectedSubject,
+  EVENT_CANCELLED: english.cancelledSubject,
 } as const;

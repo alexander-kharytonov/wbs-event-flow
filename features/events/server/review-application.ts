@@ -12,6 +12,7 @@ import {
   rejectionEventTitle,
   transactionalEmailSubjects,
 } from "@/lib/email-outbox/payload";
+import { recipientEmailLocale } from "@/lib/i18n/email-locale";
 import type { Messages } from "@/lib/i18n/messages";
 import { prisma } from "@/lib/prisma";
 import { notifyApplicationChanged } from "@/lib/realtime/application-notifications";
@@ -80,6 +81,7 @@ export async function reviewEventApplication(
             status: true,
             updatedAt: true,
             userId: true,
+            user: { select: { uiLocale: true } },
             email: true,
             fullName: true,
             eventRevision: { select: { snapshot: true } },
@@ -150,6 +152,10 @@ export async function reviewEventApplication(
           );
         }
 
+        const locale = recipientEmailLocale(
+          application.user,
+          application.eventRevision.snapshot,
+        );
         const actor = await captureCommunicationActor(tx, access);
 
         if (decision === "REJECTED") {
@@ -173,6 +179,7 @@ export async function reviewEventApplication(
                 recipientEmail: application.email,
                 deduplicationKey: `${applicationId}:APPLICATION_REJECTED`,
                 payload: {
+                  locale,
                   schemaVersion: 1,
                   applicantName: application.fullName,
                   ...(eventTitle ? { eventTitle } : {}),
@@ -227,6 +234,7 @@ export async function reviewEventApplication(
                 recipientEmail: application.email,
                 deduplicationKey: `${applicationId}:APPLICATION_APPROVED`,
                 payload: {
+                  locale,
                   schemaVersion: 2,
                   ticketId: ticket.id,
                   applicantName: application.fullName,
