@@ -23,7 +23,8 @@ motion disables these animations. No business data is created by the landing pag
 
 ## Identity
 
-An Event Flow account uses email and password with email verification. A User is
+An Event Flow account uses email and password with email verification, or Google
+with a verified Google email when OAuth is configured. A User is
 a neutral identity and can apply to events without becoming an organizer.
 Organizer access is activated explicitly through **Become an organizer**. Signing
 up, signing in, or visiting the organizer onboarding page does not activate it.
@@ -154,7 +155,20 @@ dates, admission grant/revocation context, and answers from each attempt's submi
 is unavailable, the detail remains readable using safe submitted event context,
 without unpublished workspace content or a View event action.
 
-Account registration leads to `/verify-email`. Only the latest successfully sent
+Google is available on Sign In and Registration when configured. Matching email
+addresses never merge accounts automatically: sign in using the existing login
+method, then explicitly connect Google in Profile. Linking requires a verified
+session and a Google account with the same email; an identity already linked to
+another User is rejected. Cancelling or failing OAuth shows retryable feedback.
+Profile shows Google connection status and allows confirmed disconnection only
+when an email/password login remains. Google-only users cannot disconnect their
+only login method; adding a password is outside this scope. Stale sessions require
+signing out and signing in again. Connecting Google uses the shared unsaved-edit
+confirmation before leaving Profile. Google may supply the avatar, displayed with
+an initials fallback if unavailable; linking preserves the user's name and email.
+No image uploads or image storage are introduced.
+
+Email/password account registration leads to `/verify-email`. Only the latest successfully sent
 verification link is accepted; it is single-use and expires after one hour.
 An email delivery failure preserves the previous link. Successful
 verification signs the user in. Successful sign-in or verification returns to a

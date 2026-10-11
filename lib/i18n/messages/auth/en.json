@@ -59,5 +59,21 @@
   "onboardingDescription": "Create and manage events on Event Flow.",
   "browsePublicEvents": "Browse public events",
   "invalidLink": "The verification link is invalid or expired.",
-  "requestNewLink": "Request a new link"
+  "requestNewLink": "Request a new link",
+  "googleContinue": "Continue with Google",
+  "googleSignUp": "Sign up with Google",
+  "orGoogle": "or",
+  "googleCollision": "Google could not be connected. If you already have an account, sign in with your existing method and connect Google in Profile.",
+  "googleCancelled": "Google authentication was cancelled. You can try again.",
+  "googleFailed": "Unable to complete Google authentication. Check that you selected the Google account with the same email, then try again.",
+  "loginMethods": "Login methods",
+  "googleConnected": "Google is connected to your account.",
+  "googleConnectDescription": "Connect the Google account with the same email to sign in with Google. Your profile name and email will stay the same.",
+  "googleReauthenticate": "Sign out and sign in again before managing Google.",
+  "googleLastMethod": "Google is your only login method and cannot be disconnected.",
+  "googleUnavailable": "Google authentication is not configured.",
+  "googleDisconnect": "Disconnect Google",
+  "googleConnect": "Connect Google",
+  "googleDisconnectConfirm": "Disconnect Google? You can still sign in with your email and password.",
+  "cancel": "Cancel"
 }

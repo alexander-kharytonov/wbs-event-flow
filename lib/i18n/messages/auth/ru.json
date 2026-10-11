@@ -59,5 +59,21 @@
   "onboardingDescription": "Создавайте события и управляйте ими в Event Flow.",
   "browsePublicEvents": "Посмотреть публичные события",
   "invalidLink": "Ссылка для подтверждения недействительна или просрочена.",
-  "requestNewLink": "Запросить новую ссылку"
+  "requestNewLink": "Запросить новую ссылку",
+  "googleContinue": "Продолжить с Google",
+  "googleSignUp": "Зарегистрироваться через Google",
+  "orGoogle": "или",
+  "googleCollision": "Не удалось подключить Google. Если у вас уже есть аккаунт, войдите привычным способом и подключите Google в профиле.",
+  "googleCancelled": "Вход через Google отменён. Можно попробовать ещё раз.",
+  "googleFailed": "Не удалось завершить вход через Google. Выберите аккаунт Google с тем же адресом электронной почты и попробуйте ещё раз.",
+  "loginMethods": "Способы входа",
+  "googleConnected": "Google подключён к вашему аккаунту.",
+  "googleConnectDescription": "Подключите аккаунт Google с тем же адресом электронной почты для входа через Google. Ваше имя и адрес электронной почты не изменятся.",
+  "googleReauthenticate": "Выйдите и войдите снова, прежде чем изменять подключение Google.",
+  "googleLastMethod": "Google — ваш единственный способ входа, поэтому его нельзя отключить.",
+  "googleUnavailable": "Вход через Google не настроен.",
+  "googleDisconnect": "Отключить Google",
+  "googleConnect": "Подключить Google",
+  "googleDisconnectConfirm": "Отключить Google? Вы по-прежнему сможете входить по электронной почте и паролю.",
+  "cancel": "Отмена"
 }

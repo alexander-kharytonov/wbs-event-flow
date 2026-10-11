@@ -72,6 +72,7 @@ export async function ApplicationHeader() {
             {session ? (
               <AccountMenu
                 name={session.user.name}
+                image={session.user.image}
                 organizerProfileId={organizer?.id}
                 hasAssignedEvents={Boolean(assigned)}
               />

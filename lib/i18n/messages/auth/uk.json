@@ -59,5 +59,21 @@
   "onboardingDescription": "Створюйте події та керуйте ними в Event Flow.",
   "browsePublicEvents": "Переглянути публічні події",
   "invalidLink": "Посилання для підтвердження недійсне або прострочене.",
-  "requestNewLink": "Запросити нове посилання"
+  "requestNewLink": "Запросити нове посилання",
+  "googleContinue": "Продовжити з Google",
+  "googleSignUp": "Зареєструватися через Google",
+  "orGoogle": "або",
+  "googleCollision": "Не вдалося підключити Google. Якщо у вас уже є обліковий запис, увійдіть звичним способом і підключіть Google у профілі.",
+  "googleCancelled": "Вхід через Google скасовано. Ви можете спробувати ще раз.",
+  "googleFailed": "Не вдалося завершити вхід через Google. Виберіть обліковий запис Google із тією самою електронною адресою та спробуйте ще раз.",
+  "loginMethods": "Способи входу",
+  "googleConnected": "Google підключено до вашого облікового запису.",
+  "googleConnectDescription": "Підключіть обліковий запис Google із тією самою електронною адресою для входу через Google. Ваше ім’я та електронна адреса не зміняться.",
+  "googleReauthenticate": "Вийдіть і увійдіть знову, перш ніж змінювати підключення Google.",
+  "googleLastMethod": "Google — ваш єдиний спосіб входу, тому його не можна відключити.",
+  "googleUnavailable": "Вхід через Google не налаштовано.",
+  "googleDisconnect": "Відключити Google",
+  "googleConnect": "Підключити Google",
+  "googleDisconnectConfirm": "Відключити Google? Ви й надалі зможете входити за електронною адресою та паролем.",
+  "cancel": "Скасувати"
 }
