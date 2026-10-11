@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
-import { getServerEnv } from "@/lib/env";
+import { getTrustedAppOrigins } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { isUiMode, modeCookie } from "@/lib/ui-mode";
 
 export async function PUT(request: Request) {
-  const origin = new URL(getServerEnv().BETTER_AUTH_URL).origin;
+  const origin = request.headers.get("origin");
 
-  if (request.headers.get("origin") !== origin) {
+  if (!origin || !getTrustedAppOrigins().includes(origin)) {
     return NextResponse.json({ code: "forbidden" }, { status: 403 });
   }
 

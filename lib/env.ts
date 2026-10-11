@@ -1,14 +1,26 @@
 import { z } from "zod";
 
+const httpOrigin = z.url().refine((value) => {
+  const url = URL.parse(value);
+
+  return (
+    url !== null &&
+    ["http:", "https:"].includes(url.protocol) &&
+    url.origin === value &&
+    !url.hostname.includes("*")
+  );
+}, "Expected an HTTP(S) origin without a trailing slash");
+
 const serverEnvSchema = z.object({
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),
-  BETTER_AUTH_URL: z.url().refine((value) => {
-    const url = new URL(value);
-
-    return ["http:", "https:"].includes(url.protocol) && url.origin === value;
-  }, "Expected an HTTP(S) origin without a trailing slash"),
+  BETTER_AUTH_URL: httpOrigin,
+  BETTER_AUTH_TRUSTED_ORIGINS: z
+    .string()
+    .default("")
+    .transform((value) => (value.trim() === "" ? [] : value.split(",")))
+    .pipe(z.array(httpOrigin)),
   BETTER_AUTH_SECRET: z.string().min(32),
   TICKET_CREDENTIAL_ENCRYPTION_KEY: z
     .string()
@@ -38,6 +50,7 @@ export function getServerEnv() {
     DATABASE_URL: process.env.DATABASE_URL,
     NODE_ENV: process.env.NODE_ENV,
     BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
+    BETTER_AUTH_TRUSTED_ORIGINS: process.env.BETTER_AUTH_TRUSTED_ORIGINS,
     BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
     TICKET_CREDENTIAL_ENCRYPTION_KEY:
       process.env.TICKET_CREDENTIAL_ENCRYPTION_KEY,
@@ -53,4 +66,12 @@ export function getServerEnv() {
   }
 
   return result.data;
+}
+
+// Better Auth reads the same explicit allowlist from its supported environment
+// variable. The canonical URL remains the origin for email and public links.
+export function getTrustedAppOrigins() {
+  const env = getServerEnv();
+
+  return [env.BETTER_AUTH_URL, ...env.BETTER_AUTH_TRUSTED_ORIGINS];
 }

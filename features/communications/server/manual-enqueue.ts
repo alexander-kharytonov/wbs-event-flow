@@ -127,7 +127,7 @@ export async function enqueueManualCommunication(
     return { id: existing.id, recipientCount: existing.recipientCount };
   }
 
-  const { emails } = await resolveManualAudience(
+  const { emails, locales } = await resolveManualAudience(
     tx,
     input.eventId,
     input.audience,
@@ -182,7 +182,7 @@ export async function enqueueManualCommunication(
             type: "MANUAL_EVENT_MESSAGE",
             status: "PENDING",
             recipientEmail,
-            payload: {},
+            payload: { locale: locales.get(recipientEmail) },
             deduplicationKey: `manual:${id}:${createHash("sha256").update(recipientEmail).digest("hex")}`,
           })),
         },

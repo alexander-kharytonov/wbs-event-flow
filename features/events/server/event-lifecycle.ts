@@ -11,6 +11,7 @@ import {
   eventCancelledPayload,
   transactionalEmailSubjects,
 } from "@/lib/email-outbox/payload";
+import { recipientEmailLocale } from "@/lib/i18n/email-locale";
 import type { Messages } from "@/lib/i18n/messages";
 import { prisma } from "@/lib/prisma";
 import {
@@ -186,7 +187,14 @@ export async function changeOwnedEventLifecycle(
         const affected = await tx.application.findMany({
           where: { eventId: event.id, status: "PENDING" },
           orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-          select: { id: true, email: true, fullName: true, userId: true },
+          select: {
+            id: true,
+            email: true,
+            fullName: true,
+            userId: true,
+            user: { select: { uiLocale: true } },
+            eventRevision: { select: { snapshot: true } },
+          },
         });
         const admissions = await tx.registration.findMany({
           where: { eventId: event.id, revokedAt: null },
@@ -195,6 +203,10 @@ export async function changeOwnedEventLifecycle(
             id: true,
             attendeeEmail: true,
             attendeeName: true,
+            user: { select: { uiLocale: true } },
+            sourceApplication: {
+              select: { eventRevision: { select: { snapshot: true } } },
+            },
             userId: true,
           },
         });
@@ -204,6 +216,8 @@ export async function changeOwnedEventLifecycle(
             email: admission.attendeeEmail,
             fullName: admission.attendeeName,
             userId: admission.userId,
+            user: admission.user,
+            eventRevision: admission.sourceApplication.eventRevision,
           })),
         );
         const recipients = new Map<string, (typeof affected)[number]>();
@@ -253,6 +267,10 @@ export async function changeOwnedEventLifecycle(
             deduplicationKey: `${event.id}:EVENT_CANCELLED:${email}`,
             recipientEmail: email,
             payload: eventCancelledPayload.parse({
+              locale: recipientEmailLocale(
+                application.user,
+                application.eventRevision.snapshot,
+              ),
               schemaVersion: 1,
               applicantName: application.fullName,
               event: {

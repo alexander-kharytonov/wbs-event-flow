@@ -2,6 +2,8 @@ import "server-only";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { createAuthMiddleware } from "better-auth/api";
+import { NextRequest } from "next/server";
+import { defaultLocale, localeCookie, resolveLocale } from "@/lib/i18n/locale";
 import {
   consumeVerificationToken,
   sendLatestVerificationEmail,
@@ -84,8 +86,31 @@ export const auth = betterAuth({
     sendOnSignIn: false,
     expiresIn: 3600,
     autoSignInAfterVerification: true,
-    async sendVerificationEmail({ user, url, token }) {
-      await sendLatestVerificationEmail(user, url, token);
+    async sendVerificationEmail({ user, url, token }, request) {
+      let locale = defaultLocale;
+
+      if (request) {
+        const session = await auth.api.getSession({
+          headers: request.headers,
+          query: { disableCookieCache: true, disableRefresh: true },
+        });
+        const account = session
+          ? await prisma.user.findUnique({
+              where: { id: session.user.id },
+              select: { uiLocale: true },
+            })
+          : null;
+        const cookie = new NextRequest(request.url, {
+          headers: request.headers,
+        }).cookies.get(localeCookie)?.value;
+        locale = resolveLocale(
+          account?.uiLocale,
+          cookie,
+          request.headers.get("accept-language"),
+        );
+      }
+
+      await sendLatestVerificationEmail(user, url, token, locale);
     },
   },
   session: {

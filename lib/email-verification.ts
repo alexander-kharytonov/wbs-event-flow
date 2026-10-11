@@ -1,6 +1,8 @@
 import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import { renderEmailTemplate } from "@/lib/email-template";
+import { createBackgroundTranslator } from "@/lib/i18n/background";
+import type { UiLocale } from "@/lib/i18n/locale";
 import { sendMail } from "./mail";
 import { prisma } from "./prisma";
 
@@ -14,19 +16,20 @@ export async function sendLatestVerificationEmail(
   user: { id: string; email: string },
   url: string,
   token: string,
+  locale: UiLocale,
 ) {
   // A nonce distinguishes even JWTs issued in the same second.
   const deliveryToken = `${token}.${user.id}.${randomBytes(32).toString("base64url")}`;
   const link = new URL(url);
   link.searchParams.set("token", deliveryToken);
+  const t = await createBackgroundTranslator(locale);
   const message = renderEmailTemplate({
-    title: "Verify your email",
-    greeting: "Hello,",
-    introduction:
-      "Confirm your email address to finish setting up your Event Flow account.",
-    detailText:
-      "This link expires in one hour. Only the latest verification email can be used.",
-    action: { label: "Verify your email", url: link.href },
+    locale,
+    title: t("email.verificationTitle"),
+    greeting: t("email.greeting"),
+    introduction: t("email.verificationIntro"),
+    detailText: t("email.verificationExpiry", { hours: 1 }),
+    action: { label: t("email.verificationTitle"), url: link.href },
   });
 
   await prisma.$transaction(
@@ -52,7 +55,7 @@ export async function sendLatestVerificationEmail(
       // SMTP failure rolls back the replacement, preserving the previous link.
       await sendMail({
         to: user.email,
-        subject: "Verify your email — Event Flow",
+        subject: t("email.verificationSubject"),
         ...message,
       });
     },

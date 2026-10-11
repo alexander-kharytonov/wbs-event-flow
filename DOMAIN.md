@@ -1565,8 +1565,8 @@ Registration and withdrawn/rejected Application contacts are not added.
 
 All new Communication rows have kind TRANSACTIONAL, trigger equal to the delivery
 type, null audience/message and the existing actual subject from the shared
-transactionalEmailSubjects map. Renderers use the same map and retain all other
-text/HTML/CTA and payload parsing behavior. Context is strict semantic v1:
+transactionalEmailSubjects map. History retains this stable English label; I18N-D renders recipient subjects from
+the email dictionary, preserving CTA and payload validation behavior. Context is strict semantic v1:
 schemaVersion=1, kind=TRANSACTIONAL, trigger and optional frozen eventTitle only.
 Submission/approval use current published context; cancellation uses the existing
 current-or-last-publication rule; rejection uses its submitted historical title.
@@ -1640,11 +1640,13 @@ Registration.revokedAt IS NULL. ALL_ACTIVE_ATTENDEES includes PRIMARY and GUEST;
 PRIMARY_ATTENDEES adds kind=PRIMARY; CHECKED_IN requires Attendance; NOT_ARRIVED
 requires its absence. PENDING_APPLICATIONS selects status=PENDING (withdrawn
 historical attempts cannot remain pending). EVENT_STAFF selects current owner and
-EventStaff users, including RECEPTION recipients. Only email columns are projected,
-from Attendee, Application or User respectively; there is no Primary fallback for
+EventStaff users, including RECEPTION recipients. Email, explicit account
+identity/preference and historical revision language are projected from Attendee,
+Application or User respectively; there is no Primary fallback for
 Guest. Trim/lowercase, Zod email validation and Set deduplication exclude unavailable
 addresses and freeze exactly one intent per normalized email. No provider alias
-normalization, answers, Tickets, credentials or Application snapshots are read.
+normalization is performed; answers, Tickets and credentials are not read. Only the language key is
+projected from the historical Application revision snapshot.
 
 Each resolver uses one statement, capped at 10,001 rows. The Event schema permits
 unlimited capacity: a sentinel beyond the 10,000-record scan budget rejects the
@@ -1680,7 +1682,7 @@ Keys/content are not persisted in browser storage and do not survive page reload
 New Communication stores kind=MANUAL, audience, subject, normalized message,
 verified actor/name/role snapshot, strict contextSnapshot v1, actual recipientCount,
 key/digest and createdAt=admittedAt. Each frozen recipient creates one PENDING
-MANUAL_EVENT_MESSAGE Outbox with empty server-owned payload; the existing renderer
+MANUAL_EVENT_MESSAGE Outbox with a server-owned frozen locale payload; the existing renderer
 loads the immutable Communication. Deduplication key is Communication UUID plus
 SHA-256(normalized recipient email). DB/Outbox/NOTIFY failures roll back everything.
 Empty audiences produce no Communication. Admission retains all section 32 limits,
@@ -2159,7 +2161,8 @@ Better Auth session renewal/expired-session cleanup behavior is accepted;
 preference reads never persist inferred locale or mode values.
 
 `PUT /api/preferences/locale` accepts only a supported JSON string, bounded to
-64 bytes, requires Origin equal to configured BETTER_AUTH_URL origin, derives the
+64 bytes, requires Origin equal to BETTER_AUTH_URL or an explicitly configured
+BETTER_AUTH_TRUSTED_ORIGINS entry, derives the
 User solely from the session, and updates only uiLocale (plus Prisma updatedAt).
 Anonymous requests set only the validated locale cookie; signed-in requests write
 the cookie only after account persistence succeeds. Unverified authenticated Users
@@ -2167,7 +2170,8 @@ may set this presentation preference without gaining verified-user permissions.
 No caller-supplied User ID is accepted. Repeated selections are idempotent in value;
 concurrent requests use last committed write. Failures return stable identifiers,
 never account details. UI locale does not enter Event snapshots, templates, business
-mutation inputs, revision keys or idempotency digests. I18N-B captures it only as
+mutation inputs or revision keys. I18N-D separately freezes recipient language in
+email intent digests. I18N-B captures it only as
 the initial independently editable Event language when manual Create opens.
 
 The root locale provider uses SSR values only to initialize the document. Selection
@@ -2199,8 +2203,8 @@ full reload. Cookie acceptance is not confirmed by the client.
 Event dates keep explicit IANA timezones; UTC is the deterministic provider default
 for formatting without an explicit timezone. `createBackgroundTranslator` takes
 an explicit preference (invalid/absent → English), never request headers/cookies.
-It is preparatory only: email payloads, frozen Communications and delivery rendering
-retain their current contracts and English templates. Server-only translations
+I18N-D uses this helper with frozen per-recipient locale metadata; domain content
+and Communication semantic history remain independent of delivery translation. Server-only translations
 update on server render; immediately switchable labels consume client context.
 
 ## 41. UI mode preference
@@ -2278,3 +2282,65 @@ history with 20261011030000_baseline. It includes EventLanguage, required
 Event.language without a default, UI preferences and all custom CHECK constraints.
 The local reset preserves authentication/organizer rows and does not rewrite revision
 JSON. Future schema changes normally use incremental migrations.
+
+## 43. Email locale resolution (I18N-D)
+
+Email presentation uses the existing next-intl/use-intl translator, formatter and
+flat email/{en,de,pl,uk,ru}.json dictionaries, with English per-key fallback.
+Renderers receive an explicit locale; the Outbox worker reads no request/session,
+cookie, sender preference or current Event language. Shared HTML escapes all
+interpolated text and URLs and declares the rendered language.
+
+Every new transactional payload and manual Outbox payload freezes locale inside
+the existing JSON column. No database schema, migration, delivery type or provider
+is added. The same optional locale field is validated on existing payload contracts:
+absence retains English for already queued mail; invalid values fail validation.
+No conversion, format-version branch, backfill or alternate delivery path is added.
+Transactional digests include the frozen locale. Manual replay still returns the
+original intent before audience resolution, so preference changes cannot conflict
+with a retry or replace frozen recipients/locales. Leases, fencing, retry limits,
+SMTP boundaries, deduplication keys and live Ticket CTA eligibility are unchanged.
+
+At enqueue, linked Application/Registration/Attendee users and Event owner/staff
+recipients use their explicit User relation and User.uiLocale (unset → en).
+Anonymous Applications use their eventRevision.snapshot.language; attendees use
+Registration.sourceApplication.eventRevision.snapshot.language. GUEST contacts
+have no User relation and never inherit their Primary's locale. No User email
+lookup or claiming is performed. An invalid historical language uses en, including
+rejection of damaged snapshots; no new domain guard is introduced. Rejection title
+reading accepts the current unversioned snapshot and does not require other fields.
+Cancellation preserves its existing recipient/context winner order and reads each
+winner's historical language independently of the current-or-last Event content.
+
+Manual audience resolution remains one bounded SQL statement (10,001 sentinel),
+selecting only contact, linked identity/preference and the historical language key.
+Eligibility, missing-email skipping and normalized-address deduplication stay intact.
+For a shared address, linked recipient account preference wins (including en when
+unset); otherwise choose the earliest Registration.createdAt, then Registration.id,
+then Attendee.id, all ascending. Multiple linked candidates use that same ordering.
+Pending Applications order by createdAt/id; staff Users order by createdAt/id.
+The selected locale is frozen once and never reevaluated by background delivery.
+
+Authentication resolves the request's actual UI locale using the existing account
+→ cookie → Accept-Language → en policy. A session is checked without cookie cache
+or renewal and only its account preference is read; the recipient email is never
+used to infer the requesting account. Missing request context uses en. Locale is
+passed into verification rendering without changing token creation, atomic slot
+replacement, expiry, replay checks or failure rollback.
+
+Manual subjects/messages, Event titles, names, reasons and other authored content
+are never translated. Transactional subject labels in Communication history remain
+stable English metadata; delivered subjects vary by recipient. Dates use frozen
+Event instants/timezone and the recipient locale. No attachment or credential
+contract changes are introduced.
+
+## Additional application origins
+
+BETTER_AUTH_URL stays a single canonical HTTP(S) origin for email and public links.
+The optional BETTER_AUTH_TRUSTED_ORIGINS environment variable is a comma-separated
+allowlist of additional exact HTTP(S) origins. Startup validation rejects paths,
+credentials, query strings, fragments and wildcards. Better Auth reads its native
+allowlist; preference PUT routes check that same validated list plus the canonical
+origin. No request Host is promoted into the trusted list. Cookies remain host-only;
+preference cookies use Secure for an accepted HTTPS Origin. Users sign in separately
+on localhost and a LAN IP. This does not change email rendering or recipient locale.

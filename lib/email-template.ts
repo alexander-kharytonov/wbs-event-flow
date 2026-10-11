@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { UiLocale } from "@/lib/i18n/locale";
+
 type EmailAction = { label: string; url: string };
 
 function escapeHtml(value: string) {
@@ -15,6 +17,7 @@ function escapeHtml(value: string) {
 // Shared presentation for verification and application notifications.
 // All content is plain text; escaping belongs to this renderer.
 export function renderEmailTemplate({
+  locale,
   title,
   greeting,
   introduction,
@@ -24,6 +27,7 @@ export function renderEmailTemplate({
   secondaryAction,
   preserveIntroductionNewlines = false,
 }: {
+  locale: UiLocale;
   title: string;
   greeting: string;
   introduction: string;
@@ -46,7 +50,7 @@ export function renderEmailTemplate({
   ]
     .filter((value) => value !== undefined)
     .join("\n\n");
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+  const html = `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
 <body style="margin:0;background:#f3f5f8;color:#172033;font-family:Arial,sans-serif;line-height:1.6">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td style="padding:32px 16px">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;margin:auto;background:#fff;border-radius:12px"><tr><td style="padding:32px">

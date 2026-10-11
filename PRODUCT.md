@@ -667,9 +667,10 @@ with no Outbox rows and no delivery claim; the cancellation still happened.
 
 Mutation, Communication, frozen Outbox recipients/payloads and notification commit
 atomically. An enqueue error rolls back the domain action; a subsequent delivery
-failure does not. Existing subjects, email text/HTML, Ticket CTA/private anonymous
-access, dynamic delivery eligibility, retries and at-least-once guarantee are
-unchanged. A shared subject map keeps semantic history aligned with the renderer.
+failure does not. Ticket CTA/private anonymous access, dynamic delivery
+eligibility, retries and at-least-once guarantee are
+unchanged. History keeps stable English subject labels from the email dictionary;
+I18N-D localizes delivered subjects and text/HTML per recipient.
 
 History stores only the trigger and safely available frozen Event title, never
 applicant identity/answers, Ticket references, credentials or capability URLs.
@@ -1162,7 +1163,7 @@ translated. Questions, option labels, Event descriptions, cancellation reasons,
 manual message subjects/bodies and other authored content retain their language.
 
 Technical identifiers, template/CSV field names, ticket numbers, QR payloads and
-email/template content are not localized. Badge preview and printed labels use the current Event language, read with its operational
+Event-authored email/template content is not translated. Badge preview and printed labels use the current Event language, read with its operational
 name and saved design in the authorized snapshot. Print controls and errors retain
 the operator UI locale. Authored names/answers and admission credentials are unchanged.
 Localized metadata is resolved on the server; it updates on the next server render.
@@ -1172,9 +1173,10 @@ historical/attendance/communication states in all five locales.
 Server-only translated output updates on the next server render; immediately
 switchable labels consume client context with SSR initial messages. UI locale is
 not included in Event snapshots/templates, mutation inputs, revision bindings or
-idempotency digests. Exported technical headers, formats and stored timestamps
+domain idempotency digests; I18N-D separately freezes recipient language in email
+delivery intents. Exported technical headers, formats and stored timestamps
 remain unchanged. Background translation can receive an explicit locale without
-HTTP context, but email templates/delivery are not connected to it.
+HTTP context; email localization is implemented separately in I18N-D below.
 
 ## UI appearance preference
 
@@ -1220,4 +1222,38 @@ case-insensitive substring matching as in the organizer dashboard. Search and
 language filters combine before featured selection and grouping; search text
 persists when the language selection changes.
 
-No automatic translation, multilingual content fields or email localization is added.
+I18N-B adds no automatic translation or multilingual content fields. Email localization is described below.
+
+## Email localization (I18N-D)
+
+All existing email presentation supports en, de, pl, uk and ru: email verification,
+application receipt, organizer notification, approval/Ticket links (including
+revoked/cancelled/unavailable-account states), rejection, Event cancellation and
+manual Communications. Subjects, HTML, plain text and action labels are localized.
+Event titles, names, cancellation reasons, manual subjects/messages and all other
+authored content remain unchanged. No password-reset, Guest-add/remove or
+withdrawal email is introduced.
+
+The server freezes a locale per Outbox recipient when creating the delivery:
+explicitly linked Users (including organizers and staff) use User.uiLocale, or en
+when unset. Anonymous recipients use the Event language in their submitted
+Application revision; admitted attendees use Registration.sourceApplication's
+revision. Guests never inherit the Primary account preference, and matching an
+email never establishes account ownership. Later Event edits/publications or UI
+preference changes do not change queued mail or retry language. An unreadable
+historical language falls back to en without adding an admission/rejection guard.
+
+Manual sends retain one delivery per normalized address. An explicitly linked
+recipient account wins, including its en fallback. Otherwise the earliest
+Registration among recipients sharing that address supplies the historical
+language. Ties use Registration ID, then Attendee ID, ascending. Pending applicants
+use Application creation time then ID; team recipients use User creation time
+then ID. Among multiple linked records, that same deterministic order applies.
+
+Authentication uses the resolved UI language at request time (authenticated
+account preference, locale cookie, browser language, then en); without a request
+it uses en. The email-verification expiry and single-use/latest-link rules stay
+unchanged. Event dates use the frozen Event timezone. Already queued deliveries
+without locale retain English; delivery addresses, links, idempotency, retry and
+security behavior are unchanged. Communication history keeps its existing stable
+English transactional subject label, since grouped sends may have several languages.
