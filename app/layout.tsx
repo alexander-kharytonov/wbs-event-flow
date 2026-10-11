@@ -22,6 +22,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  applicationName: "Event Flow",
   title: "Event Flow",
   description: "Event Flow",
 };
