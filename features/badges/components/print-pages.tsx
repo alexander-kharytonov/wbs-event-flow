@@ -1,6 +1,6 @@
 import { badgeDimensions } from "@/features/badges/badge-layout";
 import type { BadgePresentation } from "@/features/badges/badge-presentation";
-import { Badge } from "@/features/badges/components/badge";
+import { Badge, type BadgeLabels } from "@/features/badges/components/badge";
 import { badgeCss } from "@/features/badges/components/badge-styles";
 
 export const printDocumentCss = `
@@ -35,7 +35,13 @@ export const printDocumentCss = `
   .ef-print-sheet { width: 190mm; height: 277mm; padding: 0; }
 }`;
 
-export function BadgePrintPages({ badges }: { badges: BadgePresentation[] }) {
+export function BadgePrintPages({
+  badges,
+  labels,
+}: {
+  badges: BadgePresentation[];
+  labels: BadgeLabels;
+}) {
   const dimensions = badgeDimensions(badges[0].style);
   const columns = Math.floor((190 + 3) / (dimensions.width + 3));
   const rows = Math.floor((277 + 3) / (dimensions.height + 3));
@@ -65,7 +71,7 @@ export function BadgePrintPages({ badges }: { badges: BadgePresentation[] }) {
         >
           {page.map((badge, badgeIndex) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: immutable document badge order
-            <Badge key={badgeIndex} badge={badge} />
+            <Badge key={badgeIndex} badge={badge} labels={labels} />
           ))}
         </div>
       ))}

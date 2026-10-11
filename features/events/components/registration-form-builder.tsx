@@ -15,7 +15,9 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
+import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
+import { EventText } from "@/features/events/components/event-text";
 import { RegistrationFieldForm } from "@/features/events/components/registration-field-form";
 import { RegistrationQuestions } from "@/features/events/components/registration-questions";
 import { changeRegistrationForm } from "@/features/events/registration-form-actions";
@@ -25,6 +27,7 @@ import type {
   RegistrationFieldInput,
 } from "@/features/events/schemas/registration-form";
 import { useNotifications } from "@/hooks/use-notifications";
+import type { Messages } from "@/lib/i18n/messages";
 
 type Command =
   | { kind: "add"; field: RegistrationFieldInput }
@@ -39,14 +42,15 @@ export function RegistrationFormBuilder({
   eventId: string;
   initialForm: BuilderForm;
 }) {
+  const t = useTranslations("events");
   // Keep the displayed snapshot and token together, including while a dialog is open.
   const [form, setForm] = useState(initialForm);
   const [editor, setEditor] = useState<{ field?: BuilderField } | null>(null);
   const [deleting, setDeleting] = useState<BuilderField | null>(null);
   const [error, setError] = useState<{
-    message: string;
+    message: keyof Messages["events"];
     conflict?: boolean;
-    fieldErrors?: Record<string, string>;
+    fieldErrors?: Record<string, keyof Messages["events"]>;
   } | null>(null);
   const notifications = useNotifications();
   const [pending, startTransition] = useTransition();
@@ -68,7 +72,7 @@ export function RegistrationFormBuilder({
           setError(result);
 
           if (!result.conflict && !editor) {
-            notifications.show(result.message, {
+            notifications.show(<EventText id={result.message} />, {
               severity: "error",
               key: `registration-form:${eventId}`,
             });
@@ -81,11 +85,15 @@ export function RegistrationFormBuilder({
         setEditor(null);
         setDeleting(null);
         notifications.show(
-          command.kind === "delete"
-            ? "Question deleted."
-            : command.kind === "reorder"
-              ? "Question order saved."
-              : "Question saved.",
+          <EventText
+            id={
+              command.kind === "delete"
+                ? "questionDeleted"
+                : command.kind === "reorder"
+                  ? "questionOrderSaved"
+                  : "questionSaved"
+            }
+          />,
           {
             severity: "success",
             autoHideDuration: 4000,
@@ -94,8 +102,7 @@ export function RegistrationFormBuilder({
         );
       } catch {
         setError({
-          message:
-            "We couldn’t confirm the save. Reload the latest version before trying again.",
+          message: "questionConfirmFailed",
           conflict: true,
         });
       }
@@ -115,17 +122,15 @@ export function RegistrationFormBuilder({
     <Stack spacing={3} aria-busy={pending}>
       {error?.conflict && !editor && !deleting && (
         <Alert severity="error">
-          {error.message}
+          {t(error.message)}
           {error.conflict && (
             <Button component="a" color="inherit" href={reloadHref}>
-              Reload latest version
+              {t("reloadLatest")}
             </Button>
           )}
         </Alert>
       )}
-      <Alert severity="info">
-        Questions save to your workspace. Publish changes when you’re ready.
-      </Alert>
+      <Alert severity="info">{t("questionWorkspaceHint")}</Alert>
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
         <Stack
           direction={{ xs: "column", md: "row" }}
@@ -137,13 +142,13 @@ export function RegistrationFormBuilder({
               component="h2"
               sx={{ minHeight: 42, display: "flex", alignItems: "center" }}
             >
-              Guest details
+              {t("questionGuestDetails")}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Always collected with every application.
+              {t("questionAlwaysCollected")}
             </Typography>
           </Box>
-          {["Full name", "Email"].map((label) => (
+          {[t("fullName"), t("email")].map((label) => (
             <Stack
               key={label}
               direction="row"
@@ -152,7 +157,11 @@ export function RegistrationFormBuilder({
             >
               <LockOutlined fontSize="small" color="disabled" />
               <Typography>{label}</Typography>
-              <Chip label="Required" size="small" variant="outlined" />
+              <Chip
+                label={t("questionRequiredLabel")}
+                size="small"
+                variant="outlined"
+              />
             </Stack>
           ))}
         </Stack>
@@ -185,7 +194,7 @@ export function RegistrationFormBuilder({
         aria-labelledby="field-dialog-title"
       >
         <DialogTitle id="field-dialog-title">
-          {editor?.field ? "Edit question" : "Add question"}
+          {editor?.field ? t("questionEdit") : t("questionAdd")}
         </DialogTitle>
         {editor && (
           <RegistrationFieldForm
@@ -215,18 +224,19 @@ export function RegistrationFormBuilder({
         maxWidth="xs"
         aria-labelledby="delete-dialog-title"
       >
-        <DialogTitle id="delete-dialog-title">Delete question?</DialogTitle>
+        <DialogTitle id="delete-dialog-title">
+          {t("questionDeleteTitle")}
+        </DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ overflowWrap: "anywhere" }}>
-            “{deleting?.label}” will be removed from your workspace form.
-            Previously submitted answers will be preserved.
+            {t("questionDeleteHint", { label: deleting?.label ?? "" })}
           </DialogContentText>
           {error?.conflict && (
             <Alert severity="error" sx={{ mt: 2 }}>
-              {error.message}
+              {t(error.message)}
               {error.conflict && (
                 <Button component="a" color="inherit" href={reloadHref}>
-                  Reload latest version
+                  {t("reloadLatest")}
                 </Button>
               )}
             </Alert>
@@ -238,7 +248,7 @@ export function RegistrationFormBuilder({
             disabled={pending}
             onClick={() => setDeleting(null)}
           >
-            Cancel
+            {t("cancel")}
           </Button>
           <Button
             color="error"
@@ -248,7 +258,7 @@ export function RegistrationFormBuilder({
               if (deleting) mutate({ kind: "delete", fieldId: deleting.id });
             }}
           >
-            {pending ? "Deleting…" : "Delete question"}
+            {pending ? t("questionDeleting") : t("questionDelete")}
           </Button>
         </DialogActions>
       </Dialog>

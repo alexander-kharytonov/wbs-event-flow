@@ -1,7 +1,7 @@
 "use client";
 
 import { Box, Stack, Typography } from "@mui/material";
-import { useLocale, useTranslations } from "next-intl";
+import { useFormatter, useLocale, useTranslations } from "next-intl";
 
 type Props = {
   date: Date | string;
@@ -124,5 +124,26 @@ export function DateTime({ date, endDate, timezone, inverse = false }: Props) {
         </Typography>
       </Stack>
     </Stack>
+  );
+}
+
+export function InlineDateTime({
+  date,
+  timezone,
+}: {
+  date: Date | string;
+  timezone: string;
+}) {
+  const format = useFormatter();
+  const value = new Date(date);
+
+  return (
+    <time dateTime={value.toISOString()}>
+      {format.dateTime(value, {
+        timeZone: timezone,
+        dateStyle: "medium",
+        timeStyle: "short",
+      })}
+    </time>
   );
 }

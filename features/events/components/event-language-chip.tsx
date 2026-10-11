@@ -1,4 +1,7 @@
+"use client";
+
 import { Chip } from "@mui/material";
+import { useTranslations } from "next-intl";
 import {
   type EventLanguage,
   eventLanguageNames,
@@ -11,13 +14,19 @@ export function EventLanguageChip({
   language: EventLanguage;
   inverse?: boolean;
 }) {
+  const t = useTranslations("events");
+
   return (
     <Chip
       size="small"
       variant="outlined"
       label={language.toUpperCase()}
-      title={`Event language: ${eventLanguageNames[language]}`}
-      aria-label={`Event language: ${eventLanguageNames[language]}`}
+      title={t("eventLanguageValue", {
+        language: eventLanguageNames[language],
+      })}
+      aria-label={t("eventLanguageValue", {
+        language: eventLanguageNames[language],
+      })}
       sx={{
         color: inverse ? "#fff" : "text.primary",
         borderColor: "currentColor",

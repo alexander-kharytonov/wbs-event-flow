@@ -1,6 +1,11 @@
+"use client";
+
 import { Button, Paper, Stack, Typography } from "@mui/material";
+import { useTranslations } from "next-intl";
 
 export function NotFoundContent() {
+  const t = useTranslations("shell");
+
   return (
     <Paper
       variant="outlined"
@@ -17,14 +22,13 @@ export function NotFoundContent() {
           404
         </Typography>
         <Typography component="h2" variant="h4" align="center">
-          Page not found
+          {t("pageNotFound")}
         </Typography>
         <Typography color="text.secondary" align="center">
-          This page could not be found. Check the address or return to the home
-          page.
+          {t("pageNotFoundDescription")}
         </Typography>
         <Button href="/" variant="contained">
-          Back to home
+          {t("backHome")}
         </Button>
       </Stack>
     </Paper>

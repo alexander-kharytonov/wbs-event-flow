@@ -7,12 +7,13 @@ import {
   manualSendSchema,
 } from "@/features/communications/server/manual-enqueue";
 import { ManualCommunicationError } from "@/features/communications/server/manual-error";
+import type { Messages } from "@/lib/i18n/messages";
 import { prisma } from "@/lib/prisma";
 
 export type ManualFailure = {
   success: false;
-  error: string;
-  fieldErrors?: Record<string, string>;
+  error: keyof Messages["events"];
+  fieldErrors?: Record<string, keyof Messages["events"]>;
   ambiguous?: boolean;
 };
 
@@ -22,8 +23,8 @@ function failure(error: unknown): ManualFailure {
     ambiguous: !(error instanceof ManualCommunicationError),
     error:
       error instanceof ManualCommunicationError
-        ? error.message
-        : "We couldn’t complete this request. Please retry the same message.",
+        ? error.code
+        : "commRetryRequest",
   };
 }
 
@@ -36,7 +37,7 @@ export async function previewManualMessage(
   if (!parsed.success) {
     return {
       success: false,
-      error: "Choose a valid audience.",
+      error: "commAudienceInvalid",
     } as ManualFailure;
   }
 
@@ -74,19 +75,24 @@ export async function sendManualMessage(
   const parsed = manualSendSchema.safeParse(rawInput);
 
   if (!parsed.success) {
-    const fieldErrors: Record<string, string> = {};
+    const fieldErrors: Record<string, keyof Messages["events"]> = {};
 
     for (const issue of parsed.error.issues) {
       const field = String(issue.path[0]);
 
       if (["audience", "subject", "message"].includes(field)) {
-        fieldErrors[field] ??= issue.message;
+        fieldErrors[field] ??=
+          field === "subject"
+            ? "commSubjectInvalid"
+            : field === "message"
+              ? "commMessageInvalid"
+              : "commAudienceInvalid";
       }
     }
 
     return {
       success: false,
-      error: "Check the message fields.",
+      error: "commCheckFields",
       fieldErrors,
     } as ManualFailure;
   }

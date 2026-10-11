@@ -107,8 +107,8 @@ export function safeTemplateIssues(error: z.ZodError): TemplateIssue[] {
       path: path || "template",
       message:
         issue.code === "unrecognized_keys"
-          ? "Unknown properties are not allowed here."
-          : "Check this value and the template's required format and limits.",
+          ? "templateUnknownFields"
+          : "templateInvalidValue",
     };
   });
 }
@@ -141,8 +141,7 @@ export function portableBindingIssues(
       issues.push({
         code: "badge_binding",
         path: `event.badgeLayout.${slot}`,
-        message:
-          "The selected question was removed or changed. Update this badge binding or restore the compatible question.",
+        message: "templateBindingChanged",
       });
     }
   }
@@ -154,19 +153,11 @@ export function portableBindingIssues(
 
 export function validateTemplateCreate(input: unknown): TemplateResult {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
-    return templateFailure(
-      "format",
-      "template",
-      "Use an Event Flow template object.",
-    );
+    return templateFailure("format", "template", "templateObject");
   }
 
   if (!("format" in input) || input.format !== "event-flow-template") {
-    return templateFailure(
-      "format",
-      "format",
-      "Expected event-flow-template format.",
-    );
+    return templateFailure("format", "format", "templateFormat");
   }
 
   const parsed = eventTemplateSchema.safeParse(input);
@@ -181,14 +172,13 @@ export function validateTemplateCreate(input: unknown): TemplateResult {
         issues[index] = {
           code: "badge_binding",
           path: "event.badgeLayout",
-          message:
-            "Update the badge bindings to match the current question identity, type and label.",
+          message: "templateBindingInvalid",
         };
       } else if (issue.message === "Too many options.") {
         issues[index] = {
           code: "limit",
           path: "event.registrationForm.fields",
-          message: "Use at most 1,000 options in total.",
+          message: "templateOptionsLimit",
         };
       }
     }
@@ -243,7 +233,7 @@ export function validateTemplateCreate(input: unknown): TemplateResult {
     issues.push({
       code: "staff_role_conflict",
       path: `event.staff[${index}].role`,
-      message: "The same email cannot have different roles. Choose one role.",
+      message: "templateStaffRoles",
     });
   }
 
@@ -256,11 +246,7 @@ export function validateTemplateCreate(input: unknown): TemplateResult {
     new TextEncoder().encode(JSON.stringify(parsed.data)).byteLength >
     TEMPLATE_LIMITS.bytes
   ) {
-    return templateFailure(
-      "limit",
-      "template",
-      "The template must not exceed 512 KiB of UTF-8 JSON.",
-    );
+    return templateFailure("limit", "template", "templateSizeLimit");
   }
 
   return {
@@ -272,19 +258,11 @@ export function validateTemplateCreate(input: unknown): TemplateResult {
 
 export function parseTemplateText(text: unknown): TemplateResult {
   if (typeof text !== "string") {
-    return templateFailure(
-      "invalid_text",
-      "template",
-      "Upload or paste JSON text.",
-    );
+    return templateFailure("invalid_text", "template", "templateUploadPaste");
   }
 
   if (new TextEncoder().encode(text).byteLength > TEMPLATE_LIMITS.bytes) {
-    return templateFailure(
-      "limit",
-      "template",
-      "The template must not exceed 512 KiB of UTF-8 JSON.",
-    );
+    return templateFailure("limit", "template", "templateSizeLimit");
   }
 
   let input: unknown;
@@ -292,11 +270,7 @@ export function parseTemplateText(text: unknown): TemplateResult {
   try {
     input = JSON.parse(text);
   } catch {
-    return templateFailure(
-      "json",
-      "template",
-      "The text is not valid JSON. Check its syntax and try again.",
-    );
+    return templateFailure("json", "template", "templateJsonInvalid");
   }
 
   return validateTemplateCreate(input);
@@ -321,7 +295,7 @@ export function canonicalizeReview(event: TemplateEvent): TemplateResult {
     issues.push({
       code: "field_identity",
       path: "event.registrationForm.fields",
-      message: "Question identities must be unique.",
+      message: "templateQuestionIdentity",
     });
   }
 

@@ -30,7 +30,7 @@ export async function createEvent(
       createEventCore(tx, organizer.id, parsed.data),
     );
   } catch {
-    return { message: "We couldn’t save your event. Please try again." };
+    return { message: "inputSaveFailed" };
   }
 
   revalidatePath("/dashboard");

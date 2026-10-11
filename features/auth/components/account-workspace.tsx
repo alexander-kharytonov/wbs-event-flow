@@ -18,7 +18,7 @@ export function AccountWorkspace({ children }: { children: ReactNode }) {
       : "overview";
 
   return (
-    <EditorNavigationGuard description="Your unsaved profile changes will be lost.">
+    <EditorNavigationGuard description={t("discardProfileDescription")}>
       <Stack spacing={3}>
         <PageHeader title={t("account")} />
         <Box

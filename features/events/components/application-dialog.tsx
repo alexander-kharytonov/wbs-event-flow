@@ -3,9 +3,11 @@
 import Close from "@mui/icons-material/Close";
 import { Dialog, DialogContent, DialogTitle, IconButton } from "@mui/material";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
 export function ApplicationDialog({ children }: { children: ReactNode }) {
+  const t = useTranslations("events");
   const router = useRouter();
 
   return (
@@ -26,9 +28,9 @@ export function ApplicationDialog({ children }: { children: ReactNode }) {
       }}
     >
       <DialogTitle id="application-dialog-title" sx={{ pr: 7 }}>
-        Application detail
+        {t("applicationDetail")}
         <IconButton
-          aria-label="Close application"
+          aria-label={t("applicationClose")}
           onClick={() => router.back()}
           sx={{ position: "absolute", right: 12, top: 12 }}
         >

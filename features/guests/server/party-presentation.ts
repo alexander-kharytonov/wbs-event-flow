@@ -6,6 +6,7 @@ import {
   ticketDisplaySelect,
 } from "@/features/tickets/server/ticket-display";
 import type { Prisma } from "@/generated/prisma/client";
+import type { Messages } from "@/lib/i18n/messages";
 
 export const partyAttendeeSelect = {
   id: true,
@@ -37,16 +38,16 @@ export async function presentPartyGuests(
   const activeCount = guests.filter(({ revokedAt }) => !revokedAt).length;
   const frozen = Date.now() >= event.startsAt.getTime();
   const canRemove = !registration.revokedAt && !event.cancelledAt && !frozen;
-  const reason = registration.revokedAt
-    ? "This registration has been revoked."
+  const reason: keyof Messages["events"] | null = registration.revokedAt
+    ? "registrationRevokedMessage"
     : event.cancelledAt
-      ? "This event has been cancelled."
+      ? "eventCancelledMessage"
       : frozen
-        ? "Guest management closed when the event started."
+        ? "guestsFrozen"
         : !published.success
-          ? "This event is unpublished. You can still remove guests before it starts."
+          ? "guestsUnpublishedRemoveAllowed"
           : limit === 0
-            ? "Guests are not currently allowed. You can still remove existing guests before the event starts."
+            ? "guestsDisabledRemoveAllowed"
             : null;
   const items = await Promise.all(
     guests.map(async (guest) => {

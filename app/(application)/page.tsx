@@ -1,14 +1,16 @@
 import { Alert, Button, Stack } from "@mui/material";
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
+import { AuthText } from "@/features/auth/components/auth-text";
 import { LandingPage } from "@/features/landing/landing-page";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 
-export const metadata: Metadata = {
-  title: "Event Flow — From planning to check-in",
-  description:
-    "Publish your event, build registration forms, review applications and welcome attendees with QR tickets, check-in, badges and team tools.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("landing");
+
+  return { title: t("metadataTitle"), description: t("metadataDescription") };
+}
 
 export default async function Home({ searchParams }: PageProps<"/">) {
   const session = await getSession();
@@ -30,8 +32,10 @@ export default async function Home({ searchParams }: PageProps<"/">) {
     <Stack spacing={3}>
       {error && (
         <Alert severity="error">
-          The verification link is invalid or expired.{" "}
-          <Button href="/verify-email">Request a new link</Button>
+          <AuthText id="invalidLink" />{" "}
+          <Button href="/verify-email">
+            <AuthText id="requestNewLink" />
+          </Button>
         </Alert>
       )}
       <LandingPage

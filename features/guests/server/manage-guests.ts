@@ -141,7 +141,10 @@ async function manageGuest(
                   (issue) =>
                     issue.path[0] === "name" || issue.path[0] === "email",
                 )
-                .map((issue) => [String(issue.path[0]), issue.message]),
+                .map((issue) => [
+                  String(issue.path[0]),
+                  issue.path[0] === "email" ? "invalidEmail" : "nameLength",
+                ]),
             ),
           };
         }

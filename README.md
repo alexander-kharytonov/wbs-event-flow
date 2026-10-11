@@ -278,7 +278,7 @@ Publication snapshots, historical answers, concurrency, authorization and immuta
 media references remain authoritative. Only the current unversioned EventSnapshot
 and EventTemplate contracts are supported.
 
-## Localization development (I18N-A)
+## Localization development
 
 `next-intl` is configured without locale routing or middleware. Existing links and
 paths remain unchanged. The baseline includes User.uiLocale and User.uiMode.
@@ -286,11 +286,13 @@ Apply the baseline using `pnpm exec prisma migrate deploy`, generate the client
 with `pnpm db:generate`, and restart the server after schema/client changes.
 
 - Request configuration: `lib/i18n/request.ts` (account → cookie → browser → en).
-- Dictionaries: `lib/i18n/messages/{shell,locale,validation}/{en,de,pl,uk,ru}.json`.
+- Dictionaries: `lib/i18n/messages/{shell,locale,validation,auth,events,landing}/{en,de,pl,uk,ru}.json`.
   English is merged per key before rendering. Add new features to the loader.
 - Server: `await getTranslations("shell")`; Client: `useTranslations("shell")`.
   Use a client consumer for text that must change immediately without refreshing
-  forms. `ShellText` bridges simple shell labels in server-owned layouts.
+  forms. `ShellText`, `AuthText` and `EventText` bridge labels in server-owned
+  layouts and retained notifications. `InlineDateTime` renders compact Event
+  timestamps with the active locale and the supplied Event timezone.
 - ICU validation pattern: return `{code: "maxLength", values: {count: 200}}` with
   the field path; render `t(issue.code, issue.values)`. Store identifiers rather
   than translated strings. Do not change global Zod error maps per request.

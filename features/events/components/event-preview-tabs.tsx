@@ -3,6 +3,7 @@
 import ArticleOutlined from "@mui/icons-material/ArticleOutlined";
 import AssignmentOutlined from "@mui/icons-material/AssignmentOutlined";
 import { Alert, Box, Stack, Tab } from "@mui/material";
+import { useTranslations } from "next-intl";
 import { type ReactNode, useState } from "react";
 import { WorkspaceTabs } from "@/components/ui/workspace-tabs";
 
@@ -13,6 +14,7 @@ export function EventPreviewTabs({
   landing: ReactNode;
   registration: ReactNode;
 }) {
+  const t = useTranslations("events");
   const [section, setSection] = useState("landing");
 
   return (
@@ -29,11 +31,11 @@ export function EventPreviewTabs({
           layout="horizontal"
           value={section}
           onChange={(_, value) => setSection(value)}
-          aria-label="Event preview sections"
+          aria-label={t("previewSections")}
         >
           <Tab
             value="landing"
-            label="Landing"
+            label={t("landing")}
             icon={<ArticleOutlined fontSize="small" />}
             iconPosition="start"
             id="preview-landing-tab"
@@ -42,7 +44,7 @@ export function EventPreviewTabs({
           />
           <Tab
             value="registration"
-            label="Registration"
+            label={t("registration")}
             icon={<AssignmentOutlined fontSize="small" />}
             iconPosition="start"
             id="preview-registration-tab"
@@ -52,10 +54,7 @@ export function EventPreviewTabs({
         </WorkspaceTabs>
       </Box>
       <Stack spacing={3} sx={{ p: { xs: 2, sm: 4 }, minWidth: 0 }}>
-        <Alert severity="info">
-          Preview of your current workspace, including unpublished changes.
-          Registration is unavailable in preview.
-        </Alert>
+        <Alert severity="info">{t("previewNotice")}</Alert>
         <Box
           role="tabpanel"
           hidden={section !== "landing"}

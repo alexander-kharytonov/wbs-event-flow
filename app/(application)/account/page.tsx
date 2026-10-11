@@ -1,4 +1,5 @@
 import { Box, Button, Paper, Stack, Typography } from "@mui/material";
+import { AuthText } from "@/features/auth/components/auth-text";
 import { prisma } from "@/lib/prisma";
 import { requireVerifiedUser } from "@/lib/session";
 
@@ -12,7 +13,7 @@ export default async function AccountPage() {
   return (
     <Stack spacing={3}>
       <Typography variant="h6" component="h2">
-        Overview
+        <AuthText id="overview" />
       </Typography>
       <Box
         sx={{
@@ -33,13 +34,15 @@ export default async function AccountPage() {
               <Typography color="text.secondary">{user.email}</Typography>
             </Stack>
             <Typography color="text.secondary">
-              Keep track of your applications and get ready for your next event.
+              <AuthText id="accountOverview" />
             </Typography>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
               <Button href="/account/registrations" variant="contained">
-                View my registrations
+                <AuthText id="myRegistrations" />
               </Button>
-              <Button href="/e">Explore events</Button>
+              <Button href="/e">
+                <AuthText id="exploreEvents" />
+              </Button>
             </Stack>
           </Stack>
         </Paper>
@@ -47,17 +50,21 @@ export default async function AccountPage() {
           <Stack spacing={2} sx={{ alignItems: "flex-start" }}>
             <Stack spacing={1}>
               <Typography variant="h6" component="h2">
-                Organize events
+                <AuthText id="organizeEvents" />
               </Typography>
               <Typography color="text.secondary">
-                Create and manage your own events on Event Flow.
+                <AuthText id="organizeDescription" />
               </Typography>
             </Stack>
             <Button
               href={organizer ? "/dashboard" : "/onboarding/organizer"}
               variant="outlined"
             >
-              {organizer ? "Open organizer dashboard" : "Become an organizer"}
+              {organizer ? (
+                <AuthText id="openDashboard" />
+              ) : (
+                <AuthText id="becomeOrganizer" />
+              )}
             </Button>
           </Stack>
         </Paper>

@@ -1,20 +1,21 @@
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { eventDescriptionText } from "@/features/events/components/event-description";
 import type { getPublishedEvent } from "@/features/events/server/get-published-event";
 
-export function publicEventMetadata(
+export async function publicEventMetadata(
   published: NonNullable<Awaited<ReturnType<typeof getPublishedEvent>>>,
   publicId: string,
   origin: string,
-): Metadata {
+): Promise<Metadata> {
+  const t = await getTranslations("events");
   const { snapshot, cancelledAt, archived } = published;
   const title = `${snapshot.title} | Event Flow`;
   const description =
     eventDescriptionText(
       snapshot.description ?? "",
       snapshot.descriptionFormat,
-    ).slice(0, 160) ||
-    "Event details and registration information on Event Flow.";
+    ).slice(0, 160) || t("publicMetadataFallback");
   const url = new URL(`/e/${encodeURIComponent(publicId)}`, origin).href;
   const isPublic = snapshot.visibility === "PUBLIC";
   const cover = snapshot.cover;

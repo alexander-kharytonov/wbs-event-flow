@@ -13,15 +13,16 @@ import {
   mediaManifestSchema,
   mediaVariants,
 } from "@/features/events/schemas/event-rich-content";
+import type { Messages } from "@/lib/i18n/messages";
 
 export const maxUploadBytes = 5 * 1024 * 1024;
 
 export class MediaError extends Error {
   constructor(
     public status: number,
-    message: string,
+    public code: keyof Messages["events"],
   ) {
-    super(message);
+    super(code);
   }
 }
 
@@ -31,7 +32,7 @@ const resources = globalThis as typeof globalThis & {
 
 export async function withImageSlot<T>(operation: () => Promise<T>) {
   if ((resources.eventMediaProcessing ?? 0) >= 2) {
-    throw new MediaError(429, "Image processing is busy. Try again shortly.");
+    throw new MediaError(429, "mediaBusy");
   }
 
   resources.eventMediaProcessing = (resources.eventMediaProcessing ?? 0) + 1;
@@ -51,7 +52,7 @@ export async function readUpload(request: Request, maximum = maxUploadBytes) {
   const reader = request.body?.getReader();
 
   if (!reader) {
-    throw new MediaError(400, "Upload an image.");
+    throw new MediaError(400, "mediaUploadRequired");
   }
 
   const buffer = Buffer.allocUnsafe(maximum);
@@ -67,7 +68,7 @@ export async function readUpload(request: Request, maximum = maxUploadBytes) {
       const { done, value } = await reader.read();
 
       if (timedOut) {
-        throw new MediaError(408, "Upload timed out.");
+        throw new MediaError(408, "mediaTimeout");
       }
 
       if (done) {
@@ -76,7 +77,7 @@ export async function readUpload(request: Request, maximum = maxUploadBytes) {
 
       if (value.byteLength > maximum - size) {
         await reader.cancel();
-        throw new MediaError(413, "The upload exceeds the allowed size.");
+        throw new MediaError(413, "mediaSize");
       }
 
       buffer.set(value, size);
@@ -92,10 +93,7 @@ export async function readUpload(request: Request, maximum = maxUploadBytes) {
 }
 
 function invalidImage(): never {
-  throw new MediaError(
-    422,
-    "Use a valid, single-frame JPEG, PNG or WebP image up to 4096 × 4096.",
-  );
+  throw new MediaError(422, "mediaValidImage");
 }
 
 // Check the container boundary too: decoders can otherwise ignore appended payloads.
@@ -211,7 +209,7 @@ export async function normalizeImage(
   crop: CoverCrop = initialCoverCrop,
 ) {
   if (bytes.length > maxUploadBytes) {
-    throw new MediaError(413, "The image must be at most 5 MiB.");
+    throw new MediaError(413, "mediaMaxSize");
   }
 
   const format = inputFormat(bytes, contentType);
@@ -241,10 +239,7 @@ export async function normalizeImage(
     const { width, height } = metadata.autoOrient;
 
     if (!parsedCrop.success || width < 16 || height < 9) {
-      throw new MediaError(
-        422,
-        "Choose a valid 16:9 crop from an image at least 16 × 9 pixels.",
-      );
+      throw new MediaError(422, "mediaCropDimensions");
     }
 
     const rectangle = coverCropRectangle(width, height, parsedCrop.data);

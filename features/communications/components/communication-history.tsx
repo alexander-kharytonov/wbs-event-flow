@@ -20,6 +20,7 @@ import {
   Typography,
 } from "@mui/material";
 import NextLink from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { filterCommunicationHistory } from "@/features/communications/actions";
@@ -44,6 +45,8 @@ export function CommunicationHistory({
   initialData: HistoryPage;
   initialBefore?: string;
 }) {
+  const t = useTranslations("events");
+  const locale = useLocale();
   const [filters, setFilters] = useState<{
     subject: string;
     kind: KindFilter;
@@ -53,7 +56,7 @@ export function CommunicationHistory({
     key: string;
     source: HistoryPage;
     data: HistoryPage | null;
-    error?: string;
+    error?: "commHistoryUnavailable" | "commHistoryFailed";
   }>();
   const [retry, setRetry] = useState(0);
   const subject = filters.subject.trim();
@@ -71,7 +74,7 @@ export function CommunicationHistory({
   const data = useInitial ? initialData : current?.data;
   const loading = !useInitial && !current;
   const base = `/dashboard/events/${eventId}/communications`;
-  const dateFormat = new Intl.DateTimeFormat("en-GB", {
+  const dateFormat = new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",
     timeStyle: "short",
     timeZone: timezone,
@@ -97,7 +100,7 @@ export function CommunicationHistory({
             key,
             source: initialData,
             data: page,
-            error: page ? undefined : "Communication history is unavailable.",
+            error: page ? undefined : "commHistoryUnavailable",
           });
         }
       } catch {
@@ -106,7 +109,7 @@ export function CommunicationHistory({
             key,
             source: initialData,
             data: null,
-            error: "We couldn’t load history. Please try again.",
+            error: "commHistoryFailed",
           });
         }
       }
@@ -141,8 +144,8 @@ export function CommunicationHistory({
         }}
       >
         <TextField
-          label="Search communications"
-          placeholder="Subject"
+          label={t("commSearch")}
+          placeholder={t("commSubject")}
           value={filters.subject}
           onChange={(event) =>
             setFilters({
@@ -165,7 +168,7 @@ export function CommunicationHistory({
         />
         <TextField
           select
-          label="Type"
+          label={t("commType")}
           value={filters.kind}
           onChange={(event) => {
             const kind = event.target.value;
@@ -204,10 +207,10 @@ export function CommunicationHistory({
                   <EmailOutlined fontSize="small" />
                 )}
                 {kind === "ALL"
-                  ? "All"
+                  ? t("uiAll")
                   : kind === "MANUAL"
-                    ? "Manual"
-                    : "Transactional"}
+                    ? t("uiManual")
+                    : t("uiTransactional")}
               </Box>
             </MenuItem>
           ))}
@@ -218,7 +221,7 @@ export function CommunicationHistory({
           <Paper
             variant="outlined"
             role="status"
-            aria-label="Loading history"
+            aria-label={t("commLoading")}
             sx={{ overflow: "hidden" }}
           >
             {["first", "second", "third"].map((row, index) => (
@@ -280,11 +283,11 @@ export function CommunicationHistory({
                 color="inherit"
                 onClick={() => setRetry((value) => value + 1)}
               >
-                Retry
+                {t("commRetryLoad")}
               </Button>
             }
           >
-            {current.error}
+            {t(current.error)}
           </Alert>
         ) : (
           data &&
@@ -293,27 +296,27 @@ export function CommunicationHistory({
               icon={<EmailOutlined />}
               title={
                 subject || filters.kind !== "ALL"
-                  ? "No matching communications"
+                  ? t("commNoMatch")
                   : data.hasCursor
-                    ? "No more communications"
-                    : "No communications yet"
+                    ? t("commNoMore")
+                    : t("commNone")
               }
               description={
                 subject || filters.kind !== "ALL"
-                  ? "Try another subject or change the type filter."
+                  ? t("commFiltersHint")
                   : data.hasCursor
-                    ? "You have reached the end of this history."
-                    : "Messages queued for this event will appear here."
+                    ? t("commHistoryEnd")
+                    : t("commHistoryEmptyHint")
               }
               action={
                 subject || filters.kind !== "ALL" ? (
-                  <Button onClick={clearFilters}>Clear filters</Button>
+                  <Button onClick={clearFilters}>{t("clearFilters")}</Button>
                 ) : undefined
               }
             />
           ) : (
             <Paper variant="outlined" sx={{ overflow: "hidden" }}>
-              <List disablePadding aria-label="Communication history">
+              <List disablePadding aria-label={t("commHistory")}>
                 {data.items.map((item, index) => (
                   <ListItem
                     key={item.id}
@@ -324,7 +327,7 @@ export function CommunicationHistory({
                       component={NextLink}
                       href={`${base}/${item.id}`}
                       scroll={false}
-                      aria-label={`View communication: ${item.subject}`}
+                      aria-label={t("commView", { subject: item.subject })}
                       sx={{
                         px: { xs: 2, sm: 3 },
                         py: 2.5,
@@ -378,15 +381,17 @@ export function CommunicationHistory({
                         <Stack spacing={1}>
                           <Typography variant="body2" color="text.secondary">
                             {item.audience
-                              ? audienceLabel(item.audience)
-                              : item.trigger
-                                  ?.replaceAll("_", " ")
-                                  .toLowerCase()}
+                              ? t(
+                                  audienceLabel(item.audience) ??
+                                    "commAudience",
+                                )
+                              : t("commTrigger", {
+                                  trigger: item.trigger ?? "",
+                                })}
                             {" · "}
-                            {item.recipientCount}{" "}
-                            {item.recipientCount === 1
-                              ? "recipient"
-                              : "recipients"}
+                            {t("commRecipients", {
+                              count: item.recipientCount,
+                            })}
                           </Typography>
                           {item.actorNameSnapshot && (
                             <Stack
@@ -437,7 +442,7 @@ export function CommunicationHistory({
             <Button
               onClick={() => setFilters({ ...filters, before: undefined })}
             >
-              Latest messages
+              {t("commLatest")}
             </Button>
           )}
           {data.nextCursor && (
@@ -446,7 +451,7 @@ export function CommunicationHistory({
                 setFilters({ ...filters, before: data.nextCursor })
               }
             >
-              Older messages
+              {t("commOlder")}
             </Button>
           )}
         </Stack>

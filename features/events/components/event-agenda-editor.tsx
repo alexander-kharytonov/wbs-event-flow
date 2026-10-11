@@ -13,6 +13,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { EventFormValues } from "@/features/events/event-input-schema";
@@ -28,9 +29,10 @@ export function EventAgendaEditor({
   revealErrorsKey: number;
   values: EventFormValues;
   setValues: React.Dispatch<React.SetStateAction<EventFormValues>>;
-  feedback: ReturnType<typeof useFormFeedback>;
+  feedback: ReturnType<typeof useFormFeedback<string>>;
   disabled: boolean;
 }) {
+  const t = useTranslations("events");
   const sequence = useRef(values.schedule.length);
   const agenda = useRef<HTMLDivElement>(null);
   const addButton = useRef<HTMLButtonElement>(null);
@@ -110,12 +112,9 @@ export function EventAgendaEditor({
   return (
     <Stack component="section" spacing={2} ref={agenda}>
       <Typography variant="h6" component="h2">
-        Event agenda
+        {t("agenda")}
       </Typography>
-      <Alert severity="info">
-        Times use the event timezone. Keep entries in chronological order; equal
-        times are allowed. Changing event dates does not shift agenda entries.
-      </Alert>
+      <Alert severity="info">{t("agendaHint")}</Alert>
       {feedback.errors.schedule && (
         <Alert severity="error" tabIndex={-1} data-editor-error>
           {feedback.errors.schedule}
@@ -124,8 +123,8 @@ export function EventAgendaEditor({
       {!values.schedule.length && (
         <EmptyState
           icon={<EventNoteOutlined />}
-          title="No agenda entries"
-          description="Add the sessions or activities you want to share with attendees."
+          title={t("agendaEmpty")}
+          description={t("agendaEmptyHint")}
         />
       )}
       {values.schedule.map((entry, index) => (
@@ -154,10 +153,10 @@ export function EventAgendaEditor({
                 variant="subtitle1"
                 sx={{ overflowWrap: "anywhere" }}
               >
-                {entry.title || `Untitled entry ${index + 1}`}
+                {entry.title || t("agendaUntitled", { number: index + 1 })}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {entry.startsAt.replace("T", " · ") || "Time not set"}
+                {entry.startsAt.replace("T", " · ") || t("agendaTimeUnset")}
               </Typography>
               {entry.description && (
                 <Typography
@@ -179,7 +178,10 @@ export function EventAgendaEditor({
                 data-agenda-edit
                 aria-expanded={isExpanded(entry.key)}
                 aria-controls={`agenda-details-${entry.key}`}
-                aria-label={`${isExpanded(entry.key) ? "Collapse" : "Edit"} agenda entry ${index + 1}`}
+                aria-label={t("agendaToggle", {
+                  expanded: String(isExpanded(entry.key)),
+                  number: index + 1,
+                })}
                 onClick={() => {
                   setExpanded((current) => {
                     const next = new Set(current);
@@ -194,11 +196,11 @@ export function EventAgendaEditor({
                   });
                 }}
               >
-                {isExpanded(entry.key) ? "Collapse" : "Edit"}
+                {isExpanded(entry.key) ? t("uiCollapse") : t("edit")}
               </Button>
               <IconButton
                 type="button"
-                aria-label={`Move agenda entry ${index + 1} up`}
+                aria-label={t("agendaUp", { number: index + 1 })}
                 disabled={disabled || index === 0}
                 onClick={() => move(index, -1)}
               >
@@ -206,7 +208,7 @@ export function EventAgendaEditor({
               </IconButton>
               <IconButton
                 type="button"
-                aria-label={`Move agenda entry ${index + 1} down`}
+                aria-label={t("agendaDown", { number: index + 1 })}
                 disabled={disabled || index === values.schedule.length - 1}
                 onClick={() => move(index, 1)}
               >
@@ -214,7 +216,7 @@ export function EventAgendaEditor({
               </IconButton>
               <IconButton
                 type="button"
-                aria-label={`Remove agenda entry ${index + 1}`}
+                aria-label={t("agendaRemove", { number: index + 1 })}
                 disabled={disabled}
                 onClick={() => {
                   const nextKey =
@@ -248,7 +250,7 @@ export function EventAgendaEditor({
             sx={{ display: isExpanded(entry.key) ? "flex" : "none" }}
           >
             <TextField
-              label="Agenda title"
+              label={t("agendaTitle")}
               required
               fullWidth
               disabled={disabled}
@@ -260,7 +262,7 @@ export function EventAgendaEditor({
               slotProps={{ htmlInput: { maxLength: 200 } }}
             />
             <TextField
-              label="Agenda start"
+              label={t("agendaStart")}
               type="datetime-local"
               required
               fullWidth
@@ -273,7 +275,7 @@ export function EventAgendaEditor({
               slotProps={{ inputLabel: { shrink: true } }}
             />
             <TextField
-              label="Agenda description (optional)"
+              label={t("agendaDescription")}
               multiline
               minRows={2}
               fullWidth
@@ -321,7 +323,7 @@ export function EventAgendaEditor({
           );
         }}
       >
-        Add agenda entry
+        {t("agendaAdd")}
       </Button>
     </Stack>
   );

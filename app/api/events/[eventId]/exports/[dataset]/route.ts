@@ -1,7 +1,9 @@
+import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 import { ExportError } from "@/features/exports/csv";
 import { buildEventCsv } from "@/features/exports/server/event-export";
 import { auth } from "@/lib/auth";
+import type { Messages } from "@/lib/i18n/messages";
 
 export const dynamic = "force-dynamic";
 
@@ -18,8 +20,10 @@ const datasetSchema = z.enum([
   "staff",
 ]);
 
-function errorResponse(message: string, status: number) {
-  return new Response(message, {
+async function errorResponse(code: keyof Messages["events"], status: number) {
+  const t = await getTranslations("events");
+
+  return new Response(t(code), {
     status,
     headers: {
       ...responseHeaders,
@@ -37,7 +41,7 @@ export async function GET(
     const dataset = datasetSchema.safeParse(params.dataset);
 
     if (!z.uuid().safeParse(params.eventId).success || !dataset.success) {
-      return errorResponse("Export unavailable.", 404);
+      return errorResponse("exportUnavailable", 404);
     }
 
     const session = await auth.api.getSession({
@@ -49,7 +53,7 @@ export async function GET(
       !session?.user.emailVerified ||
       session.session.expiresAt.getTime() <= Date.now()
     ) {
-      return errorResponse("Export unavailable.", 404);
+      return errorResponse("exportUnavailable", 404);
     }
 
     const result = await buildEventCsv(
@@ -59,7 +63,7 @@ export async function GET(
     );
 
     if (!result) {
-      return errorResponse("Export unavailable.", 404);
+      return errorResponse("exportUnavailable", 404);
     }
 
     return new Response(result.csv, {
@@ -71,9 +75,7 @@ export async function GET(
     });
   } catch (error) {
     return errorResponse(
-      error instanceof ExportError
-        ? error.message
-        : "Could not prepare the export. Please try again.",
+      error instanceof ExportError ? error.code : "exportFailed",
       error instanceof ExportError ? 409 : 500,
     );
   }

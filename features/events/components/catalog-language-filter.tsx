@@ -2,6 +2,7 @@
 
 import { MenuItem, TextField } from "@mui/material";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useTransition } from "react";
 import {
   type EventLanguage,
@@ -14,6 +15,7 @@ export function CatalogLanguageFilter({
 }: {
   language?: EventLanguage;
 }) {
+  const t = useTranslations("events");
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -22,7 +24,7 @@ export function CatalogLanguageFilter({
   return (
     <TextField
       select
-      label="Event language"
+      label={t("eventLanguage")}
       value={language ?? "ALL"}
       disabled={pending}
       sx={{ minWidth: 0 }}
@@ -42,7 +44,7 @@ export function CatalogLanguageFilter({
         });
       }}
     >
-      <MenuItem value="ALL">All languages</MenuItem>
+      <MenuItem value="ALL">{t("allLanguages")}</MenuItem>
       {eventLanguages.map((value) => (
         <MenuItem key={value} value={value}>
           {value.toUpperCase()} — {eventLanguageNames[value]}

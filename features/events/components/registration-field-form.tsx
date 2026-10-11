@@ -17,6 +17,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import {
   type BuilderField,
@@ -24,10 +25,11 @@ import {
   fieldTypeLabels,
   isChoice,
   type RegistrationFieldInput,
+  registrationFieldIssue,
   registrationFieldSchema,
 } from "@/features/events/schemas/registration-form";
-
 import { useFormFeedback } from "@/hooks/use-form-feedback";
+import type { Messages } from "@/lib/i18n/messages";
 
 export function RegistrationFieldForm({
   initial,
@@ -41,14 +43,17 @@ export function RegistrationFieldForm({
 }: {
   initial?: BuilderField;
   pending: boolean;
-  message?: string;
-  fieldErrors?: Record<string, string>;
+  message?: keyof Messages["events"];
+  fieldErrors?: Record<string, keyof Messages["events"]>;
   conflict?: boolean;
   reloadHref: string;
   onSave: (field: RegistrationFieldInput) => void;
   onCancel: () => void;
 }) {
-  const feedback = useFormFeedback();
+  const t = useTranslations("events");
+  const feedback = useFormFeedback<keyof Messages["events"]>({}, (code) =>
+    t(code),
+  );
   const { setErrors, setMessage } = feedback;
 
   useEffect(() => {
@@ -96,10 +101,10 @@ export function RegistrationFieldForm({
         const parsed = registrationFieldSchema.safeParse(input);
 
         if (!parsed.success) {
-          const errors: Record<string, string> = {};
+          const errors: Record<string, keyof Messages["events"]> = {};
 
           for (const issue of parsed.error.issues) {
-            errors[issue.path.join(".")] ??= issue.message;
+            errors[issue.path.join(".")] ??= registrationFieldIssue(issue);
           }
           feedback.setErrors(errors);
 
@@ -115,7 +120,7 @@ export function RegistrationFieldForm({
         <Stack spacing={2.5}>
           <TextField
             autoFocus
-            label="Question"
+            label={t("question")}
             value={label}
             onChange={(event) => {
               setLabel(event.target.value);
@@ -129,7 +134,7 @@ export function RegistrationFieldForm({
           />
           <TextField
             select
-            label="Type"
+            label={t("commType")}
             value={type}
             disabled={pending}
             {...feedback.field("type")}
@@ -151,12 +156,12 @@ export function RegistrationFieldForm({
           >
             {Object.entries(fieldTypeLabels).map(([value, title]) => (
               <MenuItem key={value} value={value}>
-                {title}
+                {t(title)}
               </MenuItem>
             ))}
           </TextField>
           <TextField
-            label="Helper text"
+            label={t("questionHelper")}
             value={description}
             onChange={(event) => {
               setDescription(event.target.value);
@@ -177,17 +182,18 @@ export function RegistrationFieldForm({
                 disabled={pending}
               />
             }
-            label="Required"
+            label={t("questionRequiredLabel")}
           />
           {isChoice(type) && (
             <Stack spacing={1.5}>
-              <Typography variant="subtitle1">Options</Typography>
+              <Typography variant="subtitle1">
+                {t("questionOptions")}
+              </Typography>
               <Typography variant="body2" color="text.secondary">
-                Add at least two distinct options. Their order here is the order
-                in the form.
+                {t("questionOptionsHint")}
               </Typography>
               {feedback.errors.options && (
-                <Alert severity="error">{feedback.errors.options}</Alert>
+                <Alert severity="error">{t(feedback.errors.options)}</Alert>
               )}
               {options.map((option, index) => (
                 <Stack
@@ -197,7 +203,7 @@ export function RegistrationFieldForm({
                   sx={{ alignItems: { sm: "center" } }}
                 >
                   <TextField
-                    label={`Option ${index + 1}`}
+                    label={t("questionOption", { number: index + 1 })}
                     value={option.label}
                     {...feedback.field(`options.${index}.label`)}
                     onChange={(event) => {
@@ -223,21 +229,25 @@ export function RegistrationFieldForm({
                   />
                   <Stack direction="row">
                     <IconButton
-                      aria-label={`Move option ${index + 1} up`}
+                      aria-label={t("questionOptionUp", { number: index + 1 })}
                       disabled={pending || index === 0}
                       onClick={() => moveOption(index, -1)}
                     >
                       <ArrowUpward fontSize="small" />
                     </IconButton>
                     <IconButton
-                      aria-label={`Move option ${index + 1} down`}
+                      aria-label={t("questionOptionDown", {
+                        number: index + 1,
+                      })}
                       disabled={pending || index === options.length - 1}
                       onClick={() => moveOption(index, 1)}
                     >
                       <ArrowDownward fontSize="small" />
                     </IconButton>
                     <IconButton
-                      aria-label={`Remove option ${index + 1}`}
+                      aria-label={t("questionOptionRemove", {
+                        number: index + 1,
+                      })}
                       disabled={pending}
                       onClick={() => {
                         feedback.clear("options");
@@ -261,7 +271,7 @@ export function RegistrationFieldForm({
                 disabled={pending}
                 sx={{ alignSelf: "flex-start" }}
               >
-                Add option
+                {t("questionOptionAdd")}
               </Button>
             </Stack>
           )}
@@ -271,10 +281,10 @@ export function RegistrationFieldForm({
         {" "}
         {(feedback.message || conflict) && (
           <Alert severity="error">
-            {feedback.message ?? message}
+            {feedback.message ?? (message ? t(message) : undefined)}
             {conflict && (
               <Button component="a" color="inherit" href={reloadHref}>
-                Reload latest version
+                {t("reloadLatest")}
               </Button>
             )}
           </Alert>
@@ -282,7 +292,7 @@ export function RegistrationFieldForm({
       </Box>
       <DialogActions sx={{ px: 3, pb: 3 }}>
         <Button onClick={onCancel} disabled={pending} color="inherit">
-          Cancel
+          {t("cancel")}
         </Button>
         <Button
           type="submit"
@@ -296,7 +306,11 @@ export function RegistrationFieldForm({
                 options.some((option) => !option.label.trim())))
           }
         >
-          {pending ? "Saving…" : initial ? "Save changes" : "Add question"}
+          {pending
+            ? t("saving")
+            : initial
+              ? t("questionSaveChanges")
+              : t("questionAdd")}
         </Button>
       </DialogActions>
     </Box>

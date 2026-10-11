@@ -2,7 +2,7 @@
 
 import { Box, Stack } from "@mui/material";
 import { unstable_rethrow, useRouter } from "next/navigation";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   type ReactNode,
   useActionState,
@@ -37,6 +37,7 @@ import {
   type EventFormState,
   type EventFormValues,
   eventDateFields,
+  eventInputIssueMessage,
   eventInputSchema,
   eventIssuePath,
 } from "@/features/events/event-input-schema";
@@ -94,8 +95,14 @@ export function EventForm({
   edit?: { id: string; version: string; dates: EventDateSource };
 }) {
   const locale = useLocale();
+  const t = useTranslations("events");
+  const validation = useTranslations("validation");
+  const translateError = (code: string) =>
+    code === "invalidEventLanguage"
+      ? validation("invalidEventLanguage")
+      : t(code as keyof import("@/lib/i18n/messages").Messages["events"]);
   const [section, setSection] = useState<EditorSection>("basics");
-  const feedback = useFormFeedback(initialErrors);
+  const feedback = useFormFeedback(initialErrors, translateError);
   const mutationBusy = useRef(false);
   const focusSavedSection = useRef(false);
   const [coverBusy, setCoverBusy] = useState(false);
@@ -131,8 +138,7 @@ export function EventForm({
       } catch (error) {
         unstable_rethrow(error);
         next = {
-          message:
-            "Could not confirm the save. Your edits are kept. Reload the latest version before retrying if the event may have been saved.",
+          message: "inputSaveUnconfirmed",
         };
       } finally {
         mutationBusy.current = false;
@@ -355,13 +361,14 @@ export function EventForm({
       const errors: Record<string, string> = {};
 
       for (const issue of parsed.error.issues) {
-        errors[eventIssuePath(issue.path, values)] ??= issue.message;
+        errors[eventIssuePath(issue.path, values)] ??=
+          eventInputIssueMessage(issue);
       }
       feedback.setErrors(errors);
       revealErrors(errors);
     } else if (disabled) {
       const errors = {
-        review: "Complete the template questions, staff and badge settings.",
+        review: "inputCompleteReview",
       };
       feedback.setErrors(errors);
       revealErrors(errors);
@@ -440,7 +447,8 @@ export function EventForm({
           const errors: Record<string, string> = {};
 
           for (const issue of parsed.error.issues) {
-            errors[eventIssuePath(issue.path, values)] ??= issue.message;
+            errors[eventIssuePath(issue.path, values)] ??=
+              eventInputIssueMessage(issue);
           }
           feedback.setErrors(errors);
           revealErrors(errors);
@@ -500,7 +508,15 @@ export function EventForm({
             revealErrorsKey={focusRequest}
             values={values}
             setValues={setValues}
-            feedback={feedback}
+            feedback={{
+              ...feedback,
+              errors: Object.fromEntries(
+                Object.entries(feedback.errors).map(([field, code]) => [
+                  field,
+                  translateError(code),
+                ]),
+              ),
+            }}
             disabled={pending || coverBusy}
             startLocked={startLocked}
             edit={edit && dateSource ? { dates: dateSource } : undefined}
@@ -519,8 +535,12 @@ export function EventForm({
         eventId={edit?.id}
         createdId={state.createdId}
         message={feedback.message}
-        serverMessage={state.message}
-        unmappedError={unmappedError}
+        serverMessage={
+          state.message ? translateError(state.message) : undefined
+        }
+        unmappedError={
+          unmappedError ? translateError(unmappedError) : undefined
+        }
         errors={feedback.errors}
         conflict={Boolean(state.conflict)}
         coverConflict={coverConflict}

@@ -2,6 +2,7 @@
 
 import PublishOutlined from "@mui/icons-material/PublishOutlined";
 import { Alert, AlertTitle, Button, Stack, Typography } from "@mui/material";
+import { useTranslations } from "next-intl";
 import { useEventPublication } from "@/features/events/use-event-publication";
 
 export function EventPublicationAlert({
@@ -13,6 +14,7 @@ export function EventPublicationAlert({
   contentVersion: number;
   label: string;
 }) {
+  const t = useTranslations("events");
   const { pending, publication, publish } = useEventPublication(
     eventId,
     contentVersion,
@@ -32,19 +34,17 @@ export function EventPublicationAlert({
         <div>
           <AlertTitle>
             {changes
-              ? "You have unpublished changes"
+              ? t("publishChangesTitle")
               : label === "Republish"
-                ? "This event is unpublished"
-                : "Your event is a draft"}
+                ? t("publishUnpublishedTitle")
+                : t("publishDraftTitle")}
           </AlertTitle>
           <Typography variant="body2">
-            {changes
-              ? "Publish your saved changes to update the event page for attendees."
-              : "Review your event, then publish it to make its page available to attendees."}
+            {changes ? t("publishChangesHint") : t("publishDraftHint")}
           </Typography>
           {publication.conflict && (
             <Typography variant="body2" role="alert">
-              {publication.message}
+              {publication.message && t(publication.message)}
             </Typography>
           )}
         </div>
@@ -54,7 +54,7 @@ export function EventPublicationAlert({
             href={`/dashboard/events/${eventId}`}
             sx={{ flexShrink: 0 }}
           >
-            Reload event
+            {t("eventReload")}
           </Button>
         ) : (
           <Button
@@ -68,7 +68,15 @@ export function EventPublicationAlert({
               alignSelf: { xs: "flex-start", sm: "center" },
             }}
           >
-            {pending ? "Publishing…" : label}
+            {pending
+              ? t("publishing")
+              : t(
+                  changes
+                    ? "publishChanges"
+                    : label === "Republish"
+                      ? "republish"
+                      : "publish",
+                )}
           </Button>
         )}
       </Stack>

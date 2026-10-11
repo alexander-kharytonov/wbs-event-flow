@@ -16,6 +16,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
+import { useTranslations } from "next-intl";
 import { useEffect, useId, useRef, useState } from "react";
 import { EventDescription } from "@/features/events/components/event-description";
 
@@ -67,6 +68,7 @@ export function EventDescriptionEditor({
   formatError?: string;
   onChange: (value: string) => void;
 }) {
+  const t = useTranslations("events");
   const [mode, setMode] = useState<"write" | "preview">("write");
   const [selection, setSelection] = useState({ start: 0, end: 0 });
   const input = useRef<HTMLTextAreaElement>(null);
@@ -119,7 +121,7 @@ export function EventDescriptionEditor({
     }
 
     const marker = format === "bold" ? "**" : "*";
-    const text = value.slice(start, end) || "text";
+    const text = value.slice(start, end) || t("markdownText");
 
     if (active) {
       replace(
@@ -147,7 +149,7 @@ export function EventDescriptionEditor({
 
     const start = element.selectionStart;
     const end = element.selectionEnd;
-    const label = value.slice(start, end) || "link text";
+    const label = value.slice(start, end) || t("markdownLinkText");
     const url = "https://example.com";
     const text = `[${label}](${url})`;
     const urlStart = start + label.length + 3;
@@ -179,27 +181,27 @@ export function EventDescriptionEditor({
           size="small"
           value={mode === "write" ? formats : []}
           disabled={disabled || mode === "preview"}
-          aria-label="Format selected Markdown text"
+          aria-label={t("markdownFormat")}
         >
           {[
             {
               value: "bold",
-              label: "Bold",
+              label: t("markdownBold"),
               icon: <FormatBold fontSize="small" />,
             },
             {
               value: "italic",
-              label: "Italic",
+              label: t("markdownItalic"),
               icon: <FormatItalic fontSize="small" />,
             },
             {
               value: "heading",
-              label: "Heading",
+              label: t("markdownHeading"),
               icon: <Title fontSize="small" />,
             },
             {
               value: "list",
-              label: "Bullet list",
+              label: t("markdownList"),
               icon: <FormatListBulleted fontSize="small" />,
             },
           ].map((tool) => (
@@ -220,11 +222,11 @@ export function EventDescriptionEditor({
             </Tooltip>
           ))}
         </ToggleButtonGroup>
-        <Tooltip title="Insert link">
+        <Tooltip title={t("markdownLink")}>
           <span>
             <IconButton
               type="button"
-              aria-label="Insert link"
+              aria-label={t("markdownLink")}
               disabled={disabled || mode === "preview"}
               onMouseDown={(event) => event.preventDefault()}
               onClick={insertLink}
@@ -245,13 +247,13 @@ export function EventDescriptionEditor({
             setMode(next);
           }
         }}
-        aria-label="Description editor view"
+        aria-label={t("markdownView")}
       >
         <ToggleButton value="write" sx={{ px: 1.5, height: 36 }}>
-          Write
+          {t("markdownWrite")}
         </ToggleButton>
         <ToggleButton value="preview" sx={{ px: 1.5, height: 36 }}>
-          Preview
+          {t("preview")}
         </ToggleButton>
       </ToggleButtonGroup>
     </Stack>
@@ -262,7 +264,7 @@ export function EventDescriptionEditor({
       <input type="hidden" name="description" value={value} />
       <input type="hidden" name="descriptionFormat" value="MARKDOWN" />
       <Typography id={`${id}-label`} component="h3" variant="subtitle1">
-        Description
+        {t("markdownDescription")}
       </Typography>
       {formatError && (
         <Alert severity="error" tabIndex={-1} data-editor-error>
@@ -319,7 +321,7 @@ export function EventDescriptionEditor({
                 >
                   <Box
                     role="region"
-                    aria-label="Description preview"
+                    aria-label={t("markdownPreview")}
                     tabIndex={0}
                     sx={{
                       position: "absolute",
@@ -332,7 +334,7 @@ export function EventDescriptionEditor({
                       <EventDescription text={value} format="MARKDOWN" />
                     ) : (
                       <Typography color="text.secondary">
-                        Your description preview will appear here.
+                        {t("markdownPreviewHint")}
                       </Typography>
                     )}
                   </Box>
@@ -365,14 +367,14 @@ export function EventDescriptionEditor({
       />
       <Stack direction="row" sx={{ justifyContent: "space-between", gap: 2 }}>
         <Typography variant="caption" color="text.secondary">
-          Select text to format it. Markdown shortcuts supported.
+          {t("markdownHint")}
         </Typography>
         <Typography
           variant="caption"
           color="text.secondary"
           sx={{ flexShrink: 0 }}
         >
-          {value.length.toLocaleString("en")} / 20,000
+          {t("markdownCount", { count: value.length, limit: 20000 })}
         </Typography>
       </Stack>
     </Stack>

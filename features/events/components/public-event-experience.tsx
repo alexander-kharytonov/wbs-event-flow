@@ -1,3 +1,4 @@
+import { EventText } from "@/features/events/components/event-text";
 import "server-only";
 import ArrowForward from "@mui/icons-material/ArrowForward";
 import {
@@ -12,7 +13,6 @@ import {
 import { notFound } from "next/navigation";
 import { BackLink } from "@/components/ui/back-link";
 import { applicationPrefill } from "@/features/events/application-prefill";
-import { applicationStatusLabels } from "@/features/events/application-status-labels";
 import { ApplicationRealtime } from "@/features/events/components/application-realtime";
 import { EventCover } from "@/features/events/components/event-cover";
 import { EventGuestView } from "@/features/events/components/event-guest-view";
@@ -116,7 +116,11 @@ export async function PublicEventExperience({
 
   const canApply = !ownedEvent && !application && open;
   const registrationHref = `/e/${publicId}/register`;
-  const applicationLabel = withdrawn ? "Apply again" : "Register";
+  const applicationLabel = withdrawn ? (
+    <EventText id="applyAgain" />
+  ) : (
+    <EventText id="register" />
+  );
   const notice = (
     <>
       {user && (
@@ -124,8 +128,10 @@ export async function PublicEventExperience({
       )}
       {ownedEvent && (
         <Alert severity="info">
-          <AlertTitle>This is your event</AlertTitle>
-          You cannot apply to attend your own event.
+          <AlertTitle>
+            <EventText id="ownEvent" />
+          </AlertTitle>
+          <EventText id="cannotApplyOwn" />
         </Alert>
       )}
       {admission && (
@@ -145,15 +151,20 @@ export async function PublicEventExperience({
           }
         >
           <AlertTitle>
-            Your application: {applicationStatusLabels[application.status]}
+            <EventText
+              id="yourApplication"
+              values={{ status: application.status }}
+            />
           </AlertTitle>
-          {frozen
-            ? "Your application status is preserved as part of this event’s history."
-            : application.status === "APPROVED"
-              ? "Your application was approved. Admission details are unavailable."
-              : application.status === "REJECTED"
-                ? "Your application has been declined."
-                : "Your application has been received and is awaiting organizer review."}
+          {frozen ? (
+            <EventText id="applicationPreserved" />
+          ) : application.status === "APPROVED" ? (
+            <EventText id="approvedAdmissionUnavailable" />
+          ) : application.status === "REJECTED" ? (
+            <EventText id="applicationDeclined" />
+          ) : (
+            <EventText id="applicationAwaitingReview" />
+          )}
         </Alert>
       )}
       {!frozen &&
@@ -174,17 +185,21 @@ export async function PublicEventExperience({
       )}
       {withdrawn && !frozen && (
         <Alert severity="info">
-          <AlertTitle>Your application: Withdrawn</AlertTitle>
-          {open
-            ? "You can apply again. Only answers to unchanged questions carry over. Your new application will need organizer review."
-            : "Your application has been withdrawn. You can apply again when registration is open."}
+          <AlertTitle>
+            <EventText id="yourApplication" values={{ status: "WITHDRAWN" }} />
+          </AlertTitle>
+          {open ? (
+            <EventText id="reapplyNotice" />
+          ) : (
+            <EventText id="withdrawnRegistrationClosed" />
+          )}
         </Alert>
       )}
       {user && (application || withdrawn) && (
         <Button
           href={`/account/registrations/${application?.eventId ?? withdrawn?.eventId}`}
         >
-          View application history
+          <EventText id="viewApplicationHistory" />
         </Button>
       )}
     </>
@@ -212,25 +227,28 @@ export async function PublicEventExperience({
             severity="error"
             sx={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}
           >
-            <AlertTitle>Event cancelled</AlertTitle>
+            <AlertTitle>
+              <EventText id="eventCancelled" />
+            </AlertTitle>
             {cancellationReason}
           </Alert>
         ) : !open ? (
           <Alert severity="info">
             <AlertTitle>
               {registrationAvailability(snapshot, now) === "NOT_OPEN_YET" &&
-              !frozen
-                ? "Registration is not open yet"
-                : "Registration is closed"}
+              !frozen ? (
+                <EventText id="notOpenRegistration" />
+              ) : (
+                <EventText id="closedRegistration" />
+              )}
             </AlertTitle>
-            Return to the event for registration dates and details.
+            <EventText id="returnForRegistrationDetails" />
           </Alert>
         ) : snapshot.capacity !== null &&
           occupied !== undefined &&
           occupied >= snapshot.capacity ? (
           <Alert severity="info">
-            All places are currently filled. You can still apply — a place may
-            become available.
+            <EventText id="fullCanApply" />
           </Alert>
         ) : null}
         {notice}
@@ -240,20 +258,21 @@ export async function PublicEventExperience({
           !user && (
             <Stack spacing={2}>
               <Alert severity="info">
-                {session
-                  ? "Verify your email before registering. Sign in to receive a verification link."
-                  : "Sign in or create an account with a verified email to register for this event."}
+                {session ? (
+                  <EventText id="verifyBeforeRegister" />
+                ) : (
+                  <EventText id="signInBeforeRegister" />
+                )}
               </Alert>
               <Typography variant="body2" color="text.secondary">
-                You’ll return to registration after signing in or verifying your
-                email.
+                <EventText id="returnAfterSignIn" />
               </Typography>
               <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
                 <Button href={`/sign-in?${returnQuery}`} variant="contained">
-                  Sign in
+                  <EventText id="signIn" />
                 </Button>
                 <Button href={`/register?${returnQuery}`} variant="outlined">
-                  Create account
+                  <EventText id="createAccount" />
                 </Button>
               </Stack>
             </Stack>
@@ -263,14 +282,18 @@ export async function PublicEventExperience({
 
     return (
       <Stack spacing={3} useFlexGap sx={{ minWidth: 0 }}>
-        <BackLink href={`/e/${publicId}`}>Back to event</BackLink>
+        <BackLink href={`/e/${publicId}`}>
+          <EventText id="backEvent" />
+        </BackLink>
         <Stack spacing={1}>
           <Typography component="h1" variant="h4">
-            {!canApply
-              ? "Your registration"
-              : withdrawn
-                ? "Apply again"
-                : "Register to attend"}
+            {!canApply ? (
+              <EventText id="yourRegistration" />
+            ) : withdrawn ? (
+              <EventText id="applyAgain" />
+            ) : (
+              <EventText id="registerToAttend" />
+            )}
           </Typography>
         </Stack>
         {showForm ? (
@@ -300,7 +323,7 @@ export async function PublicEventExperience({
                   component="h2"
                   variant="h6"
                 >
-                  Registration details
+                  <EventText id="registrationDetails" />
                 </Typography>
                 {registrationInfo}
               </Stack>
@@ -328,7 +351,9 @@ export async function PublicEventExperience({
 
   return (
     <Stack spacing={2}>
-      <BackLink href="/e">All events</BackLink>
+      <BackLink href="/e">
+        <EventText id="allEvents" />
+      </BackLink>
       <EventGuestView
         cancelled={Boolean(cancelledAt)}
         cancellationReason={cancellationReason}

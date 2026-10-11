@@ -3,17 +3,23 @@ import type { Metadata } from "next";
 import { refresh } from "next/cache";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
+import { getTranslations } from "next-intl/server";
 import { LanguageSelector } from "@/components/ui/language-selector";
+import { EventText } from "@/features/events/components/event-text";
 import { PartyGuests } from "@/features/guests/components/party-guests";
 import { addGuest, removeGuest } from "@/features/guests/server/manage-guests";
 import { TicketCard } from "@/features/tickets/components/ticket-card";
 import { getAnonymousTicket } from "@/features/tickets/server/get-anonymous-ticket";
 
-export const metadata: Metadata = {
-  title: "Your ticket | Event Flow",
-  robots: { index: false, follow: false, noarchive: true },
-  referrer: "no-referrer",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("events");
+
+  return {
+    title: `${t("yourTicket")} | Event Flow`,
+    robots: { index: false, follow: false, noarchive: true },
+    referrer: "no-referrer",
+  };
+}
 
 export default async function AnonymousTicketPage({
   params,
@@ -52,11 +58,10 @@ export default async function AnonymousTicketPage({
       <Stack spacing={3}>
         <LanguageSelector />
         <Typography variant="h4" component="h1">
-          Your ticket
+          <EventText id="yourTicket" />
         </Typography>
         <Alert severity="info">
-          This private link lets you view tickets and manage guests for your
-          registration. Keep it safe.
+          <EventText id="privateTicketHint" />
         </Alert>
         {data.cancelledAt && data.cancellationReason && (
           <Alert severity="error" sx={{ whiteSpace: "pre-wrap" }}>

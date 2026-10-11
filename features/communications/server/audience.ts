@@ -49,9 +49,7 @@ export async function resolveManualAudience(
   }
 
   if (rows.length > manualAudienceScanLimit) {
-    throw new ManualCommunicationError(
-      "This audience is too large to resolve safely. Choose a smaller audience.",
-    );
+    throw new ManualCommunicationError("commTooLarge");
   }
 
   const emails = new Set<string>();
@@ -69,9 +67,7 @@ export async function resolveManualAudience(
   }
 
   if (emails.size > manualCommunicationLimits.recipients) {
-    throw new ManualCommunicationError(
-      "This audience exceeds 1,000 unique recipients. Choose a smaller audience.",
-    );
+    throw new ManualCommunicationError("commTooMany");
   }
 
   return { emails: [...emails].sort(), unavailableCount };

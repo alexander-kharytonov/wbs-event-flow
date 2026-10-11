@@ -1,4 +1,7 @@
+"use client";
+
 import { Box, Link } from "@mui/material";
+import { useTranslations } from "next-intl";
 import type { MouseEventHandler } from "react";
 
 export function Logo({
@@ -6,10 +9,12 @@ export function Logo({
 }: {
   onClick?: MouseEventHandler<HTMLAnchorElement>;
 }) {
+  const t = useTranslations("shell");
+
   return (
     <Link
       href="/"
-      aria-label="Event Flow home"
+      aria-label={t("homeLabel")}
       underline="none"
       color="text.primary"
       variant="h6"

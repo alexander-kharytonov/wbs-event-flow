@@ -13,11 +13,13 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { useFormatter, useTranslations } from "next-intl";
 import type QrScanner from "qr-scanner";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CheckInResult } from "@/features/attendance/check-in-result";
 import { checkInTicketAction } from "@/features/attendance/check-in-ticket-action";
-import { formatEventTime } from "@/features/events/format-event-time";
+import { CheckInFeedback } from "@/features/attendance/components/check-in-feedback";
+import type { Messages } from "@/lib/i18n/messages";
 
 type ScannerState =
   | "IDLE"
@@ -27,30 +29,6 @@ type ScannerState =
   | "RESULT"
   | "ERROR";
 
-function resultMessage(result: CheckInResult, timezone: string) {
-  switch (result.code) {
-    case "CHECKED_IN":
-      return "Checked in";
-    case "ALREADY_CHECKED_IN":
-      return "Already checked in";
-    case "INVALID_CREDENTIAL":
-      return "Invalid ticket. Scan an Event Flow ticket QR.";
-    case "WRONG_EVENT":
-      return "This ticket belongs to another event.";
-    case "ADMISSION_REVOKED":
-      return "This admission is no longer valid.";
-    case "EVENT_CANCELLED":
-      return "This event is cancelled. New check-ins are unavailable.";
-    case "CHECK_IN_NOT_OPEN":
-      return `Check-in opens ${formatEventTime(new Date(result.boundaryAt), timezone)} (${timezone}).`;
-    case "CHECK_IN_CLOSED":
-      return `Check-in closed ${formatEventTime(new Date(result.boundaryAt), timezone)} (${timezone}).`;
-    case "UNAVAILABLE":
-    case "FAILED":
-      return result.message;
-  }
-}
-
 export function TicketScanner({
   eventId,
   timezone,
@@ -58,6 +36,16 @@ export function TicketScanner({
   eventId: string;
   timezone: string;
 }) {
+  const t = useTranslations("events");
+  const format = useFormatter();
+  function dateLabel(value: string) {
+    return format.dateTime(new Date(value), {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: timezone,
+    });
+  }
+
   const video = useRef<HTMLVideoElement>(null);
   const decoder = useRef<{
     scanner: QrScanner;
@@ -72,7 +60,7 @@ export function TicketScanner({
   const discardPendingResult = useRef(false);
   const [state, setState] = useState<ScannerState>("IDLE");
   const [result, setResult] = useState<CheckInResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<keyof Messages["events"] | null>(null);
   const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
   const [cameraId, setCameraId] = useState("");
   const [cameraOn, setCameraOn] = useState(false);
@@ -242,9 +230,7 @@ export function TicketScanner({
                 return;
               }
 
-              setError(
-                "Camera access ended. Start the scanner again to continue.",
-              );
+              setError("cameraEnded");
               changeState("ERROR");
             }
           },
@@ -293,9 +279,7 @@ export function TicketScanner({
                 return;
               }
 
-              setError(
-                "Could not complete check-in. Check your connection and sign-in, then scan again.",
-              );
+              setError("checkInConnection");
               changeState("ERROR");
             }
           }
@@ -316,9 +300,7 @@ export function TicketScanner({
             }
 
             void stopCamera().catch(() => {});
-            setError(
-              "The scanner could not read the camera. Please start it again.",
-            );
+            setError("cameraReadFailed");
             changeState("ERROR");
           },
         },
@@ -354,10 +336,10 @@ export function TicketScanner({
       const name = failure instanceof Error ? failure.name : "";
       setError(
         name === "NotAllowedError" || name === "SecurityError"
-          ? "Camera access was denied. Allow camera access in your browser settings and try again."
+          ? "cameraDenied"
           : failure instanceof Error && failure.message === "SECURE_CONTEXT"
-            ? "Camera access requires HTTPS or localhost."
-            : "Camera unavailable. Check that a camera is connected and not in use by another app.",
+            ? "cameraSecure"
+            : "cameraUnavailable",
       );
       changeState("ERROR");
     }
@@ -404,7 +386,7 @@ export function TicketScanner({
         <Stack spacing={2}>
           <TextField
             select
-            label="Camera"
+            label={t("camera")}
             value={state === "STARTING" ? "" : cameraId}
             disabled={
               state === "STARTING" ||
@@ -415,7 +397,7 @@ export function TicketScanner({
               select: {
                 displayEmpty: true,
                 renderValue:
-                  state === "STARTING" ? () => "Starting camera…" : undefined,
+                  state === "STARTING" ? () => t("cameraStarting") : undefined,
               },
               inputLabel: { shrink: true },
             }}
@@ -431,10 +413,10 @@ export function TicketScanner({
             }}
             fullWidth
           >
-            <MenuItem value="">Automatic (prefer rear camera)</MenuItem>
+            <MenuItem value="">{t("cameraAuto")}</MenuItem>
             {cameras.map((camera, index) => (
               <MenuItem key={camera.deviceId} value={camera.deviceId}>
-                {camera.label || `Camera ${index + 1}`}
+                {camera.label || t("cameraNumber", { number: index + 1 })}
               </MenuItem>
             ))}
           </TextField>
@@ -454,7 +436,7 @@ export function TicketScanner({
               ref={video}
               playsInline
               muted
-              aria-label="Ticket scanner camera"
+              aria-label={t("scannerCamera")}
               style={{
                 width: "100%",
                 height: "100%",
@@ -475,7 +457,7 @@ export function TicketScanner({
                 }}
               >
                 <QrCodeScannerOutlined sx={{ fontSize: 40 }} />
-                <Typography variant="body2">Camera is off</Typography>
+                <Typography variant="body2">{t("cameraOff")}</Typography>
               </Stack>
             )}
           </Box>
@@ -496,7 +478,7 @@ export function TicketScanner({
               }
             }}
           >
-            Stop scanner
+            {t("scannerStop")}
           </Button>
         ) : state !== "RESULT" ? (
           <Button
@@ -506,7 +488,7 @@ export function TicketScanner({
             disabled={state === "PROCESSING"}
             onClick={scanNext}
           >
-            Start scanner
+            {t("scannerStart")}
           </Button>
         ) : null}
       </Paper>
@@ -516,7 +498,7 @@ export function TicketScanner({
           animation="wave"
           variant="rounded"
           width="100%"
-          aria-label="Waiting for scan result"
+          aria-label={t("scannerWaiting")}
           sx={{ height: { xs: 240, md: "100%" }, minHeight: 240 }}
         />
       ) : (
@@ -531,7 +513,7 @@ export function TicketScanner({
           }}
         >
           <Stack spacing={2} aria-live="polite" aria-atomic="true">
-            {error && <Alert severity="error">{error}</Alert>}
+            {error && <Alert severity="error">{t(error)}</Alert>}
             {result && (
               <Alert
                 severity={
@@ -543,12 +525,16 @@ export function TicketScanner({
                 }
               >
                 <Stack spacing={0.5} sx={{ overflowWrap: "anywhere" }}>
-                  {resultMessage(result, timezone)}
+                  <CheckInFeedback result={result} timezone={timezone} />
                   {"attendee" in result && result.attendee && (
                     <>
                       <Typography>{result.attendee.attendeeName}</Typography>
                       <Typography variant="body2">
-                        {result.attendee.kind}{" "}
+                        {t(
+                          result.attendee.kind === "PRIMARY"
+                            ? "primaryAttendee"
+                            : "guest",
+                        )}{" "}
                         {result.attendee.attendeeEmail
                           ? `· ${result.attendee.attendeeEmail}`
                           : ""}
@@ -560,8 +546,7 @@ export function TicketScanner({
                   )}
                   {"checkedInAt" in result && (
                     <Typography variant="body2">
-                      {formatEventTime(new Date(result.checkedInAt), timezone)}{" "}
-                      ({timezone})
+                      {dateLabel(result.checkedInAt)} ({timezone})
                     </Typography>
                   )}
                 </Stack>
@@ -601,8 +586,8 @@ export function TicketScanner({
                   }}
                 >
                   {result?.code === "ALREADY_CHECKED_IN"
-                    ? "Reprint badge"
-                    : "Print badge"}
+                    ? t("badgeReprint")
+                    : t("badgePrint")}
                 </Button>
               )}
               <Button
@@ -611,7 +596,7 @@ export function TicketScanner({
                 startIcon={<QrCodeScannerOutlined />}
                 onClick={scanNext}
               >
-                Scan next
+                {t("scannerNext")}
               </Button>
             </Stack>
           )}

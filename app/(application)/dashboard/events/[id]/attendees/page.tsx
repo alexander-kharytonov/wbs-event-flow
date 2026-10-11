@@ -1,13 +1,19 @@
 import { Stack, Typography } from "@mui/material";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { AttendeesList } from "@/features/events/components/attendees-list";
 import { EventHeader } from "@/features/events/components/event-header";
+import { EventText } from "@/features/events/components/event-text";
 import { eventLifecycle } from "@/features/events/event-lifecycle";
 import { getEventAttendees } from "@/features/events/server/organizer-attendees";
 import { requireVerifiedUser } from "@/lib/session";
 
-export const metadata: Metadata = { title: "Attendees | Event Flow" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("events");
+
+  return { title: `${t("attendees")} | Event Flow` };
+}
 
 export default async function AttendeesPage({
   params,
@@ -49,11 +55,17 @@ export default async function AttendeesPage({
             component="h2"
             sx={{ minHeight: 42, display: "flex", alignItems: "center" }}
           >
-            Attendees
+            <EventText id="attendees" />
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {activeCount} admitted · {checkedInCount} checked in ·{" "}
-            {activeCount - checkedInCount} not arrived
+            <EventText
+              id="attendeesPageCounts"
+              values={{
+                active: activeCount,
+                checkedIn: checkedInCount,
+                absent: activeCount - checkedInCount,
+              }}
+            />
           </Typography>
         </Stack>
         <AttendeesList

@@ -23,18 +23,14 @@ export function revisionColumns(
   const parsed = eventSnapshotSchema.safeParse(revision.snapshot);
 
   if (!parsed.success) {
-    throw new ExportError(
-      "Historical registration data is unavailable. No partial file was produced.",
-    );
+    throw new ExportError("exportHistory");
   }
 
   if (
     existingColumns + parsed.data.registrationForm.fields.length * 2 >
     MAX_EXPORT_COLUMNS
   ) {
-    throw new ExportError(
-      "Export exceeds the 500-column limit. No partial file was produced.",
-    );
+    throw new ExportError("exportColumns");
   }
 
   return parsed.data.registrationForm.fields.map((field, index) => ({
@@ -60,9 +56,7 @@ export function answerCells(
     applicable &&
     answers.some((answer) => !submittedFieldIds.has(answer.fieldId))
   ) {
-    throw new ExportError(
-      "Historical registration data is unavailable. No partial file was produced.",
-    );
+    throw new ExportError("exportHistory");
   }
 
   const byField = new Map<string, StoredAnswer[]>();

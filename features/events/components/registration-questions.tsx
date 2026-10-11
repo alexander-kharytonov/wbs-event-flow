@@ -15,6 +15,7 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
+import { useTranslations } from "next-intl";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
   type BuilderField,
@@ -44,6 +45,8 @@ export function RegistrationQuestions<T extends Question>({
   onDelete: (field: T) => void;
   onMove: (index: number, offset: number) => void;
 }) {
+  const t = useTranslations("events");
+
   return (
     <Stack component="section" spacing={2}>
       <Stack
@@ -56,7 +59,7 @@ export function RegistrationQuestions<T extends Question>({
           component="h2"
           sx={{ minHeight: 42, display: "flex", alignItems: "center" }}
         >
-          Questions
+          {t("questions")}
         </Typography>
         {
           <Button
@@ -65,15 +68,15 @@ export function RegistrationQuestions<T extends Question>({
             disabled={disabled || addDisabled}
             onClick={onAdd}
           >
-            Add question
+            {t("questionAdd")}
           </Button>
         }
       </Stack>
       {fields.length === 0 && (
         <EmptyState
           icon={<QuizOutlined />}
-          title="No custom questions yet"
-          description="Add questions to collect the information you need from your guests."
+          title={t("questionEmpty")}
+          description={t("questionEmptyHint")}
         />
       )}
       {fields.map((field, index) => (
@@ -101,11 +104,13 @@ export function RegistrationQuestions<T extends Question>({
                 {index + 1}. {field.label}
               </Typography>
               <Stack direction="row" spacing={1}>
-                <Chip size="small" label={fieldTypeLabels[field.type]} />
+                <Chip size="small" label={t(fieldTypeLabels[field.type])} />
                 <Chip
                   size="small"
                   variant="outlined"
-                  label={field.required ? "Required" : "Optional"}
+                  label={
+                    field.required ? t("questionRequiredLabel") : t("optional")
+                  }
                 />
               </Stack>
               {field.description && (
@@ -145,14 +150,14 @@ export function RegistrationQuestions<T extends Question>({
                 }}
               >
                 <IconButton
-                  aria-label={`Move question ${index + 1} up`}
+                  aria-label={t("questionUp", { number: index + 1 })}
                   disabled={disabled || index === 0}
                   onClick={() => onMove(index, -1)}
                 >
                   <ArrowUpward fontSize="small" />
                 </IconButton>
                 <IconButton
-                  aria-label={`Move question ${index + 1} down`}
+                  aria-label={t("questionDown", { number: index + 1 })}
                   disabled={disabled || index === fields.length - 1}
                   onClick={() => onMove(index, 1)}
                 >
@@ -163,7 +168,7 @@ export function RegistrationQuestions<T extends Question>({
                   disabled={disabled}
                   onClick={() => onEdit(field)}
                 >
-                  Edit
+                  {t("edit")}
                 </Button>
                 <Button
                   startIcon={<DeleteOutlined />}
@@ -171,7 +176,7 @@ export function RegistrationQuestions<T extends Question>({
                   disabled={disabled}
                   onClick={() => onDelete(field)}
                 >
-                  Delete
+                  {t("uiDelete")}
                 </Button>
               </Stack>
             }

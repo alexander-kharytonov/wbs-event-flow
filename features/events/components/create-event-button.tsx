@@ -3,8 +3,11 @@
 import Add from "@mui/icons-material/Add";
 import { Button } from "@mui/material";
 import NextLink from "next/link";
+import { useTranslations } from "next-intl";
 
 export function CreateEventButton() {
+  const t = useTranslations("events");
+
   return (
     <Button
       component={NextLink}
@@ -13,7 +16,7 @@ export function CreateEventButton() {
       variant="contained"
       startIcon={<Add />}
     >
-      Create event
+      {t("createEvent")}
     </Button>
   );
 }

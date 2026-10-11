@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import {
   type BadgeField,
+  type BadgeFieldContext,
   badgeFieldSchema,
   badgeLayoutSchema,
   readBadgeLayout,
@@ -40,15 +41,15 @@ const saveSchema = z.strictObject({
 });
 
 async function fieldCatalog(tx: Prisma.TransactionClient, eventId: string) {
-  const fields: (BadgeField & { context: string })[] = [];
-  const add = (candidate: unknown, context: string) => {
+  const fields: (BadgeField & BadgeFieldContext)[] = [];
+  const add = (candidate: unknown, context: BadgeFieldContext) => {
     const parsed = badgeFieldSchema.safeParse(candidate);
 
     if (
       parsed.success &&
       !fields.some((field) => sameBadgeField(field, parsed.data))
     ) {
-      fields.push({ ...parsed.data, context });
+      fields.push({ ...parsed.data, ...context });
     }
   };
   const draft = await tx.registrationField.findMany({
@@ -60,7 +61,10 @@ async function fieldCatalog(tx: Prisma.TransactionClient, eventId: string) {
   for (const [position, field] of draft.entries()) {
     add(
       { fieldId: field.id, type: field.type, label: field.label },
-      `Current form · Question ${position + 1}`,
+      {
+        context: "badgeCurrentQuestion",
+        contextValues: { number: position + 1 },
+      },
     );
   }
 
@@ -95,7 +99,10 @@ async function fieldCatalog(tx: Prisma.TransactionClient, eventId: string) {
       ] of parsed.data.registrationForm.fields.entries()) {
         add(
           { fieldId: field.id, type: field.type, label: field.label },
-          `Published version ${revision.number} · Question ${position + 1}`,
+          {
+            context: "badgePublishedQuestion",
+            contextValues: { number: position + 1, revision: revision.number },
+          },
         );
       }
     }
@@ -105,11 +112,11 @@ async function fieldCatalog(tx: Prisma.TransactionClient, eventId: string) {
     const { secondaryField, tertiaryField } = savedLayout.data;
 
     if (secondaryField) {
-      add(secondaryField, "Saved secondary field");
+      add(secondaryField, { context: "badgeSavedSecondary" });
     }
 
     if (tertiaryField) {
-      add(tertiaryField, "Saved tertiary field");
+      add(tertiaryField, { context: "badgeSavedTertiary" });
     }
   }
 
@@ -373,7 +380,7 @@ export async function saveBadgeLayout(
   if (!parsed.success) {
     return {
       success: false,
-      message: "Check the badge settings and try again.",
+      message: "badgeCheckSettings",
     };
   }
 
@@ -389,7 +396,7 @@ export async function saveBadgeLayout(
       ));
 
     if (!event || !access) {
-      return { success: false, message: "This event is unavailable." };
+      return { success: false, message: "badgeEventUnavailable" };
     }
 
     const catalog = await fieldCatalog(tx, event.id);
@@ -412,7 +419,7 @@ export async function saveBadgeLayout(
 
     return {
       success: true,
-      message: "Badge layout saved. New print documents use these settings.",
+      message: "badgeLayoutSaved",
     };
   });
 }

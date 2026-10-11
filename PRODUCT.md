@@ -1144,15 +1144,36 @@ account; an expired session saves only the anonymous cookie. There is no automat
 retry or replay. Concurrent writes use last-write-wins behavior. A lost response
 can leave persistence uncertain; repeating the selection is safe.
 
-This phase translates shared navigation, account navigation, language/appearance
+I18N-A introduced shared navigation, account navigation, language/appearance
 controls and essential shell labels. MUI built-in labels and the shared DateTime
 component use the active UI locale; Event timezone and instant semantics stay
-unchanged. Other feature text and date formatters remain English pending later
-phases. Event content, Snapshot/Template contracts and transactional emails are
-unchanged by I18N-A; I18N-B adds the independent Event language described below. Server-only translated output updates
-on the next server render; immediately switchable labels use client context with
-SSR initial messages. Background translation can receive an explicit locale without
-HTTP context, but current email templates/delivery are not connected to it.
+unchanged.
+
+The current I18N-C implementation extends dictionaries to authentication, profile,
+the home page, public discovery and registration, application history/review/withdrawal, guests,
+tickets, staff, communications, scanner and manual check-in controls, registration
+questions, Event authoring validation, cover controls, overview and arrival charts,
+publication/lifecycle feedback, import/duplicate review, export controls and badge
+design/print documents.
+Localized feedback stores message codes and any interpolation values, translating
+when rendered. Historical answer presentation distinguishes literal user text from
+checkbox booleans and unavailable/not-provided states; only those UI states are
+translated. Questions, option labels, Event descriptions, cancellation reasons,
+manual message subjects/bodies and other authored content retain their language.
+
+Technical identifiers, template/CSV field names, ticket numbers, QR payloads and
+email/template content are not localized. Badge print documents use the request UI
+locale, preserving their saved design, authorization and admission snapshot.
+Localized metadata is resolved on the server; it updates on the next server render.
+UI acceptance must still exercise authenticated organizer workflows and populated
+historical/attendance/communication states in all five locales.
+
+Server-only translated output updates on the next server render; immediately
+switchable labels consume client context with SSR initial messages. UI locale is
+not included in Event snapshots/templates, mutation inputs, revision bindings or
+idempotency digests. Exported technical headers, formats and stored timestamps
+remain unchanged. Background translation can receive an explicit locale without
+HTTP context, but email templates/delivery are not connected to it.
 
 ## UI appearance preference
 

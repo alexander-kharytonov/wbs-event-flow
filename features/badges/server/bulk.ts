@@ -23,11 +23,9 @@ import {
 } from "@/features/tickets/server/ticket-display";
 import { prisma } from "@/lib/prisma";
 
-export const selectedUnavailable =
-  "Some selected attendees are no longer available. Refresh the list and select again.";
-const unavailable =
-  "This print document is unavailable. Refresh the workspace and try again.";
-const teamTooLarge = "This event team is too large to print in one document.";
+export const selectedUnavailable = "printSelectionUnavailable";
+const unavailable = "printUnavailable";
+const teamTooLarge = "badgeTeamTooLarge";
 
 // Only selection data crosses the workspace boundary, never answers or presentations.
 export async function readBadgeWorkspace(
@@ -143,8 +141,7 @@ export async function buildBulkBadgeDocument(
 
   if (!z.uuid().safeParse(eventId).success || !parsed.success) {
     return {
-      error:
-        "Choose between 1 and 200 unique attendees, or open a valid print batch.",
+      error: "printSelectionLimit",
     };
   }
 
@@ -241,9 +238,7 @@ export async function buildBulkBadgeDocument(
 
       if (!rows.length) {
         return {
-          error: cursor
-            ? "No more active attendees are available after this batch."
-            : "No active attendees are available to print.",
+          error: cursor ? "printNoMore" : "printNoActive",
         };
       }
 
@@ -373,8 +368,7 @@ export async function buildBulkBadgeDocument(
             : null;
         } catch {
           return {
-            error:
-              "Could not prepare the print document. Please open it again.",
+            error: "printPrepareFailed",
           };
         }
       }

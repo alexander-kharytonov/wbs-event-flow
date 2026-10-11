@@ -5,6 +5,7 @@ import { EventCover } from "@/features/events/components/event-cover";
 import { EventGuestView } from "@/features/events/components/event-guest-view";
 import { EventHeader } from "@/features/events/components/event-header";
 import { EventPreviewTabs } from "@/features/events/components/event-preview-tabs";
+import { EventText } from "@/features/events/components/event-text";
 import { PublicEventCard } from "@/features/events/components/public-event-card";
 import { RegistrationApplicationForm } from "@/features/events/components/registration-application-form";
 import { eventCoverImage } from "@/features/events/event-cover";
@@ -99,7 +100,7 @@ export default async function PreviewPage({
               >
                 <Stack spacing={3}>
                   <Typography component="h2" variant="h4">
-                    Register to attend
+                    <EventText id="registerToAttend" />
                   </Typography>
                   <RegistrationApplicationForm
                     key={`registration-preview:${id}`}
@@ -125,8 +126,7 @@ export default async function PreviewPage({
           />
         ) : (
           <Alert severity="error" sx={{ m: { xs: 2, sm: 4 } }}>
-            Check the event details and registration questions before
-            previewing.
+            <EventText id="previewInvalid" />
           </Alert>
         )}
       </EventHeader>

@@ -1,16 +1,22 @@
 import { z } from "zod";
 import type { EventSnapshot } from "@/features/events/schemas/event-snapshot";
+import type { Messages } from "@/lib/i18n/messages";
+
+export type ApplicationIssue = {
+  code: keyof Messages["events"];
+  values?: Record<string, number>;
+};
 
 export type ApplicationFormState = {
   success?: true;
-  message?: string;
-  errors?: Record<string, string>;
+  message?: ApplicationIssue;
+  errors?: Record<string, ApplicationIssue>;
 };
 
 export const applicationInputSchema = z.strictObject({
   publicId: z.uuid(),
   eventRevisionId: z.uuid(),
-  fullName: z.string().trim().min(1, "Enter your full name.").max(200),
+  fullName: z.string().trim().min(1, "fullNameRequired").max(200),
   email: z
     .string()
     .trim()
@@ -33,49 +39,51 @@ export function applicationAnswersSchema(snapshot: {
           : answer,
       )
       .superRefine((answer, ctx) => {
-        const invalid = (message: string) =>
-          ctx.addIssue({ code: "custom", message });
+        const invalid = (
+          message: ApplicationIssue["code"],
+          values?: Record<string, number>,
+        ) => ctx.addIssue({ code: "custom", message, params: { values } });
 
         if (field.type === "SHORT_TEXT" || field.type === "LONG_TEXT") {
           if (answer.length > 1) {
-            invalid("Enter a single text answer.");
+            invalid("singleTextAnswer");
           }
 
           const text = (answer[0] ?? "").trim();
           const limit = field.type === "SHORT_TEXT" ? 500 : 5000;
 
           if (field.required && !text) {
-            invalid("This question is required.");
+            invalid("questionRequired");
           }
 
           if (text.length > limit) {
-            invalid(`Use at most ${limit} characters.`);
+            invalid("answerMaxLength", { count: limit });
           }
         } else if (field.type === "CHECKBOX") {
           if (answer.length > 1 || answer.some((value) => value !== "true")) {
-            invalid("Invalid checkbox answer.");
+            invalid("invalidCheckbox");
           }
 
           if (field.required && answer[0] !== "true") {
-            invalid("This checkbox is required.");
+            invalid("checkboxRequired");
           }
         } else {
           const allowed = new Set(field.options.map((option) => option.id));
 
           if (answer.some((id) => !allowed.has(id))) {
-            invalid("Choose an option from this question.");
+            invalid("chooseQuestionOption");
           }
 
           if (new Set(answer).size !== answer.length) {
-            invalid("Choose each option only once.");
+            invalid("chooseOptionOnce");
           }
 
           if (field.type === "SINGLE_CHOICE" && answer.length > 1) {
-            invalid("Choose only one option.");
+            invalid("chooseOneOption");
           }
 
           if (field.required && answer.length === 0) {
-            invalid("Choose at least one option.");
+            invalid("chooseAtLeastOne");
           }
         }
       });
@@ -100,4 +108,46 @@ export function applicationAnswersSchema(snapshot: {
   });
 
   return z.strictObject(Object.fromEntries(shape));
+}
+
+// Only controlled validation codes cross the action boundary; question content stays untouched.
+export function applicationIssue(issue: z.core.$ZodIssue): ApplicationIssue {
+  if (issue.code === "custom") {
+    const codes = [
+      "singleTextAnswer",
+      "questionRequired",
+      "answerMaxLength",
+      "invalidCheckbox",
+      "checkboxRequired",
+      "chooseQuestionOption",
+      "chooseOptionOnce",
+      "chooseOneOption",
+      "chooseAtLeastOne",
+    ] as const;
+    const code = codes.find((code) => code === issue.message);
+
+    if (code) {
+      return {
+        code,
+        ...(code === "answerMaxLength"
+          ? { values: { count: Number(issue.params?.values?.count) } }
+          : {}),
+      };
+    }
+  }
+
+  if (issue.path[0] === "email") {
+    return { code: "invalidEmail" };
+  }
+
+  if (issue.code === "too_big") {
+    return {
+      code: "answerMaxLength",
+      values: { count: Number(issue.maximum) },
+    };
+  }
+
+  return {
+    code: issue.path[0] === "fullName" ? "fullNameRequired" : "invalidAnswer",
+  };
 }

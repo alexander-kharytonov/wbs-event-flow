@@ -1,8 +1,13 @@
+"use client";
+
 import { Paper, Skeleton, Stack } from "@mui/material";
+import { useTranslations } from "next-intl";
 
 export default function LoadingRegistrationForm() {
+  const t = useTranslations("shell");
+
   return (
-    <Stack spacing={3} aria-label="Loading registration form" aria-busy="true">
+    <Stack spacing={3} aria-label={t("loadingForm")} aria-busy="true">
       <Skeleton width={100} />
       <Skeleton variant="text" width="60%" height={48} />
       <Skeleton width={260} height={44} />

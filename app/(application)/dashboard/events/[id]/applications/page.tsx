@@ -2,6 +2,7 @@ import { Stack, Typography } from "@mui/material";
 import { notFound } from "next/navigation";
 import { ApplicationsList } from "@/features/events/components/applications-list";
 import { EventHeader } from "@/features/events/components/event-header";
+import { EventText } from "@/features/events/components/event-text";
 import { getEventApplications } from "@/features/events/server/organizer-applications";
 import { requireVerifiedUser } from "@/lib/session";
 
@@ -38,11 +39,16 @@ export default async function ApplicationsPage({
             component="h2"
             sx={{ minHeight: 42, display: "flex", alignItems: "center" }}
           >
-            Applications
+            <EventText id="applications" />
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {pendingCount} pending review · {event.applications.length}{" "}
-            submitted attempts
+            <EventText
+              id="applicationsPageCounts"
+              values={{
+                pending: pendingCount,
+                total: event.applications.length,
+              }}
+            />
           </Typography>
         </Stack>
         <ApplicationsList

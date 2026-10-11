@@ -20,7 +20,7 @@ export async function submitApplication(
       key !== "email" &&
       !key.startsWith("$ACTION_")
     ) {
-      return { message: "This registration form contains an unknown field." };
+      return { message: { code: "unknownRegistrationField" } };
     }
   }
 
@@ -28,7 +28,7 @@ export async function submitApplication(
     formData.getAll("fullName").length !== 1 ||
     formData.getAll("email").length !== 1
   ) {
-    return { message: "Enter your full name and email." };
+    return { message: { code: "enterNameAndEmail" } };
   }
 
   return submitEventApplication({

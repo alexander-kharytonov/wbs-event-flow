@@ -8,9 +8,11 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { BackLink } from "@/components/ui/back-link";
+import { AuthText } from "@/features/auth/components/auth-text";
 import {
   rememberVerificationEmail,
   startVerificationCooldown,
@@ -21,6 +23,7 @@ import {
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { useNotifications } from "@/hooks/use-notifications";
 import { authClient } from "@/lib/auth-client";
+import type { Messages } from "@/lib/i18n/messages";
 import { safeReturnPath } from "@/lib/safe-return-path";
 
 export function VerificationForm({
@@ -32,12 +35,13 @@ export function VerificationForm({
   invalidLink: boolean;
   deliveryFailed: boolean;
 }) {
+  const t = useTranslations("auth");
   const [email, setEmail] = useState("");
   const [pending, setPending] = useState(false);
   const [remaining, setRemaining] = useState(0);
   const [cooldownLoaded, setCooldownLoaded] = useState(false);
   const notifications = useNotifications();
-  const feedback = useFormFeedback();
+  const feedback = useFormFeedback<keyof Messages["auth"]>({}, t);
   const [hasFeedback, setHasFeedback] = useState(false);
   const inFlight = useRef(false);
   const retryAt = useRef(0);
@@ -79,7 +83,7 @@ export function VerificationForm({
     feedback.reset();
 
     if (!z.email().safeParse(email.trim()).success) {
-      feedback.setErrors({ email: "Enter a valid email address." });
+      feedback.setErrors({ email: "invalidEmail" });
 
       return;
     }
@@ -105,13 +109,13 @@ export function VerificationForm({
 
         if (result.error.code === "INVALID_EMAIL") {
           feedback.setErrors({
-            email: result.error.message ?? "Enter a valid email address.",
+            email: "invalidEmail",
           });
         } else {
           feedback.setMessage(
             result.error.status === 429
-              ? "Please wait before requesting another email."
-              : "Could not send the verification email. Please try again.",
+              ? "waitBeforeResend"
+              : "sendVerificationFailed",
           );
         }
 
@@ -120,15 +124,13 @@ export function VerificationForm({
 
       startCooldown();
       setHasFeedback(true);
-      notifications.show(
-        "If this account needs verification, a new link has been sent. Check your inbox and spam folder.",
-        { severity: "info", key: "verification-resend" },
-      );
+      notifications.show(<AuthText id="verificationSent" />, {
+        severity: "info",
+        key: "verification-resend",
+      });
     } catch {
       setHasFeedback(true);
-      feedback.setMessage(
-        "Could not confirm email delivery. Check your connection and try again.",
-      );
+      feedback.setMessage("deliveryUnconfirmed");
     } finally {
       inFlight.current = false;
       setPending(false);
@@ -140,30 +142,22 @@ export function VerificationForm({
       spacing={3}
       sx={{ width: "100%", maxWidth: 480, mx: "auto", my: "auto" }}
     >
-      <BackLink href="/">Back to home</BackLink>
+      <BackLink href="/">{t("backHome")}</BackLink>
       <Paper variant="outlined" sx={{ p: { xs: 3, sm: 4 } }}>
         <Stack spacing={3}>
           <Stack spacing={1}>
             <Typography variant="h4" component="h1">
-              Verify your email
+              {t("verifyEmail")}
             </Typography>
             <Typography color="text.secondary">
-              Open the link in your latest verification email to continue. If
-              you can’t find it, check your spam folder or request a new link
-              below.
+              {t("verificationInstructions")}
             </Typography>
           </Stack>
           {invalidLink && !hasFeedback && (
-            <Alert severity="warning">
-              This verification link is invalid, expired, or already used. Open
-              the latest verification email or request a new one below.
-            </Alert>
+            <Alert severity="warning">{t("invalidVerificationLink")}</Alert>
           )}
           {deliveryFailed && !hasFeedback && (
-            <Alert severity="error">
-              We couldn’t confirm that your verification email was sent. You can
-              request a new link below.
-            </Alert>
+            <Alert severity="error">{t("verificationDeliveryFailed")}</Alert>
           )}
           <Stack
             component="form"
@@ -173,7 +167,7 @@ export function VerificationForm({
             aria-busy={pending}
           >
             <TextField
-              label="Email"
+              label={t("email")}
               name="email"
               type="email"
               autoComplete="email"
@@ -198,17 +192,14 @@ export function VerificationForm({
               }
             >
               {pending
-                ? "Sending…"
+                ? t("sending")
                 : remaining > 0
-                  ? `Resend in ${remaining}s`
-                  : "Resend verification email"}
+                  ? t("resendIn", { count: remaining })
+                  : t("resendVerification")}
             </Button>
           </Stack>
-          <Alert severity="info">
-            Verification links expire after one hour. If your email is already
-            verified, return to sign in.
-          </Alert>
-          <Button href={signInHref}>Back to sign in</Button>
+          <Alert severity="info">{t("verificationExpiry")}</Alert>
+          <Button href={signInHref}>{t("backSignIn")}</Button>
         </Stack>
       </Paper>
     </Stack>

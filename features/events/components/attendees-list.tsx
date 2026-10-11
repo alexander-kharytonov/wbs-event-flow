@@ -31,36 +31,19 @@ import {
   Typography,
 } from "@mui/material";
 import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { checkInManuallyAction } from "@/features/attendance/check-in-manually-action";
 import type { ManualCheckInResult } from "@/features/attendance/check-in-result";
+import { CheckInFeedback } from "@/features/attendance/components/check-in-feedback";
+import { EventText } from "@/features/events/components/event-text";
 import { formatEventTime } from "@/features/events/format-event-time";
 import type { OrganizerAttendee } from "@/features/events/server/organizer-attendees";
 import { useNotifications } from "@/hooks/use-notifications";
 
 function isActive(attendee: OrganizerAttendee) {
   return !attendee.revokedAt && !attendee.registration.revokedAt;
-}
-
-function resultMessage(result: ManualCheckInResult, timezone: string) {
-  switch (result.code) {
-    case "CHECKED_IN":
-      return "Checked in successfully.";
-    case "ALREADY_CHECKED_IN":
-      return `Already checked in · ${formatEventTime(new Date(result.checkedInAt), timezone)} (${timezone}).`;
-    case "EVENT_CANCELLED":
-      return "This event is cancelled. New check-ins are unavailable.";
-    case "CHECK_IN_NOT_OPEN":
-      return `Check-in opens ${formatEventTime(new Date(result.boundaryAt), timezone)} (${timezone}).`;
-    case "CHECK_IN_CLOSED":
-      return `Check-in closed ${formatEventTime(new Date(result.boundaryAt), timezone)} (${timezone}).`;
-    case "ADMISSION_REVOKED":
-      return "This admission is no longer active.";
-    case "UNAVAILABLE":
-    case "FAILED":
-      return result.message;
-  }
 }
 
 export function AttendeesList({
@@ -78,6 +61,8 @@ export function AttendeesList({
   timezone: string;
   lifecycle: "Upcoming" | "Ongoing" | "Completed" | "Cancelled";
 }) {
+  const t = useTranslations("events");
+  const locale = useLocale();
   const router = useRouter();
   const notifications = useNotifications();
   const [search, setSearch] = useState("");
@@ -156,26 +141,26 @@ export function AttendeesList({
         const response = await checkInManuallyAction({ eventId, attendeeId });
         setResult(response);
 
-        notifications.show(resultMessage(response, timezone), {
-          severity:
-            response.code === "CHECKED_IN"
-              ? "success"
-              : response.code === "FAILED"
-                ? "error"
-                : "info",
-          autoHideDuration: 4000,
-          key: `check-in:${attendeeId}`,
-        });
-
-        router.refresh();
-      } catch {
         notifications.show(
-          "Could not check in this attendee. Please try again.",
+          <CheckInFeedback result={response} timezone={timezone} />,
           {
-            severity: "error",
+            severity:
+              response.code === "CHECKED_IN"
+                ? "success"
+                : response.code === "FAILED"
+                  ? "error"
+                  : "info",
+            autoHideDuration: 4000,
             key: `check-in:${attendeeId}`,
           },
         );
+
+        router.refresh();
+      } catch {
+        notifications.show(<EventText id="checkInFailed" />, {
+          severity: "error",
+          key: `check-in:${attendeeId}`,
+        });
         setResult({
           code: "FAILED",
           message: "Could not check in this attendee. Please try again.",
@@ -205,7 +190,7 @@ export function AttendeesList({
           setResult(null);
           setSelectedId(person.id);
         }}
-        aria-label={`Open attendee ${person.name}`}
+        aria-label={t("attendeeOpen", { name: person.name })}
         aria-haspopup="dialog"
         alignItems="flex-start"
         sx={{
@@ -261,9 +246,9 @@ export function AttendeesList({
                   variant="caption"
                   sx={{ display: "block", mt: 0.5 }}
                 >
-                  {person.kind === "GUEST" ? "Guest" : "Primary attendee"}
+                  {person.kind === "GUEST" ? t("guest") : t("primaryAttendee")}
                   {person.ticket ? ` · ${person.ticket.number}` : ""}
-                  {contextOnly ? " · Shown for guest context" : ""}
+                  {contextOnly ? ` · ${t("attendeeContext")}` : ""}
                 </Typography>
               </>
             }
@@ -289,7 +274,7 @@ export function AttendeesList({
             <Chip
               size="small"
               variant="outlined"
-              label={isActive(person) ? "Active" : "Revoked"}
+              label={isActive(person) ? t("active") : t("attendeeRevoked")}
               color={isActive(person) ? "success" : "default"}
               icon={
                 isActive(person) ? <CheckCircleOutlined /> : <BlockOutlined />
@@ -299,7 +284,9 @@ export function AttendeesList({
             <Chip
               size="small"
               variant="outlined"
-              label={person.attendance ? "Checked in" : "Not checked in"}
+              label={
+                person.attendance ? t("checkedIn") : t("attendeeNotChecked")
+              }
               color={person.attendance ? "success" : "default"}
               icon={
                 person.attendance ? (
@@ -329,9 +316,9 @@ export function AttendeesList({
         }}
       >
         <TextField
-          label="Search attendees"
+          label={t("attendeeSearch")}
           placeholder={
-            full ? "Name, email or ticket number" : "Name or ticket number"
+            full ? t("attendeeSearchFull") : t("attendeeSearchRestricted")
           }
           value={search}
           onChange={(event) => setSearch(event.target.value)}
@@ -359,7 +346,7 @@ export function AttendeesList({
           {full && (
             <TextField
               select
-              label="Admission"
+              label={t("attendeeAdmission")}
               value={admission}
               onChange={(event) =>
                 setAdmission(
@@ -378,7 +365,7 @@ export function AttendeesList({
                   sx={{ display: "inline-flex", alignItems: "center", gap: 1 }}
                 >
                   <PeopleOutlined fontSize="small" />
-                  All
+                  {t("all")}
                 </Box>
               </MenuItem>
               <MenuItem value="active">
@@ -392,7 +379,7 @@ export function AttendeesList({
                   }}
                 >
                   <CheckCircleOutlined fontSize="small" />
-                  Active
+                  {t("active")}
                 </Box>
               </MenuItem>
               <MenuItem value="revoked">
@@ -401,14 +388,14 @@ export function AttendeesList({
                   sx={{ display: "inline-flex", alignItems: "center", gap: 1 }}
                 >
                   <BlockOutlined fontSize="small" />
-                  Revoked
+                  {t("attendeeRevoked")}
                 </Box>
               </MenuItem>
             </TextField>
           )}
           <TextField
             select
-            label="Attendance"
+            label={t("attendeeAttendance")}
             value={attendance}
             onChange={(event) => setAttendance(event.target.value)}
             sx={{ minWidth: 0 }}
@@ -419,7 +406,7 @@ export function AttendeesList({
                 sx={{ display: "inline-flex", alignItems: "center", gap: 1 }}
               >
                 <PeopleOutlined fontSize="small" />
-                All
+                {t("all")}
               </Box>
             </MenuItem>
             <MenuItem value="checked">
@@ -433,7 +420,7 @@ export function AttendeesList({
                 }}
               >
                 <HowToRegOutlined fontSize="small" />
-                Checked in
+                {t("checkedIn")}
               </Box>
             </MenuItem>
             <MenuItem value="not-checked">
@@ -442,7 +429,7 @@ export function AttendeesList({
                 sx={{ display: "inline-flex", alignItems: "center", gap: 1 }}
               >
                 <RadioButtonUncheckedOutlined fontSize="small" />
-                Not checked in
+                {t("attendeeNotChecked")}
               </Box>
             </MenuItem>
           </TextField>
@@ -451,18 +438,14 @@ export function AttendeesList({
       {visibleGroups.length === 0 ? (
         <EmptyState
           icon={<PeopleOutlined />}
-          title={
-            attendees.length ? "No matching attendees" : "No attendees yet"
-          }
+          title={attendees.length ? t("attendeeNoMatch") : t("attendeeEmpty")}
           description={
-            attendees.length
-              ? "Try another search or change the filters."
-              : "Attendees appear when you approve an application."
+            attendees.length ? t("trySearchFilters") : t("attendeeEmptyHint")
           }
         />
       ) : (
         <Paper variant="outlined" sx={{ overflow: "hidden" }}>
-          <List disablePadding aria-label="Event attendees">
+          <List disablePadding aria-label={t("attendeeList")}>
             {visibleGroups.map(({ primary, guests, contextOnly }, index) => (
               <ListItem
                 key={primary.id}
@@ -474,7 +457,7 @@ export function AttendeesList({
                 {guests.length > 0 && (
                   <List
                     disablePadding
-                    aria-label={`Guests of ${primary.name}`}
+                    aria-label={t("attendeeGuestsOf", { name: primary.name })}
                     sx={{
                       ml: 2,
                       my: 2,
@@ -517,9 +500,9 @@ export function AttendeesList({
         {selected && (
           <>
             <DialogTitle id="attendee-detail-title" sx={{ pr: 7 }}>
-              Attendee detail
+              {t("attendeeDetail")}
               <IconButton
-                aria-label="Close attendee"
+                aria-label={t("attendeeClose")}
                 onClick={closeDetail}
                 disabled={pending}
                 sx={{ position: "absolute", right: 12, top: 12 }}
@@ -544,7 +527,7 @@ export function AttendeesList({
                       </Typography>
                       {full && (
                         <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-                          {selected.email ?? "No email provided"}
+                          {selected.email ?? t("attendeeNoEmail")}
                         </Typography>
                       )}
                       <Typography
@@ -553,8 +536,8 @@ export function AttendeesList({
                         sx={{ mt: 0.5 }}
                       >
                         {selected.kind === "GUEST"
-                          ? `Guest of ${selected.registration.attendees[0]?.name ?? "Unavailable"}`
-                          : "Primary attendee"}
+                          ? `Guest of ${selected.registration.attendees[0]?.name ?? t("unavailable")}`
+                          : t("primaryAttendee")}
                       </Typography>
                     </Box>
                     <Stack
@@ -572,8 +555,8 @@ export function AttendeesList({
                         variant="outlined"
                         label={
                           isActive(selected)
-                            ? "Admission active"
-                            : "Admission revoked"
+                            ? t("attendeeAdmissionActive")
+                            : t("attendeeAdmissionRevoked")
                         }
                         color={isActive(selected) ? "success" : "default"}
                         icon={
@@ -589,7 +572,9 @@ export function AttendeesList({
                         size="small"
                         variant="outlined"
                         label={
-                          selected.attendance ? "Checked in" : "Not checked in"
+                          selected.attendance
+                            ? t("checkedIn")
+                            : t("attendeeNotChecked")
                         }
                         color={selected.attendance ? "success" : "default"}
                         icon={
@@ -625,11 +610,15 @@ export function AttendeesList({
                       {selected.createdAt && (
                         <Box>
                           <Typography component="dt">
-                            Admission granted
+                            {t("attendeeAdmissionGranted")}
                           </Typography>
                           <Typography component="dd">
                             {selected.createdAt &&
-                              formatEventTime(selected.createdAt, timezone)}
+                              formatEventTime(
+                                selected.createdAt,
+                                timezone,
+                                locale,
+                              )}
                           </Typography>
                         </Box>
                       )}
@@ -637,30 +626,35 @@ export function AttendeesList({
                         selected.registration.revokedAt) && (
                         <Box>
                           <Typography component="dt">
-                            Admission revoked
+                            {t("attendeeAdmissionRevoked")}
                           </Typography>
                           <Typography component="dd">
                             {formatEventTime(
                               (selected.revokedAt ??
                                 selected.registration.revokedAt) as Date,
                               timezone,
+                              locale,
                             )}
                           </Typography>
                         </Box>
                       )}
                       <Box>
-                        <Typography component="dt">Ticket status</Typography>
+                        <Typography component="dt">
+                          {t("attendeeTicketStatus")}
+                        </Typography>
                         <Typography component="dd">
                           {selected.ticket
                             ? selected.ticket.revokedAt
-                              ? "Revoked"
-                              : "Active"
-                            : "Unavailable"}
+                              ? t("attendeeRevoked")
+                              : t("active")
+                            : t("unavailable")}
                         </Typography>
                       </Box>
                       {selected.ticket && (
                         <Box sx={{ gridColumn: "1 / -1" }}>
-                          <Typography component="dt">Ticket number</Typography>
+                          <Typography component="dt">
+                            {t("ticketNumber")}
+                          </Typography>
                           <Typography
                             component="dd"
                             sx={{ fontFamily: "monospace" }}
@@ -675,13 +669,13 @@ export function AttendeesList({
                       color="text.secondary"
                       sx={{ display: "block", mt: 1.5 }}
                     >
-                      All times in {timezone}
+                      {t("allTimesIn", { timezone })}
                     </Typography>
                   </Box>
                 </Stack>
                 <Stack spacing={1.5}>
                   <Typography variant="h6" component="h3">
-                    Attendance
+                    {t("attendeeAttendance")}
                   </Typography>
                   {selected.attendance ? (
                     <Box
@@ -703,28 +697,35 @@ export function AttendeesList({
                       }}
                     >
                       <Box sx={{ gridColumn: "1 / -1" }}>
-                        <Typography component="dt">Checked in at</Typography>
+                        <Typography component="dt">
+                          {t("attendeeCheckedAt")}
+                        </Typography>
                         <Typography component="dd">
                           {formatEventTime(
                             selected.attendance.checkedInAt,
                             timezone,
+                            locale,
                           )}
                         </Typography>
                       </Box>
                       <Box>
-                        <Typography component="dt">Method</Typography>
+                        <Typography component="dt">
+                          {t("attendeeMethod")}
+                        </Typography>
                         <Typography component="dd">
                           {selected.attendance.method === "QR"
-                            ? "QR code"
-                            : "Manual"}
+                            ? t("attendeeQr")
+                            : t("attendeeManual")}
                         </Typography>
                       </Box>
                       {full && (
                         <Box>
-                          <Typography component="dt">Checked in by</Typography>
+                          <Typography component="dt">
+                            {t("attendeeCheckedBy")}
+                          </Typography>
                           <Typography component="dd">
                             {selected.attendance.checkedInByUser?.name ||
-                              "Unavailable"}
+                              t("unavailable")}
                           </Typography>
                         </Box>
                       )}
@@ -732,12 +733,12 @@ export function AttendeesList({
                   ) : (
                     <Typography variant="body2" color="text.secondary">
                       {lifecycle === "Upcoming"
-                        ? "Check-in opens when the event starts."
+                        ? t("attendeeOpensHint")
                         : lifecycle === "Cancelled"
-                          ? "This event is cancelled."
+                          ? t("attendeeCancelled")
                           : lifecycle === "Completed"
-                            ? "Check-in is closed."
-                            : "This attendee has not checked in yet."}
+                            ? t("attendeeClosed")
+                            : t("attendeeNotCheckedHint")}
                     </Typography>
                   )}
                 </Stack>
@@ -754,7 +755,7 @@ export function AttendeesList({
                     rel="noopener noreferrer"
                     disabled={pending}
                   >
-                    Print badge
+                    {t("badgePrint")}
                   </Button>
                 )}
                 {canCheckIn && (
@@ -763,7 +764,7 @@ export function AttendeesList({
                     loading={pending}
                     onClick={checkIn}
                   >
-                    Manual check-in
+                    {t("attendeeManualCheckIn")}
                   </Button>
                 )}
               </DialogActions>

@@ -1,14 +1,18 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
+import { getTranslations } from "next-intl/server";
 import { PublicEventResults } from "@/features/events/components/public-event-results";
 import { eventLanguageSchema } from "@/features/events/event-language";
 import { getPublicEvents } from "@/features/events/server/get-public-events";
 
-export const metadata: Metadata = {
-  title: "Public events | Event Flow",
-  description:
-    "Explore public events on Event Flow and find out how to attend.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("events");
+
+  return {
+    title: `${t("publicEvents")} | Event Flow`,
+    description: t("catalogMetaDescription"),
+  };
+}
 
 export default async function PublicEventsPage({
   searchParams,

@@ -1,16 +1,14 @@
+"use client";
+
 import { Chip, Stack, Typography } from "@mui/material";
+import { useTranslations } from "next-intl";
 import {
   communicationDeliverySummary,
   type DeliveryCounts,
+  deliveryStatusColor,
+  deliveryStatusLabel,
   deliveryStatusMeaning,
 } from "@/features/communications/delivery-status";
-
-export const deliveryStatusColor = {
-  PENDING: "warning",
-  PROCESSING: "info",
-  SENT: "success",
-  FAILED: "error",
-} as const;
 
 export function DeliverySummary({
   recipientCount,
@@ -21,6 +19,7 @@ export function DeliverySummary({
   counts: DeliveryCounts;
   compact?: boolean;
 }) {
+  const t = useTranslations("events");
   const summary = communicationDeliverySummary(recipientCount, counts);
 
   return (
@@ -33,10 +32,10 @@ export function DeliverySummary({
     >
       <Chip
         size="small"
-        label={summary.label}
+        label={t(summary.label)}
         color={summary.color}
         sx={{ alignSelf: "flex-start" }}
-        aria-label={`Overall status: ${summary.label}`}
+        aria-label={t("commOverall", { status: t(summary.label) })}
       />
       <Stack
         direction="row"
@@ -47,8 +46,12 @@ export function DeliverySummary({
             <Typography
               key={status}
               variant="caption"
-              title={deliveryStatusMeaning[status]}
-              aria-label={`${status}: ${counts[status]}. ${deliveryStatusMeaning[status]}`}
+              title={t(deliveryStatusMeaning[status])}
+              aria-label={t("commStatusAria", {
+                status: t(deliveryStatusLabel[status]),
+                count: counts[status],
+                meaning: t(deliveryStatusMeaning[status]),
+              })}
               sx={{
                 color:
                   counts[status] > 0
@@ -57,18 +60,27 @@ export function DeliverySummary({
                 fontWeight: counts[status] > 0 ? 600 : 400,
               }}
             >
-              {status.charAt(0)}
-              {status.slice(1).toLowerCase()}: {counts[status]}
+              {t("commStatusCount", {
+                status: t(deliveryStatusLabel[status]),
+                count: counts[status],
+              })}
             </Typography>
           ) : (
             <Chip
               key={status}
               size="small"
               variant="outlined"
-              title={deliveryStatusMeaning[status]}
-              aria-label={`${status}: ${counts[status]}. ${deliveryStatusMeaning[status]}`}
+              title={t(deliveryStatusMeaning[status])}
+              aria-label={t("commStatusAria", {
+                status: t(deliveryStatusLabel[status]),
+                count: counts[status],
+                meaning: t(deliveryStatusMeaning[status]),
+              })}
               color={deliveryStatusColor[status]}
-              label={`${status.charAt(0)}${status.slice(1).toLowerCase()}: ${counts[status]}`}
+              label={t("commStatusCount", {
+                status: t(deliveryStatusLabel[status]),
+                count: counts[status],
+              })}
             />
           ),
         )}

@@ -35,7 +35,7 @@ export async function updateBadgeLayout(input: unknown) {
   } catch {
     return {
       success: false,
-      message: "Could not save the badge layout. Please try again.",
+      message: "badgeLayoutSaveFailed",
     };
   }
 }

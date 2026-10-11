@@ -3,6 +3,7 @@ import { z } from "zod";
 import { applicationsFrozen } from "@/features/events/event-lifecycle";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 import { lockEventForUpdate } from "@/features/events/server/lock-event-for-update";
+import type { Messages } from "@/lib/i18n/messages";
 import { prisma } from "@/lib/prisma";
 import { notifyApplicationChanged } from "@/lib/realtime/application-notifications";
 
@@ -11,15 +12,18 @@ const withdrawalInput = z.strictObject({
   applicationId: z.uuid(),
 });
 
-export type WithdrawalResult = { success?: true; message?: string };
+export type WithdrawalResult = {
+  success?: true;
+  message?: keyof Messages["events"];
+};
 
 export async function withdrawOwnApplication(
   userId: string,
   input: unknown,
 ): Promise<WithdrawalResult> {
   const parsed = withdrawalInput.safeParse(input);
-  const unavailable = {
-    message: "This application is unavailable for withdrawal.",
+  const unavailable: WithdrawalResult = {
+    message: "withdrawUnavailable",
   };
 
   if (!parsed.success) {
@@ -74,8 +78,7 @@ export async function withdrawOwnApplication(
           now.getTime() >= Date.parse(snapshot.data.endsAt)
         ) {
           return {
-            message:
-              "Applications cannot be withdrawn after the event has ended.",
+            message: "withdrawEnded",
           };
         }
 
@@ -191,7 +194,7 @@ export async function withdrawOwnApplication(
     );
   } catch {
     return {
-      message: "Could not withdraw your application. Please try again.",
+      message: "withdrawFailed",
     };
   }
 }

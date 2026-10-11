@@ -3,9 +3,12 @@
 import LinkOutlined from "@mui/icons-material/LinkOutlined";
 import OpenInNew from "@mui/icons-material/OpenInNew";
 import { Button, Stack } from "@mui/material";
+import { useTranslations } from "next-intl";
+import { EventText } from "@/features/events/components/event-text";
 import { useNotifications } from "@/hooks/use-notifications";
 
 export function PublicEventLinks({ publicId }: { publicId: string }) {
+  const t = useTranslations("events");
   const notifications = useNotifications();
 
   return (
@@ -17,7 +20,7 @@ export function PublicEventLinks({ publicId }: { publicId: string }) {
         target="_blank"
         rel="noopener noreferrer"
       >
-        Open public page
+        {t("publicPageOpen")}
       </Button>
       <Button
         size="small"
@@ -27,20 +30,20 @@ export function PublicEventLinks({ publicId }: { publicId: string }) {
             await navigator.clipboard.writeText(
               new URL(`/e/${publicId}`, window.location.origin).href,
             );
-            notifications.show("Link copied.", {
+            notifications.show(<EventText id="publicLinkCopied" />, {
               severity: "success",
               key: "copy-event-link",
               autoHideDuration: 3000,
             });
           } catch {
-            notifications.show(
-              "Couldn’t copy the link. Open the public page and copy its address.",
-              { severity: "error", key: "copy-event-link" },
-            );
+            notifications.show(<EventText id="publicLinkCopyFailed" />, {
+              severity: "error",
+              key: "copy-event-link",
+            });
           }
         }}
       >
-        Copy link
+        {t("publicLinkCopy")}
       </Button>
     </Stack>
   );

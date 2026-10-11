@@ -1,46 +1,45 @@
 import type { ManualAudience } from "@/features/communications/server/contracts";
+import type { Messages } from "@/lib/i18n/messages";
 
 export const manualAudiences = [
   {
     value: "ALL_ACTIVE_ATTENDEES",
-    label: "All active attendees",
-    description:
-      "Primary attendees and guests with active admission and a valid email.",
+    label: "commAudienceAll",
+    description: "commAudienceAllHint",
   },
   {
     value: "PRIMARY_ATTENDEES",
-    label: "Primary attendees",
-    description: "Primary attendees with active admission.",
+    label: "commAudiencePrimary",
+    description: "commAudiencePrimaryHint",
   },
   {
     value: "CHECKED_IN",
-    label: "Checked in",
-    description: "Active attendees whose arrival has been recorded.",
+    label: "checkedIn",
+    description: "commAudienceArrivedHint",
   },
   {
     value: "NOT_ARRIVED",
-    label: "Not arrived",
-    description: "Active attendees without a recorded arrival.",
+    label: "commAudienceNotArrived",
+    description: "commAudienceNotArrivedHint",
   },
   {
     value: "PENDING_APPLICATIONS",
-    label: "Pending applications",
-    description: "Applicants whose current application is awaiting review.",
+    label: "commAudiencePending",
+    description: "commAudiencePendingHint",
   },
   {
     value: "EVENT_STAFF",
-    label: "Event staff",
-    description: "The event owner, managers and reception staff.",
+    label: "commAudienceStaff",
+    description: "commAudienceStaffHint",
   },
 ] as const satisfies readonly {
   value: ManualAudience;
-  label: string;
-  description: string;
+  label: keyof Messages["events"];
+  description: keyof Messages["events"];
 }[];
 
 export function audienceLabel(audience: string | null) {
   return (
-    manualAudiences.find((option) => option.value === audience)?.label ??
-    audience
+    manualAudiences.find((option) => option.value === audience)?.label ?? null
   );
 }

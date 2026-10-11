@@ -1,8 +1,11 @@
 import "server-only";
+import { getLocale, getTranslations } from "next-intl/server";
 import { renderToReadableStream } from "react-dom/server.edge";
+import { badgeLabels } from "@/features/badges/components/badge";
 import { BadgePrintPages } from "@/features/badges/components/print-pages";
 import { nextBadgeBatchUrl } from "@/features/badges/print-request";
 import type { BulkBadgeResult } from "@/features/badges/server/bulk";
+import type { Messages } from "@/lib/i18n/messages";
 
 export const badgePrintHeaders = {
   "Content-Type": "text/html; charset=utf-8",
@@ -17,50 +20,46 @@ export async function badgeHtmlResponse(
   eventId: string,
   status = 200,
 ) {
+  const t = await getTranslations("events");
+  const locale = await getLocale();
   const stream = await renderToReadableStream(
-    <html lang="en">
+    <html lang={locale}>
       {/* biome-ignore lint/style/noHeadElement: standalone Route Handler HTML, not a Next page */}
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="robots" content="noindex,nofollow,noarchive" />
         <meta name="referrer" content="no-referrer" />
-        <title>Print badges | Event Flow</title>
+        <title>{t("printBadges")} | Event Flow</title>
       </head>
       <body>
         <main className="ef-print-document" data-badge-document>
           <div className="ef-print-controls">
-            <h1>Print badges</h1>
+            <h1>{t("printBadges")}</h1>
             {"error" in result ? (
-              <p role="alert">{result.error}</p>
+              <p role="alert">{t(result.error as keyof Messages["events"])}</p>
             ) : (
               <>
                 <p>
-                  {result.presentations.length}{" "}
-                  {result.presentations.length === 1 ? "badge" : "badges"}{" "}
-                  arranged on A4 sheets at their actual size, with cutting
-                  guides. This document uses the saved design and admission
-                  state from when it was opened. Choose A4 paper and 100% scale
-                  in the print dialog; disable browser headers and footers.
+                  {t("printBadgeInstructions", {
+                    count: result.presentations.length,
+                  })}
                 </p>
                 <button id="print-badges" type="button">
-                  Print
+                  {t("printAction")}{" "}
                 </button>
                 <p id="print-error" role="alert" hidden>
-                  Could not prepare the images. Please open the document again.
+                  {t("printImagesFailed")}{" "}
                 </p>
                 {result.nextCursor && (
                   <>
-                    <p>
-                      More active attendees are available. Each next batch uses
-                      current data; the active set may change.
-                    </p>
+                    <p>{t("printMoreHint")} </p>
                     <a
                       href={nextBadgeBatchUrl(eventId, result.nextCursor)}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      Print next batch
+                      {t("printNext")}{" "}
                     </a>
                   </>
                 )}
@@ -71,11 +70,14 @@ export async function badgeHtmlResponse(
               target="_blank"
               rel="noopener noreferrer"
             >
-              Refresh workspace
+              {t("printRefresh")}{" "}
             </a>
           </div>
           {!("error" in result) && (
-            <BadgePrintPages badges={result.presentations} />
+            <BadgePrintPages
+              badges={result.presentations}
+              labels={badgeLabels(t)}
+            />
           )}
         </main>
         {!("error" in result) && <script src="/badge-print.js" defer />}

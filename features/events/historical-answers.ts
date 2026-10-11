@@ -8,45 +8,37 @@ import {
 } from "@/features/events/schemas/event-snapshot";
 
 type Answer = StoredAnswer;
-type HistoricalAnswer = {
+
+export type HistoricalAnswer = {
   fieldId: string;
-  label: string;
+  label: string | null;
   description: string | null;
-  value: string;
+  state: "VALUE" | "NOT_PROVIDED" | "UNAVAILABLE";
+  value: string | boolean | null;
 };
-const unavailable = "Answer unavailable";
 
 function formatAnswer(
   field: EventSnapshot["registrationForm"]["fields"][number],
   answer: Answer | undefined,
-) {
+): Pick<HistoricalAnswer, "state" | "value"> {
   const resolved = resolveHistoricalAnswer(field, answer ? [answer] : []);
 
-  if (resolved.state === "UNAVAILABLE") {
-    return unavailable;
-  }
-
-  if (resolved.state === "NOT_PROVIDED") {
-    return "Not provided";
-  }
-
-  if (typeof resolved.value === "boolean") {
-    return resolved.value ? "Yes" : "No";
+  if (resolved.state !== "VALUE") {
+    return resolved;
   }
 
   if (Array.isArray(resolved.value)) {
     // Preserve the existing detail UI's stored selection order.
-    return (
-      answer?.selectedOptions
-        .map(
-          ({ optionId }) =>
-            field.options.find(({ id }) => id === optionId)?.label,
-        )
-        .join(", ") ?? unavailable
+    const labels = answer?.selectedOptions.map(
+      ({ optionId }) => field.options.find(({ id }) => id === optionId)?.label,
     );
+
+    return labels
+      ? { state: "VALUE", value: labels.join(", ") }
+      : { state: "UNAVAILABLE", value: null };
   }
 
-  return resolved.value;
+  return { state: resolved.state, value: resolved.value };
 }
 
 export function historicalAnswers(
@@ -60,14 +52,14 @@ export function historicalAnswers(
   }
 
   const fields = parsed.data.registrationForm.fields;
-  const result = fields.map((field) => {
+  const result: HistoricalAnswer[] = fields.map((field) => {
     const matches = answers.filter((answer) => answer.fieldId === field.id);
 
     return {
       fieldId: field.id,
       label: field.label,
       description: field.description,
-      value: formatAnswer(field, matches.length === 1 ? matches[0] : undefined),
+      ...formatAnswer(field, matches.length === 1 ? matches[0] : undefined),
     };
   });
 
@@ -75,9 +67,10 @@ export function historicalAnswers(
     if (!fields.some((field) => field.id === answer.fieldId)) {
       result.push({
         fieldId: answer.fieldId,
-        label: "Unavailable question",
+        label: null,
         description: null,
-        value: unavailable,
+        state: "UNAVAILABLE",
+        value: null,
       });
     }
   }

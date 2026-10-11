@@ -7,10 +7,12 @@ import type {
 } from "@/features/events/schemas/registration-form";
 import {
   registrationFieldData,
+  registrationFieldIssue,
   registrationMutationSchema,
 } from "@/features/events/schemas/registration-form";
 import { lockEventForUpdate } from "@/features/events/server/lock-event-for-update";
 import type { Prisma } from "@/generated/prisma/client";
+import type { Messages } from "@/lib/i18n/messages";
 import { prisma } from "@/lib/prisma";
 
 const formSelection = {
@@ -107,14 +109,14 @@ export async function getRegistrationForm(
 
 class FormMutationError extends Error {
   constructor(
-    message: string,
+    readonly code: keyof Messages["events"],
     readonly conflict = false,
   ) {
-    super(message);
+    super(code);
   }
 }
 
-const unavailable = "This question or event is unavailable for editing.";
+const unavailable = "questionUnavailable";
 
 export async function mutateRegistrationForm(
   organizerId: string,
@@ -126,11 +128,14 @@ export async function mutateRegistrationForm(
     const fieldErrors = Object.fromEntries(
       parsed.error.issues
         .filter((issue) => issue.path[0] === "field")
-        .map((issue) => [issue.path.slice(1).join("."), issue.message]),
+        .map((issue) => [
+          issue.path.slice(1).join("."),
+          registrationFieldIssue(issue),
+        ]),
     );
 
     return {
-      message: "Please check the question and try again.",
+      message: "questionCheck",
       ...(Object.keys(fieldErrors).length ? { fieldErrors } : {}),
     };
   }
@@ -146,7 +151,7 @@ export async function mutateRegistrationForm(
       });
 
       if (!locked || workspaceReadOnly(locked, locked.decisionNow)) {
-        throw new FormMutationError("This event is read-only.");
+        throw new FormMutationError("mediaReadOnly");
       }
 
       const forms = await tx.$queryRaw<{ id: string; updatedAt: Date }[]>`
@@ -179,16 +184,11 @@ export async function mutateRegistrationForm(
           new Set(command.fieldIds).size !== ids.length ||
           command.fieldIds.some((id) => !ids.includes(id)))
       ) {
-        throw new FormMutationError(
-          "The question order must contain every question exactly once.",
-        );
+        throw new FormMutationError("questionOrderInvalid");
       }
 
       if (current.updatedAt.toISOString() !== command.version) {
-        throw new FormMutationError(
-          "This form changed while you were editing it. Reload the latest version before trying again. Your changes have not been saved.",
-          true,
-        );
+        throw new FormMutationError("questionConflict", true);
       }
 
       // Advance by at least 1 ms even for writes within the same clock tick.
@@ -265,9 +265,9 @@ export async function mutateRegistrationForm(
     return { form };
   } catch (error) {
     if (error instanceof FormMutationError) {
-      return { message: error.message, conflict: error.conflict };
+      return { message: error.code, conflict: error.conflict };
     }
 
-    return { message: "We couldn’t save the form. Please try again." };
+    return { message: "questionSaveFailed" };
   }
 }

@@ -1,22 +1,32 @@
-import "server-only";
+"use client";
+
 import ConfirmationNumberOutlined from "@mui/icons-material/ConfirmationNumberOutlined";
 import { Alert, Box, Paper, Stack, Typography } from "@mui/material";
 import Image from "next/image";
+import { useFormatter, useTranslations } from "next-intl";
 import { DateTime } from "@/components/ui/date-time";
-import { formatEventTime } from "@/features/events/format-event-time";
 import type { TicketPresentation } from "@/features/tickets/server/ticket-display";
 
 export function TicketCard({
   ticket,
-  title = "Your ticket",
+  title,
   background = "paper",
 }: {
   ticket: TicketPresentation;
-  title?: string;
+  title?: React.ReactNode;
   background?: "paper" | "default";
 }) {
+  const t = useTranslations("events");
+  const formatter = useFormatter();
   const { context, revoked, cancelled, completed, qrDataUrl } = ticket;
   const timezone = context?.timezone ?? "UTC";
+
+  const dateLabel = (date: Date) =>
+    formatter.dateTime(date, {
+      timeZone: timezone,
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
 
   return (
     <Paper
@@ -39,7 +49,7 @@ export function TicketCard({
         >
           <ConfirmationNumberOutlined color="primary" />
           <Typography variant="h6" component="h2">
-            {title}
+            {title ?? t("yourTicket")}
           </Typography>
         </Stack>
         <Stack
@@ -56,7 +66,7 @@ export function TicketCard({
         >
           <Stack spacing={1.5} sx={{ flex: 1, minWidth: 0 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-              {context?.title ?? "Event details unavailable"}
+              {context?.title ?? t("eventDetailsUnavailable")}
             </Typography>
             {context && (
               <DateTime
@@ -77,7 +87,7 @@ export function TicketCard({
             </Box>
             <Box>
               <Typography variant="caption" color="text.secondary">
-                Ticket number
+                {t("ticketNumber")}
               </Typography>
               <Typography
                 sx={{
@@ -90,18 +100,25 @@ export function TicketCard({
               </Typography>
             </Box>
             <Typography variant="caption" color="text.secondary">
-              Issued {formatEventTime(ticket.issuedAt, timezone)} ({timezone})
+              {t("ticketIssuedAt", {
+                date: dateLabel(ticket.issuedAt),
+                timezone,
+              })}
             </Typography>
             {ticket.checkedInAt && (
               <Alert severity="success">
-                Checked in · {formatEventTime(ticket.checkedInAt, timezone)} (
-                {timezone})
+                {t("checkedInAt", {
+                  date: dateLabel(ticket.checkedInAt),
+                  timezone,
+                })}
               </Alert>
             )}
             {ticket.revokedAt && (
               <Typography variant="caption" color="text.secondary">
-                Revoked {formatEventTime(ticket.revokedAt, timezone)} (
-                {timezone})
+                {t("admissionRevokedAt", {
+                  date: dateLabel(ticket.revokedAt),
+                  timezone,
+                })}
               </Typography>
             )}
           </Stack>
@@ -128,32 +145,22 @@ export function TicketCard({
                 <Image
                   unoptimized
                   src={qrDataUrl}
-                  alt="Ticket QR code"
+                  alt={t("ticketQr")}
                   width={240}
                   height={240}
                   style={{ display: "block", width: "100%", height: "auto" }}
                 />
               </Box>
               <Typography variant="caption" color="text.secondary">
-                Keep your ticket QR private.
+                {t("keepQrPrivate")}
               </Typography>
             </Stack>
           )}
         </Stack>
-        {revoked && (
-          <Alert severity="info">
-            This ticket has been revoked. Its QR is no longer available.
-          </Alert>
-        )}
-        {cancelled && (
-          <Alert severity="error">
-            Event cancelled. The ticket QR is unavailable.
-          </Alert>
-        )}
+        {revoked && <Alert severity="info">{t("ticketRevoked")}</Alert>}
+        {cancelled && <Alert severity="error">{t("cancelledTicketQr")}</Alert>}
         {!cancelled && completed && (
-          <Alert severity="info">
-            Event completed. This ticket is preserved in your history.
-          </Alert>
+          <Alert severity="info">{t("completedTicketHistory")}</Alert>
         )}
       </Stack>
     </Paper>

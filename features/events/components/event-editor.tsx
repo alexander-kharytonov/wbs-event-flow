@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { z } from "zod";
 import { BackLink } from "@/components/ui/back-link";
 import { EditorNavigationGuard } from "@/components/ui/editor-navigation-guard";
+import { EventText } from "@/features/events/components/event-text";
 import { EventForm } from "@/features/events/event-form";
 import {
   eventDateSource,
@@ -88,11 +89,7 @@ export async function CreateEventView({
       <CreateEventModes
         key={reviewKey}
         initialTemplate={initialTemplate}
-        duplicateError={
-          initialTemplate
-            ? undefined
-            : "This event cannot be duplicated. Check your access and whether its configuration meets template limits and its badge design matches the current form."
-        }
+        duplicateError={initialTemplate ? undefined : "duplicateUnavailable"}
       />
     );
   }
@@ -121,7 +118,9 @@ export async function EditEventView({ eventId: id }: { eventId: string }) {
   const content = (
     <EditorNavigationGuard key={event.id}>
       <Stack spacing={3} sx={{ width: "100%" }}>
-        <BackLink href={`/dashboard/events/${id}`}>Back to event</BackLink>
+        <BackLink href={`/dashboard/events/${id}`}>
+          <EventText id="backEvent" />
+        </BackLink>
         <Typography
           variant="h4"
           component="h1"
@@ -131,8 +130,7 @@ export async function EditEventView({ eventId: id }: { eventId: string }) {
         </Typography>
         {workspaceReadOnly(event, new Date()) ? (
           <Alert severity="info">
-            This event is read-only. Its information and history remain
-            available.
+            <EventText id="editorReadOnlyHint" />
           </Alert>
         ) : (
           <EventForm

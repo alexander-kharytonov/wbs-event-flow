@@ -1,3 +1,5 @@
+"use client";
+
 import PlaceOutlined from "@mui/icons-material/PlaceOutlined";
 import {
   Alert,
@@ -10,11 +12,11 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
+import { useFormatter, useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { DateTime } from "@/components/ui/date-time";
 import { EventCoverBackdrop } from "@/features/events/components/event-cover";
 import { EventRichContent } from "@/features/events/components/event-rich-content";
-import { formatEventTime } from "@/features/events/format-event-time";
 import {
   registrationAvailability,
   registrationDeadline,
@@ -32,7 +34,7 @@ export function EventGuestView({
   children,
   notice,
   showApplicationLink = false,
-  applicationLinkLabel = "Apply to attend",
+  applicationLinkLabel,
   applicationLinkHref = "#event-application",
 }: {
   content?: ReactNode;
@@ -45,16 +47,22 @@ export function EventGuestView({
   children?: ReactNode;
   notice?: ReactNode;
   showApplicationLink?: boolean;
-  applicationLinkLabel?: string;
+  applicationLinkLabel?: ReactNode;
   applicationLinkHref?: string;
 }) {
+  const t = useTranslations("events");
+  const formatter = useFormatter();
   const state = cancelled ? "CLOSED" : registrationAvailability(snapshot, now);
   const hasEnded = now.getTime() >= Date.parse(snapshot.endsAt);
   const location = snapshot.location;
   const publicOrganizer = snapshot.publicOrganizer;
   const hasStarted = now.getTime() >= Date.parse(snapshot.startsAt);
   const format = (instant: string) =>
-    formatEventTime(new Date(instant), snapshot.timezone);
+    formatter.dateTime(new Date(instant), {
+      timeZone: snapshot.timezone,
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
 
   return (
     <Box>
@@ -85,12 +93,12 @@ export function EventGuestView({
               color={cover ? "inherit" : "primary.main"}
             >
               {cancelled
-                ? "Event cancelled"
+                ? t("eventCancelled")
                 : hasEnded
-                  ? "Past event"
+                  ? t("pastEvent")
                   : hasStarted
-                    ? "Happening now"
-                    : "Upcoming event"}
+                    ? t("happeningNow")
+                    : t("upcomingEvent")}
             </Typography>
             <Typography
               variant="h3"
@@ -101,7 +109,7 @@ export function EventGuestView({
             </Typography>
             {cancelled && (
               <Alert severity="error" sx={{ whiteSpace: "pre-wrap" }}>
-                <AlertTitle>Event cancelled</AlertTitle>
+                <AlertTitle>{t("eventCancelled")}</AlertTitle>
                 {cancellationReason}
               </Alert>
             )}
@@ -144,7 +152,7 @@ export function EventGuestView({
                   href={applicationLinkHref}
                   variant="contained"
                 >
-                  {applicationLinkLabel}
+                  {applicationLinkLabel ?? t("applyToAttend")}
                 </Button>
               )}
               <Button
@@ -153,7 +161,7 @@ export function EventGuestView({
                 variant="outlined"
                 color={cover ? "inherit" : "primary"}
               >
-                Registration details
+                {t("registrationDetails")}
               </Button>
             </Stack>
           </Stack>
@@ -198,20 +206,20 @@ export function EventGuestView({
                     variant="h6"
                     component="h2"
                   >
-                    Registration
+                    {t("registration")}
                   </Typography>
                   <Chip
                     size="small"
                     label={
                       cancelled
-                        ? "Cancelled"
+                        ? t("cancelled")
                         : hasEnded
-                          ? "Event ended"
+                          ? t("eventEnded")
                           : state === "OPEN"
-                            ? "Open"
+                            ? t("open")
                             : state === "NOT_OPEN_YET"
-                              ? "Not open yet"
-                              : "Closed"
+                              ? t("notOpenYet")
+                              : t("closed")
                     }
                     color={
                       cancelled
@@ -245,15 +253,19 @@ export function EventGuestView({
                   }}
                 >
                   <Box>
-                    <Typography component="dt">Registration opens</Typography>
+                    <Typography component="dt">
+                      {t("registrationOpens")}
+                    </Typography>
                     <Typography component="dd">
                       {snapshot.registrationOpensAt
                         ? format(snapshot.registrationOpensAt)
-                        : "On publication"}
+                        : t("onPublication")}
                     </Typography>
                   </Box>
                   <Box>
-                    <Typography component="dt">Registration closes</Typography>
+                    <Typography component="dt">
+                      {t("registrationCloses")}
+                    </Typography>
                     <Typography component="dd">
                       {format(registrationDeadline(snapshot))}
                     </Typography>
@@ -263,15 +275,17 @@ export function EventGuestView({
                       {!hasEnded &&
                       occupied !== undefined &&
                       snapshot.capacity !== null
-                        ? "Places available"
-                        : "Guest capacity"}
+                        ? t("placesAvailable")
+                        : t("guestCapacity")}
                     </Typography>
                     <Typography component="dd">
                       {snapshot.capacity === null
-                        ? "No limit"
+                        ? t("noLimit")
                         : !hasEnded && occupied !== undefined
-                          ? Math.max(0, snapshot.capacity - occupied)
-                          : `${snapshot.capacity} guests`}
+                          ? formatter.number(
+                              Math.max(0, snapshot.capacity - occupied),
+                            )
+                          : t("guestsCount", { count: snapshot.capacity })}
                       {!hasEnded &&
                         occupied !== undefined &&
                         snapshot.capacity !== null && (
@@ -281,17 +295,20 @@ export function EventGuestView({
                             color="text.secondary"
                             sx={{ mt: 0.5, display: "block", fontWeight: 400 }}
                           >
-                            {occupied} of {snapshot.capacity} places filled
+                            {t("filledPlacesValue", {
+                              occupied,
+                              capacity: snapshot.capacity,
+                            })}
                           </Typography>
                         )}
                     </Typography>
                   </Box>
                   <Box>
-                    <Typography component="dt">Event Flow account</Typography>
+                    <Typography component="dt">{t("flowAccount")}</Typography>
                     <Typography component="dd">
                       {snapshot.accountRequirement === "REQUIRED"
-                        ? "Verified account required"
-                        : "Optional"}
+                        ? t("verifiedAccountRequired")
+                        : t("optional")}
                     </Typography>
                   </Box>
                 </Box>
@@ -300,14 +317,14 @@ export function EventGuestView({
                   color="text.secondary"
                   sx={{ pt: 2, borderTop: 1, borderColor: "divider" }}
                 >
-                  All times in {snapshot.timezone}.
-                  {hasEnded && " This event has ended. Registration is closed."}
+                  {t("allTimesIn", { timezone: snapshot.timezone })}{" "}
+                  {hasEnded && t("endedRegistrationClosed")}
                   {!hasEnded &&
                     snapshot.capacity !== null &&
                     occupied !== undefined &&
                     occupied >= snapshot.capacity &&
                     state === "OPEN" &&
-                    " All places are currently filled. You can still apply — a place may become available."}
+                    t("fullCanApply")}
                 </Typography>
                 <Stack
                   spacing={2}
@@ -335,7 +352,7 @@ export function EventGuestView({
                     variant="h6"
                     component="h2"
                   >
-                    Location
+                    {t("location")}
                   </Typography>
                   {"venueName" in location && (
                     <>
@@ -373,7 +390,7 @@ export function EventGuestView({
                     variant="h6"
                     component="h2"
                   >
-                    Organizer
+                    {t("organizer")}
                   </Typography>
                   <Typography variant="subtitle1" component="p">
                     {publicOrganizer.websiteUrl ? (

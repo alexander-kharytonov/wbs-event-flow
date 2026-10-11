@@ -1,3 +1,4 @@
+import type { Messages } from "@/lib/i18n/messages";
 import "server-only";
 import { z } from "zod";
 import { authorizeEventActor } from "@/features/events/server/event-access";
@@ -5,7 +6,6 @@ import { lockEventForUpdate } from "@/features/events/server/lock-event-for-upda
 import {
   reserveStaffResolution,
   resolveStaff,
-  staffBudgetMessage,
 } from "@/features/events/server/staff-resolution";
 import {
   staffEmailSchema,
@@ -34,16 +34,17 @@ const commandSchema = z.discriminatedUnion("action", [
     userId: z.uuid(),
   }),
 ]);
+
 export async function manageEventStaff(
   actorUserId: string,
   input: unknown,
 ): Promise<{
   success?: true;
-  message?: string;
-  fieldErrors?: Record<string, string>;
+  message?: keyof Messages["events"];
+  fieldErrors?: Record<string, keyof Messages["events"]>;
 }> {
   const parsed = commandSchema.safeParse(input);
-  const unavailable = { message: "This staff assignment is unavailable." };
+  const unavailable = { message: "staffUnavailable" } as const;
 
   if (!parsed.success) {
     const emailError = parsed.error.issues.find(
@@ -53,7 +54,7 @@ export async function manageEventStaff(
     return emailError
       ? {
           ...unavailable,
-          fieldErrors: { email: "Enter a valid email address." },
+          fieldErrors: { email: "invalidEmail" },
         }
       : unavailable;
   }
@@ -64,7 +65,7 @@ export async function manageEventStaff(
     command.action === "add" &&
     !reserveStaffResolution(actorUserId, [command.email])
   ) {
-    return { message: staffBudgetMessage };
+    return { message: "staffBudget" };
   }
 
   try {
@@ -104,8 +105,7 @@ export async function manageEventStaff(
             return existing.role === command.role
               ? { success: true }
               : {
-                  message:
-                    "This member already has access. Open Manage staff member to update their role.",
+                  message: "staffAlreadyAssigned",
                 };
           }
 
@@ -153,6 +153,6 @@ export async function manageEventStaff(
       { isolationLevel: "ReadCommitted" },
     );
   } catch {
-    return { message: "Could not update staff. Please try again." };
+    return { message: "staffUpdateFailed" };
   }
 }

@@ -8,6 +8,7 @@ import {
   DialogContentText,
   DialogTitle,
 } from "@mui/material";
+import { useTranslations } from "next-intl";
 import {
   createContext,
   type ReactNode,
@@ -43,11 +44,12 @@ const Context = createContext<Guard | null>(null);
 
 export function EditorNavigationGuard({
   children,
-  description = "Unsaved event fields and pending cover edits will be lost. A cover already saved separately will remain saved.",
+  description,
 }: {
   children: ReactNode;
-  description?: string;
+  description?: ReactNode;
 }) {
+  const t = useTranslations("shell");
   const dirtySources = useRef(new Set<string>());
   const leaving = useRef(false);
   const destination = useRef<(() => void) | null>(null);
@@ -166,20 +168,18 @@ export function EditorNavigationGuard({
         maxWidth="xs"
         fullWidth
       >
-        <DialogTitle id="editor-discard-title">
-          Discard unsaved changes?
-        </DialogTitle>
+        <DialogTitle id="editor-discard-title">{t("discardTitle")}</DialogTitle>
         <DialogContent>
           <DialogContentText id="editor-discard-description">
-            {description}
+            {description ?? t("discardEventDescription")}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button autoFocus onClick={cancelConfirmation}>
-            Keep editing
+            {t("keepEditing")}
           </Button>
           <Button color="error" onClick={confirmDestination}>
-            Discard changes
+            {t("discardChanges")}
           </Button>
         </DialogActions>
       </Dialog>

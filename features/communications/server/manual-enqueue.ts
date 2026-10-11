@@ -42,10 +42,10 @@ export async function assertManualSendEligibility(
   if (!eligibility.allowed) {
     const message =
       eligibility.reason === "FORBIDDEN"
-        ? "Communications are unavailable."
+        ? "commUnavailable"
         : eligibility.reason === "ARCHIVED"
-          ? "Restore this event before sending a message."
-          : "Publish this event before sending a message.";
+          ? "commRestore"
+          : "commPublish";
     throw new ManualCommunicationError(message);
   }
 
@@ -121,9 +121,7 @@ export async function enqueueManualCommunication(
       existing.actorUserId !== actorUserId ||
       existing.requestDigest !== requestDigest
     ) {
-      throw new ManualCommunicationError(
-        "This request key was already used for another message. Start a new message.",
-      );
+      throw new ManualCommunicationError("commKeyUsed");
     }
 
     return { id: existing.id, recipientCount: existing.recipientCount };
@@ -136,9 +134,7 @@ export async function enqueueManualCommunication(
   );
 
   if (emails.length === 0) {
-    throw new ManualCommunicationError(
-      "There are no deliverable email addresses in this audience.",
-    );
+    throw new ManualCommunicationError("commNoEmails");
   }
 
   const actorSnapshot = await captureCommunicationActor(tx, actor);
@@ -159,9 +155,7 @@ export async function enqueueManualCommunication(
         "Manual delivery queue limit exceeded.",
       ].includes(error.message)
     ) {
-      throw new ManualCommunicationError(
-        "The sending or queue limit has been reached. Please try again later.",
-      );
+      throw new ManualCommunicationError("commLimit");
     }
 
     throw error;

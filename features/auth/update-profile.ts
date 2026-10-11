@@ -4,20 +4,21 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
+import type { Messages } from "@/lib/i18n/messages";
 import { requireVerifiedUser } from "@/lib/session";
 
 export type ProfileFormState = {
   name?: string;
-  error?: string;
-  message?: string;
+  error?: keyof Messages["auth"];
+  message?: keyof Messages["auth"];
   success?: true;
 };
 
 const profileNameSchema = z
   .string()
   .trim()
-  .min(1, "Enter your name.")
-  .max(200, "Use 200 characters or fewer.");
+  .min(1, "enterName")
+  .max(200, "nameTooLong");
 
 export async function updateProfile(
   _previous: ProfileFormState,
@@ -27,18 +28,21 @@ export async function updateProfile(
 
   for (const key of formData.keys()) {
     if (key !== "name" && !key.startsWith("$ACTION_")) {
-      return { message: "Only your name can be updated." };
+      return { message: "nameOnly" };
     }
   }
 
   if (formData.getAll("name").length !== 1) {
-    return { error: "Enter your name." };
+    return { error: "enterName" };
   }
 
   const parsed = profileNameSchema.safeParse(formData.get("name"));
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0].message };
+    return {
+      error:
+        parsed.error.issues[0].code === "too_big" ? "nameTooLong" : "enterName",
+    };
   }
 
   try {
@@ -48,7 +52,7 @@ export async function updateProfile(
       body: { name: parsed.data },
     });
   } catch {
-    return { message: "Could not update your profile. Please try again." };
+    return { message: "profileUpdateFailed" };
   }
 
   revalidatePath("/", "layout");

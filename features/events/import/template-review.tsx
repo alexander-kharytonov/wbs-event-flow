@@ -16,6 +16,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
 import { useEditorNavigation } from "@/components/ui/editor-navigation-guard";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -25,6 +26,7 @@ import {
   defaultBadgeLayout,
 } from "@/features/badges/badge-layout";
 import { BadgeLayoutControls } from "@/features/badges/components/badge-layout-controls";
+import { EventText } from "@/features/events/components/event-text";
 import { RegistrationFieldForm } from "@/features/events/components/registration-field-form";
 import { RegistrationQuestions } from "@/features/events/components/registration-questions";
 import { EventForm } from "@/features/events/event-form";
@@ -33,6 +35,7 @@ import {
   type EventFormState,
   eventDateFields,
   eventFormInput,
+  eventInputIssueMessage,
   eventInputSchema,
   eventValidationError,
   type PreservedEventDates,
@@ -53,8 +56,11 @@ import type { TemplateCreateResult } from "@/features/events/server/create-templ
 import { staffEmailSchema } from "@/features/events/staff-input";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 import { useNotifications } from "@/hooks/use-notifications";
+import type { Messages } from "@/lib/i18n/messages";
 
 export function TemplateIssues({ issues }: { issues: TemplateIssue[] }) {
+  const t = useTranslations("events");
+
   return (
     issues.length > 0 && (
       <Alert severity="error">
@@ -71,7 +77,8 @@ export function TemplateIssues({ issues }: { issues: TemplateIssue[] }) {
               variant="body2"
               key={`${issue.path}:${issue.code}:${issue.message}`}
             >
-              <strong>{issue.path}</strong>: {issue.message}
+              <strong>{issue.path}</strong>:{" "}
+              {t(issue.message as keyof Messages["events"])}
             </Typography>
           ))}
         </Stack>
@@ -87,6 +94,7 @@ function ReviewBadge({
   event: TemplateEvent;
   onChange: (layout: TemplateEvent["badgeLayout"]) => void;
 }) {
+  const t = useTranslations("events");
   const portable = event.badgeLayout;
   const toField = (binding: NonNullable<typeof portable>["secondaryField"]) =>
     binding
@@ -107,19 +115,23 @@ function ReviewBadge({
     });
 
     return parsed.success
-      ? [{ ...parsed.data, context: `Question ${index + 1}` }]
+      ? [
+          {
+            ...parsed.data,
+            context: "templateQuestion" as const,
+            contextValues: { number: index + 1 },
+          },
+        ]
       : [];
   });
 
   return (
     <Stack spacing={2}>
       <Typography variant="h6" component="h2">
-        Badge Design
+        {t("badgeDesign")}
       </Typography>
       <Typography variant="body2" color="text.secondary">
-        {layout
-          ? "Imported design. Changes apply when the event is created."
-          : "Default badge design. No custom layout will be saved."}
+        {layout ? t("templateImportedBadge") : t("templateDefaultBadge")}
       </Typography>
       {layout ? (
         <>
@@ -146,7 +158,7 @@ function ReviewBadge({
             sx={{ alignSelf: "flex-start" }}
             onClick={() => onChange(null)}
           >
-            Use default design
+            {t("templateDefaultDesign")}
           </Button>
         </>
       ) : (
@@ -160,7 +172,7 @@ function ReviewBadge({
             })
           }
         >
-          Customize design
+          {t("templateCustomize")}
         </Button>
       )}
     </Stack>
@@ -174,6 +186,7 @@ export function TemplateReview({
   initial: TemplateEvent;
   onBusyChange: (busy: boolean) => void;
 }) {
+  const t = useTranslations("events");
   // One mounted review owns one source snapshot, including every exact date.
   // Duplicate source keys and Import generation keys intentionally start a new review.
   const [initial] = useState(initialTemplate);
@@ -181,14 +194,16 @@ export function TemplateReview({
   const navigation = useEditorNavigation();
   const notifications = useNotifications();
   const [event, setEvent] = useState(initial);
-  const staffFeedback = useFormFeedback();
+  const staffFeedback = useFormFeedback({}, (code) =>
+    t(code as keyof Messages["events"]),
+  );
   const [staffKeys, setStaffKeys] = useState(() =>
     initial.staff.map((_, index) => String(index)),
   );
   const nextStaffKey = useRef(initial.staff.length);
   const [issues, setIssues] = useState<TemplateIssue[]>([]);
   const [editor, setEditor] = useState<{ field?: TemplateField } | null>(null);
-  const [fieldMessage, setFieldMessage] = useState<string>();
+  const [fieldMessage, setFieldMessage] = useState<keyof Messages["events"]>();
   const [busy, setBusy] = useState(false);
   const [created, setCreated] = useState(false);
   const editedDates = useRef(new Set<EventDateField>());
@@ -231,9 +246,7 @@ export function TemplateReview({
     setIssues(remaining);
 
     if (Object.keys(staffErrors).length || remaining.length) {
-      errors.review = [
-        "Check the template questions, staff and badge settings below.",
-      ];
+      errors.review = ["inputCheckReview"];
     }
 
     return { errors };
@@ -254,16 +267,13 @@ export function TemplateReview({
   }
 
   if (created) {
-    return <Alert severity="info">Opening event…</Alert>;
+    return <Alert severity="info">{t("openingEditor")}</Alert>;
   }
 
   return (
     <>
       {initial.cover.status === "OMITTED" && (
-        <Alert severity="warning">
-          The source cover image is not included. Upload a new cover after
-          creating this event.
-        </Alert>
+        <Alert severity="warning">{t("templateCoverExcluded")}</Alert>
       )}
       <Box
         component="fieldset"
@@ -276,7 +286,7 @@ export function TemplateReview({
           initialErrors={
             initialTitle.success
               ? undefined
-              : { title: initialTitle.error.issues[0].message }
+              : { title: eventInputIssueMessage(initialTitle.error.issues[0]) }
           }
           initialValues={initialValues}
           disabled={
@@ -303,20 +313,11 @@ export function TemplateReview({
             }
 
             if (parsed.data.endsAt.getTime() <= Date.now()) {
-              return (
-                <Alert severity="warning">
-                  This event has already ended. With these dates it will be
-                  Completed and read-only after Create. Change the dates now if
-                  you want to edit it later.
-                </Alert>
-              );
+              return <Alert severity="warning">{t("templateEnded")}</Alert>;
             }
 
             return parsed.data.startsAt.getTime() < Date.now() ? (
-              <Alert severity="warning">
-                The start is in the past. Imported dates are kept exactly unless
-                you edit them.
-              </Alert>
+              <Alert severity="warning">{t("templatePastStart")}</Alert>
             ) : null;
           }}
           onDateEdit={(field) => {
@@ -335,15 +336,14 @@ export function TemplateReview({
 
             for (const [index, member] of event.staff.entries()) {
               if (!staffEmailSchema.safeParse(member.email).success) {
-                staffErrors[`${staffKeys[index]}.email`] =
-                  "Enter a valid email address.";
+                staffErrors[`${staffKeys[index]}.email`] = "invalidEmail";
               }
             }
             staffFeedback.setErrors(staffErrors);
 
             if (Object.keys(staffErrors).length) {
               return {
-                errors: { review: ["Correct the highlighted staff emails."] },
+                errors: { review: ["inputStaffEmails"] },
               };
             }
 
@@ -400,8 +400,7 @@ export function TemplateReview({
                 {
                   code: "request_failed",
                   path: "template",
-                  message:
-                    "We couldn’t confirm creation. Check My events before trying again.",
+                  message: "templateCreationUnconfirmed",
                 },
               ]);
               onBusyChange(false);
@@ -409,9 +408,7 @@ export function TemplateReview({
 
               return {
                 errors: {
-                  review: [
-                    "Could not confirm creation. Check My events before trying again.",
-                  ],
+                  review: ["inputCreationUnconfirmed"],
                 },
               };
             }
@@ -428,18 +425,25 @@ export function TemplateReview({
             notifications.show(
               <Stack spacing={1} sx={{ maxHeight: 240, overflowY: "auto" }}>
                 <Typography>
-                  Event created. Staff added: {outcome.addedCount}.
+                  <EventText
+                    id="templateCreated"
+                    values={{ count: outcome.addedCount }}
+                  />
                 </Typography>
                 {outcome.skippedEmails.length > 0 && (
                   <Typography>
-                    These staff assignments were not added:{" "}
-                    {outcome.skippedEmails.join(", ")}
+                    <EventText
+                      id="templateSkipped"
+                      values={{ emails: outcome.skippedEmails.join(", ") }}
+                    />
                   </Typography>
                 )}
                 {outcome.duplicateWarnings.length > 0 && (
                   <Typography>
-                    Duplicate entries were combined:{" "}
-                    {outcome.duplicateWarnings.join(", ")}
+                    <EventText
+                      id="templateDuplicates"
+                      values={{ emails: outcome.duplicateWarnings.join(", ") }}
+                    />
                   </Typography>
                 )}
               </Stack>,
@@ -457,11 +461,10 @@ export function TemplateReview({
         >
           <Stack spacing={2}>
             <Typography variant="h6" component="h2">
-              Registration Form
+              {t("registrationForm")}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Full name and email are always collected. Questions below remain
-              local until Create.
+              {t("templateQuestionsHint")}
             </Typography>
             <RegistrationQuestions
               fields={fields}
@@ -484,16 +487,16 @@ export function TemplateReview({
           </Stack>
           <Stack spacing={2}>
             <Typography variant="h6" component="h2">
-              Staff
+              {t("staff")}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Staff accounts will be resolved when the event is created.
+              {t("templateStaffHint")}
             </Typography>
             {event.staff.length === 0 && (
               <EmptyState
                 icon={<PeopleOutlined />}
-                title="No staff assignments"
-                description="Add existing Event Flow users to help manage this event."
+                title={t("templateNoStaff")}
+                description={t("templateStaffDescription")}
               />
             )}
             {event.staff.map((member, index) => (
@@ -503,7 +506,7 @@ export function TemplateReview({
                 key={staffKeys[index]}
               >
                 <TextField
-                  label={`Staff email ${index + 1}`}
+                  label={t("templateStaffEmail", { number: index + 1 })}
                   type="email"
                   required
                   fullWidth
@@ -523,7 +526,7 @@ export function TemplateReview({
                 />
                 <TextField
                   select
-                  label="Role"
+                  label={t("role")}
                   value={member.role}
                   {...staffFeedback.field(`${staffKeys[index]}.role`)}
                   sx={{ minWidth: 150 }}
@@ -542,11 +545,11 @@ export function TemplateReview({
                     });
                   }}
                 >
-                  <MenuItem value="MANAGER">Manager</MenuItem>
-                  <MenuItem value="RECEPTION">Reception</MenuItem>
+                  <MenuItem value="MANAGER">{t("manager")}</MenuItem>
+                  <MenuItem value="RECEPTION">{t("reception")}</MenuItem>
                 </TextField>
                 <IconButton
-                  aria-label={`Remove staff ${index + 1}`}
+                  aria-label={t("templateRemoveStaff", { number: index + 1 })}
                   sx={{ alignSelf: { xs: "flex-end", sm: "flex-start" } }}
                   onClick={() => {
                     setStaffKeys(staffKeys.filter((_, i) => i !== index));
@@ -572,7 +575,7 @@ export function TemplateReview({
                 });
               }}
             >
-              Add staff
+              {t("addStaff")}
             </Button>
           </Stack>
           <TemplateIssues issues={bindings} />
@@ -589,7 +592,7 @@ export function TemplateReview({
       {editor && (
         <Dialog open fullWidth maxWidth="sm" onClose={() => setEditor(null)}>
           <DialogTitle>
-            {editor.field ? "Edit question" : "Add question"}
+            {editor.field ? t("questionEdit") : t("questionAdd")}
           </DialogTitle>
           <RegistrationFieldForm
             initial={
@@ -609,9 +612,7 @@ export function TemplateReview({
               const parsed = registrationFieldSchema.safeParse(input);
 
               if (!parsed.success) {
-                setFieldMessage(
-                  "Check the question and option labels. Choice questions need at least two distinct options.",
-                );
+                setFieldMessage("questionCheckOptions");
 
                 return;
               }
@@ -625,9 +626,7 @@ export function TemplateReview({
                 options.length > 100 ||
                 otherOptions + options.length > 1000
               ) {
-                setFieldMessage(
-                  "Use at most 100 options per question and 1,000 options in total.",
-                );
+                setFieldMessage("questionOptionsLimit");
 
                 return;
               }

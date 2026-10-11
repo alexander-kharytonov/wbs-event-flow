@@ -8,6 +8,7 @@ import {
 } from "@/features/events/schemas/event-rich-content";
 
 export type ExactSchedule = z.infer<typeof scheduleSchema>;
+
 export type ScheduleSource = { timezone: string; schedule: ExactSchedule };
 
 export function localInstantValue(instant: string, timezone: string) {
@@ -38,15 +39,12 @@ export function validateScheduleRange(
     const instant = new Date(entry.startsAt).getTime();
 
     if (instant < startsAt.getTime() || instant >= endsAt.getTime()) {
-      addIssue(index, "Agenda time must be within the event, before its end.");
+      addIssue(index, "inputAgendaRange");
     } else if (
       index > 0 &&
       instant < new Date(schedule[index - 1].startsAt).getTime()
     ) {
-      addIssue(
-        index,
-        "Keep agenda entries in chronological order. Equal times are allowed.",
-      );
+      addIssue(index, "inputAgendaOrder");
     }
   }
 }
@@ -93,7 +91,7 @@ export function eventIssuePath(
 
 const localDateTime = z
   .string()
-  .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, "Enter a valid date and time.");
+  .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, "inputDateTime");
 const optionalDateTime = z.union([z.literal(""), localDateTime]);
 
 function isIanaTimezone(value: string) {
@@ -114,12 +112,8 @@ function isIanaTimezone(value: string) {
 
 const eventInputFields = z.object({
   language: eventLanguageSchema,
-  title: z
-    .string()
-    .trim()
-    .min(1, "Enter an event name.")
-    .max(200, "Use at most 200 characters."),
-  description: z.string().trim().max(20000, "Use at most 20,000 characters."),
+  title: z.string().trim().min(1, "inputEventName").max(200, "inputMax200"),
+  description: z.string().trim().max(20000, "inputMax20000"),
   descriptionFormat: z.enum(["PLAIN_TEXT", "MARKDOWN"]),
   location: locationSchema.nullable(),
   publicOrganizer: publicOrganizerSchema.nullable(),
@@ -137,12 +131,12 @@ const eventInputFields = z.object({
     .max(100),
   startsAt: localDateTime,
   endsAt: localDateTime,
-  timezone: z.string().refine(isIanaTimezone, "Choose a valid IANA timezone."),
+  timezone: z.string().refine(isIanaTimezone, "inputTimezone"),
   visibility: z.enum(["PRIVATE", "PUBLIC"], {
-    error: "Choose Private or Public.",
+    error: "inputVisibility",
   }),
   accountRequirement: z.enum(["OPTIONAL", "REQUIRED"], {
-    error: "Choose Optional or Required.",
+    error: "inputAccountRequirement",
   }),
   maxGuestsPerRegistration: z
     .string()
@@ -153,14 +147,14 @@ const eventInputFields = z.object({
     z.literal("").transform(() => null),
     z
       .string()
-      .regex(/^\d+$/, "Enter a whole number of at least 1.")
+      .regex(/^\d+$/, "inputWholeNumber")
       .transform(Number)
       .pipe(
         z
           .number()
           .int()
-          .min(1, "Capacity must be at least 1.")
-          .max(2147483647, "Capacity is too large."),
+          .min(1, "inputCapacityMin")
+          .max(2147483647, "inputCapacityMax"),
       ),
   ]),
   registrationOpensAt: optionalDateTime,
@@ -201,7 +195,7 @@ export function validateEventDateRelationships(
     ctx.addIssue({
       code: "custom",
       path: ["endsAt"],
-      message: "End must be after start.",
+      message: "inputEndAfterStart",
     });
   }
 
@@ -209,7 +203,7 @@ export function validateEventDateRelationships(
     ctx.addIssue({
       code: "custom",
       path: ["registrationOpensAt"],
-      message: "Registration must open no later than the event start.",
+      message: "inputRegistrationBeforeStart",
     });
   }
 
@@ -221,7 +215,7 @@ export function validateEventDateRelationships(
     ctx.addIssue({
       code: "custom",
       path: ["registrationClosesAt"],
-      message: "Registration close must be after registration open.",
+      message: "inputRegistrationCloseAfterOpen",
     });
   }
 
@@ -233,7 +227,7 @@ export function validateEventDateRelationships(
       ctx.addIssue({
         code: "custom",
         path: [field],
-        message: "Registration must not extend beyond the event end.",
+        message: "inputRegistrationBeforeEnd",
       });
     }
   }
@@ -274,8 +268,7 @@ function inputSchema(
         ctx.addIssue({
           code: "custom",
           path: [field],
-          message:
-            "Enter a valid local time. Times skipped or repeated by daylight saving changes are not accepted; choose another time.",
+          message: "inputLocalTime",
         });
 
         return null;
@@ -308,7 +301,7 @@ function inputSchema(
         ctx.addIssue({
           code: "custom",
           path: ["schedule"],
-          message: "Agenda row identities must be unique.",
+          message: "inputAgendaIdentity",
         });
       }
       keys.add(entry.key);
@@ -345,8 +338,7 @@ function inputSchema(
         ctx.addIssue({
           code: "custom",
           path: ["schedule", index, "startsAt"],
-          message:
-            "Enter an unambiguous local time. DST skipped or repeated times are not accepted.",
+          message: "inputAgendaLocalTime",
         });
         schedule.push({
           title: entry.title,
@@ -402,6 +394,95 @@ export type EventFormState = {
   conflict?: boolean;
 };
 
+const eventInputMessageCodes = new Set<string>([
+  "inputAgendaRange",
+  "inputAgendaOrder",
+  "inputDateTime",
+  "inputEventName",
+  "inputMax200",
+  "inputMax20000",
+  "inputTimezone",
+  "inputVisibility",
+  "inputAccountRequirement",
+  "inputWholeNumber",
+  "inputCapacityMin",
+  "inputCapacityMax",
+  "inputEndAfterStart",
+  "inputRegistrationBeforeStart",
+  "inputRegistrationCloseAfterOpen",
+  "inputRegistrationBeforeEnd",
+  "inputLocalTime",
+  "inputAgendaIdentity",
+  "inputAgendaLocalTime",
+  "inputCorrectFields",
+  "inputRequired",
+  "inputInvalid",
+  "inputPublicUrl",
+  "inputMax1000",
+  "inputMax2000",
+  "inputMax2048",
+  "inputAgendaMax",
+  "inputGuestsRange",
+  "inputSaveFailed",
+  "inputSaveReload",
+  "inputEditingUnavailable",
+  "inputReadOnly",
+  "inputEditConflict",
+  "inputOngoingDates",
+  "inputChanged",
+  "inputChangesSaveFailed",
+  "inputSaveUnconfirmed",
+  "inputCompleteReview",
+  "inputCheckReview",
+  "inputStaffEmails",
+  "inputCreationUnconfirmed",
+]);
+
+export function eventInputIssueMessage(issue: z.core.$ZodIssue): string {
+  if (eventInputMessageCodes.has(issue.message)) {
+    return issue.message;
+  }
+
+  if (issue.path[0] === "language") {
+    return "invalidEventLanguage";
+  }
+
+  if (issue.path[0] === "maxGuestsPerRegistration") {
+    return "inputGuestsRange";
+  }
+
+  if (issue.code === "too_big") {
+    if (issue.origin === "array" && issue.path[0] === "schedule") {
+      return "inputAgendaMax";
+    }
+
+    if (issue.origin === "string") {
+      switch (issue.maximum) {
+        case 200:
+          return "inputMax200";
+        case 1000:
+          return "inputMax1000";
+        case 2000:
+          return "inputMax2000";
+        case 2048:
+          return "inputMax2048";
+        case 20000:
+          return "inputMax20000";
+      }
+    }
+  }
+
+  if (issue.code === "too_small" && issue.origin === "string") {
+    return "inputRequired";
+  }
+
+  if (["onlineUrl", "websiteUrl"].includes(String(issue.path.at(-1)))) {
+    return "inputPublicUrl";
+  }
+
+  return "inputInvalid";
+}
+
 export function eventValidationError(
   error: z.ZodError,
   input?: Record<string, unknown>,
@@ -410,8 +491,8 @@ export function eventValidationError(
 
   for (const issue of error.issues) {
     const field = eventIssuePath(issue.path, input);
-    errors[field] = [...(errors[field] ?? []), issue.message];
+    errors[field] = [...(errors[field] ?? []), eventInputIssueMessage(issue)];
   }
 
-  return { errors, message: "Please correct the highlighted fields." };
+  return { errors, message: "inputCorrectFields" };
 }

@@ -1,14 +1,20 @@
 import { Alert, Stack, Typography } from "@mui/material";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
+import { CheckInWindow } from "@/features/attendance/components/check-in-feedback";
 import { TicketScanner } from "@/features/attendance/components/ticket-scanner";
 import { EventHeader } from "@/features/events/components/event-header";
+import { EventText } from "@/features/events/components/event-text";
 import { eventLifecycle } from "@/features/events/event-lifecycle";
-import { formatEventTime } from "@/features/events/format-event-time";
 import { getEventAttendees } from "@/features/events/server/organizer-attendees";
 import { requireVerifiedUser } from "@/lib/session";
 
-export const metadata: Metadata = { title: "Check-in | Event Flow" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("events");
+
+  return { title: `${t("checkIn")} | Event Flow` };
+}
 
 export default async function CheckInPage({
   params,
@@ -39,9 +45,7 @@ export default async function CheckInPage({
       <EventHeader eventId={id} active="check-in">
         {lifecycle === "Ongoing" && (
           <Alert severity="info">
-            Start the scanner to scan an attendee’s ticket QR. The camera stays
-            on between scans. Choose Scan next when you’re ready for the next
-            ticket.
+            <EventText id="scannerInstructions" />
           </Alert>
         )}
         <Stack
@@ -57,21 +61,34 @@ export default async function CheckInPage({
             component="h2"
             sx={{ minHeight: 42, display: "flex", alignItems: "center" }}
           >
-            Check-in
+            <EventText id="checkIn" />
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {checkedIn} checked in · {active.length} active attendees
+            <EventText
+              id="scannerCounts"
+              values={{ checkedIn, active: active.length }}
+            />
           </Typography>
         </Stack>
         {lifecycle === "Ongoing" ? (
           <TicketScanner eventId={id} timezone={event.timezone} />
         ) : (
           <Alert severity={lifecycle === "Cancelled" ? "error" : "info"}>
-            {lifecycle === "Cancelled"
-              ? "This event is cancelled. New check-ins are unavailable."
-              : lifecycle === "Upcoming"
-                ? `Check-in opens ${formatEventTime(event.startsAt, event.timezone)} (${event.timezone}). Reload when the event starts.`
-                : `Check-in closed ${formatEventTime(event.endsAt, event.timezone)} (${event.timezone}). Attendance history remains available in Attendees.`}
+            {lifecycle === "Cancelled" ? (
+              <EventText id="scannerCancelled" />
+            ) : lifecycle === "Upcoming" ? (
+              <CheckInWindow
+                opens
+                date={event.startsAt}
+                timezone={event.timezone}
+              />
+            ) : (
+              <CheckInWindow
+                opens={false}
+                date={event.endsAt}
+                timezone={event.timezone}
+              />
+            )}
           </Alert>
         )}
       </EventHeader>

@@ -1,10 +1,11 @@
 import type { EmailOutboxStatus } from "@/generated/prisma/enums";
+import type { Messages } from "@/lib/i18n/messages";
 
 export const deliveryStatusMeaning = {
-  PENDING: "Queued / awaiting attempt",
-  PROCESSING: "Currently claimed",
-  SENT: "SMTP transport accepted",
-  FAILED: "Automatic attempts exhausted",
+  PENDING: "commPendingMeaning",
+  PROCESSING: "commProcessingMeaning",
+  SENT: "commSentMeaning",
+  FAILED: "commFailedMeaning",
 } as const satisfies Record<EmailOutboxStatus, string>;
 
 export type DeliveryCounts = Record<EmailOutboxStatus, number>;
@@ -13,7 +14,7 @@ export function communicationDeliverySummary(
   recipientCount: number,
   counts: DeliveryCounts,
 ): {
-  label: string;
+  label: keyof Messages["events"];
   color: "default" | "info" | "success" | "warning" | "error";
 } {
   const values = [
@@ -30,34 +31,48 @@ export function communicationDeliverySummary(
     values.some((count) => !Number.isSafeInteger(count) || count < 0) ||
     total !== recipientCount
   ) {
-    return { label: "Status unavailable", color: "default" };
+    return { label: "commStatusUnavailable", color: "default" };
   }
 
   if (recipientCount === 0) {
-    return { label: "No recipients", color: "default" };
+    return { label: "commNoRecipients", color: "default" };
   }
 
   if (counts.SENT === recipientCount) {
-    return { label: "Sent", color: "success" };
+    return { label: "commSent", color: "success" };
   }
 
   if (counts.FAILED === recipientCount) {
-    return { label: "Failed", color: "error" };
+    return { label: "commFailed", color: "error" };
   }
 
   if (counts.FAILED > 0) {
     return {
       label:
         counts.PENDING + counts.PROCESSING > 0
-          ? "In progress · partial failures"
-          : "Completed with failures",
+          ? "commPartial"
+          : "commCompletedFailures",
       color: "warning",
     };
   }
 
   if (counts.PENDING === recipientCount) {
-    return { label: "Pending", color: "default" };
+    return { label: "commPending", color: "default" };
   }
 
-  return { label: "In progress", color: "info" };
+  return { label: "commInProgress", color: "info" };
 }
+
+export const deliveryStatusColor = {
+  PENDING: "warning",
+  PROCESSING: "info",
+  SENT: "success",
+  FAILED: "error",
+} as const;
+
+export const deliveryStatusLabel = {
+  PENDING: "commPending",
+  PROCESSING: "commProcessing",
+  SENT: "commSent",
+  FAILED: "commFailed",
+} as const;

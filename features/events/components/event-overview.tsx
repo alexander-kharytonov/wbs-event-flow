@@ -10,8 +10,10 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
+import type { ReactNode } from "react";
 import { ArrivalTimeline } from "@/features/events/components/arrival-timeline";
 import { EventDescription } from "@/features/events/components/event-description";
+import { EventText } from "@/features/events/components/event-text";
 import { RegistrationAvailabilityStatus } from "@/features/events/components/registration-availability-status";
 import type { EventOverview } from "@/features/events/server/event-overview";
 
@@ -21,10 +23,10 @@ function Metric({
   href,
   detail,
 }: {
-  label: string;
+  label: ReactNode;
   value: string | number;
   href: string;
-  detail: string;
+  detail: ReactNode;
 }) {
   return (
     <Card variant="outlined" sx={{ height: "100%" }}>
@@ -38,7 +40,11 @@ function Metric({
             component="p"
             sx={{ my: 1, fontWeight: 600 }}
           >
-            {value}
+            {typeof value === "number" ? (
+              <EventText id="overviewCount" values={{ count: value }} />
+            ) : (
+              value
+            )}
           </Typography>
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
             <Typography variant="caption" color="text.secondary">
@@ -60,17 +66,21 @@ export function EventOverviewContent({ data }: { data: EventOverview }) {
     data.full &&
     data.everPublished &&
     (lifecycle === "Ongoing" || lifecycle === "Completed");
-  const heading = !data.full
-    ? "Event operations"
-    : !data.everPublished
-      ? "Prepare your event"
-      : lifecycle === "Cancelled"
-        ? "Event summary"
-        : attendanceFirst
-          ? lifecycle === "Completed"
-            ? "Attendance summary"
-            : "Live attendance"
-          : "Event readiness";
+  const heading = !data.full ? (
+    <EventText id="overviewOperations" />
+  ) : !data.everPublished ? (
+    <EventText id="overviewPrepare" />
+  ) : lifecycle === "Cancelled" ? (
+    <EventText id="overviewSummary" />
+  ) : attendanceFirst ? (
+    lifecycle === "Completed" ? (
+      <EventText id="overviewAttendanceSummary" />
+    ) : (
+      <EventText id="overviewLive" />
+    )
+  ) : (
+    <EventText id="overviewReadiness" />
+  );
   const counts = (
     <Box
       sx={{
@@ -80,22 +90,22 @@ export function EventOverviewContent({ data }: { data: EventOverview }) {
       }}
     >
       <Metric
-        label="Active attendees"
+        label={<EventText id="overviewActive" />}
         value={active}
         href={`${base}/attendees`}
-        detail="Open attendees"
+        detail={<EventText id="overviewOpenAttendees" />}
       />
       <Metric
-        label="Checked in"
+        label={<EventText id="checkedIn" />}
         value={checkedIn}
         href={`${base}/attendees`}
-        detail="Open attendees"
+        detail={<EventText id="overviewOpenAttendees" />}
       />
       <Metric
-        label="Not arrived"
+        label={<EventText id="commAudienceNotArrived" />}
         value={notArrived}
         href={`${base}/attendees`}
-        detail="Open attendees"
+        detail={<EventText id="overviewOpenAttendees" />}
       />
     </Box>
   );
@@ -106,15 +116,21 @@ export function EventOverviewContent({ data }: { data: EventOverview }) {
         <Stack direction="row" sx={{ flexWrap: "wrap", gap: 3 }}>
           <Typography>
             <Box component="span" sx={{ fontWeight: 600 }}>
-              {data.rate === null ? "—" : `${(data.rate * 100).toFixed(1)}%`}
-            </Box>{" "}
-            attendance rate
+              {data.rate === null ? (
+                <EventText id="overviewRateUnavailable" />
+              ) : (
+                <EventText id="overviewRate" values={{ rate: data.rate }} />
+              )}
+            </Box>
           </Typography>
           <Typography>
-            QR <strong>{data.methods.QR}</strong>
+            <EventText id="overviewQr" values={{ count: data.methods.QR }} />
           </Typography>
           <Typography>
-            Manual <strong>{data.methods.MANUAL}</strong>
+            <EventText
+              id="overviewManual"
+              values={{ count: data.methods.MANUAL }}
+            />
           </Typography>
         </Stack>
       )}
@@ -140,13 +156,15 @@ export function EventOverviewContent({ data }: { data: EventOverview }) {
             {heading}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {lifecycle === "Cancelled"
-              ? "Admissions are preserved. New check-ins and application decisions are closed."
-              : attendanceFirst
-                ? "Attendance reflects currently active attendees, including guests."
-                : data.full
-                  ? "Review applications and prepare your attendee list before the event."
-                  : "View active attendees and prepare for check-in."}
+            {lifecycle === "Cancelled" ? (
+              <EventText id="overviewCancelledHint" />
+            ) : attendanceFirst ? (
+              <EventText id="overviewAttendanceHint" />
+            ) : data.full ? (
+              <EventText id="overviewPrepareHint" />
+            ) : (
+              <EventText id="overviewReceptionHint" />
+            )}
           </Typography>
         </Box>
         {lifecycle === "Ongoing" && !event.archivedAt && (
@@ -155,7 +173,7 @@ export function EventOverviewContent({ data }: { data: EventOverview }) {
             variant="contained"
             endIcon={<ArrowForwardIcon />}
           >
-            Check-in
+            <EventText id="checkIn" />
           </Button>
         )}
       </Stack>
@@ -177,19 +195,24 @@ export function EventOverviewContent({ data }: { data: EventOverview }) {
                 variant="subtitle1"
                 sx={{ fontWeight: 600 }}
               >
-                Applications & registration
+                <EventText id="overviewApplications" />
               </Typography>
               <Button
                 href={`${base}/applications`}
                 endIcon={<ArrowForwardIcon />}
               >
-                {lifecycle === "Completed" || lifecycle === "Cancelled"
-                  ? "View applications"
-                  : "Review applications"}
+                {lifecycle === "Completed" || lifecycle === "Cancelled" ? (
+                  <EventText id="overviewViewApplications" />
+                ) : (
+                  <EventText id="overviewReviewApplications" />
+                )}
               </Button>
             </Stack>
             <Typography variant="body2" color="text.secondary">
-              {data.header.applicationCount} submitted attempts
+              <EventText
+                id="overviewAttempts"
+                values={{ count: data.header.applicationCount ?? 0 }}
+              />
             </Typography>
             <Box
               sx={{
@@ -203,10 +226,10 @@ export function EventOverviewContent({ data }: { data: EventOverview }) {
             >
               {(
                 [
-                  ["PENDING", "Pending"],
-                  ["APPROVED", "Approved"],
-                  ["REJECTED", "Rejected"],
-                  ["WITHDRAWN", "Withdrawn"],
+                  ["PENDING", <EventText key="PENDING" id="commPending" />],
+                  ["APPROVED", <EventText key="APPROVED" id="approved" />],
+                  ["REJECTED", <EventText key="REJECTED" id="rejected" />],
+                  ["WITHDRAWN", <EventText key="WITHDRAWN" id="withdrawn" />],
                 ] as const
               ).map(([status, label]) => (
                 <Metric
@@ -214,28 +237,29 @@ export function EventOverviewContent({ data }: { data: EventOverview }) {
                   label={label}
                   value={data.applications[status]}
                   href={`${base}/applications`}
-                  detail="Open applications"
+                  detail={<EventText id="overviewOpenApplications" />}
                 />
               ))}
             </Box>
             {data.publication === "unpublished" ? (
               <Alert severity="info">
-                {data.everPublished
-                  ? "This event is unpublished."
-                  : "This event has not been published yet."}{" "}
-                Published capacity and registration availability are
-                unavailable.
+                <EventText
+                  id={
+                    data.everPublished
+                      ? "overviewUnpublished"
+                      : "overviewNeverPublished"
+                  }
+                />
               </Alert>
             ) : data.publication === "invalid" ? (
               <Alert severity="warning">
-                Published registration policy is unavailable. A valid revision
-                is required for approvals.
+                <EventText id="overviewPolicyUnavailable" />
               </Alert>
             ) : lifecycle === "Cancelled" ||
               lifecycle === "Completed" ||
               event.archivedAt ? (
               <Typography variant="body2" color="text.secondary">
-                Registration and application decisions are closed.
+                <EventText id="overviewDecisionsClosed" />
               </Typography>
             ) : (
               data.registration && (
@@ -255,11 +279,11 @@ export function EventOverviewContent({ data }: { data: EventOverview }) {
           variant="outlined"
           endIcon={<ArrowForwardIcon />}
         >
-          Open attendees
+          <EventText id="overviewOpenAttendees" />
         </Button>
         {lifecycle !== "Ongoing" && (
           <Button href={`${base}/check-in`} endIcon={<ArrowForwardIcon />}>
-            Open check-in
+            <EventText id="overviewOpenCheckIn" />
           </Button>
         )}
       </Stack>
@@ -271,7 +295,7 @@ export function EventOverviewContent({ data }: { data: EventOverview }) {
             sx={{ fontWeight: 600 }}
             gutterBottom
           >
-            Description
+            <EventText id="markdownDescription" />
           </Typography>
           <Box sx={{ maxWidth: "75ch" }}>
             <EventDescription

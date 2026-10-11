@@ -4,6 +4,7 @@ import type { ComponentProps, ReactNode } from "react";
 import { DateTime } from "@/components/ui/date-time";
 import { EventAccessStatus } from "@/features/events/components/event-access-status";
 import { EventPublicationAlert } from "@/features/events/components/event-publication-alert";
+import { EventText } from "@/features/events/components/event-text";
 import {
   type EventPermission,
   hasEventPermission,
@@ -200,7 +201,9 @@ export async function EventHeader({
 
   return (
     <Stack spacing={2}>
-      <BackLink href="/dashboard">My events</BackLink>
+      <BackLink href="/dashboard">
+        <EventText id="myEvents" />
+      </BackLink>
       {ownerEvent && publishLabel && (
         <EventPublicationAlert
           key={`${eventId}:${ownerEvent.contentVersion}`}
@@ -246,14 +249,16 @@ export async function EventHeader({
       </Stack>
       {context.cancelledAt && (
         <Alert severity="error">
-          Event cancelled.
+          <EventText id="workspaceCancelled" />
           {ownerEvent?.cancellationReason
             ? ` ${ownerEvent.cancellationReason}`
             : ""}
         </Alert>
       )}
       {context.archivedAt && (
-        <Alert severity="info">This event is archived.</Alert>
+        <Alert severity="info">
+          <EventText id="workspaceArchived" />
+        </Alert>
       )}
       <Stack
         direction="row"

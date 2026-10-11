@@ -12,6 +12,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { DateTime } from "@/components/ui/date-time";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -38,6 +39,7 @@ export function PublicEventResults({
   language?: EventLanguage;
   now: Date;
 }) {
+  const t = useTranslations("events");
   const [search, setSearch] = useState("");
   const query = search.trim().toLowerCase();
   const events = publishedEvents.filter(({ snapshot }) =>
@@ -54,14 +56,14 @@ export function PublicEventResults({
   const groups = [
     {
       id: "upcoming-events",
-      title: "Upcoming events",
+      title: t("upcomingEvents"),
       events: remainingEvents.filter(
         ({ snapshot }) => Date.parse(snapshot.startsAt) > instant,
       ),
     },
     {
       id: "ongoing-events",
-      title: "Happening now",
+      title: t("happeningNow"),
       events: remainingEvents.filter(
         ({ snapshot }) =>
           Date.parse(snapshot.startsAt) <= instant &&
@@ -70,7 +72,7 @@ export function PublicEventResults({
     },
     {
       id: "past-events",
-      title: "Past events",
+      title: t("pastEvents"),
       events: remainingEvents.filter(
         ({ snapshot }) => Date.parse(snapshot.endsAt) <= instant,
       ),
@@ -80,8 +82,8 @@ export function PublicEventResults({
   return (
     <Stack spacing={3}>
       <PageHeader
-        title="Public events"
-        description="Explore events and discover your next experience."
+        title={t("publicEvents")}
+        description={t("catalogDescription")}
       />
       <Box
         sx={{
@@ -94,8 +96,8 @@ export function PublicEventResults({
         }}
       >
         <TextField
-          label="Search events"
-          placeholder="Event title"
+          label={t("searchEvents")}
+          placeholder={t("eventTitle")}
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           slotProps={{
@@ -167,7 +169,7 @@ export function PublicEventResults({
               >
                 <EventOutlined fontSize="small" />
                 <Typography variant="overline" sx={{ fontWeight: 700 }}>
-                  Up next
+                  {t("upNext")}
                 </Typography>
                 <EventLanguageChip
                   language={featured.snapshot.language}
@@ -240,7 +242,7 @@ export function PublicEventResults({
                 endIcon={<ArrowForward />}
                 sx={{ alignSelf: "flex-start" }}
               >
-                View event
+                {t("viewEvent")}
               </Button>
             </Stack>
           </Box>
@@ -251,17 +253,17 @@ export function PublicEventResults({
           icon={<EventOutlined />}
           title={
             query
-              ? "No matching events"
+              ? t("noMatchingEvents")
               : language
-                ? "No events in this language"
-                : "No public events yet"
+                ? t("noEventsLanguage")
+                : t("noPublicEvents")
           }
           description={
             query
-              ? "Try another event title or change the language filter."
+              ? t("tryAnotherTitle")
               : language
-                ? "Choose another event language or select All languages."
-                : "Check back soon for newly published events."
+                ? t("chooseAnotherLanguage")
+                : t("checkBackEvents")
           }
         />
       ) : (

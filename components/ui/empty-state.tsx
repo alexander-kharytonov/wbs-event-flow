@@ -8,8 +8,8 @@ export function EmptyState({
   action,
 }: {
   icon: ReactNode;
-  title: string;
-  description: string;
+  title: ReactNode;
+  description: ReactNode;
   action?: ReactNode;
 }) {
   return (
