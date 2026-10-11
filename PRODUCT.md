@@ -1123,7 +1123,8 @@ The language menu is available in the shared application/public header (includin
 authentication and public registration) and the anonymous Ticket surface. Selection
 preserves the full URL, scroll position and unsaved form state. The client loads
 messages, saves the selection with PUT, then updates its locale context. A failed
-load or save keeps the active language and shows a translated retryable error.
+load or save keeps the active language and shows a translated retryable notification
+that remains visible after the menu closes and clears when selection is retried.
 A successful PUT is sufficient; there is no read-back confirmation.
 The cookie is host-only, HttpOnly, SameSite=Lax, one year, and Secure on HTTPS.
 
@@ -1133,6 +1134,9 @@ changes become visible after a full reload. Successful authentication transition
 load a new document; preference selection itself never navigates or refreshes
 application data. Server-only text may reflect newer preferences on a subsequent
 server render while mounted client labels retain the current document's choice.
+The document language attribute follows that active client choice after RSC refresh.
+Preference and sign-out error notifications translate at render time, including
+when the language changes while a notification is visible.
 
 Writes use the session authenticated for that request, not the session present
 when the menu was opened. An old tab can therefore save to the currently signed-in
@@ -1158,7 +1162,8 @@ means no explicit selection. Explicit system mode follows the OS of each current
 device; the resolved light/dark appearance is never saved as a preference.
 Signed-in selections save User.uiMode and the cookie; anonymous selections save
 only the cookie. The client waits for a successful PUT before calling MUI setMode.
-Write failure keeps the current mode and shows a translated retryable error.
+Write failure keeps the current mode and shows a translated retryable notification
+that remains visible after the menu closes and clears when selection is retried.
 Changing appearance preserves URL, scroll, component identity and unsaved forms.
 Initial rendering uses the resolved preference before page content is displayed.
 MUI localStorage is not an authority and old local-only preferences are not imported.

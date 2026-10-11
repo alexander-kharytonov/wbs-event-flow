@@ -20,6 +20,7 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { requestEditorLeave } from "@/components/ui/editor-navigation-guard";
+import { ShellText } from "@/components/ui/shell-text";
 import { useNotifications } from "@/hooks/use-notifications";
 import { authClient } from "@/lib/auth-client";
 
@@ -73,7 +74,7 @@ export function AccountMenu({
       const result = await authClient.signOut();
 
       if (result.error) {
-        notifications.show(t("signOutFailed"), {
+        notifications.show(<ShellText id="signOutFailed" />, {
           severity: "error",
           key: "sign-out",
         });
@@ -83,7 +84,7 @@ export function AccountMenu({
 
       navigate(() => window.location.assign("/"));
     } catch {
-      notifications.show(t("signOutFailed"), {
+      notifications.show(<ShellText id="signOutFailed" />, {
         severity: "error",
         key: "sign-out",
       });

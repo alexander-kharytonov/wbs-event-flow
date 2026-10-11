@@ -2168,7 +2168,10 @@ mutation inputs, revision keys or idempotency digests.
 The root locale provider uses SSR values only to initialize the document. Selection
 loads messages, sends PUT, and updates client context after success, with one
 selection in flight. Failed message loading or PUT leaves the active locale intact
-and reports a retryable save error. There is no confirmation GET or identity token.
+and reports a retryable save notification independent of menu visibility. Retrying
+clears the previous notification; stable notification keys prevent duplicates.
+Notification text consumes the active locale at render time.
+There is no confirmation GET or identity token.
 A successful PUT acknowledges that request, not continued freshness across tabs.
 Later server props do not overwrite mounted state. No preference GET endpoints,
 navigation/focus/visibility/pageshow listeners, polling or automatic retries exist.
@@ -2176,6 +2179,8 @@ External changes become visible after full reload; client-side navigation alone
 need not refresh mounted preferences. Successful sign-in/sign-out loads a new
 document. Language/theme selection never navigates, refreshes domain reads, keys
 providers by locale, resets forms, or changes revision/token bindings.
+After provider renders, the document language attribute is reasserted from the
+active client locale, including when an RSC refresh changes server locale props.
 
 The session validated for each PUT is the only account authority. An old tab's
 selection can update the currently authenticated account, even if its displayed
@@ -2212,7 +2217,8 @@ responses contain only presentation values and use private, no-store caching.
 
 ThemeControl uses MUI useColorScheme directly: PUT, then setMode. A pending guard
 prevents overlapping selections in the control. Failure preserves the current
-mode and shows a retryable translated error. There is no ModePreferenceProvider,
+mode and shows a retryable translated notification with the same menu-independent
+visibility and retry clearing as locale errors. There is no ModePreferenceProvider,
 read-back confirmation or background reconciliation. Section 40's request-time
 session authority, reload-based freshness and concurrent-write limitations apply.
 

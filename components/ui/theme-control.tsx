@@ -5,8 +5,6 @@ import DarkModeOutlined from "@mui/icons-material/DarkModeOutlined";
 import DesktopWindowsOutlined from "@mui/icons-material/DesktopWindowsOutlined";
 import LightModeOutlined from "@mui/icons-material/LightModeOutlined";
 import {
-  Alert,
-  Box,
   IconButton,
   ListItemIcon,
   ListItemText,
@@ -16,7 +14,9 @@ import {
 } from "@mui/material";
 import { useColorScheme } from "@mui/material/styles";
 import { useTranslations } from "next-intl";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { ShellText } from "@/components/ui/shell-text";
+import { useNotifications } from "@/hooks/use-notifications";
 import type { UiMode } from "@/lib/ui-mode";
 
 const choices = [
@@ -30,7 +30,8 @@ export function ThemeControl({ initialMode }: { initialMode: UiMode }) {
   const { mode, setMode } = useColorScheme();
   const [pending, setPending] = useState(false);
   const busy = useRef(false);
-  const [error, setError] = useState<"modeSaveFailed">();
+  const mounted = useRef(false);
+  const notifications = useNotifications();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const id = useId();
   const activeChoice =
@@ -38,6 +39,14 @@ export function ThemeControl({ initialMode }: { initialMode: UiMode }) {
     choices[0];
   const ActiveIcon = activeChoice.icon;
   const label = t("appearance", { mode: t(activeChoice.value) });
+
+  useEffect(() => {
+    mounted.current = true;
+
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   return (
     <>
@@ -49,7 +58,6 @@ export function ThemeControl({ initialMode }: { initialMode: UiMode }) {
           aria-expanded={Boolean(anchor)}
           disabled={pending}
           onClick={(event) => {
-            setError(undefined);
             setAnchor(event.currentTarget);
           }}
         >
@@ -74,7 +82,7 @@ export function ThemeControl({ initialMode }: { initialMode: UiMode }) {
               }
               busy.current = true;
               setPending(true);
-              setError(undefined);
+              notifications.close("mode-save");
 
               try {
                 const response = await fetch("/api/preferences/mode", {
@@ -83,18 +91,28 @@ export function ThemeControl({ initialMode }: { initialMode: UiMode }) {
                   body: JSON.stringify(value),
                 });
 
-                if (!response.ok) {
-                  setError("modeSaveFailed");
-
+                if (!mounted.current) {
                   return;
+                }
+
+                if (!response.ok) {
+                  throw new Error("modeSaveFailed");
                 }
                 setMode(value);
                 setAnchor(null);
               } catch {
-                setError("modeSaveFailed");
+                if (mounted.current) {
+                  notifications.show(<ShellText id="modeSaveFailed" />, {
+                    severity: "error",
+                    key: "mode-save",
+                  });
+                }
               } finally {
                 busy.current = false;
-                setPending(false);
+
+                if (mounted.current) {
+                  setPending(false);
+                }
               }
             }}
             sx={{ minWidth: 168 }}
@@ -106,11 +124,6 @@ export function ThemeControl({ initialMode }: { initialMode: UiMode }) {
             {mode === value && <Check fontSize="small" sx={{ ml: 2 }} />}
           </MenuItem>
         ))}
-        {error && (
-          <Box sx={{ px: 2, py: 1, maxWidth: 300 }}>
-            <Alert severity="error">{t(error)}</Alert>
-          </Box>
-        )}
       </Menu>
     </>
   );

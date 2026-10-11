@@ -1,19 +1,26 @@
 "use client";
 
 import Translate from "@mui/icons-material/Translate";
-import { Alert, Box, IconButton, Menu, MenuItem, Tooltip } from "@mui/material";
+import { Box, IconButton, Menu, MenuItem, Tooltip } from "@mui/material";
 import { useLocale, useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
+import { useNotifications } from "@/hooks/use-notifications";
 import { localeNames, locales } from "@/lib/i18n/locale";
 import { useLocalePreference } from "@/providers/locale-provider";
+
+function LocaleSaveError() {
+  const t = useTranslations("locale");
+
+  return t("saveFailed");
+}
 
 export function LanguageSelector() {
   const t = useTranslations("locale");
   const locale = useLocale();
   const { pending, changeLocale } = useLocalePreference();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-  // Store stable identifiers, translate at render so errors follow locale changes.
-  const [error, setError] = useState<"saveFailed">();
+  const notifications = useNotifications();
+  const busy = useRef(false);
   const id = useId();
 
   return (
@@ -26,7 +33,6 @@ export function LanguageSelector() {
           aria-controls={anchor ? id : undefined}
           disabled={pending}
           onClick={(event) => {
-            setError(undefined);
             setAnchor(event.currentTarget);
           }}
         >
@@ -47,24 +53,31 @@ export function LanguageSelector() {
             selected={locale === value}
             disabled={pending}
             onClick={async () => {
-              setError(undefined);
-              const result = await changeLocale(value);
+              if (busy.current) {
+                return;
+              }
+              busy.current = true;
+              notifications.close("locale-save");
 
-              if (result === "saved") {
-                setAnchor(null);
-              } else {
-                setError(result);
+              try {
+                const result = await changeLocale(value);
+
+                if (result === "saved") {
+                  setAnchor(null);
+                } else {
+                  notifications.show(<LocaleSaveError />, {
+                    severity: "error",
+                    key: "locale-save",
+                  });
+                }
+              } finally {
+                busy.current = false;
               }
             }}
           >
             {localeNames[value]}
           </MenuItem>
         ))}
-        {error && (
-          <Box sx={{ px: 2, py: 1, maxWidth: 300 }}>
-            <Alert severity="error">{t(error)}</Alert>
-          </Box>
-        )}
       </Menu>
     </Box>
   );

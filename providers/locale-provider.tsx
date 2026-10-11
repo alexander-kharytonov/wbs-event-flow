@@ -25,8 +25,10 @@ export function LocaleProvider({
   const busy = useRef(false);
 
   useEffect(() => {
+    // An RSC refresh can update <html lang> without changing mounted locale state.
+    // Reassert the active client locale after every provider render.
     document.documentElement.lang = state.locale;
-  }, [state.locale]);
+  });
 
   async function changeLocale(next: UiLocale) {
     if (busy.current) {
