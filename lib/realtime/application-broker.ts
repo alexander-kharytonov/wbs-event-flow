@@ -228,3 +228,7 @@ export function getApplicationBroker() {
 
   return globalForRealtime.eventFlowApplicationBroker;
 }
+
+export async function stopApplicationBroker() {
+  await globalForRealtime.eventFlowApplicationBroker?.dispose();
+}

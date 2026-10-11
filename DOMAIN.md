@@ -52,7 +52,7 @@ Only a SHA-256 digest of the delivery token is stored. A random nonce distinguis
 deliveries even when Better Auth issues identical JWTs within one second.
 Delivery holds a User row lock and deletes/recreates this exact slot
 transactionally; SMTP failure rolls back the replacement.
-SMTP acceptance and database commit are not
+Transport acceptance and database commit are not
 a distributed transaction: a commit failure after acceptance can leave the newly
 delivered link unusable, requiring resend.
 
@@ -550,23 +550,25 @@ A short ReadCommitted transaction claims up to five due rows using a single
 CTE SELECT FOR UPDATE SKIP LOCKED + UPDATE RETURNING. Due means PENDING with
 nextAttemptAt <= DB now, or PROCESSING with a five-minute expired lease. Claim
 sets lockedAt/lockedBy and increments attempts. Concurrent Node processes skip
-each other's locks. SMTP starts only after commit, in parallel within the bounded
-batch, with a 45-second socket-closing delivery deadline and shorter connection,
-greeting, and idle timeouts. No domain or claim transaction spans SMTP.
+each other's locks. Delivery starts only after commit, concurrently within the
+bounded batch. SMTP retains its 45-second socket-closing deadline and shorter
+connection/greeting/idle timeouts. Resend uses a 45-second total deadline including
+pacing and an abortable HTTPS request. No domain or claim transaction spans delivery.
 
 Every success/retry/failure update predicates on id, PROCESSING, workerId, and
 the claimed attempts value. Zero affected rows means lost ownership and causes
 no further write. Attempts never reset. Failure after attempts 1/2/3/4 schedules
-1 minute / 5 minutes / 30 minutes / 2 hours; attempt 5 becomes terminal FAILED
+at least 1 minute / 5 minutes / 30 minutes / 2 hours (provider Retry-After can
+extend these delays); attempt 5 becomes terminal FAILED
 with nextAttemptAt null. An expired fifth claim also becomes FAILED under the
 claim row lock without a sixth send. Retry clears locks; success writes SENT and
 sentAt and clears due time, locks, and error. Errors are fixed bounded categories,
 never raw SMTP responses, addresses, payloads, or credentials. SENT/FAILED are
 excluded from automatic claims. An unacknowledged DB completion uses lease recovery.
 
-Delivery is at-least-once, subject to the five-attempt limit: SMTP acceptance and
+Delivery is at-least-once, subject to the five-attempt limit: Transport acceptance and
 the SENT update are not atomic. Crash/lease recovery can duplicate a delivered
-email. Ownership protects database state, not exactly-once SMTP delivery.
+email. Ownership protects database state, not exactly-once physical delivery.
 
 Next.js Node instrumentation starts a global/HMR-safe process singleton, with one
 dispatcher loop and a dedicated LISTEN connection on event_flow_email_outbox,
@@ -756,14 +758,40 @@ no capability, and removes authenticated browser access. It never converts a
 historically linked Ticket to an anonymous Ticket. No email-based claiming exists.
 
 Verified-session ownership protects `/account/registrations/[eventId]` and its
-Ticket read model. `/ticket/<access-token>` needs no login and authorizes this Registration party by
-anonymousAccessHash on a PRIMARY Ticket. Invalid/unknown tokens share an unavailable response. The
-page exposes party Tickets/attendees/Event context (validated current publication,
+Ticket read model. Anonymous email links use `/ticket#<access-token>`: the fragment
+is browser-only. A same-origin JSON POST to `/ticket/exchange` (128-byte body cap,
+explicit trusted Origin, Fetch Metadata check) validates the existing PRIMARY
+capability without changing Ticket fields, then issues a Ticket session cookie.
+Unknown/invalid credentials share a neutral response; no raw errors are serialized.
+The browser clears the fragment on success and replaces the URL with
+`/ticket/view/<ticketId>`. This UUID alone grants no authority.
+
+The cookie holds an AES-256-GCM authenticated/encrypted capability, Ticket id and
+absolute two-hour expiry. Its key is HKDF-derived with a separate session purpose
+from the existing Ticket encryption key; historical Ticket envelopes are unchanged.
+It is HttpOnly, SameSite=Strict, host-only, scoped to that exact Ticket view path,
+and Secure with the __Secure- prefix in production. Local HTTP development uses
+an unprefixed cookie. Server expiry validation is mandatory and never slides.
+Ambiguous cookies, tampering, a different Ticket id and expired sessions fail closed.
+No session table or new authentication framework is introduced. Reopening the
+fragment link issues a new expiring cookie; independent paths support multiple Tickets.
+
+Every read resolves the original PRIMARY capability; every guest mutation reads
+the current session again, checks Origin/Fetch Metadata, then performs the existing
+pre-lock and post-lock capability authorization. Only the nonsecret Ticket id is
+captured by Server Actions. Revoked history remains readable, with existing QR
+suppression and mutation restrictions. Refresh/navigation and locale switching
+retain the cookie; locale changes do not remount the form or renew the session.
+
+The page exposes party Tickets/attendees/Event context (validated current publication,
 or submitted snapshot when unavailable), not application answers or workspace.
-It is request-time rendered, private/no-store, noindex/nofollow/noarchive and
-no-referrer, without third-party resources. Application request logging excludes
-capability routes. Deployment proxies/access logs must also redact `/ticket/*`;
-Next's application logger cannot configure external infrastructure.
+It remains private/no-store, noindex/nofollow/noarchive and no-referrer, without
+third-party resources or analytics. Request/body/cookie/fragment logging and email
+link tracking are prohibited. The legacy `/ticket/<access-token>` handler is removed;
+redirecting it cannot prevent the initial ingress path leak. Before migrating any
+retained environment, inspect already-issued links and obtain an explicit cutover
+decision if old path links exist. DEPLOY-2 inspected the local DB and Mailpit:
+zero Tickets, anonymous approval deliveries and messages; no existing rows changed.
 
 Approve holds the existing Event lock, obtains decisionNow, updates Application,
 creates Registration, PRIMARY and Ticket, then enqueues approval email and NOTIFY in one
@@ -787,7 +815,7 @@ or cancelled state removes the Ticket CTA and explains the change. A User delete
 before delivery receives no authenticated or newly invented anonymous CTA. Approval
 v1 payloads are rejected; the current writer always includes ticketId in v2.
 Existing durable leases/retries/deduplication remain;
-state is checked at rendering, not atomically with remote SMTP delivery, and Ticket
+state is checked at rendering, not atomically with remote email delivery, and Ticket
 pages always recheck current state. No QR credential enters approval payloads.
 Existing applications.changed routing and empty browser invalidation refresh
 linked Ticket issue/revoke without a new protocol or anonymous stream.
@@ -1562,9 +1590,9 @@ only the frozen Outbox address; it never reevaluates audience, Event eligibility
 actor membership or archive state. Existing five Event renderers, deduplication,
 LISTEN/NOTIFY, startup/reconnect and 30-second fallback sweep, batch 5, five-minute
 leases, attempt fencing, five attempts, retry delays and failure categories remain
-unchanged (section 18). PENDING = queued, PROCESSING = claimed, SENT = SMTP accepted,
+unchanged (section 18). PENDING = queued, PROCESSING = claimed, SENT = transport accepted,
 FAILED = automatic attempts exhausted. No DELIVERED/OPENED claim is supported.
-One logical recipient intent permits at-least-once physical SMTP delivery; exactly
+One logical recipient intent permits at-least-once physical email delivery; exactly
 once is not guaranteed.
 
 History foundation exposes explicit summary/actor selections, delivery counts and
@@ -1746,7 +1774,7 @@ createdAt DESC/id DESC, 20 rows plus one sentinel and an Event-scoped keyset cur
 One grouped Outbox query returns the four delivery counts for visible rows; no
 per-recipient lookup or recipient DTO reaches the browser. No payload, body,
 context, credential, SMTP error or internal lease metadata is exposed. Delivery
-terms remain Pending=queued, Processing=claimed, Sent=SMTP accepted, Failed=automatic
+terms remain Pending=queued, Processing=claimed, Sent=transport accepted, Failed=automatic
 attempts exhausted. Enqueue sends only existing event.changed routing; EventWorkspace
 coalesces invalidations. Explicit History refresh retrieves current counts;
 section 35 adds dispatcher status invalidation and recipient/details presentation.
@@ -1828,7 +1856,7 @@ websocket, polling or background persistence is introduced. Retry delays, five
 attempts, leases/fencing, dispatcher LISTEN/startup/fallback sweep and all six
 renderers/deduplication paths are unchanged.
 
-PENDING = queued/awaiting attempt; PROCESSING = claimed; SENT = SMTP accepted;
+PENDING = queued/awaiting attempt; PROCESSING = claimed; SENT = transport accepted;
 FAILED = automatic attempts exhausted. SENT does not mean mailbox delivery or
 open/read/click confirmation. Frozen content/audience/count/addresses and live
 status/attempts/sentAt remain distinct. Retention is the lifetime of the Event.
@@ -2381,3 +2409,29 @@ allowlist; preference PUT routes check that same validated list plus the canonic
 origin. No request Host is promoted into the trusted list. Cookies remain host-only;
 preference cookies use Secure for an accepted HTTPS Origin. Users sign in separately
 on localhost and a LAN IP. This does not change email rendering or recipient locale.
+
+## Production process and email transport (DEPLOY-2)
+
+Railway uses one always-on Next.js process, a direct private PostgreSQL 18 connection,
+the existing LOCAL volume, outbox and LISTEN/NOTIFY/SSE. The Prisma pool defaults to
+five connections plus two dedicated listeners. Migrations run separately before
+startup; the application never resets data or applies migrations on request.
+
+The production HTTP entry point stops accepting requests on SIGTERM/SIGINT, stops
+new outbox claims, closes broker streams/listeners, and waits for requests and the
+current delivery batch. It then closes Next.js and Prisma. The total bound is 60s;
+Railway allows 75s before SIGKILL. Forced termination leaves durable leases for
+recovery; it does not mark uncertain deliveries successful. Existing SSE heartbeat,
+authorization, reconnect and invalidation behavior remains unchanged.
+
+EMAIL_TRANSPORT=smtp preserves local Mailpit. EMAIL_TRANSPORT=resend sends the same
+rendered templates over HTTPS with a bounded AbortController deadline (10s for auth,
+45s for outbox including pacing). One process reserves send starts at one per second;
+provider cooldown blocks new sweeps, and Retry-After/quota reset delays extend the
+existing persisted retry schedule without changing five-attempt limits or fencing.
+Only sanitized generic errors enter delivery history. Resend keys combine the outbox
+id and rendered-content digest: identical payload retries reuse the provider key;
+changed live approval content uses a different key. Provider deduplication lasts
+24h; changed content and retries beyond that window retain at-least-once semantics.
+The database idempotency/lease model remains authoritative. EMAIL_OUTBOX_ENABLED=false
+is an operational recovery switch, not cancellation or deletion of queued deliveries.

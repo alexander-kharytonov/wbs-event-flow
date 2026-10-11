@@ -1,7 +1,7 @@
 import { Alert, Container, Stack, Typography } from "@mui/material";
 import type { Metadata } from "next";
 import { refresh } from "next/cache";
-import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 import { connection } from "next/server";
 import { getTranslations } from "next-intl/server";
 import { LanguageSelector } from "@/components/ui/language-selector";
@@ -10,6 +10,10 @@ import { PartyGuests } from "@/features/guests/components/party-guests";
 import { addGuest, removeGuest } from "@/features/guests/server/manage-guests";
 import { TicketCard } from "@/features/tickets/components/ticket-card";
 import { getAnonymousTicket } from "@/features/tickets/server/get-anonymous-ticket";
+import {
+  isTicketMutationOrigin,
+  readTicketSession,
+} from "@/features/tickets/server/ticket-session";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("events");
@@ -24,21 +28,34 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function AnonymousTicketPage({
   params,
 }: {
-  params: Promise<{ accessToken: string }>;
+  params: Promise<{ ticketId: string }>;
 }) {
   await connection();
-  const { accessToken } = await params;
-  const data = await getAnonymousTicket(accessToken);
+  const { ticketId } = await params;
+  const accessToken = await readTicketSession(ticketId);
+  const data = accessToken ? await getAnonymousTicket(accessToken) : null;
 
   if (!data) {
-    notFound();
+    return (
+      <Container component="main" maxWidth="md" sx={{ py: 4 }}>
+        <Alert severity="info">
+          <EventText id="ticketSessionUnavailable" />
+        </Alert>
+      </Container>
+    );
   }
 
-  // Captured capability is encrypted by Next, never passed as a presentation prop.
+  // Bind only the nonsecret Ticket id; authorize the current cookie on every mutation.
   async function add(input: { name: string; email: string }) {
     "use server";
 
-    const result = await addGuest({ capability: accessToken }, input);
+    const capability = await readTicketSession(ticketId);
+
+    if (!capability || !isTicketMutationOrigin(await headers())) {
+      return { code: "UNAVAILABLE" as const };
+    }
+
+    const result = await addGuest({ capability }, input);
     refresh();
 
     return result;
@@ -47,7 +64,13 @@ export default async function AnonymousTicketPage({
   async function remove(guestId: string) {
     "use server";
 
-    const result = await removeGuest({ capability: accessToken }, guestId);
+    const capability = await readTicketSession(ticketId);
+
+    if (!capability || !isTicketMutationOrigin(await headers())) {
+      return { code: "UNAVAILABLE" as const };
+    }
+
+    const result = await removeGuest({ capability }, guestId);
     refresh();
 
     return result;

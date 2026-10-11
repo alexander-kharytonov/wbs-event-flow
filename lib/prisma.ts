@@ -13,11 +13,11 @@ const prisma =
     adapter: new PrismaPg({
       connectionString: env.DATABASE_URL,
       connectionTimeoutMillis: 5000,
+      max: env.DATABASE_POOL_MAX,
     }),
   });
 
-if (env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
-}
+// Instrumentation, route handlers and SSR bundles must share the same pool.
+globalForPrisma.prisma = prisma;
 
 export { prisma };

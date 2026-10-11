@@ -5,6 +5,7 @@ import { renderOutboxEmail } from "@/lib/email-outbox/render";
 import { sendMail } from "@/lib/mail";
 import { prisma } from "@/lib/prisma";
 import { notifyEventChanged } from "@/lib/realtime/application-notifications";
+import { MailDeliveryError } from "@/lib/resend-mail";
 
 export const emailBatchSize = 5;
 export const emailLeaseMs = 5 * 60_000;
@@ -113,6 +114,7 @@ export async function finishEmailDelivery(
   row: Pick<EmailOutbox, "id" | "attempts">,
   workerId: string,
   error: "Invalid email payload." | "Email delivery failed." | null,
+  retryAfterMs = 0,
 ) {
   if (error === null) {
     const updated = await prisma.$queryRaw<
@@ -129,7 +131,9 @@ export async function finishEmailDelivery(
     return updated.length;
   }
 
-  const delayMs = retryDelaysMs[row.attempts - 1] ?? null;
+  const retryDelay = retryDelaysMs[row.attempts - 1];
+  const delayMs =
+    retryDelay === undefined ? null : Math.max(retryDelay, retryAfterMs);
 
   const updated = await prisma.$queryRaw<{ communicationId: string | null }[]>`
     UPDATE "EmailOutbox" SET
@@ -163,15 +167,22 @@ export async function deliverClaimedEmail(row: EmailOutbox, workerId: string) {
   }
 
   let error: "Email delivery failed." | null = null;
+  let retryAfterMs = 0;
 
   try {
     // Bounded network delivery, outside the completed claim transaction.
-    await sendMail({ to: row.recipientEmail, ...message }, 45_000);
-  } catch {
+    await sendMail(
+      { to: row.recipientEmail, ...message },
+      45_000,
+      `outbox/${row.id}`,
+    );
+  } catch (failure) {
+    retryAfterMs =
+      failure instanceof MailDeliveryError ? failure.retryAfterMs : 0;
     error = "Email delivery failed.";
   }
 
   // A database completion failure must leave the lease for recovery, rather
   // than being misclassified as an SMTP failure. Zero means lost ownership.
-  await finishEmailDelivery(row, workerId, error);
+  await finishEmailDelivery(row, workerId, error, retryAfterMs);
 }

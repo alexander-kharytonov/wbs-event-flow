@@ -33,8 +33,12 @@ const serverEnvSchema = z
 
         return key.length === 32 && key.toString("base64url") === value;
       }, "Expected 32 random bytes encoded as canonical base64url"),
-    SMTP_HOST: z.string().min(1),
-    SMTP_PORT: z.coerce.number().int().min(1).max(65535),
+    EMAIL_TRANSPORT: z.enum(["smtp", "resend"]).default("smtp"),
+    RESEND_API_KEY: z.string().default(""),
+    DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(20).default(5),
+    EMAIL_OUTBOX_ENABLED: z.enum(["true", "false"]).default("true"),
+    SMTP_HOST: z.string().default("127.0.0.1"),
+    SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(1025),
     SMTP_FROM: z.email(),
     DATABASE_URL: z.url().refine((value) => {
       const url = URL.parse(value);
@@ -47,6 +51,22 @@ const serverEnvSchema = z
       );
     }, "Expected a PostgreSQL URL with a host and database name"),
   })
+  .refine(
+    (value) =>
+      value.EMAIL_TRANSPORT !== "resend" ||
+      value.RESEND_API_KEY.startsWith("re_"),
+    { path: ["RESEND_API_KEY"], message: "Configure a Resend API key" },
+  )
+  .refine(
+    (value) =>
+      value.NODE_ENV !== "production" ||
+      process.env.NEXT_PHASE === "phase-production-build" ||
+      value.BETTER_AUTH_URL.startsWith("https://"),
+    {
+      path: ["BETTER_AUTH_URL"],
+      message: "Production requires an HTTPS canonical origin",
+    },
+  )
   .refine(
     (value) =>
       Boolean(value.GOOGLE_CLIENT_ID) === Boolean(value.GOOGLE_CLIENT_SECRET),
@@ -67,6 +87,10 @@ export function getServerEnv() {
     BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
     TICKET_CREDENTIAL_ENCRYPTION_KEY:
       process.env.TICKET_CREDENTIAL_ENCRYPTION_KEY,
+    EMAIL_TRANSPORT: process.env.EMAIL_TRANSPORT,
+    RESEND_API_KEY: process.env.RESEND_API_KEY,
+    DATABASE_POOL_MAX: process.env.DATABASE_POOL_MAX,
+    EMAIL_OUTBOX_ENABLED: process.env.EMAIL_OUTBOX_ENABLED,
     SMTP_HOST: process.env.SMTP_HOST,
     SMTP_PORT: process.env.SMTP_PORT,
     SMTP_FROM: process.env.SMTP_FROM,

@@ -2,6 +2,7 @@ import "server-only";
 import { createConnection, type Socket } from "node:net";
 import nodemailer from "nodemailer";
 import { getServerEnv } from "./env";
+import { sendResendMail } from "./resend-mail";
 
 const env = getServerEnv();
 const transport = nodemailer.createTransport({
@@ -20,7 +21,14 @@ export async function sendMail(
     html: string;
   },
   deliveryTimeoutMs?: number,
+  idempotencyKey?: string,
 ) {
+  if (env.EMAIL_TRANSPORT === "resend") {
+    await sendResendMail(message, deliveryTimeoutMs ?? 10_000, idempotencyKey);
+
+    return;
+  }
+
   let deliverySocket: Socket | undefined;
   let expired = false;
   // A bounded outbox delivery owns its connection so its deadline can close
