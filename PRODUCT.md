@@ -1099,3 +1099,73 @@ is best effort. Old cover URLs stop authorizing after replacement/unpublish, and
 previously downloaded images cannot be recalled. No OG generator, discovery or
 private access controls are added. Iterations 29A/B/C/D are implemented and accepted,
 including the final UX and integration polish.
+
+## V0 development policy
+
+Before the first release, breaking changes are allowed and local development data
+is disposable. Each serialized artifact has one current contract: Snapshot V3 and
+EventTemplateV2 today. Do not add legacy Snapshot/Template readers, converters or
+compatibility paths. Schema changes use incremental migrations; an applied baseline
+must not be rewritten. Disposable data does not authorize an unrequested DB/media
+reset. Historical domain revisions remain immutable within the current contract;
+authorization, concurrency controls and idempotency remain mandatory.
+
+## UI language foundation (I18N-A)
+
+The interface supports English, German, Polish, Ukrainian and Russian. Resolution
+is account preference → validated first-party cookie → browser Accept-Language
+(including regional tags and quality weights) → English. A new/existing account
+without an explicit preference continues to use cookie/browser resolution; GET
+requests never persist inferred language. An explicit signed-in selection saves
+User.uiLocale and the cookie; anonymous selection saves only the cookie.
+
+The language menu is available in the shared application/public header (including
+authentication and public registration) and the anonymous Ticket surface. Selection
+preserves the full URL, scroll position and unsaved form state. Only successful
+persistence followed by confirmation against the current session changes the active
+language. Write failure appears in the menu for retry. If a save succeeds but the
+current selection cannot be confirmed, the menu stays open with a distinct
+synchronization message; it does not report success silently. Language and
+appearance selections are bound to the session that initiated them, including
+anonymous state. If that session changes before the server validates the write,
+the selection is rejected, current preferences are reconciled, and the menu
+shows a retryable save error. The old selection is never automatically saved to
+the new account. Signing in again also requires retrying the selection.
+The cookie is host-only, HttpOnly, SameSite=Lax, one year, and Secure on HTTPS.
+Delayed server renders cannot roll back a confirmed selection. Normal navigation,
+new server props and returning to the page reconcile the current account/cookie
+preference without resetting mounted forms. External changes are picked up on
+these signals, not continuously polled.
+
+Opening/closing preference menus and moving focus between the page and DevTools
+do not reload preferences. Returning to a previously hidden tab does. A switch
+between windows that leaves the page visible waits for another reconciliation
+signal; stale identity context still prevents saving to a different account.
+
+This phase translates shared navigation, account navigation, language/appearance
+controls and essential shell labels. MUI built-in labels and the shared DateTime
+component use the active UI locale; Event timezone and instant semantics stay
+unchanged. Other feature text and date formatters remain English pending later
+phases. Event content, Snapshot/Template contracts and transactional emails are
+unchanged; no Event.language is introduced. Server-only translated output updates
+on the next server render; immediately switchable labels use client context with
+SSR initial messages. Background translation can receive an explicit locale without
+HTTP context, but current email templates/delivery are not connected to it.
+
+## UI appearance preference
+
+The appearance menu offers light, dark and system modes. Resolution is account
+preference → validated first-party cookie → system. A null account preference
+means no explicit selection. Explicit system mode follows the OS of each current
+device; the resolved light/dark appearance is never saved as a preference.
+Signed-in selections save User.uiMode and the cookie; anonymous selections save
+only the cookie. A save remains pending until the current session preference is
+confirmed. Write failure keeps the current mode and shows a translated retryable
+error. A successful save with failed or differing confirmation keeps the menu
+open with a distinct synchronization message; a confirmed current account
+preference remains authoritative.
+Changing appearance preserves URL, scroll, component identity and unsaved forms.
+Initial rendering uses the resolved preference before page content is displayed.
+MUI localStorage is no longer an authority and old local-only preferences are not
+imported. Returning to the page, normal navigation and new server props reconcile
+external/account changes; delayed responses cannot undo newer confirmed choices.

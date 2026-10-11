@@ -17,6 +17,7 @@ import {
 } from "@mui/material";
 import NextLink from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { requestEditorLeave } from "@/components/ui/editor-navigation-guard";
 import { useNotifications } from "@/hooks/use-notifications";
@@ -31,19 +32,20 @@ export function AccountMenu({
   organizerProfileId?: string;
   hasAssignedEvents?: boolean;
 }) {
+  const t = useTranslations("shell");
   const pathname = usePathname();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [pending, setPending] = useState(false);
   const notifications = useNotifications();
   const id = useId();
   const accountLinks = [
-    { href: "/account", label: "My account", icon: AccountCircleOutlined },
+    { href: "/account", label: t("account"), icon: AccountCircleOutlined },
     {
       href: "/account/registrations",
-      label: "My registrations",
+      label: t("registrations"),
       icon: EventAvailableOutlined,
     },
-    { href: "/account/profile", label: "Profile", icon: PersonOutlined },
+    { href: "/account/profile", label: t("profile"), icon: PersonOutlined },
   ];
   const hasWorkspace = Boolean(organizerProfileId || hasAssignedEvents);
   const workspaceHref = hasWorkspace ? "/dashboard" : "/onboarding/organizer";
@@ -71,7 +73,7 @@ export function AccountMenu({
       const result = await authClient.signOut();
 
       if (result.error) {
-        notifications.show("Could not sign out. Please try again.", {
+        notifications.show(t("signOutFailed"), {
           severity: "error",
           key: "sign-out",
         });
@@ -81,7 +83,7 @@ export function AccountMenu({
 
       navigate(() => window.location.assign("/"));
     } catch {
-      notifications.show("Could not sign out. Please try again.", {
+      notifications.show(t("signOutFailed"), {
         severity: "error",
         key: "sign-out",
       });
@@ -94,7 +96,7 @@ export function AccountMenu({
     <>
       <ButtonBase
         id={`${id}-trigger`}
-        aria-label={`Account menu for ${name}`}
+        aria-label={t("accountMenu", { name })}
         aria-haspopup="menu"
         aria-controls={anchor ? id : undefined}
         aria-expanded={Boolean(anchor)}
@@ -205,7 +207,7 @@ export function AccountMenu({
             )}
           </ListItemIcon>
           <ListItemText>
-            {hasWorkspace ? "Dashboard" : "Become an organizer"}
+            {hasWorkspace ? t("dashboard") : t("becomeOrganizer")}
           </ListItemText>
         </MenuItem>
         <Divider />
@@ -218,7 +220,9 @@ export function AccountMenu({
           <ListItemIcon>
             <Logout fontSize="small" />
           </ListItemIcon>
-          <ListItemText>{pending ? "Signing out…" : "Sign out"}</ListItemText>
+          <ListItemText>
+            {pending ? t("signingOut") : t("signOut")}
+          </ListItemText>
         </MenuItem>
       </Menu>
     </>

@@ -1,0 +1,7 @@
+{
+  "label": "Language",
+  "saveFailed": "Could not save language. Please try again.",
+  "invalidLocale": "Choose a supported language.",
+  "forbidden": "This request is not allowed.",
+  "syncFailed": "Language was saved, but the current selection could not be confirmed. Please try again."
+}

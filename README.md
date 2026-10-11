@@ -42,7 +42,7 @@ Ticket envelopes cannot be recovered without this key. Keep `.env` untracked.
 
 ### Fresh database
 
-For a new, empty PostgreSQL 18 database, apply the single baseline migration:
+For a new, empty PostgreSQL 18 database, apply the baseline and incremental migrations:
 
 ```bash
 pnpm infra:up
@@ -64,7 +64,7 @@ settings. `lib/prisma.ts` is the shared server-only client. DATABASE_URL expands
 from the POSTGRES variables in `.env.example`; use a URL-safe local password or
 percent-encode credentials when constructing a URL.
 
-The migration directory contains only `20261010000000_baseline`, replacing the
+The migration directory starts with `20261010000000_baseline`, replacing the
 pre-deployment local migration history. It creates the current schema, including
 media, and preserves all 23 custom SQL CHECK constraints alongside Prisma-managed
 keys and indexes. Future schema changes use incremental migrations; do not edit
@@ -120,7 +120,8 @@ identity, party activity, Ticket lifecycle, QR/MANUAL Attendance, current public
 references, and Communication/Outbox counts, types, normalized associated addresses
 and strict versioned contexts. JSON contexts are read in bounded keyset pages.
 It also checks media ownership/references, manifests and v3 cover descriptors.
-Legacy null-linked Outbox and historical runtime contracts remain supported.
+Legacy null-linked Outbox remains supported; snapshot/template readers accept only
+the current V3/V2 contracts.
 An empty database passes with an explicit zero-data-coverage message. Failures
 exit nonzero; the command never repairs rows, decrypts credentials or sends mail.
 
@@ -268,11 +269,61 @@ are implemented and accepted.
 
 ## Engineering verification
 
-`scripts/` contains only the read-only `db:check` and explicit `media:cleanup`
-maintenance commands. Iteration-specific verification scripts have been removed.
+`scripts/` contains the read-only `db:check` and explicit `media:cleanup`
+maintenance commands.
 Use lint, TypeScript, build, Prisma validation/migration drift and `db:check` as
 routine gates. Changes to domain contracts also require focused verification with
 isolated disposable data; an empty development database is not domain coverage.
 Publication snapshots, historical answers, concurrency, authorization and immutable
 media references remain authoritative. No compatibility with discarded local
 Snapshot V1/V2 or Template V1 data is provided.
+
+## Localization development (I18N-A)
+
+`next-intl` is configured without locale routing or middleware. Existing links and
+paths remain unchanged. Apply `20261011000000_user_ui_locale` and
+`20261011010000_user_ui_mode` using
+`pnpm exec prisma migrate deploy`, regenerate the client with `pnpm db:generate`,
+and restart the development server after the schema/client change. No reset is needed.
+
+- Request configuration: `lib/i18n/request.ts` (account → cookie → browser → en).
+- Dictionaries: `lib/i18n/messages/{shell,locale,validation}/{en,de,pl,uk,ru}.json`.
+  English is merged per key before rendering. Add new features to the loader.
+- Server: `await getTranslations("shell")`; Client: `useTranslations("shell")`.
+  Use a client consumer for text that must change immediately without refreshing
+  forms. `ShellText` bridges simple shell labels in server-owned layouts.
+- ICU validation pattern: return `{code: "maxLength", values: {count: 200}}` with
+  the field path; render `t(issue.code, issue.values)`. Store identifiers rather
+  than translated strings. Do not change global Zod error maps per request.
+- Dates: `useFormatter` / `getFormatter`, always supplying Event timezone for
+  Event instants. Never reinterpret stored dates when changing UI language.
+- Background work: `createBackgroundTranslator(explicitPreference)` works without
+  a request. Do not wire it into emails until email localization is separately scoped.
+
+Optional native build scripts introduced transitively by next-intl (`@swc/core`
+and `@parcel/watcher`) are disabled; the application uses neither optional feature.
+
+Appearance uses `User.uiMode` (light/dark/system, nullable) with account → cookie →
+system priority. `lib/ui-mode-request.ts` resolves the initial mode; the MUI
+provider disables localStorage persistence. `GET/PUT /api/preferences/mode`
+reconcile/save the preference without navigation or form resets. Old MUI-only
+localStorage settings are not imported. System follows each device's OS and
+never persists the computed light/dark result.
+
+Preference reads and writes use a separate non-renewing Better Auth reader, including
+non-destructive handling of expired sessions. Visibility/pageshow bursts are
+coalesced; a signal during a read queues a fresh authority check. Saving remains
+pending through confirmation, with distinct feedback if synchronization cannot be
+confirmed after persistence.
+
+Window focus alone does not trigger preference reads, including returning from
+DevTools. Menu open/close stays local; returning to a hidden tab still reconciles.
+
+Both preference resolvers supply an opaque, session-bound `identity` context.
+Selections capture it before asynchronous work and send `X-Preference-Identity`
+with PUT. The server checks it against the current signed-cookie/DB session before
+writing or setting cookies; stale/missing context gets neutral 409
+`preferenceConflict`. The client reconciles without replaying the old write, and
+success requires confirmation of both value and identity. Reauthentication (even
+as the same User) requires a fresh context. This is preference-only continuity,
+not a replacement for authentication or an atomic session-revocation fence.

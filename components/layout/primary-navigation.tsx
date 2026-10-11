@@ -22,6 +22,7 @@ import {
 import { useTheme } from "@mui/material/styles";
 import NextLink from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useEffect, useId, useState } from "react";
 import { Logo } from "@/components/ui/logo";
 
@@ -32,18 +33,19 @@ export function PrimaryNavigation({
   signedIn: boolean;
   organizer: boolean;
 }) {
+  const t = useTranslations("shell");
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const id = useId();
   const theme = useTheme();
   const mobile = useMediaQuery(theme.breakpoints.down("lg"));
   const links = [
-    { href: "/e", label: "Explore events", icon: ExploreOutlined },
+    { href: "/e", label: t("explore"), icon: ExploreOutlined },
     ...(signedIn
-      ? [{ href: "/account", label: "My account", icon: AccountCircleOutlined }]
+      ? [{ href: "/account", label: t("account"), icon: AccountCircleOutlined }]
       : []),
     ...(organizer
-      ? [{ href: "/dashboard", label: "Dashboard", icon: DashboardOutlined }]
+      ? [{ href: "/dashboard", label: t("dashboard"), icon: DashboardOutlined }]
       : []),
   ];
   const mobileLinks = [
@@ -52,18 +54,22 @@ export function PrimaryNavigation({
       ? [
           {
             href: "/account",
-            label: "My account",
+            label: t("account"),
             icon: AccountCircleOutlined,
           },
           {
             href: "/account/registrations",
-            label: "My registrations",
+            label: t("registrations"),
             icon: EventAvailableOutlined,
           },
-          { href: "/account/profile", label: "Profile", icon: PersonOutlined },
+          {
+            href: "/account/profile",
+            label: t("profile"),
+            icon: PersonOutlined,
+          },
           {
             href: organizer ? "/dashboard" : "/onboarding/organizer",
-            label: organizer ? "Dashboard" : "Become an organizer",
+            label: organizer ? t("dashboard") : t("becomeOrganizer"),
             icon: DashboardOutlined,
           },
         ]
@@ -79,7 +85,7 @@ export function PrimaryNavigation({
   return (
     <>
       <IconButton
-        aria-label="Open navigation"
+        aria-label={t("openNavigation")}
         aria-expanded={open}
         aria-controls={open ? id : undefined}
         onClick={() => setOpen(true)}
@@ -89,7 +95,7 @@ export function PrimaryNavigation({
       </IconButton>
       <Stack
         component="nav"
-        aria-label="Main navigation"
+        aria-label={t("mainNavigation")}
         direction="row"
         sx={{ display: { xs: "none", lg: "flex" }, gap: 0.5, minWidth: 0 }}
       >
@@ -121,7 +127,7 @@ export function PrimaryNavigation({
           paper: {
             role: "dialog",
             "aria-modal": true,
-            "aria-label": "Main navigation",
+            "aria-label": t("mainNavigation"),
             sx: {
               width: { xs: "100%", sm: 320 },
               maxWidth: "100%",
@@ -145,7 +151,7 @@ export function PrimaryNavigation({
         >
           <Logo onClick={() => setOpen(false)} />
           <IconButton
-            aria-label="Close navigation"
+            aria-label={t("closeNavigation")}
             onClick={() => setOpen(false)}
           >
             <Close />
@@ -154,7 +160,7 @@ export function PrimaryNavigation({
         <Box
           component="nav"
           id={id}
-          aria-label="Mobile navigation"
+          aria-label={t("mobileNavigation")}
           sx={{ p: 1.5 }}
         >
           <List disablePadding>
@@ -193,14 +199,14 @@ export function PrimaryNavigation({
                 variant="contained"
                 onClick={() => setOpen(false)}
               >
-                Sign in
+                {t("signIn")}
               </Button>
               <Button
                 href="/register"
                 variant="outlined"
                 onClick={() => setOpen(false)}
               >
-                Create account
+                {t("createAccount")}
               </Button>
             </Stack>
           )}

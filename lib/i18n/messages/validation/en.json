@@ -1,0 +1,4 @@
+{
+  "required": "This field is required.",
+  "maxLength": "Use {count, plural, one {# character} other {# characters}} or fewer."
+}

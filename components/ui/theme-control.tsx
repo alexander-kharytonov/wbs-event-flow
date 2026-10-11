@@ -5,6 +5,8 @@ import DarkModeOutlined from "@mui/icons-material/DarkModeOutlined";
 import DesktopWindowsOutlined from "@mui/icons-material/DesktopWindowsOutlined";
 import LightModeOutlined from "@mui/icons-material/LightModeOutlined";
 import {
+  Alert,
+  Box,
   IconButton,
   ListItemIcon,
   ListItemText,
@@ -12,8 +14,9 @@ import {
   MenuItem,
   Tooltip,
 } from "@mui/material";
-import { useColorScheme } from "@mui/material/styles";
+import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
+import { useModePreference } from "@/providers/mode-preference-provider";
 
 const choices = [
   { value: "system", label: "System", icon: DesktopWindowsOutlined },
@@ -22,13 +25,15 @@ const choices = [
 ] as const;
 
 export function ThemeControl() {
-  const { mode, setMode } = useColorScheme();
+  const t = useTranslations("shell");
+  const { mode, pending, changeMode } = useModePreference();
+  const [error, setError] = useState<"modeSaveFailed" | "modeSyncFailed">();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const id = useId();
   const activeChoice =
     choices.find((choice) => choice.value === mode) ?? choices[0];
   const ActiveIcon = activeChoice.icon;
-  const label = `Appearance: ${activeChoice.label}`;
+  const label = t("appearance", { mode: t(activeChoice.value) });
 
   return (
     <>
@@ -38,7 +43,11 @@ export function ThemeControl() {
           aria-haspopup="menu"
           aria-controls={anchor ? id : undefined}
           aria-expanded={Boolean(anchor)}
-          onClick={(event) => setAnchor(event.currentTarget)}
+          disabled={pending}
+          onClick={(event) => {
+            setError(undefined);
+            setAnchor(event.currentTarget);
+          }}
         >
           <ActiveIcon fontSize="small" />
         </IconButton>
@@ -48,25 +57,39 @@ export function ThemeControl() {
         anchorEl={anchor}
         open={Boolean(anchor)}
         onClose={() => setAnchor(null)}
-        slotProps={{ list: { "aria-label": "Color mode" } }}
+        slotProps={{ list: { "aria-label": t("colorMode") } }}
       >
-        {choices.map(({ value, label, icon: Icon }) => (
+        {choices.map(({ value, icon: Icon }) => (
           <MenuItem
             key={value}
             selected={mode === value}
-            onClick={() => {
-              setMode(value);
-              setAnchor(null);
+            disabled={pending}
+            onClick={async () => {
+              setError(undefined);
+              const result = await changeMode(value);
+
+              if (result === "saved") {
+                setAnchor(null);
+              } else {
+                setError(
+                  result === "syncFailed" ? "modeSyncFailed" : "modeSaveFailed",
+                );
+              }
             }}
             sx={{ minWidth: 168 }}
           >
             <ListItemIcon>
               <Icon fontSize="small" />
             </ListItemIcon>
-            <ListItemText>{label}</ListItemText>
+            <ListItemText>{t(value)}</ListItemText>
             {mode === value && <Check fontSize="small" sx={{ ml: 2 }} />}
           </MenuItem>
         ))}
+        {error && (
+          <Box sx={{ px: 2, py: 1, maxWidth: 300 }}>
+            <Alert severity="error">{t(error)}</Alert>
+          </Box>
+        )}
       </Menu>
     </>
   );

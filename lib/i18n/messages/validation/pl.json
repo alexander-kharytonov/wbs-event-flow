@@ -1,0 +1,4 @@
+{
+  "required": "To pole jest wymagane.",
+  "maxLength": "Użyj maksymalnie {count, plural, one {# znaku} few {# znaków} many {# znaków} other {# znaku}}."
+}

@@ -57,3 +57,29 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Reuse existing shared input schemas for client validation when they are safe to import into the client. Keep server validation and authorization authoritative; never import server-only code or private data into a client form.
 - Use `hooks/use-form-feedback.ts` where its field-error/message model fits. Otherwise preserve the same behavior within the existing form workflow: show field errors inline, clear the affected error when its value changes, and show errors without a matching field in an Alert above the submission action. Preserve errors on unrelated fields.
 - Inspect the neighboring form/list pattern before implementation. Verify empty, populated, validation-error, and pending states, along with desktop/mobile layout where applicable. Report browser checks that were not performed; code checks alone do not establish visual correctness. This does not authorize adding tests beyond the project rule above.
+
+## V0 development policy
+
+Before the first release, breaking changes are allowed and local development data
+is disposable. Each serialized artifact has one current contract: Snapshot V3 and
+EventTemplateV2 today. Do not add legacy Snapshot/Template readers, converters or
+compatibility paths. Schema changes use incremental migrations; an applied baseline
+must not be rewritten. Disposable data does not authorize an unrequested DB/media
+reset. Historical domain revisions remain immutable within the current contract;
+authorization, concurrency controls and idempotency remain mandatory.
+
+## Localization
+
+Use `next-intl` with `lib/i18n/request.ts`; keep existing URL paths. Add flat,
+feature-organized dictionaries under `lib/i18n/messages/<feature>/<locale>.json`
+for en/de/pl/uk/ru with English keys as the source of truth and per-key fallback.
+Use ICU arguments/plurals rather than concatenating translated fragments.
+Server Components use `getTranslations`; interactive presentation uses
+`useTranslations`. Text that must change immediately with the language selector
+must consume client context (and is still SSR-rendered). Do not key providers,
+layouts or forms by locale. Switching locale must not navigate, refresh domain
+reads, reset a form, or change its revision/token binding.
+Keep validation results as stable codes plus interpolation values and field paths;
+translate during rendering, preserving unrelated field errors. Never use a global
+Zod locale/error-map mutation in a multi-user server. Existing domain errors are
+converted feature by feature in later phases, not rewritten in I18N-A.
