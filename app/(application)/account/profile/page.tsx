@@ -1,6 +1,7 @@
 import { Box, Paper, Stack, Typography } from "@mui/material";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
+import { SectionHeader } from "@/components/ui/section-header";
 import { AccountAvatar } from "@/features/auth/components/account-avatar";
 import { AuthText } from "@/features/auth/components/auth-text";
 import { GoogleAccount } from "@/features/auth/components/google-account";
@@ -33,14 +34,10 @@ export default async function ProfilePage({
 
   return (
     <Stack spacing={3}>
-      <Stack spacing={0.75}>
-        <Typography variant="h5" component="h2">
-          <AuthText id="profile" />
-        </Typography>
-        <Typography color="text.secondary">
-          <AuthText id="profileDescription" />
-        </Typography>
-      </Stack>
+      <SectionHeader
+        title={<AuthText id="profile" />}
+        description={<AuthText id="profileDescription" />}
+      />
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
         <Stack direction="row" spacing={2} sx={{ alignItems: "center", mb: 3 }}>
           <AccountAvatar name={user.name} image={user.image} size={56} />

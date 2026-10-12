@@ -1,7 +1,8 @@
-import { Alert, Stack, Typography } from "@mui/material";
+import { Alert, Stack } from "@mui/material";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { SectionHeader } from "@/components/ui/section-header";
 import { CheckInWindow } from "@/features/attendance/components/check-in-feedback";
 import { TicketScanner } from "@/features/attendance/components/ticket-scanner";
 import { EventHeader } from "@/features/events/components/event-header";
@@ -30,46 +31,15 @@ export default async function CheckInPage({
   }
 
   const { event } = data;
-  const attendees: import("@/features/events/server/organizer-attendees").OrganizerAttendee[] =
-    data.attendees;
-  const active = attendees.filter(
-    (attendee) => !attendee.revokedAt && !attendee.registration.revokedAt,
-  );
-  const checkedIn = active.filter(
-    (attendee) => attendee.attendance !== null,
-  ).length;
   const lifecycle = eventLifecycle(event, new Date());
 
   return (
     <Stack spacing={3}>
       <EventHeader eventId={id} active="check-in">
-        {lifecycle === "Ongoing" && (
-          <Alert severity="info">
-            <EventText id="scannerInstructions" />
-          </Alert>
-        )}
-        <Stack
-          direction={{ xs: "column", sm: "row" }}
-          sx={{
-            gap: 1,
-            justifyContent: "space-between",
-            alignItems: { sm: "center" },
-          }}
-        >
-          <Typography
-            variant="h6"
-            component="h2"
-            sx={{ minHeight: 42, display: "flex", alignItems: "center" }}
-          >
-            <EventText id="checkIn" />
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            <EventText
-              id="scannerCounts"
-              values={{ checkedIn, active: active.length }}
-            />
-          </Typography>
-        </Stack>
+        <SectionHeader
+          title={<EventText id="checkIn" />}
+          description={<EventText id="scannerInstructions" />}
+        />
         {lifecycle === "Ongoing" ? (
           <TicketScanner eventId={id} timezone={event.timezone} />
         ) : (

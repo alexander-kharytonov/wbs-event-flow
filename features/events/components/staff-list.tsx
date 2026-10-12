@@ -28,6 +28,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { EmptyState } from "@/components/ui/empty-state";
+import { SectionHeader } from "@/components/ui/section-header";
 import { EventAccessStatus } from "@/features/events/components/event-access-status";
 import { EventText } from "@/features/events/components/event-text";
 import { updateStaff } from "@/features/events/staff-actions";
@@ -142,20 +143,15 @@ export function StaffList({
   return (
     <>
       <Stack
-        direction="row"
-        sx={{ gap: 1, justifyContent: "space-between", alignItems: "center" }}
+        direction={{ xs: "column", sm: "row" }}
+        sx={{
+          gap: 2,
+          justifyContent: "space-between",
+          alignItems: { sm: "center" },
+        }}
       >
-        <Typography
-          variant="h6"
-          component="h2"
-          sx={{ minHeight: 42, display: "flex", alignItems: "center" }}
-        >
-          {t("staff")}
-        </Typography>
+        <SectionHeader title={t("staff")} description={t("staffDescription")} />
         <Stack direction="row" sx={{ gap: 2, alignItems: "center" }}>
-          <Typography variant="body2" color="text.secondary">
-            {t("staffCount", { count: members.length })}
-          </Typography>
           <Button
             variant="contained"
             startIcon={<Add />}

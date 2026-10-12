@@ -20,6 +20,7 @@ import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
 import { useEditorNavigation } from "@/components/ui/editor-navigation-guard";
 import { EmptyState } from "@/components/ui/empty-state";
+import { SectionHeader } from "@/components/ui/section-header";
 import {
   type BadgeLayout,
   badgeFieldSchema,
@@ -127,12 +128,12 @@ function ReviewBadge({
 
   return (
     <Stack spacing={2}>
-      <Typography variant="h6" component="h2">
-        {t("badgeDesign")}
-      </Typography>
-      <Typography variant="body2" color="text.secondary">
-        {layout ? t("templateImportedBadge") : t("templateDefaultBadge")}
-      </Typography>
+      <SectionHeader
+        title={t("badgeDesign")}
+        description={
+          layout ? t("templateImportedBadge") : t("templateDefaultBadge")
+        }
+      />
       {layout ? (
         <>
           <BadgeLayoutControls
@@ -460,12 +461,10 @@ export function TemplateReview({
           }}
         >
           <Stack spacing={2}>
-            <Typography variant="h6" component="h2">
-              {t("registrationForm")}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {t("templateQuestionsHint")}
-            </Typography>
+            <SectionHeader
+              title={t("registrationForm")}
+              description={t("templateQuestionsHint")}
+            />
             <RegistrationQuestions
               fields={fields}
               getKey={(field) => field.key}
@@ -486,12 +485,10 @@ export function TemplateReview({
             />
           </Stack>
           <Stack spacing={2}>
-            <Typography variant="h6" component="h2">
-              {t("staff")}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {t("templateStaffHint")}
-            </Typography>
+            <SectionHeader
+              title={t("staff")}
+              description={t("templateStaffHint")}
+            />
             {event.staff.length === 0 && (
               <EmptyState
                 icon={<PeopleOutlined />}

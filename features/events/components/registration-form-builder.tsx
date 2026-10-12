@@ -17,6 +17,7 @@ import {
 } from "@mui/material";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
+import { SectionHeader } from "@/components/ui/section-header";
 import { EventText } from "@/features/events/components/event-text";
 import { RegistrationFieldForm } from "@/features/events/components/registration-field-form";
 import { RegistrationQuestions } from "@/features/events/components/registration-questions";
@@ -130,7 +131,10 @@ export function RegistrationFormBuilder({
           )}
         </Alert>
       )}
-      <Alert severity="info">{t("questionWorkspaceHint")}</Alert>
+      <SectionHeader
+        title={t("registrationForm")}
+        description={t("questionWorkspaceHint")}
+      />
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
         <Stack
           direction={{ xs: "column", md: "row" }}

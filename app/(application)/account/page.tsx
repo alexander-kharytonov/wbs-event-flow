@@ -3,6 +3,7 @@ import EditOutlined from "@mui/icons-material/EditOutlined";
 import EventAvailableOutlined from "@mui/icons-material/EventAvailableOutlined";
 import EventNoteOutlined from "@mui/icons-material/EventNoteOutlined";
 import { Box, Button, Paper, Stack, Typography } from "@mui/material";
+import { SectionHeader } from "@/components/ui/section-header";
 import { AccountAvatar } from "@/features/auth/components/account-avatar";
 import { AuthText } from "@/features/auth/components/auth-text";
 import { prisma } from "@/lib/prisma";
@@ -17,14 +18,10 @@ export default async function AccountPage() {
 
   return (
     <Stack spacing={3}>
-      <Stack spacing={0.75}>
-        <Typography variant="h5" component="h2">
-          <AuthText id="overview" />
-        </Typography>
-        <Typography color="text.secondary">
-          <AuthText id="accountOverview" />
-        </Typography>
-      </Stack>
+      <SectionHeader
+        title={<AuthText id="overview" />}
+        description={<AuthText id="accountOverview" />}
+      />
       <Paper
         variant="outlined"
         sx={{ p: { xs: 2, sm: 3 }, bgcolor: "action.hover" }}

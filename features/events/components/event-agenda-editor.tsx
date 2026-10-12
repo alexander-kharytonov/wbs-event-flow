@@ -16,6 +16,7 @@ import {
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { EmptyState } from "@/components/ui/empty-state";
+import { SectionHeader } from "@/components/ui/section-header";
 import type { EventFormValues } from "@/features/events/event-input-schema";
 import type { useFormFeedback } from "@/hooks/use-form-feedback";
 
@@ -111,10 +112,7 @@ export function EventAgendaEditor({
 
   return (
     <Stack component="section" spacing={2} ref={agenda}>
-      <Typography variant="h6" component="h2">
-        {t("agenda")}
-      </Typography>
-      <Alert severity="info">{t("agendaHint")}</Alert>
+      <SectionHeader title={t("agenda")} description={t("agendaHint")} />
       {feedback.errors.schedule && (
         <Alert severity="error" tabIndex={-1} data-editor-error>
           {feedback.errors.schedule}

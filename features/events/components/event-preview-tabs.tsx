@@ -2,9 +2,10 @@
 
 import ArticleOutlined from "@mui/icons-material/ArticleOutlined";
 import AssignmentOutlined from "@mui/icons-material/AssignmentOutlined";
-import { Alert, Box, Stack, Tab } from "@mui/material";
+import { Box, Stack, Tab } from "@mui/material";
 import { useTranslations } from "next-intl";
 import { type ReactNode, useState } from "react";
+import { SectionHeader } from "@/components/ui/section-header";
 import { WorkspaceTabs } from "@/components/ui/workspace-tabs";
 
 export function EventPreviewTabs({
@@ -54,7 +55,13 @@ export function EventPreviewTabs({
         </WorkspaceTabs>
       </Box>
       <Stack spacing={3} sx={{ p: { xs: 2, sm: 4 }, minWidth: 0 }}>
-        <Alert severity="info">{t("previewNotice")}</Alert>
+        <SectionHeader
+          description={t(
+            section === "landing"
+              ? "previewLandingDescription"
+              : "previewRegistrationDescription",
+          )}
+        />
         <Box
           role="tabpanel"
           hidden={section !== "landing"}

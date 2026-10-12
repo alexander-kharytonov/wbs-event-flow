@@ -11,6 +11,7 @@ import {
   Typography,
 } from "@mui/material";
 import type { ReactNode } from "react";
+import { SectionHeader } from "@/components/ui/section-header";
 import { ArrivalTimeline } from "@/features/events/components/arrival-timeline";
 import { EventDescription } from "@/features/events/components/event-description";
 import { EventText } from "@/features/events/components/event-text";
@@ -151,12 +152,10 @@ export function EventOverviewContent({ data }: { data: EventOverview }) {
         spacing={2}
         sx={{ justifyContent: "space-between", alignItems: { sm: "center" } }}
       >
-        <Box>
-          <Typography variant="h6" component="h2">
-            {heading}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {lifecycle === "Cancelled" ? (
+        <SectionHeader
+          title={heading}
+          description={
+            lifecycle === "Cancelled" ? (
               <EventText id="overviewCancelledHint" />
             ) : attendanceFirst ? (
               <EventText id="overviewAttendanceHint" />
@@ -164,9 +163,9 @@ export function EventOverviewContent({ data }: { data: EventOverview }) {
               <EventText id="overviewPrepareHint" />
             ) : (
               <EventText id="overviewReceptionHint" />
-            )}
-          </Typography>
-        </Box>
+            )
+          }
+        />
         {lifecycle === "Ongoing" && !event.archivedAt && (
           <Button
             href={`${base}/check-in`}

@@ -11,6 +11,7 @@ import {
 import { getTranslations } from "next-intl/server";
 import { DateTime } from "@/components/ui/date-time";
 import { EmptyState } from "@/components/ui/empty-state";
+import { SectionHeader } from "@/components/ui/section-header";
 import { ApplicationRealtime } from "@/features/events/components/application-realtime";
 import { ApplicationStatus } from "@/features/events/components/application-status";
 import { EventLanguageChip } from "@/features/events/components/event-language-chip";
@@ -49,14 +50,10 @@ export default async function MyRegistrationsPage() {
   return (
     <Stack spacing={3}>
       <ApplicationRealtime streamUrl="/api/account/registrations/stream" />
-      <Stack spacing={0.75}>
-        <Typography variant="h5" component="h2">
-          <EventText id="myRegistrations" />
-        </Typography>
-        <Typography color="text.secondary">
-          <EventText id="myRegistrationsDescription" />
-        </Typography>
-      </Stack>
+      <SectionHeader
+        title={<EventText id="myRegistrations" />}
+        description={<EventText id="myRegistrationsDescription" />}
+      />
       {upcoming.length === 0 &&
       past.length === 0 &&
       unavailable.length === 0 ? (

@@ -260,7 +260,7 @@ export function EventDescriptionEditor({
   );
 
   return (
-    <Stack spacing={1}>
+    <Stack spacing={1} useFlexGap>
       <input type="hidden" name="description" value={value} />
       <input type="hidden" name="descriptionFormat" value="MARKDOWN" />
       <Typography id={`${id}-label`} component="h3" variant="subtitle1">

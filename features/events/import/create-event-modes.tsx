@@ -88,10 +88,7 @@ function CreateEventModesContent({
           {t(duplicateError as keyof Messages["events"])}
         </Alert>
       ) : initialTemplate ? (
-        <>
-          <Alert severity="info">{t("templateCopyReview")}</Alert>
-          <TemplateReview initial={initialTemplate} onBusyChange={setBusy} />
-        </>
+        <TemplateReview initial={initialTemplate} onBusyChange={setBusy} />
       ) : mode === "manual" ? (
         <EventForm serverAction={createEvent} onBusyChange={setBusy} />
       ) : (
@@ -101,7 +98,6 @@ function CreateEventModesContent({
           spacing={3}
           sx={{ border: 0, p: 0, m: 0, minWidth: 0 }}
         >
-          <Alert severity="info">{t("templateImportHint")}</Alert>
           <Button
             component="label"
             variant="outlined"
@@ -263,9 +259,20 @@ function CreateEventModesContent({
           flexWrap: "wrap",
         }}
       >
-        <Typography variant="h4" component="h1">
-          {t("createEvent")}
-        </Typography>
+        <Stack spacing={0.75} sx={{ minWidth: 0, flex: "1 1 320px" }}>
+          <Typography variant="h4" component="h1">
+            {t("createEvent")}
+          </Typography>
+          <Typography color="text.secondary">
+            {t(
+              initialTemplate
+                ? "templateCopyReview"
+                : mode === "import"
+                  ? "templateImportHint"
+                  : "editorCreateDescription",
+            )}
+          </Typography>
+        </Stack>
         {!initialTemplate && !duplicateError && modeSwitch}
       </Stack>
       {content}

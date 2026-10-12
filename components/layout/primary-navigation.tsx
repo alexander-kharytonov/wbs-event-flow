@@ -4,6 +4,7 @@ import AccountCircleOutlined from "@mui/icons-material/AccountCircleOutlined";
 import Close from "@mui/icons-material/Close";
 import DashboardOutlined from "@mui/icons-material/DashboardOutlined";
 import EventAvailableOutlined from "@mui/icons-material/EventAvailableOutlined";
+import EventOutlined from "@mui/icons-material/EventOutlined";
 import ExploreOutlined from "@mui/icons-material/ExploreOutlined";
 import MenuOutlined from "@mui/icons-material/MenuOutlined";
 import PersonOutlined from "@mui/icons-material/PersonOutlined";
@@ -34,6 +35,7 @@ export function PrimaryNavigation({
   organizer: boolean;
 }) {
   const t = useTranslations("shell");
+  const eventsT = useTranslations("events");
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const id = useId();
@@ -49,25 +51,35 @@ export function PrimaryNavigation({
       : []),
   ];
   const mobileLinks = [
-    links[0],
+    { ...links[0], id: "explore" },
     ...(signedIn
       ? [
           {
+            id: "account",
             href: "/account",
             label: t("account"),
             icon: AccountCircleOutlined,
           },
           {
+            id: "registrations",
             href: "/account/registrations",
             label: t("registrations"),
             icon: EventAvailableOutlined,
           },
           {
+            id: "myEvents",
+            href: "/dashboard",
+            label: eventsT("myEvents"),
+            icon: EventOutlined,
+          },
+          {
+            id: "profile",
             href: "/account/profile",
             label: t("profile"),
             icon: PersonOutlined,
           },
           {
+            id: "dashboard",
             href: organizer ? "/dashboard" : "/onboarding/organizer",
             label: organizer ? t("dashboard") : t("becomeOrganizer"),
             icon: DashboardOutlined,
@@ -164,14 +176,14 @@ export function PrimaryNavigation({
           sx={{ p: 1.5 }}
         >
           <List disablePadding>
-            {mobileLinks.map(({ href, label, icon: Icon }) => {
+            {mobileLinks.map(({ id, href, label, icon: Icon }) => {
               const active =
                 pathname === href ||
                 (href !== "/account" && pathname.startsWith(`${href}/`));
 
               return (
                 <ListItemButton
-                  key={href}
+                  key={id}
                   component={NextLink}
                   href={href}
                   selected={active}

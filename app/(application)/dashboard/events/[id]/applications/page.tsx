@@ -1,5 +1,6 @@
-import { Stack, Typography } from "@mui/material";
+import { Stack } from "@mui/material";
 import { notFound } from "next/navigation";
+import { SectionHeader } from "@/components/ui/section-header";
 import { ApplicationsList } from "@/features/events/components/applications-list";
 import { EventHeader } from "@/features/events/components/event-header";
 import { EventText } from "@/features/events/components/event-text";
@@ -19,38 +20,13 @@ export default async function ApplicationsPage({
     notFound();
   }
 
-  const pendingCount = event.applications.filter(
-    (application) => application.status === "PENDING",
-  ).length;
-
   return (
     <Stack spacing={3}>
       <EventHeader eventId={id} active="applications">
-        <Stack
-          direction={{ xs: "column", sm: "row" }}
-          sx={{
-            gap: 1,
-            justifyContent: "space-between",
-            alignItems: { sm: "center" },
-          }}
-        >
-          <Typography
-            variant="h6"
-            component="h2"
-            sx={{ minHeight: 42, display: "flex", alignItems: "center" }}
-          >
-            <EventText id="applications" />
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            <EventText
-              id="applicationsPageCounts"
-              values={{
-                pending: pendingCount,
-                total: event.applications.length,
-              }}
-            />
-          </Typography>
-        </Stack>
+        <SectionHeader
+          title={<EventText id="applications" />}
+          description={<EventText id="applicationsDescription" />}
+        />
         <ApplicationsList
           eventId={id}
           applications={event.applications}

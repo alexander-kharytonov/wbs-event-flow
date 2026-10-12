@@ -1,6 +1,6 @@
 "use client";
 
-import { Paper, Skeleton, Stack } from "@mui/material";
+import { Paper, Skeleton, Stack, Typography } from "@mui/material";
 import { useTranslations } from "next-intl";
 
 export default function LoadingRegistrationForm() {
@@ -9,7 +9,14 @@ export default function LoadingRegistrationForm() {
   return (
     <Stack spacing={3} aria-label={t("loadingForm")} aria-busy="true">
       <Skeleton width={100} />
-      <Skeleton variant="text" width="60%" height={48} />
+      <Stack spacing={0.75}>
+        <Typography variant="h5" component="div">
+          <Skeleton sx={{ width: "60%", maxWidth: 240 }} />
+        </Typography>
+        <Typography component="div">
+          <Skeleton sx={{ width: "90%", maxWidth: 640 }} />
+        </Typography>
+      </Stack>
       <Skeleton width={260} height={44} />
       <Paper variant="outlined" sx={{ p: 3 }}>
         <Stack spacing={2}>

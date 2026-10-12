@@ -1,7 +1,8 @@
-import { Stack, Typography } from "@mui/material";
+import { Stack } from "@mui/material";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { SectionHeader } from "@/components/ui/section-header";
 import { AttendeesList } from "@/features/events/components/attendees-list";
 import { EventHeader } from "@/features/events/components/event-header";
 import { EventText } from "@/features/events/components/event-text";
@@ -31,43 +32,14 @@ export default async function AttendeesPage({
   const { event } = data;
   const attendees: import("@/features/events/server/organizer-attendees").OrganizerAttendee[] =
     data.attendees;
-  const activeAttendees = attendees.filter(
-    (attendee) => !attendee.revokedAt && !attendee.registration.revokedAt,
-  );
-  const activeCount = activeAttendees.length;
-  const checkedInCount = activeAttendees.filter(
-    (attendee) => attendee.attendance,
-  ).length;
 
   return (
     <Stack spacing={3}>
       <EventHeader eventId={id} active="attendees">
-        <Stack
-          direction={{ xs: "column", sm: "row" }}
-          sx={{
-            gap: 1,
-            justifyContent: "space-between",
-            alignItems: { sm: "center" },
-          }}
-        >
-          <Typography
-            variant="h6"
-            component="h2"
-            sx={{ minHeight: 42, display: "flex", alignItems: "center" }}
-          >
-            <EventText id="attendees" />
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            <EventText
-              id="attendeesPageCounts"
-              values={{
-                active: activeCount,
-                checkedIn: checkedInCount,
-                absent: activeCount - checkedInCount,
-              }}
-            />
-          </Typography>
-        </Stack>
+        <SectionHeader
+          title={<EventText id="attendees" />}
+          description={<EventText id="attendeesDescription" />}
+        />
         <AttendeesList
           eventId={id}
           attendees={attendees}

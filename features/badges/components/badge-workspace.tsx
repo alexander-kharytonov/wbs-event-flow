@@ -4,6 +4,7 @@ import PrintOutlined from "@mui/icons-material/PrintOutlined";
 import { Alert, Box, Button, Paper, Stack, Typography } from "@mui/material";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
+import { SectionHeader } from "@/components/ui/section-header";
 import { previewBadge, updateBadgeLayout } from "@/features/badges/actions";
 import {
   badgeDimensions,
@@ -150,9 +151,14 @@ export function BadgeWorkspace({
 
   return (
     <Stack spacing={3}>
-      <Alert severity="info">
-        {layout ? t("badgeLayoutHint") : t("badgeSavedHint")} {t("badgeQrHint")}
-      </Alert>
+      <SectionHeader
+        description={
+          <>
+            {layout ? t("badgeLayoutHint") : t("badgeSavedHint")}{" "}
+            {t("badgeQrHint")}
+          </>
+        }
+      />
       <Box
         sx={{
           display: "grid",

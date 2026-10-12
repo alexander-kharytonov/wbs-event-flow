@@ -30,6 +30,9 @@ export async function readEventHeader(
   const applicationCount = hasEventPermission(access.role, "applications.read")
     ? await tx.application.count({ where: { eventId } })
     : undefined;
+  const staffCount = hasEventPermission(access.role, "staff.manage")
+    ? await tx.eventStaff.count({ where: { eventId } })
+    : undefined;
   const ownerEvent = hasEventPermission(access.role, "event.edit")
     ? await tx.event.findUniqueOrThrow({
         where: { id: eventId },
@@ -63,6 +66,7 @@ export async function readEventHeader(
     context,
     attendeeCount,
     applicationCount,
+    staffCount,
     ownerEvent,
     published,
   };

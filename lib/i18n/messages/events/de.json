@@ -1013,5 +1013,18 @@
   "ticketSessionUnavailable": "Diese Ticketsitzung ist nicht verfügbar oder abgelaufen. Öffne den privaten Link in deiner Bestätigungs-E-Mail erneut.",
   "ticketExchangeRetry": "Erneut versuchen",
   "ticketOpening": "Ticket wird geöffnet",
-  "ticketJavascriptRequired": "JavaScript ist erforderlich, um deinen privaten Ticketlink zu öffnen."
+  "ticketJavascriptRequired": "JavaScript ist erforderlich, um deinen privaten Ticketlink zu öffnen.",
+  "editorBasicsDescription": "Ergänze Name, Sprache und Beschreibung, um deine Veranstaltung vorzustellen.",
+  "editorScheduleDescription": "Lege die Veranstaltungstermine und die Zeitzone fest.",
+  "editorRegistrationDescription": "Lege Anmeldezeitraum, Veranstaltungskapazität und Gästelimits fest.",
+  "editorLocationDescription": "Gib den Veranstaltungsort und die Zugangsmöglichkeiten für Teilnehmende an.",
+  "applicationsDescription": "Prüfe eingereichte Anmeldungen und verwalte die Zulassung zur Veranstaltung.",
+  "attendeesDescription": "Sieh dir Teilnehmende, ihre Gäste und ihren Check-in-Status an.",
+  "staffDescription": "Verwalte dein Veranstaltungsteam und seine Zugriffsrollen.",
+  "communicationsDescription": "Sende Nachrichten an die Zielgruppen deiner Veranstaltung und verfolge die Zustellung.",
+  "editorEditDescription": "Bearbeite die Veranstaltungsdaten. Speichere deine Änderungen vor der Veröffentlichung.",
+  "editorCreateDescription": "Trage die Veranstaltungsdaten ein. Nach dem Erstellen kannst du sie prüfen und veröffentlichen.",
+  "previewLandingDescription": "Prüfe die Veranstaltungsseite anhand der gespeicherten Arbeitsbereichsdaten, einschließlich unveröffentlichter Änderungen.",
+  "previewRegistrationDescription": "Prüfe das Anmeldeformular anhand der gespeicherten Arbeitsbereichsdaten, einschließlich unveröffentlichter Änderungen. In der Vorschau können keine Anmeldungen eingereicht werden.",
+  "editorAccessDescription": "Lege fest, wer die Veranstaltung finden kann und ob ein Konto für die Anmeldung erforderlich ist."
 }

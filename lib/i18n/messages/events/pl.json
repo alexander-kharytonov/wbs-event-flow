@@ -1013,5 +1013,18 @@
   "ticketSessionUnavailable": "Ta sesja biletu jest niedostępna lub wygasła. Otwórz ponownie prywatny link w wiadomości potwierdzającej.",
   "ticketExchangeRetry": "Spróbuj ponownie",
   "ticketOpening": "Otwieranie biletu",
-  "ticketJavascriptRequired": "Do otwarcia prywatnego linku do biletu wymagany jest JavaScript."
+  "ticketJavascriptRequired": "Do otwarcia prywatnego linku do biletu wymagany jest JavaScript.",
+  "editorBasicsDescription": "Dodaj nazwę, język i opis, aby przedstawić swoje wydarzenie.",
+  "editorScheduleDescription": "Ustaw daty wydarzenia i strefę czasową.",
+  "editorRegistrationDescription": "Ustaw okres rejestracji, limit uczestników i limity gości.",
+  "editorLocationDescription": "Podaj miejsce wydarzenia i sposób dołączenia dla uczestników.",
+  "applicationsDescription": "Przeglądaj przesłane zgłoszenia i zarządzaj dopuszczeniem do wydarzenia.",
+  "attendeesDescription": "Przeglądaj uczestników, ich gości i status odprawy.",
+  "staffDescription": "Zarządzaj zespołem wydarzenia i jego uprawnieniami.",
+  "communicationsDescription": "Wysyłaj wiadomości do odbiorców wydarzenia i śledź ich dostarczenie.",
+  "editorEditDescription": "Edytuj dane wydarzenia. Zapisz zmiany przed publikacją.",
+  "editorCreateDescription": "Wypełnij dane wydarzenia. Po utworzeniu możesz je sprawdzić i opublikować.",
+  "previewLandingDescription": "Sprawdź stronę wydarzenia na podstawie zapisanych danych obszaru roboczego, w tym nieopublikowanych zmian.",
+  "previewRegistrationDescription": "Sprawdź formularz rejestracji na podstawie zapisanych danych obszaru roboczego, w tym nieopublikowanych zmian. W podglądzie nie można wysyłać zgłoszeń.",
+  "editorAccessDescription": "Wybierz, kto może znaleźć wydarzenie i czy rejestracja wymaga konta."
 }

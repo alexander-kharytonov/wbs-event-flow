@@ -1013,5 +1013,18 @@
   "ticketSessionUnavailable": "This ticket session is unavailable or has expired. Reopen the private link in your approval email.",
   "ticketExchangeRetry": "Try again",
   "ticketOpening": "Opening ticket",
-  "ticketJavascriptRequired": "JavaScript is required to open your private ticket link."
+  "ticketJavascriptRequired": "JavaScript is required to open your private ticket link.",
+  "editorBasicsDescription": "Add a name, language and description to introduce your event.",
+  "editorScheduleDescription": "Set the event dates and timezone.",
+  "editorRegistrationDescription": "Set the registration period, event capacity and guest limits.",
+  "editorLocationDescription": "Specify where the event takes place and how attendees can join.",
+  "applicationsDescription": "Review submitted applications and manage admission to your event.",
+  "attendeesDescription": "View your attendees, their guests and check-in status.",
+  "staffDescription": "Manage your event team and their access roles.",
+  "communicationsDescription": "Send messages to your event audiences and track delivery.",
+  "editorEditDescription": "Edit your event details. Save your changes before publishing them.",
+  "editorCreateDescription": "Fill in the event details. You can review and publish it after creating it.",
+  "previewLandingDescription": "Preview the event page using saved workspace data, including unpublished changes.",
+  "previewRegistrationDescription": "Preview the registration form using saved workspace data, including unpublished changes. Applications cannot be submitted in preview.",
+  "editorAccessDescription": "Choose who can discover the event and whether an account is required to register."
 }

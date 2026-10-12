@@ -96,8 +96,9 @@ function invalidImage(): never {
   throw new MediaError(422, "mediaValidImage");
 }
 
-// Check the container boundary too: decoders can otherwise ignore appended payloads.
-function inputFormat(bytes: Buffer, contentType: string) {
+// Validate container boundaries before decoding. JPEG phone trailers are discarded;
+// PNG and WebP still require an exact container boundary.
+function imageInput(bytes: Buffer, contentType: string) {
   if (
     contentType === "image/png" &&
     bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
@@ -122,7 +123,7 @@ function inputFormat(bytes: Buffer, contentType: string) {
           invalidImage();
         }
 
-        return "png";
+        return { format: "png", bytes };
       }
     }
   }
@@ -150,7 +151,7 @@ function inputFormat(bytes: Buffer, contentType: string) {
     }
 
     if (position === bytes.length) {
-      return "webp";
+      return { format: "webp", bytes };
     }
   }
 
@@ -178,11 +179,9 @@ function inputFormat(bytes: Buffer, contentType: string) {
       }
 
       if (marker === 0xd9) {
-        if (position !== bytes.length) {
-          invalidImage();
-        }
-
-        return "jpeg";
+        // EOI is reached by parsing segments and scan data, not a byte search:
+        // embedded thumbnails may contain their own EOI markers.
+        return { format: "jpeg", bytes: bytes.subarray(0, position) };
       }
 
       if (position + 2 > bytes.length || marker === 0xd8) {
@@ -212,7 +211,7 @@ export async function normalizeImage(
     throw new MediaError(413, "mediaMaxSize");
   }
 
-  const format = inputFormat(bytes, contentType);
+  const input = imageInput(bytes, contentType);
   const options = {
     failOn: "warning" as const,
     limitInputPixels: 16_777_216,
@@ -220,10 +219,10 @@ export async function normalizeImage(
   };
 
   try {
-    const metadata = await sharp(bytes, options).metadata();
+    const metadata = await sharp(input.bytes, options).metadata();
 
     if (
-      metadata.format !== format ||
+      metadata.format !== input.format ||
       !metadata.width ||
       !metadata.height ||
       metadata.width > 4096 ||
@@ -245,7 +244,7 @@ export async function normalizeImage(
     const rectangle = coverCropRectangle(width, height, parsedCrop.data);
 
     for (const variant of mediaVariants) {
-      const pipeline = sharp(bytes, options)
+      const pipeline = sharp(input.bytes, options)
         .autoOrient()
         .extract(rectangle)
         .toColourspace("srgb")

@@ -1954,8 +1954,14 @@ with a 30-second receive deadline. A single bounded input buffer retains at most
 5 MiB regardless of chunk count; only initialized bytes reach the decoder.
 Magic/container boundaries, decoded format,
 single-frame status, individual 4096 dimensions and 16,777,216 pixels are checked.
-Animated PNG/WebP, malformed images and appended payloads are rejected. This is not
-a claim of universal polyglot detection: only newly encoded pixels are retained/served.
+Animated PNG/WebP and malformed images are rejected. PNG/WebP require an exact
+container boundary and reject appended data. For JPEG, the segment/scan parser
+locates the primary image EOI marker; bytes after that boundary are discarded
+before metadata inspection and decoding. EOI-like bytes inside length-delimited
+segments do not terminate the primary image. The entire upload, including any
+phone metadata or other trailer, remains subject to the 5 MiB limit. No trailer
+is decoded, retained or served. This is not a claim of universal polyglot detection:
+only newly encoded pixels are retained/served.
 Sharp applies EXIF orientation, then a server-computed integer 16:9 extraction
 within the oriented source bounds, sRGB conversion and metadata stripping.
 The source must be at least 16 × 9 oriented pixels. Client preview and server share

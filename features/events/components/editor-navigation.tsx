@@ -5,6 +5,7 @@ import FormatListBulletedOutlined from "@mui/icons-material/FormatListBulletedOu
 import ImageOutlined from "@mui/icons-material/ImageOutlined";
 import InfoOutlined from "@mui/icons-material/InfoOutlined";
 import LocationOnOutlined from "@mui/icons-material/LocationOnOutlined";
+import LockOutlined from "@mui/icons-material/LockOutlined";
 import PeopleOutlined from "@mui/icons-material/PeopleOutlined";
 import PersonOutlined from "@mui/icons-material/PersonOutlined";
 import SettingsOutlined from "@mui/icons-material/SettingsOutlined";
@@ -34,6 +35,7 @@ const icons = {
   location: <LocationOnOutlined fontSize="small" />,
   agenda: <FormatListBulletedOutlined fontSize="small" />,
   registration: <PeopleOutlined fontSize="small" />,
+  access: <LockOutlined fontSize="small" />,
   organizer: <PersonOutlined fontSize="small" />,
   additional: <SettingsOutlined fontSize="small" />,
 };
@@ -59,6 +61,7 @@ export function EditorNavigation({
     location: "location",
     agenda: "agenda",
     registration: "registration",
+    access: "access",
     organizer: "organizer",
     additional: "additionalSettings",
   } as const;

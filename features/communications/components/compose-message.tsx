@@ -1,5 +1,6 @@
 "use client";
 
+import RefreshOutlined from "@mui/icons-material/RefreshOutlined";
 import SendOutlined from "@mui/icons-material/SendOutlined";
 import {
   Alert,
@@ -47,6 +48,8 @@ export function RefreshCommunicationHistory() {
 
   return (
     <Button
+      variant="contained"
+      startIcon={<RefreshOutlined />}
       disableTouchRipple
       disabled={pending}
       onClick={() => startTransition(() => router.refresh())}
@@ -61,9 +64,11 @@ export function RefreshCommunicationHistory() {
 export function ComposeMessage({
   eventId,
   disabledReason,
+  onViewHistory,
 }: {
   eventId: string;
   disabledReason?: keyof Messages["events"];
+  onViewHistory: () => void;
 }) {
   const t = useTranslations("events");
   const router = useRouter();
@@ -239,11 +244,8 @@ export function ComposeMessage({
   }
 
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
+    <>
       <Stack spacing={2.5}>
-        <Typography variant="h6" component="h2">
-          {t("commNew")}
-        </Typography>
         {disabledReason && (
           <Alert severity="info">
             {t(disabledReason)}
@@ -258,7 +260,7 @@ export function ComposeMessage({
                 disableTouchRipple
                 color="inherit"
                 size="small"
-                href="#communication-history"
+                onClick={onViewHistory}
               >
                 {t("commViewHistory")}
               </Button>
@@ -482,6 +484,6 @@ export function ComposeMessage({
           </Button>
         </DialogActions>
       </Dialog>
-    </Paper>
+    </>
   );
 }

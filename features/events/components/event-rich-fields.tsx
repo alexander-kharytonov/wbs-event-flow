@@ -7,9 +7,9 @@ import {
   Stack,
   Switch,
   TextField,
-  Typography,
 } from "@mui/material";
 import { useTranslations } from "next-intl";
+import { SectionHeader } from "@/components/ui/section-header";
 import { EventAgendaEditor } from "@/features/events/components/event-agenda-editor";
 import type { EventFormValues } from "@/features/events/event-input-schema";
 import type { useFormFeedback } from "@/hooks/use-form-feedback";
@@ -23,11 +23,11 @@ export function richRequiredMissing(values: EventFormValues) {
     (location &&
       "venueName" in location &&
       (!location.venueName.trim() || !location.address.trim())) ||
-      (location &&
-        "onlineLabel" in location &&
-        (!location.onlineLabel.trim() || !location.onlineUrl.trim())) ||
-      (values.publicOrganizer && !values.publicOrganizer.displayName.trim()) ||
-      values.schedule.some((entry) => !entry.title.trim() || !entry.startsAt),
+    (location &&
+      "onlineLabel" in location &&
+      (!location.onlineLabel.trim() || !location.onlineUrl.trim())) ||
+    (values.publicOrganizer && !values.publicOrganizer.displayName.trim()) ||
+    values.schedule.some((entry) => !entry.title.trim() || !entry.startsAt),
   );
 }
 
@@ -91,10 +91,11 @@ export function EventRichFields({
             name="location"
             value={JSON.stringify(location)}
           />
-          <Stack component="section" spacing={2}>
-            <Typography variant="h6" component="h2">
-              {t("location")}
-            </Typography>
+          <Stack component="section" spacing={3}>
+            <SectionHeader
+              title={t("location")}
+              description={t("editorLocationDescription")}
+            />
             <TextField
               select
               label={t("locationType")}
@@ -175,75 +176,75 @@ export function EventRichFields({
             name="publicOrganizer"
             value={JSON.stringify(organizer)}
           />
-          <Stack component="section" spacing={2}>
-            <Typography variant="h6" component="h2">
-              {t("publicOrganizer")}
-            </Typography>
-            <FormControlLabel
-              label={t("addOrganizerInfo")}
-              control={
-                <Switch
-                  checked={organizer !== null}
-                  disabled={disabled}
-                  onChange={(_, enabled) => {
-                    feedback.clear("publicOrganizer");
-                    setValues((current) => ({
-                      ...current,
-                      publicOrganizer: enabled
-                        ? {
-                            displayName: "",
-                            description: null,
-                            websiteUrl: null,
-                          }
-                        : null,
-                    }));
-                  }}
-                />
-              }
+          <Stack component="section" spacing={3} useFlexGap>
+            <SectionHeader
+              title={t("publicOrganizer")}
+              description={t("organizerInfoHint")}
             />
-            <Typography variant="body2" color="text.secondary">
-              {t("organizerInfoHint")}
-            </Typography>
-            {feedback.errors.publicOrganizer && (
-              <Alert severity="error" tabIndex={-1} data-editor-error>
-                {feedback.errors.publicOrganizer}
-              </Alert>
-            )}
-            {organizer &&
-              (
-                [
-                  ["displayName", t("displayName"), 200],
-                  ["description", t("organizerDescription"), 2000],
-                  ["websiteUrl", t("websiteUrl"), 2048],
-                ] as const
-              ).map(([name, label, maxLength]) => (
-                <TextField
-                  key={name}
-                  label={label}
-                  required={name === "displayName"}
-                  value={organizer[name] ?? ""}
-                  multiline={name === "description"}
-                  fullWidth
-                  disabled={disabled}
-                  onChange={(event) => {
-                    feedback.clear(`publicOrganizer.${name}`);
-                    setValues((current) => ({
-                      ...current,
-                      publicOrganizer: current.publicOrganizer
-                        ? {
-                            ...current.publicOrganizer,
-                            [name]:
-                              name === "displayName"
-                                ? event.target.value
-                                : event.target.value || null,
-                          }
-                        : null,
-                    }));
-                  }}
-                  {...feedback.field(`publicOrganizer.${name}`)}
-                  slotProps={{ htmlInput: { maxLength } }}
-                />
-              ))}
+            <Stack spacing={2} useFlexGap>
+              <FormControlLabel
+                label={t("addOrganizerInfo")}
+                control={
+                  <Switch
+                    checked={organizer !== null}
+                    disabled={disabled}
+                    onChange={(_, enabled) => {
+                      feedback.clear("publicOrganizer");
+                      setValues((current) => ({
+                        ...current,
+                        publicOrganizer: enabled
+                          ? {
+                              displayName: "",
+                              description: null,
+                              websiteUrl: null,
+                            }
+                          : null,
+                      }));
+                    }}
+                  />
+                }
+              />
+              {feedback.errors.publicOrganizer && (
+                <Alert severity="error" tabIndex={-1} data-editor-error>
+                  {feedback.errors.publicOrganizer}
+                </Alert>
+              )}
+              {organizer &&
+                (
+                  [
+                    ["displayName", t("displayName"), 200],
+                    ["description", t("organizerDescription"), 2000],
+                    ["websiteUrl", t("websiteUrl"), 2048],
+                  ] as const
+                ).map(([name, label, maxLength]) => (
+                  <TextField
+                    key={name}
+                    label={label}
+                    required={name === "displayName"}
+                    value={organizer[name] ?? ""}
+                    multiline={name === "description"}
+                    fullWidth
+                    disabled={disabled}
+                    onChange={(event) => {
+                      feedback.clear(`publicOrganizer.${name}`);
+                      setValues((current) => ({
+                        ...current,
+                        publicOrganizer: current.publicOrganizer
+                          ? {
+                              ...current.publicOrganizer,
+                              [name]:
+                                name === "displayName"
+                                  ? event.target.value
+                                  : event.target.value || null,
+                            }
+                          : null,
+                      }));
+                    }}
+                    {...feedback.field(`publicOrganizer.${name}`)}
+                    slotProps={{ htmlInput: { maxLength } }}
+                  />
+                ))}
+            </Stack>
           </Stack>
         </>
       )}

@@ -6,7 +6,6 @@ import {
   Alert,
   Box,
   Button,
-  Chip,
   Skeleton,
   Stack,
   TextField,
@@ -15,6 +14,7 @@ import {
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { EmptyState } from "@/components/ui/empty-state";
+import { SectionHeader } from "@/components/ui/section-header";
 import {
   CoverCropper,
   type CoverSource,
@@ -256,31 +256,11 @@ export function EventCoverEditor({
     <Stack
       component="section"
       spacing={2}
+      useFlexGap
       aria-label={t("coverEvent")}
       aria-busy={Boolean(pending)}
     >
-      <Stack
-        direction="row"
-        sx={{ alignItems: "center", justifyContent: "space-between", gap: 1 }}
-      >
-        <Typography variant="h6" component="h2">
-          {t("coverImage")}
-        </Typography>
-        <Chip
-          size="small"
-          variant="outlined"
-          label={
-            source
-              ? t("coverAdjust")
-              : assetId !== cover.assetId
-                ? t("coverReady")
-                : assetId
-                  ? t("coverSavedLabel")
-                  : "16:9"
-          }
-        />
-      </Stack>
-      <Alert severity="info">{t("coverHint")}</Alert>
+      <SectionHeader title={t("coverImage")} description={t("coverHint")} />
       <input
         ref={fileInput}
         hidden

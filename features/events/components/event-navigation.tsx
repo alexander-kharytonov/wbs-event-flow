@@ -43,12 +43,14 @@ export function EventNavigation({
   sections,
   applicationCount,
   attendeeCount,
+  staffCount,
 }: {
   eventId: string;
   active: Section;
   sections: { id: Section; label: string }[];
   applicationCount?: number;
   attendeeCount: number;
+  staffCount?: number;
 }) {
   const t = useTranslations("events");
   const labels = {
@@ -77,7 +79,9 @@ export function EventNavigation({
               ? applicationCount
               : id === "attendees"
                 ? attendeeCount
-                : undefined;
+                : id === "staff"
+                  ? staffCount
+                  : undefined;
 
           return (
             <Tab

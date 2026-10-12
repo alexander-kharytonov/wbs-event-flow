@@ -121,13 +121,18 @@ export async function EditEventView({ eventId: id }: { eventId: string }) {
         <BackLink href={`/dashboard/events/${id}`}>
           <EventText id="backEvent" />
         </BackLink>
-        <Typography
-          variant="h4"
-          component="h1"
-          sx={{ overflowWrap: "anywhere" }}
-        >
-          {event.title}
-        </Typography>
+        <Stack spacing={0.75}>
+          <Typography
+            variant="h4"
+            component="h1"
+            sx={{ overflowWrap: "anywhere" }}
+          >
+            {event.title}
+          </Typography>
+          <Typography color="text.secondary">
+            <EventText id="editorEditDescription" />
+          </Typography>
+        </Stack>
         {workspaceReadOnly(event, new Date()) ? (
           <Alert severity="info">
             <EventText id="editorReadOnlyHint" />

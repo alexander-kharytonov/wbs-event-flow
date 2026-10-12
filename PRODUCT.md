@@ -716,8 +716,9 @@ infrastructure is added by 27B.
 ## Manual Communications Center (27C)
 
 The Event workspace has a Communications section for Owner and Manager, with New
-message and minimal History for all Communications in that Event, regardless of
-initiator. Reception has no navigation, page access, preview, send, or history DTO.
+message and History in separate internal tabs for all Communications in that Event,
+regardless of initiator. Switching tabs preserves the in-memory compose state and
+history filters. The History link opens the History tab. Reception has no navigation, page access, preview, send, or history DTO.
 
 Compose selects exactly one audience: All active attendees (PRIMARY + GUEST),
 Primary attendees, Checked in, Not arrived, Pending applications, or Event staff
@@ -881,6 +882,9 @@ The editor offers a fixed 16:9 crop with drag positioning, zoom and keyboard-acc
 position sliders. Upload sends the original file and the chosen crop to the server.
 The server validates and re-encodes images, applies orientation and the crop, strips metadata,
 and creates immutable responsive WebP variants plus a JPEG social variant.
+JPEG files may include phone metadata or other data after the image end marker.
+The server discards that trailer before decoding; the 5 MiB limit applies to the
+entire upload, including the trailer. Only the primary still image becomes the cover.
 Original files and names are not retained. At most two upload-processing operations
 run per application process. New upload admission is refused when the organizer
 already has at least ten pending assets (incomplete uploads or READY assets with no
@@ -975,10 +979,10 @@ existing /dashboard/events/new and /dashboard/events/[id]/edit URLs. Event edito
 route interception is removed; Application and Communication detail dialogs remain.
 Direct links, refresh and ordinary Back/Forward use the same page routes.
 
-Seven switchable tabs show only the active panel: Basics (title, description),
+Eight switchable tabs show only the active panel: Basics (title, description),
 Cover (independently saved image, crop and alt text), Schedule (dates and timezone),
 Location (venue and online meeting details), Event agenda (compact agenda), Registration
-(capacity, guests, registration dates, visibility, account requirement), Organizer
+(capacity, guests, registration dates), Access (visibility, account requirement), Organizer
 (public organizer information). Import/Duplicate additionally shows Additional
 settings for Registration Form questions, Staff and Badge Design. Review errors
 open that tab; ordinary Create/Edit does not show it. No separate builder is introduced.

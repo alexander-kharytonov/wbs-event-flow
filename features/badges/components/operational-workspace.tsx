@@ -27,6 +27,7 @@ import {
 import { useTranslations } from "next-intl";
 import { type ReactNode, useState } from "react";
 import { EmptyState } from "@/components/ui/empty-state";
+import { SectionHeader } from "@/components/ui/section-header";
 import { WorkspaceTabs } from "@/components/ui/workspace-tabs";
 import {
   MAX_BADGES_PER_DOCUMENT,
@@ -189,7 +190,18 @@ export function OperationalBadgeWorkspace({
           </Box>
         )}
         {section !== "design" && (
-          <Alert severity="info">{t("badgePrintingSaved")}</Alert>
+          <SectionHeader
+            description={
+              <>
+                {t(section === "team" ? "badgeTeamHint" : "badgePrintingSaved")}
+                {section === "team" && (
+                  <Box component="span" sx={{ display: "block", mt: 0.75 }}>
+                    {t("badgePrintingSaved")}
+                  </Box>
+                )}
+              </>
+            }
+          />
         )}
         {data.cancelled && section !== "design" && (
           <Alert severity="info">{t("badgeCancelled")}</Alert>
@@ -399,7 +411,6 @@ export function OperationalBadgeWorkspace({
             id="badge-team-panel"
             aria-labelledby="badge-team-tab"
           >
-            <Alert severity="info">{t("badgeTeamHint")}</Alert>
             {data.teamTooLarge ? (
               <Alert severity="info">{t("badgeTeamTooLarge")}</Alert>
             ) : (

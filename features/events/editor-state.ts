@@ -7,6 +7,7 @@ export const editorSections = [
   { id: "location", label: "Location" },
   { id: "agenda", label: "Event agenda" },
   { id: "registration", label: "Registration" },
+  { id: "access", label: "Access" },
   { id: "organizer", label: "Organizer" },
   { id: "additional", label: "Additional settings" },
 ] as const;
@@ -42,14 +43,16 @@ export function errorSection(field: string): EditorSection | undefined {
     return "organizer";
   }
 
+  if (["visibility", "accountRequirement"].includes(root)) {
+    return "access";
+  }
+
   if (
     [
       "capacity",
       "maxGuestsPerRegistration",
       "registrationOpensAt",
       "registrationClosesAt",
-      "visibility",
-      "accountRequirement",
     ].includes(root)
   ) {
     return "registration";

@@ -9,10 +9,10 @@ import {
   Stack,
   Switch,
   TextField,
-  Typography,
 } from "@mui/material";
 import { useTranslations } from "next-intl";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
+import { SectionHeader } from "@/components/ui/section-header";
 import { EventDescriptionEditor } from "@/features/events/components/event-description-editor";
 import { EventRichFields } from "@/features/events/components/event-rich-fields";
 import type { EditorSection } from "@/features/events/editor-state";
@@ -100,9 +100,10 @@ export function EventFormSections({
       >
         <Box component="section">
           <Stack spacing={3}>
-            <Typography variant="h6" component="h2">
-              {t("basicInformation")}
-            </Typography>
+            <SectionHeader
+              title={t("basicInformation")}
+              description={t("editorBasicsDescription")}
+            />
             <TextField
               {...field("title")}
               label={t("eventName")}
@@ -158,10 +159,11 @@ export function EventFormSections({
         spacing={3}
       >
         <Box component="section">
-          <Stack spacing={3}>
-            <Typography variant="h6" component="h2">
-              {t("schedule")}
-            </Typography>
+          <Stack spacing={3} useFlexGap>
+            <SectionHeader
+              title={t("schedule")}
+              description={t("editorScheduleDescription")}
+            />
             <Box
               sx={{
                 display: "grid",
@@ -266,6 +268,7 @@ export function EventFormSections({
         <Stack
           key={panel}
           id={`editor-panel-${panel}`}
+          useFlexGap
           role="tabpanel"
           aria-labelledby={`editor-nav-${panel}`}
           hidden={section !== panel}
@@ -295,10 +298,11 @@ export function EventFormSections({
       >
         <Box component="section">
           <Stack spacing={3}>
-            <Typography variant="h6" component="h2">
-              {t("registration")}
-            </Typography>
-            <Stack spacing={1}>
+            <SectionHeader
+              title={t("registration")}
+              description={t("editorRegistrationDescription")}
+            />
+            <Stack spacing={2} useFlexGap>
               <FormControlLabel
                 label={t("allowGuests")}
                 control={
@@ -387,11 +391,21 @@ export function EventFormSections({
             </Box>
           </Stack>
         </Box>
+      </Stack>
+      <Stack
+        id="editor-panel-access"
+        role="tabpanel"
+        aria-labelledby="editor-nav-access"
+        hidden={section !== "access"}
+        sx={{ display: section === "access" ? "flex" : "none", minWidth: 0 }}
+        spacing={3}
+      >
         <Box component="section">
           <Stack spacing={3}>
-            <Typography variant="h6" component="h2">
-              {t("access")}
-            </Typography>
+            <SectionHeader
+              title={t("access")}
+              description={t("editorAccessDescription")}
+            />
             <TextField
               {...field("visibility")}
               label={t("discoverability")}
@@ -423,6 +437,7 @@ export function EventFormSections({
       </Stack>
       <Stack
         id="editor-panel-organizer"
+        useFlexGap
         role="tabpanel"
         aria-labelledby="editor-nav-organizer"
         hidden={section !== "organizer"}

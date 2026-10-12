@@ -193,7 +193,14 @@ export async function EventHeader({
     notFound();
   }
 
-  const { context, access, ownerEvent, attendeeCount, applicationCount } = data;
+  const {
+    context,
+    access,
+    ownerEvent,
+    attendeeCount,
+    applicationCount,
+    staffCount,
+  } = data;
   const publishLabel = ownerEvent ? eventPublishLabel(ownerEvent, now) : null;
   const snapshot =
     ownerEvent?.publishedRevision?.snapshot ??
@@ -312,6 +319,7 @@ export async function EventHeader({
               .map(({ id, label }) => ({ id, label }))}
             applicationCount={applicationCount}
             attendeeCount={attendeeCount}
+            staffCount={staffCount}
           />
         </Box>
         <Stack
