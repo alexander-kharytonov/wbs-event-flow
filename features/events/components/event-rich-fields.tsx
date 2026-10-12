@@ -23,11 +23,11 @@ export function richRequiredMissing(values: EventFormValues) {
     (location &&
       "venueName" in location &&
       (!location.venueName.trim() || !location.address.trim())) ||
-    (location &&
-      "onlineLabel" in location &&
-      (!location.onlineLabel.trim() || !location.onlineUrl.trim())) ||
-    (values.publicOrganizer && !values.publicOrganizer.displayName.trim()) ||
-    values.schedule.some((entry) => !entry.title.trim() || !entry.startsAt),
+      (location &&
+        "onlineLabel" in location &&
+        (!location.onlineLabel.trim() || !location.onlineUrl.trim())) ||
+      (values.publicOrganizer && !values.publicOrganizer.displayName.trim()) ||
+      values.schedule.some((entry) => !entry.title.trim() || !entry.startsAt),
   );
 }
 

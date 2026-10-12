@@ -1225,8 +1225,13 @@ reload-based freshness and request-time session semantics as language apply.
 ## Event language (I18N-B)
 
 Every Event has one required content language: en, de, pl, uk or ru. This describes
-organizer-authored content; it does not translate content or control the visitor's
-interface. Manual Create initializes it from the active organizer UI locale when
+organizer-authored content; it does not translate content. Public registration
+select placeholders (required and optional) use the Event language from the opened
+form revision; the read-only preview uses its workspace snapshot language.
+Validation, buttons and other system UI use the visitor's UI language. Questions,
+descriptions and answer options remain exactly as authored.
+
+Manual Create initializes it from the active organizer UI locale when
 the form opens. Changing UI locale afterward preserves all form values, including
 Event language. Basics offers explicit language selection in Create, Edit, Import
 Review and Duplicate Review.

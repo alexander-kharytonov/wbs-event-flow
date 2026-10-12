@@ -23,6 +23,7 @@ import { WithdrawApplicationButton } from "@/features/events/components/withdraw
 import { eventCoverImage } from "@/features/events/event-cover";
 import { registrationAvailability } from "@/features/events/registration-availability";
 import { getPublishedEvent } from "@/features/events/server/get-published-event";
+import { getRegistrationSelectPlaceholders } from "@/features/events/server/registration-select-placeholders";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 
@@ -206,6 +207,9 @@ export async function PublicEventExperience({
   );
 
   if (registration) {
+    const selectPlaceholders = await getRegistrationSelectPlaceholders(
+      snapshot.language,
+    );
     const showForm =
       canApply && (snapshot.accountRequirement === "OPTIONAL" || Boolean(user));
     const eventContext = (
@@ -340,6 +344,7 @@ export async function PublicEventExperience({
             publicId={publicId}
             eventRevisionId={eventRevisionId}
             fields={snapshot.registrationForm.fields}
+            selectPlaceholders={selectPlaceholders}
             applicant={
               user ? { name: user.name, email: user.email } : undefined
             }
