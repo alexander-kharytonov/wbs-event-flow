@@ -1,7 +1,16 @@
 "use client";
 
 import PrintOutlined from "@mui/icons-material/PrintOutlined";
-import { Alert, Box, Button, Paper, Stack, Typography } from "@mui/material";
+import {
+  Alert,
+  Box,
+  Button,
+  MenuItem,
+  Paper,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { SectionHeader } from "@/components/ui/section-header";
@@ -30,6 +39,9 @@ export function BadgeWorkspace({
 }) {
   const t = useTranslations("events");
   const notifications = useNotifications();
+  const [previewKind, setPreviewKind] = useState<"PRIMARY" | "GUEST">(
+    "PRIMARY",
+  );
   const [preview, setPreview] = useState(initial);
   const [layout, setLayout] = useState(initial.editor?.layout ?? null);
   const [savedLayout, setSavedLayout] = useState(
@@ -72,7 +84,7 @@ export function BadgeWorkspace({
     setPreviewBusy(true);
     notifications.close(`badge-preview:${eventId}`);
     const timer = setTimeout(() => {
-      void previewBadge(eventId, layout)
+      void previewBadge(eventId, layout, previewKind)
         .then((result) => {
           if (request !== sequence.current) {
             return;
@@ -105,7 +117,7 @@ export function BadgeWorkspace({
       sequence.current += 1;
       notifications.close(`badge-preview:${eventId}`);
     };
-  }, [eventId, layout, notifications]);
+  }, [eventId, layout, notifications, previewKind]);
 
   async function save() {
     if (!layout || busy) {
@@ -208,6 +220,19 @@ export function BadgeWorkspace({
             <Typography variant="h6" component="h3">
               {layout ? t("badgeLivePreview") : t("badgeSavedPreview")}
             </Typography>
+            {layout && (
+              <TextField
+                select
+                label={t("badgePreviewPerson")}
+                value={previewKind}
+                onChange={(event) =>
+                  setPreviewKind(event.target.value as "PRIMARY" | "GUEST")
+                }
+              >
+                <MenuItem value="PRIMARY">{t("badgeApplicantFields")}</MenuItem>
+                <MenuItem value="GUEST">{t("badgeGuestFields")}</MenuItem>
+              </TextField>
+            )}
             {(preview.editor?.bindingWarnings.length ?? 0) > 0 && (
               <Alert severity="warning">{t("badgeHistoricalHint")}</Alert>
             )}

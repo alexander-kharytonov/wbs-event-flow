@@ -14,6 +14,7 @@ export function resolveBadgeField(
   binding: BadgeField,
   snapshot: unknown,
   answers: Answer[],
+  kind: "PRIMARY" | "GUEST",
 ):
   | { status: "VALUE"; value: string }
   | { status: "MISSING" | "INCOMPATIBLE" | "UNAVAILABLE" } {
@@ -23,9 +24,11 @@ export function resolveBadgeField(
     return { status: "UNAVAILABLE" };
   }
 
-  const field = parsed.data.registrationForm.fields.find(
-    ({ id }) => id === binding.fieldId,
-  );
+  const fields =
+    kind === "GUEST"
+      ? parsed.data.guestForm.fields
+      : parsed.data.registrationForm.fields;
+  const field = fields.find(({ id }) => id === binding.fieldId);
 
   if (!field) {
     return { status: "MISSING" };

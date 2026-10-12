@@ -392,7 +392,8 @@ Submission saves the complete application atomically and reserves no places.
 Owners and Managers see the entire declared group and historical answers before review.
 Approval validates that historical group and requires current published capacity for
 1 + declared guests. It admits everybody and issues every Ticket together, or changes
-nothing. Reception, public APIs and SSE receive no guest answers. Group approval may
+nothing. Reception receives only organizer-selected badge values through authorized
+individual printing; public APIs and SSE receive no guest answers. Group approval may
 occur during an ongoing Event under existing review eligibility rules.
 
 After approval, adding or replacing guests is prohibited. Removal is available only
@@ -400,7 +401,7 @@ before persisted Event start, revokes that guest's Ticket and releases one place
 Declarations and answers remain in history; removed guests cannot be restored.
 Flexible events retain their existing post-approval Add/Remove flow.
 
-Guest badge bindings and guest-answer CSV exports remain deferred to GUEST-4.
+Guest badge bindings and guest-answer CSV exports are integrated in GUEST-4 below.
 Manual Event editor guest-policy/question controls remain outside this phase; existing
 configuration services and template/import contracts supply the configuration.
 
@@ -479,14 +480,25 @@ Owners explicitly select up to two SHORT_TEXT, LONG_TEXT, SINGLE_CHOICE or
 MULTIPLE_CHOICE questions. Multiple-choice values list selected option labels
 separated by a comma and space, in the submitted form's option order.
 PRIMARY values come from the submitted Application revision only when field ID, type
-and label match the selected descriptor. Missing values are omitted; incompatible
+and label match the selected descriptor. The same two text slots also accept configured
+GUEST questions, clearly labeled separately from applicant questions. Each slot applies
+only to its question's subject; choosing a guest question does not populate PRIMARY
+badges. Declared guest values come only from that Attendee's linked declaration and
+its submitted Application revision. Flexible guests have no declaration answers.
+The designer can preview Applicant or Guest, using semantic labels when that type has
+no active attendee. CHECKBOX questions are excluded from badge selection. Missing
+values are omitted; incompatible
 values are omitted with owner preview warnings. Guests never inherit PRIMARY answers.
 Text is limited to two visible lines per field.
 
 Reception may see the owner-approved individual BadgePresentation, including selected
-custom values and the existing, decodable Ticket QR. This narrow exception does not
+applicant or guest custom values and the existing, decodable Ticket QR. This narrow
+exception does not
 expose Applications, answer models, revision snapshots, email, the field catalog or
-raw Ticket crypto fields. Printed/PDF data is not secret from its recipient.
+raw Ticket crypto fields. Selecting a question for the badge explicitly authorizes its
+value for all staff permitted to print that badge. Unselected guest answers never enter
+print HTML, PDF or client state. Reception cannot configure layouts or export CSV.
+Printed/PDF data is not secret from its recipient.
 
 Individual print opens explicitly in a separate tab without workspace chrome, using
 fresh authorization, active Registration/Attendee checks and the current saved layout.
@@ -494,7 +506,8 @@ Cancelled Events deny printing. Draft, upcoming, ongoing, completed and archived
 otherwise allow it. Missing, revoked or unavailable Tickets leave a visual badge
 without a QR/available Ticket number. There is no new QR protocol or credential.
 
-Designer previews prefer a real active PRIMARY, otherwise use semantic labels without
+Designer previews use an active attendee of the selected type, otherwise semantic
+labels without
 demo records. Preview QR areas are placeholders, not admission credentials. A print
 document is a snapshot at load time and prints only after an explicit Print click.
 Print documents include a thin dashed cutting guide inside each badge edge, without
@@ -589,16 +602,25 @@ search and filters. Owners export Applications, Attendees, Attendance and Staff;
 Managers export the first three; Reception has no export access. Exports remain
 readable for completed, cancelled and archived Events while access is retained.
 
-Applications include every attempt, including withdrawn submissions. Attendees
-include PRIMARY/GUEST and revoked admission. Only PRIMARY rows contain source
-Application answers; Guests have empty answers with NOT_APPLICABLE states and
-PRIMARY name context. Attendance includes every recorded arrival, even after
+Applications include every attempt, including withdrawn submissions: one APPLICANT
+row followed by each declared GUEST in declaration order. Row subject, Application ID,
+Registration ID (when admitted), Guest declaration ID, one-based Guest position and
+separate Guest name/email retain group relationships without treating a declaration as
+admission. Applicant identity/status context repeats on guest rows; answers do not.
+Attendees include PRIMARY/GUEST and revoked admission. PRIMARY rows contain source
+Application answers; declared guests contain their own historical answers with
+GUEST_DECLARATION scope and Guest declaration ID. Flexible guests retain empty answers
+with NOT_APPLICABLE scope. Guest rows retain PRIMARY name context. Attendance includes
+every recorded arrival, even after
 admission revocation, with QR/Manual and available actor name. Staff includes the
 owner first, then current Managers/Reception. Reviewer and actor names reflect
 current linked accounts; unavailable identities are never replaced by the owner.
 
 Historical answer columns are separated by submitted revision and question, with
-human labels and adjacent VALUE/NOT_PROVIDED/NOT_APPLICABLE/UNAVAILABLE states.
+human labels, subject, type, revision number and stable revisionId:fieldId identifiers,
+with adjacent VALUE/NOT_PROVIDED/NOT_APPLICABLE/UNAVAILABLE states. Applicant and guest
+answer columns remain separate; questions belonging to another subject are NOT_APPLICABLE.
+Removed guests remain exportable history, with revoked admission in Attendees.
 Question and choice meanings come from the submitted snapshot, never today's form.
 Invalid historical snapshots reject the whole export.
 
@@ -630,7 +652,8 @@ Custom questions retain their subject (APPLICANT/GUEST), order within that subje
 required flag and ordered option labels. Full name/email are built-in inputs,
 not custom fields. Questions receive local keys field_1, field_2, etc.; database
 identities are excluded. Badge bindings use those keys only when the saved
-field ID, type and label exactly match a current question. A historical, deleted,
+field ID, type and label exactly match a current applicant or guest question. A
+historical, deleted,
 recreated or changed binding rejects the whole export and asks the owner to
 update Badge Design. Invalid saved layouts also fail; null remains null and
 saved layouts require explicit padding and reject obsolete preset fields. Physical

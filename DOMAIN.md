@@ -978,7 +978,8 @@ deleting and reordering check membership within the specified subject. Ordering
 uniqueness is (formId, subject, position), with separate contiguous positions per
 subject. Guest fields use the existing RegistrationField/Option types and
 validation, require APPROVAL_REQUIRED, and share the existing form version and
-Event lock. Existing applicant builder and badge catalogs select APPLICANT only.
+Event lock. The applicant builder selects APPLICANT only; badge catalogs include
+both subjects.
 
 ApplicationGuest stores immutable submitted name, nullable normalized contact
 email, zero-based position (0–9) and applicationId. It has no User, seat, Ticket
@@ -1030,10 +1031,13 @@ removal. Unique admission/provenance/Ticket constraints prevent duplicate admiss
 OWNER/MANAGER application detail reads guest declarations only after applications.read
 authorization, under RepeatableRead, and renders historical answers. Linked account
 detail reads only the account's attempts. The private application capability reads only
-its attempt. Reception, public APIs, catalog, emails and SSE receive no guest answers.
+its attempt. Reception receives only explicitly selected badge values through
+authorized individual
+printing. Public APIs, catalog, emails and SSE receive no guest answers.
 Email remains one existing approval delivery to the applicant, with the PRIMARY Ticket
-reference; no guest emails are introduced. GUEST-4 badge bindings and CSV expansion
-remain deferred. Post-approval Add is prohibited for APPROVAL_REQUIRED; Remove retains
+reference; no guest emails are introduced. GUEST-4 resolves badge and CSV values from
+these immutable declarations. Post-approval Add is prohibited for APPROVAL_REQUIRED;
+Remove retains
 existing authority, revocation and persisted-start rules. No replacement or restore
 mutation exists.
 
@@ -1194,11 +1198,12 @@ expiry/session reauthorization bounds lost-signal delivery to roughly 60 seconds
 periodic DB polling or new realtime transport is introduced. Already delivered data
 cannot be erased from a client by revocation.
 
-## 27. Derived badges / operational layout (24A)
+## 27. Derived badges / operational layout (24A; GUEST-4)
 
 Badge has no persistent entity, issuance, credential or print history. Its presentation
-is derived from Attendee, Event operational layout, available active Ticket and, only
-for PRIMARY, submitted Application answers. Printing does not write Attendance or
+is derived from Attendee, Event operational layout, available active Ticket and
+submitted Application answers for PRIMARY or linked ApplicationGuest answers for
+GUEST. Printing does not write Attendance or
 change admission. Guest answers are never inferred from their Registration PRIMARY.
 Badge preview and printed presentation labels use Event.language from the same authorized transaction
 as the operational title/layout, independently of the operator UI locale. This does
@@ -1222,7 +1227,13 @@ publication timestamps. Badge config is excluded from public EventRevision snaps
 The catalog combines draft fields, validated immutable EventRevision fields and saved
 bindings, deduplicated by ID/type/label. Historical bindings have no FK to mutable
 RegistrationField. Resolution uses Attendee -> Registration.sourceApplication ->
-Application.eventRevision.snapshot plus ApplicationAnswer, never current draft options.
+Application.eventRevision.snapshot plus ApplicationAnswer for PRIMARY. GUEST resolves
+only Attendee.applicationGuestId within that same source Application and its guestForm,
+plus ApplicationGuestAnswer. Flexible guests have no provenance and no custom values.
+Neither subject inherits the other's answers; current draft fields/options are never
+an answer source. Globally unique field IDs across the two snapshot forms preserve
+subject identity without changing the existing field descriptor or layout contract.
+The two existing slots are shared across subjects, not two slots per subject.
 Exact fieldId/type/label compatibility is required. SHORT_TEXT, LONG_TEXT,
 SINGLE_CHOICE and MULTIPLE_CHOICE are supported; choice labels come from that
 submitted snapshot. Multiple selections are joined with ", " in snapshot option
@@ -1238,8 +1249,15 @@ MANAGER and RECEPTION; badges.print.bulk/team to OWNER and MANAGER. The bulk per
 gates workspace visibility for OWNER/MANAGER; 24B2 implements bulk/team operations.
 Reception's existing read DTO restrictions remain, with this explicit exception:
 an authorized individual BadgePresentation may contain name/type, Event title,
-owner-selected custom values, Ticket number and decodable QR image. It never includes
+owner-selected applicant or guest custom values, Ticket number and decodable QR
+image. It never includes
 Application/answers/snapshot/email/catalog or raw/hash/encrypted Ticket fields.
+The owner selecting a badge field is explicit authorization for that value to appear
+for every authorized badge-printing role. Queries select only bound answer IDs and
+the linked declaration; the presentation contains only resolved values. Unselected
+GUEST answers never enter print HTML/PDF or client state. Reception still cannot edit
+layouts, review applications, export CSV or use bulk/team printing. No granular
+permissions, restrictive overrides or field/category visibility model is introduced.
 
 The server builder checks current session-derived actor permissions and Event-scoped
 Attendee/Registration activity in a consistent read transaction. Cancelled Events deny
@@ -1420,10 +1438,21 @@ response. Lifecycle does not independently forbid these read-only exports.
 
 Exports always cover the entire Event dataset, never client search/filter state.
 Applications order by createdAt/id ascending and include all attempts/statuses.
+Each attempt emits one APPLICANT row followed by GUEST declaration rows in position/id
+order, including pending/rejected/withdrawn declarations that have no admission.
+Application context repeats; answer values are subject-specific. Fixed columns add
+Row subject, Registration ID (nullable), Guest declaration ID, one-based Guest position,
+Guest name and Guest email. Row limits count applicant plus declaration rows before
+loading answers; no separate guest dataset or new export permission is added.
 Attendees order by createdAt/id ascending and include revoked records. Admission
 is ACTIVE only when both Attendee and Registration revokedAt are null; otherwise
-REVOKED. PRIMARY answers use Registration.sourceApplication; GUEST values are empty,
-state and Answers scope NOT_APPLICABLE, with the same Registration's PRIMARY name.
+REVOKED. PRIMARY answers use Registration.sourceApplication; declared GUEST answers
+use the
+Attendee's linked ApplicationGuest under that same source Application. Scope is
+SOURCE_APPLICATION or GUEST_DECLARATION respectively, with Guest declaration ID for
+joinability. Flexible GUEST values remain empty with NOT_APPLICABLE scope. All guest
+rows retain the same Registration's PRIMARY name. Removed declarations and answers
+remain history; revoked admission is explicitly marked.
 Attendance orders by checkedInAt/id ascending and includes immutable QR/MANUAL facts
 after later revocation. Actor/reviewer names use current User.name; null links yield
 empty names and UNAVAILABLE, never an inferred owner. Present links yield AVAILABLE.
@@ -1432,13 +1461,15 @@ ascending with MANAGER/RECEPTION roles. Projections never query Tickets or auth 
 
 Historical column identity is (eventRevisionId, fieldId). Only referenced revisions
 are read; each frozen snapshot is parsed once. Columns order by revision number
-then snapshot question order; headers are <Label> [v<revision> Q<position> <TYPE>],
+then APPLICANT/GUEST and snapshot question order; headers are
+<Label> [<SUBJECT> v<revision> <TYPE> <eventRevisionId>:<fieldId>],
 followed immediately by <header> — state. Duplicate labels and recreated questions
-remain separate. Nonmatching revisions and Guest cells have NOT_APPLICABLE state.
+remain separate. Nonmatching revisions and subjects have NOT_APPLICABLE state.
 CSV marks missing expected answers NOT_PROVIDED. Duplicate or incompatible answers
 for known fields are UNAVAILABLE; optional empty answers are NOT_PROVIDED. Before
-building Application or PRIMARY answer cells, every stored fieldId must belong to
-that submission's snapshot. An unknown fieldId rejects the entire export with a
+building applicant or declared-guest answer cells, every stored fieldId must belong to
+that subject in the submission's snapshot. An unknown fieldId rejects the entire
+export with a
 generic error, without exposing the identifier or guessing a column. The historical
 detail UI retains its existing missing-answer presentation. Choice labels come
 exclusively from that snapshot; multiple choice is
@@ -1494,7 +1525,9 @@ EventTemplate limits are additional portability constraints, not authoring limit
 
 badgeLayout is null or the constrained current badge format with secondaryField
 and tertiaryField descriptors {fieldKey, type, label}. Bindings map only by exact
-current APPLICANT fieldId/type/label. Guest badge bindings are deferred. Missing, historical, deleted/recreated or mismatched
+current APPLICANT or GUEST fieldId/type/label. Import remaps either subject through
+the same portable key to fresh field/option identities; no answers or guest identities
+are included. Missing, historical, deleted/recreated or mismatched
 bindings reject the entire export with a generic request to update Badge Design.
 No label-only mapping, silent removal or historical-question insertion occurs.
 The stored-layout parser requires explicit padding and rejects obsolete preset
