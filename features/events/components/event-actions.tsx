@@ -307,7 +307,7 @@ export function EventActions({
                   });
 
                   if (result.deleted) {
-                    router.push("/dashboard");
+                    router.push("/dashboard/events");
                   }
 
                   router.refresh();

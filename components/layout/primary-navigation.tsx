@@ -30,9 +30,11 @@ import { Logo } from "@/components/ui/logo";
 export function PrimaryNavigation({
   signedIn,
   organizer,
+  staff,
 }: {
   signedIn: boolean;
   organizer: boolean;
+  staff: boolean;
 }) {
   const t = useTranslations("shell");
   const eventsT = useTranslations("events");
@@ -46,8 +48,26 @@ export function PrimaryNavigation({
     ...(signedIn
       ? [{ href: "/account", label: t("account"), icon: AccountCircleOutlined }]
       : []),
-    ...(organizer
+    ...(organizer || staff
       ? [{ href: "/dashboard", label: t("dashboard"), icon: DashboardOutlined }]
+      : []),
+    ...(organizer
+      ? [
+          {
+            href: "/dashboard/events",
+            label: eventsT("myEvents"),
+            icon: EventOutlined,
+          },
+        ]
+      : []),
+    ...(staff
+      ? [
+          {
+            href: "/dashboard/staff",
+            label: eventsT("staffEvents"),
+            icon: EventOutlined,
+          },
+        ]
       : []),
   ];
   const mobileLinks = [
@@ -67,23 +87,22 @@ export function PrimaryNavigation({
             icon: EventAvailableOutlined,
           },
           {
-            id: "myEvents",
-            href: "/dashboard",
-            label: eventsT("myEvents"),
-            icon: EventOutlined,
-          },
-          {
             id: "profile",
             href: "/account/profile",
             label: t("profile"),
             icon: PersonOutlined,
           },
-          {
-            id: "dashboard",
-            href: organizer ? "/dashboard" : "/onboarding/organizer",
-            label: organizer ? t("dashboard") : t("becomeOrganizer"),
-            icon: DashboardOutlined,
-          },
+          ...links.slice(2).map((link) => ({ ...link, id: link.href })),
+          ...(!organizer && !staff
+            ? [
+                {
+                  id: "becomeOrganizer",
+                  href: "/onboarding/organizer",
+                  label: t("becomeOrganizer"),
+                  icon: DashboardOutlined,
+                },
+              ]
+            : []),
         ]
       : []),
   ];
@@ -112,7 +131,9 @@ export function PrimaryNavigation({
         sx={{ display: { xs: "none", lg: "flex" }, gap: 0.5, minWidth: 0 }}
       >
         {links.map(({ href, label }) => {
-          const active = pathname === href || pathname.startsWith(`${href}/`);
+          const active =
+            pathname === href ||
+            (!href.startsWith("/dashboard") && pathname.startsWith(`${href}/`));
 
           return (
             <Button
@@ -179,7 +200,9 @@ export function PrimaryNavigation({
             {mobileLinks.map(({ id, href, label, icon: Icon }) => {
               const active =
                 pathname === href ||
-                (href !== "/account" && pathname.startsWith(`${href}/`));
+                (href !== "/account" &&
+                  !href.startsWith("/dashboard") &&
+                  pathname.startsWith(`${href}/`));
 
               return (
                 <ListItemButton

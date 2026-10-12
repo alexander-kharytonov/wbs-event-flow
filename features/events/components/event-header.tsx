@@ -208,8 +208,12 @@ export async function EventHeader({
 
   return (
     <Stack spacing={2}>
-      <BackLink href="/dashboard">
-        <EventText id="myEvents" />
+      <BackLink
+        href={
+          access.role === "OWNER" ? "/dashboard/events" : "/dashboard/staff"
+        }
+      >
+        <EventText id={access.role === "OWNER" ? "myEvents" : "staffEvents"} />
       </BackLink>
       {ownerEvent && publishLabel && (
         <EventPublicationAlert

@@ -62,14 +62,14 @@ type EventSummary = {
 export function OrganizerEventResults({
   events,
   canCreate,
+  staff = false,
 }: {
   events: EventSummary[];
   canCreate: boolean;
+  staff?: boolean;
 }) {
   const t = useTranslations("events");
-  const [access, setAccess] = useState("ALL");
-  const hasAssigned = events.some((event) => event.role !== "OWNER");
-  const showVisibility = !hasAssigned || access === "OWNED";
+  const showVisibility = !staff;
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"ALL" | "ACTIVE" | "ARCHIVED">("ALL");
   const [visibility, setVisibility] = useState<"ALL" | "PUBLIC" | "PRIVATE">(
@@ -116,7 +116,6 @@ export function OrganizerEventResults({
   const query = search.trim().toLowerCase();
   const visibleEvents = events.filter(
     (event) =>
-      (access === "ALL" || (event.role === "OWNER") === (access === "OWNED")) &&
       (status === "ALL" ||
         Boolean(event.archivedAt) === (status === "ARCHIVED")) &&
       (!showVisibility ||
@@ -129,9 +128,12 @@ export function OrganizerEventResults({
   return (
     <Stack spacing={3}>
       <PageHeader
-        title={t("myEvents")}
-        description={t("dashboardDescription")}
+        title={t(staff ? "staffEvents" : "myEvents")}
+        description={t(
+          staff ? "staffEventsDescription" : "ownedEventsDescription",
+        )}
         actions={
+          !staff &&
           status !== "ARCHIVED" &&
           (canCreate ? (
             <CreateEventButton />
@@ -142,20 +144,6 @@ export function OrganizerEventResults({
           ))
         }
       />
-      {hasAssigned && (
-        <TextField
-          select
-          label={t("access")}
-          value={access}
-          onChange={(event) => setAccess(event.target.value)}
-          size="small"
-          sx={{ width: { xs: "100%", sm: 200 } }}
-        >
-          <MenuItem value="ALL">{t("all")}</MenuItem>
-          <MenuItem value="OWNED">{t("owned")}</MenuItem>
-          <MenuItem value="ASSIGNED">{t("assigned")}</MenuItem>
-        </TextField>
-      )}
       <Stack
         sx={{
           display: "grid",
@@ -322,15 +310,20 @@ export function OrganizerEventResults({
       {visibleEvents.length === 0 ? (
         <EmptyState
           icon={<EventOutlined />}
-          title={events.length ? t("noMatchingEvents") : t("firstEvent")}
+          title={
+            events.length
+              ? t("noMatchingEvents")
+              : t(staff ? "noStaffEvents" : "firstEvent")
+          }
           description={
-            events.length ? t("trySearchFilters") : t("createDraftHint")
+            events.length
+              ? t("trySearchFilters")
+              : t(staff ? "noStaffEventsHint" : "createDraftHint")
           }
           action={
             events.length ? (
               <Button
                 onClick={() => {
-                  setAccess("ALL");
                   setSearch("");
                   setStatus("ALL");
                   setVisibility("ALL");
