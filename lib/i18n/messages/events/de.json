@@ -623,6 +623,7 @@
   "questionUnavailable": "Diese Frage oder Veranstaltung kann nicht bearbeitet werden.",
   "answersNone": "Dieses Anmeldeformular enthielt keine zusätzlichen Fragen.",
   "myRegistrations": "Meine Anmeldungen",
+  "myRegistrationsDescription": "Prüfe den Status deiner Anmeldungen und sieh dir bevorstehende und vergangene Veranstaltungen an.",
   "myRegistration": "Meine Anmeldung",
   "registrationsUnavailable": "Nicht verfügbare Veranstaltungen",
   "registrationsEmpty": "Noch keine Anmeldungen",

@@ -60,7 +60,7 @@ export function AccountNavigation({
             label={t(label)}
             icon={icon}
             iconPosition="start"
-            sx={{ pr: 3 }}
+            sx={{ pr: 3, "&.Mui-selected": { bgcolor: "action.selected" } }}
           />
         ))}
       </WorkspaceTabs>

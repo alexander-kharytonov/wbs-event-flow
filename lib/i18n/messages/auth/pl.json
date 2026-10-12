@@ -75,5 +75,9 @@
   "googleDisconnect": "Odłącz Google",
   "googleConnect": "Połącz Google",
   "googleDisconnectConfirm": "Odłączyć Google? Nadal będzie można logować się adresem e-mail i hasłem.",
-  "cancel": "Anuluj"
+  "cancel": "Anuluj",
+  "editProfile": "Edytuj profil",
+  "participation": "Udział w wydarzeniach",
+  "participationDescription": "Przeglądaj swoje zgłoszenia, sprawdzaj ich status i znajduj informacje o wydarzeniach.",
+  "personalDetails": "Dane osobowe"
 }

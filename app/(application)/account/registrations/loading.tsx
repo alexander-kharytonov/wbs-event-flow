@@ -1,6 +1,6 @@
 "use client";
 
-import { Box, Paper, Skeleton, Stack } from "@mui/material";
+import { Box, Paper, Skeleton, Stack, Typography } from "@mui/material";
 import { useTranslations } from "next-intl";
 
 export default function Loading() {
@@ -13,7 +13,14 @@ export default function Loading() {
       aria-label={t("loadingRegistrations")}
       aria-busy="true"
     >
-      <Skeleton width="45%" height={48} />
+      <Stack spacing={0.75}>
+        <Typography variant="h5" component="div">
+          <Skeleton sx={{ width: "60%", maxWidth: 240 }} />
+        </Typography>
+        <Typography color="text.secondary" component="div">
+          <Skeleton sx={{ width: "90%", maxWidth: 640 }} />
+        </Typography>
+      </Stack>
       <Box
         sx={{
           display: "grid",

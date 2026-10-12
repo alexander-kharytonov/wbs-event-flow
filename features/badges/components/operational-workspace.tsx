@@ -179,9 +179,8 @@ export function OperationalBadgeWorkspace({
         </WorkspaceTabs>
       </Box>
       <Stack spacing={3} sx={{ p: { xs: 2, sm: 4 }, minWidth: 0 }}>
-        {data.configure && (
+        {data.configure && section === "design" && (
           <Box
-            hidden={section !== "design"}
             role="tabpanel"
             id="badge-design-panel"
             aria-labelledby="badge-design-tab"

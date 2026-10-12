@@ -75,5 +75,9 @@
   "googleDisconnect": "Disconnect Google",
   "googleConnect": "Connect Google",
   "googleDisconnectConfirm": "Disconnect Google? You can still sign in with your email and password.",
-  "cancel": "Cancel"
+  "cancel": "Cancel",
+  "editProfile": "Edit profile",
+  "participation": "Your participation",
+  "participationDescription": "View your applications, check their status and find your event details.",
+  "personalDetails": "Personal details"
 }

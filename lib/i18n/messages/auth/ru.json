@@ -75,5 +75,9 @@
   "googleDisconnect": "Отключить Google",
   "googleConnect": "Подключить Google",
   "googleDisconnectConfirm": "Отключить Google? Вы по-прежнему сможете входить по электронной почте и паролю.",
-  "cancel": "Отмена"
+  "cancel": "Отмена",
+  "editProfile": "Редактировать профиль",
+  "participation": "Участие в событиях",
+  "participationDescription": "Просматривайте свои заявки, следите за их статусом и находите информацию о событиях.",
+  "personalDetails": "Личные данные"
 }

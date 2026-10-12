@@ -75,5 +75,9 @@
   "googleDisconnect": "Google trennen",
   "googleConnect": "Google verknüpfen",
   "googleDisconnectConfirm": "Google trennen? Du kannst dich weiterhin mit E-Mail und Passwort anmelden.",
-  "cancel": "Abbrechen"
+  "cancel": "Abbrechen",
+  "editProfile": "Profil bearbeiten",
+  "participation": "Deine Teilnahme",
+  "participationDescription": "Sieh dir deine Anmeldungen an, prüfe ihren Status und finde Informationen zu deinen Events.",
+  "personalDetails": "Persönliche Angaben"
 }

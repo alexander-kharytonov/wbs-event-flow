@@ -623,6 +623,7 @@
   "questionUnavailable": "This question or event is unavailable for editing.",
   "answersNone": "There were no additional questions on this registration form.",
   "myRegistrations": "My registrations",
+  "myRegistrationsDescription": "Check the status of your applications and view upcoming and past events.",
   "myRegistration": "My registration",
   "registrationsUnavailable": "Unavailable events",
   "registrationsEmpty": "No registrations yet",

@@ -3,6 +3,7 @@
 import Google from "@mui/icons-material/Google";
 import {
   Alert,
+  Box,
   Button,
   Dialog,
   DialogActions,
@@ -100,11 +101,25 @@ export function GoogleAccount({
   }
 
   return (
-    <Stack spacing={2} sx={{ maxWidth: 480 }}>
-      <Typography variant="h6" component="h2">
+    <Stack spacing={2} sx={{ maxWidth: 640 }}>
+      <Typography variant="h6" component="h3">
         {t("loginMethods")}
       </Typography>
-      <Typography color="text.secondary">
+      <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+        <Box
+          sx={{
+            p: 1.25,
+            border: 1,
+            borderColor: "divider",
+            borderRadius: 1,
+            display: "flex",
+          }}
+        >
+          <Google color="action" />
+        </Box>
+        <Typography variant="subtitle1">Google</Typography>
+      </Stack>
+      <Typography variant="body2" color="text.secondary">
         {t(accountId ? "googleConnected" : "googleConnectDescription")}
       </Typography>
       {(failed || error) && (

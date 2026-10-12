@@ -623,6 +623,7 @@
   "questionUnavailable": "Це запитання або подія недоступні для редагування.",
   "answersNone": "Ця реєстраційна форма не містила додаткових запитань.",
   "myRegistrations": "Мої реєстрації",
+  "myRegistrationsDescription": "Перевіряйте статус своїх заявок і переглядайте майбутні та минулі події.",
   "myRegistration": "Моя реєстрація",
   "registrationsUnavailable": "Недоступні події",
   "registrationsEmpty": "Реєстрацій ще немає",

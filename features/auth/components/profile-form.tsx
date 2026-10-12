@@ -81,16 +81,11 @@ export function ProfileForm({ name, email }: { name: string; email: string }) {
       action={action}
       spacing={3}
       aria-busy={pending}
-      sx={{ maxWidth: 480 }}
+      sx={{ maxWidth: 640 }}
     >
-      <Stack spacing={1}>
-        <Typography variant="h6" component="h2">
-          {t("profile")}
-        </Typography>
-        <Typography color="text.secondary">
-          {t("profileDescription")}
-        </Typography>
-      </Stack>
+      <Typography variant="h6" component="h3">
+        {t("personalDetails")}
+      </Typography>
       <TextField
         inputRef={nameInput}
         label={t("name")}

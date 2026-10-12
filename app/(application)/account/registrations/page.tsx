@@ -49,9 +49,14 @@ export default async function MyRegistrationsPage() {
   return (
     <Stack spacing={3}>
       <ApplicationRealtime streamUrl="/api/account/registrations/stream" />
-      <Typography variant="h6" component="h2">
-        <EventText id="myRegistrations" />
-      </Typography>
+      <Stack spacing={0.75}>
+        <Typography variant="h5" component="h2">
+          <EventText id="myRegistrations" />
+        </Typography>
+        <Typography color="text.secondary">
+          <EventText id="myRegistrationsDescription" />
+        </Typography>
+      </Stack>
       {upcoming.length === 0 &&
       past.length === 0 &&
       unavailable.length === 0 ? (
