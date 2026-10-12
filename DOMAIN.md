@@ -74,8 +74,10 @@ AttendeeProfile, User.role, or isOrganizer domain field/entity.
 Registration, sign-in, GET `/dashboard`, and GET `/onboarding/organizer` do not
 create profiles. The verified-user `becomeOrganizer` action is the only current
 activation path; `ensureOrganizerProfile` is idempotent through unique userId and
-skipDuplicates. `/account` belongs to the User; `/dashboard` requires the
-OrganizerProfile. REQUIRED registration requires a verified User, not a profile.
+skipDuplicates. `/account` belongs to the User; `/dashboard` requires a verified User and
+shows owned-event metrics only for an activated organizer, with assignment navigation
+for Staff. Creation still requires OrganizerProfile. REQUIRED registration requires
+a verified User, not a profile.
 
 Sources: [activation](app/(application)/onboarding/organizer/actions.ts),
 [organizer guard](features/organizer/server/require-organizer.ts),
@@ -1181,8 +1183,14 @@ QR results omit email for Reception and omit historical identity for revoked adm
 while retaining the shared ALREADY_CHECKED_IN priority. Attendance schema, protocol,
 credential/AAD and immutable facts are unchanged.
 
-Owned and assigned Events share Dashboard cards; Staff without OrganizerProfile can
-navigate directly to their assignments. The Event workspace/header/navigation is shared,
+Owned and assigned Events use the shared card/list presentation on separate
+`/dashboard/events` and `/dashboard/staff` routes. Staff without OrganizerProfile can
+navigate directly to assignments. Staff reads filter by session userId, exclude owned
+Events, and check the existing event.context.read permission before projection.
+Membership existence is active access: there is no inactive membership flag.
+Reception/Manager list DTOs contain only identity/language/schedule/lifecycle and role;
+no application aggregates, attendee data or owner publication metadata are selected.
+The Event workspace/header/navigation is shared,
 with owner controls and metadata separated from operational projections. Owner sections
 include Staff; Manager sees Overview/Applications/Attendees/Check-in; Reception sees
 Overview/Attendees/Check-in. Reception counters are active/checked-in/not-arrived.
@@ -1424,6 +1432,32 @@ the same boundary even when refreshed server props retain it. Event-keyed mounti
 effect disposal and listener/timeout cleanup prevent stale callbacks after changes.
 There is no polling or new transport. Browser wall time only requests a fresh server
 read; lifecycle and mutation guards remain server-authoritative.
+
+### Organizer Dashboard (DASH-1)
+
+`/dashboard` is an overview of owned Events, independent of per-Event analytics.
+Its verified-session reader uses one RepeatableRead snapshot and one database clock.
+Ownership constrains every aggregate and summary query. SQL counts apply the existing
+lifecycle boundaries: Upcoming start > now, Ongoing start <= now < end, Completed
+end <= now, always excluding cancelled Events. Archived completed Events remain
+in lifecycle totals. No new lifecycle state or stored counter is introduced.
+
+Review counts group PENDING attempts by Event, scoped to owned, non-archived,
+non-cancelled Events with end > now. Own linked attempts are excluded under the
+existing self-review prohibition; anonymous identity is never inferred by email.
+These counts describe review work, not approval eligibility or unique people.
+The existing mutation boundary still checks current permissions, lifecycle,
+publication, historical contracts and capacity. Frozen pending attempts are not
+shown as actionable work and are not rewritten.
+
+Requires Attention selects only Event identity/title for those groups; Upcoming
+selects five summaries ordered by start/id, including only publication pointer/version
+metadata. No snapshots, application rows, answers or attendee collections cross the
+client boundary. Query count is constant with Event count; grouped attention data
+scales with Events having pending work. Lists retain their existing full card
+projection and local filters. No per-Event reads or SSE connections are added.
+A shared boundary refresher requests a new server read at the next start/end.
+Other changes are reflected on navigation/reload, without a new realtime guarantee.
 
 ## 29. CSV data export (26A)
 

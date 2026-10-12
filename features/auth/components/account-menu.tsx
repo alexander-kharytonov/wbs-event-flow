@@ -36,6 +36,7 @@ export function AccountMenu({
   hasAssignedEvents?: boolean;
 }) {
   const t = useTranslations("shell");
+  const eventsT = useTranslations("events");
   const pathname = usePathname();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [pending, setPending] = useState(false);
@@ -52,8 +53,7 @@ export function AccountMenu({
   ];
   const hasWorkspace = Boolean(organizerProfileId || hasAssignedEvents);
   const workspaceHref = hasWorkspace ? "/dashboard" : "/onboarding/organizer";
-  const workspaceActive =
-    pathname === workspaceHref || pathname.startsWith(`${workspaceHref}/`);
+  const workspaceActive = pathname === workspaceHref;
   async function signOut(navigate: (action: () => void) => void) {
     setPending(true);
     notifications.close("sign-out");
@@ -106,7 +106,10 @@ export function AccountMenu({
           variant="body2"
           title={name}
           noWrap
-          sx={{ display: { xs: "none", sm: "inline" }, maxWidth: 180 }}
+          sx={{
+            display: { xs: "none", sm: "inline" },
+            maxWidth: hasAssignedEvents ? 120 : 180,
+          }}
         >
           {name}
         </Typography>
@@ -188,6 +191,28 @@ export function AccountMenu({
             {hasWorkspace ? t("dashboard") : t("becomeOrganizer")}
           </ListItemText>
         </MenuItem>
+        {[
+          ...(organizerProfileId
+            ? [{ href: "/dashboard/events", label: eventsT("myEvents") }]
+            : []),
+          ...(hasAssignedEvents
+            ? [{ href: "/dashboard/staff", label: eventsT("staffEvents") }]
+            : []),
+        ].map(({ href, label }) => (
+          <MenuItem
+            key={href}
+            component={NextLink}
+            href={href}
+            selected={pathname === href}
+            aria-current={pathname === href ? "page" : undefined}
+            onClick={() => setAnchor(null)}
+          >
+            <ListItemIcon>
+              <EventAvailableOutlined fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>{label}</ListItemText>
+          </MenuItem>
+        ))}
         <Divider />
         <MenuItem
           onClick={() =>

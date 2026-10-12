@@ -35,8 +35,12 @@ requires a separate attendee account or role.
 
 Organizers can:
 
-- Open `/dashboard` and filter their events by All, Public, or Private. These
-  filters reflect the organizer workspace settings, including unpublished edits.
+- Open `/dashboard` for an Organizer Dashboard with owned-event lifecycle totals,
+  applications awaiting review, pending work grouped by Event, the next five
+  upcoming Events, and Create Event / My Events / Staff Events quick actions.
+- Open `/dashboard/events` (My Events) for the existing owned-event cards, search,
+  archive, visibility and lifecycle filters. These reflect workspace settings,
+  including unpublished edits. Existing Event management URLs are unchanged.
 - Create and edit event title, content language, description, start/end, timezone, visibility,
   account requirement, capacity, and registration window.
 - Build a registration form with short text, long text, single choice, multiple
@@ -54,6 +58,25 @@ Organizers can:
 - Open Attendees to read Active and Revoked admitted people, with submitted name,
   email and grant/revocation dates. Search name/email/Ticket number, filter admission
   and attendance, and open person details with authorized Manual check-in.
+
+Dashboard lifecycle totals include all owned workspaces, including archived ones,
+using the persisted start/end and cancellation precedence. Cancelled Events are
+excluded from Upcoming/Ongoing/Completed totals. Applications awaiting review counts
+PENDING attempts only for non-archived, non-cancelled Events that have not ended,
+excluding the actor's own historical linked applications. Unpublished Events may
+still require rejection/review; approval retains all existing publication/capacity guards.
+Requires Attention links to each Event's existing Applications screen, without
+implying a preselected status filter. Upcoming Events shows the nearest five
+non-archived, non-cancelled owned Events with their timezone, publication state,
+and relevant pending count. Empty sections explain the next available action.
+
+Desktop/mobile navigation distinguishes Dashboard, My Events and Staff Events.
+My Events is shown for activated organizers; Staff Events is shown only with an
+existing non-owned assignment. Staff-only users can open Dashboard for their Staff
+Events shortcut and optional organizer activation. Attendee-only users retain account,
+registrations and organizer activation navigation. No GET activates organizer access.
+Dashboard data refreshes on navigation/reload and at the next owned Event start/end;
+it does not add polling or one realtime stream per Event.
 
 ## Public events
 
@@ -446,8 +469,13 @@ role are harmless; changing a role is an explicit action. Removal deletes member
 not past reviews or Attendance. Draft, cancelled, completed and archived Events keep
 memberships; normal lifecycle guards still apply.
 
-One Dashboard shows owned and assigned Events using the same cards with compact
-Owner/Manager/Reception context. One Event workspace supplies permission-specific
+My Events (`/dashboard/events`) shows only owned Events. Staff Events
+(`/dashboard/staff`) uses the same card/list component for current assignments,
+with Manager/Reception context and no application counts or attendee data.
+Owned Events are excluded even if a Staff relationship also exists. Removed
+assignments disappear on the next server read; existing Event access rechecks and
+neutral not-found responses remain authoritative. One Event workspace supplies
+permission-specific
 navigation. Managers read applications and historical answers, review applications,
 read full Attendees and perform QR/Manual check-in. Reception sees operational Event
 context, active attendees and check-in, without email, applications/answers/counts,

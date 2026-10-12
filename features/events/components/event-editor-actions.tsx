@@ -232,7 +232,7 @@ export function EventEditorActions({
           </Tooltip>
         )}
         <Button
-          href={eventId ? `/dashboard/events/${eventId}` : "/dashboard"}
+          href={eventId ? `/dashboard/events/${eventId}` : "/dashboard/events"}
           color="inherit"
           aria-label={eventId ? t("backEvent") : t("cancel")}
           sx={{ gridArea: "back", minHeight: 44, px: { xs: 1, md: 2 } }}

@@ -1,12 +1,14 @@
 import { Alert, Stack } from "@mui/material";
 import { EventText } from "@/features/events/components/event-text";
-import { OrganizerEventList } from "@/features/events/components/organizer-event-list";
+import { OrganizerDashboard } from "@/features/events/components/organizer-dashboard";
+import { getOrganizerDashboard } from "@/features/events/server/organizer-dashboard";
 
 export default async function DashboardPage({
   searchParams,
 }: {
   searchParams: Promise<{ access?: string }>;
 }) {
+  const data = await getOrganizerDashboard();
   const changed = (await searchParams).access === "changed";
 
   return (
@@ -16,7 +18,7 @@ export default async function DashboardPage({
           <EventText id="accessChanged" />
         </Alert>
       )}
-      <OrganizerEventList />
+      <OrganizerDashboard data={data} />
     </Stack>
   );
 }
