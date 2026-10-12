@@ -54,6 +54,8 @@ const knownSegments = new Set([
   "accountRequirement",
   "capacity",
   "maxGuestsPerRegistration",
+  "guestPolicy",
+  "subject",
   "registrationOpensAt",
   "registrationClosesAt",
   "registrationForm",
@@ -133,6 +135,7 @@ export function portableBindingIssues(
       binding &&
       !event.registrationForm.fields.some(
         (field) =>
+          field.subject === "APPLICANT" &&
           field.key === binding.fieldKey &&
           field.type === binding.type &&
           field.label === binding.label,
@@ -222,6 +225,7 @@ export function validateTemplateCreate(input: unknown): TemplateResult {
 
     return {
       key: field.key,
+      subject: field.subject,
       ...normalized,
       options: normalized.options.map(({ label }) => ({ label })),
     };

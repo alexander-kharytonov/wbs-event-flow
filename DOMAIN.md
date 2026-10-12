@@ -955,7 +955,61 @@ with the same token and URL.
 Active Registration count equals active PRIMARY count; Guests add further capacity seats.
 Guest policy and party management are defined below.
 
-## 25. Guests and party management (21B)
+## 25. Guests and party management (21B; GUEST-2 persistence)
+
+Event.guestPolicy is FLEXIBLE or APPROVAL_REQUIRED, with a FLEXIBLE creation
+and migration default. updateGuestPolicy takes a verified server actor, locks
+Event at ReadCommitted, checks owner permission and persisted lifecycle, and
+uses an optimistic updatedAt version. A policy change is prohibited after ANY
+Application exists, including withdrawn attempts. The policy write increments
+contentVersion and invalidates the workspace. Form mutations and submission use
+the same Event lock. A switch to FLEXIBLE with guest fields is rejected, without
+implicitly deleting configuration. An opened form with a different policy from
+the locked Event is rejected.
+
+RegistrationField.subject is APPLICANT or GUEST (APPLICANT creation/migration
+default). Subject is immutable through the configuration services: editing,
+deleting and reordering check membership within the specified subject. Ordering
+uniqueness is (formId, subject, position), with separate contiguous positions per
+subject. Guest fields use the existing RegistrationField/Option types and
+validation, require APPROVAL_REQUIRED, and share the existing form version and
+Event lock. Existing applicant builder and badge catalogs select APPLICANT only.
+
+ApplicationGuest stores immutable submitted name, nullable normalized contact
+email, zero-based position (0–9) and applicationId. It has no User, seat, Ticket
+or workflow status. ApplicationGuestAnswer and ApplicationGuestAnswerOption use
+one answer per declaration/field and unique selected historical option IDs.
+Field/option identifiers resolve exclusively through Application.eventRevision,
+not mutable RegistrationField FKs; deleting draft fields cannot delete answers.
+Requiredness, type, field membership and option membership follow the frozen
+guestForm. These invariants are verified by db:check, alongside guest count/position
+against the submitted limit and policy binding. Submission writers remain deferred.
+
+Attendee.applicationGuestId is nullable and unique. Flexible guests have no
+provenance; declared admitted guests carry both applicationGuestId and
+applicationGuestApplicationId. Composite restrictive FKs bind that pair to the
+declaration and (registrationId, applicationGuestApplicationId) to
+Registration(id, sourceApplicationId). A CHECK requires both provenance columns
+or neither and allows non-null provenance only on GUEST. This prevents cross-party
+and cross-application linkage, including within the same Event. Declared identity
+must match the admitted copy; db:check verifies this correspondence. Declaration
+and answer history survives removal and withdrawal. Admission is not implemented
+in GUEST-2; neither seats nor Tickets are created by declaration persistence.
+
+EventSnapshot strictly requires guestPolicy and guestForm {fields: [...]}, alongside
+maxGuestsPerRegistration and registrationForm. Both field sets retain complete
+IDs, types, labels, descriptions, requiredness and ordered options. Field IDs are
+unique across both sets. FLEXIBLE requires an empty guestForm. Publish/Preview
+use one builder; later draft changes do not modify any EventRevision. Public
+catalog and restricted staff DTOs receive no submitted guest data.
+
+GUEST-2 deliberately rejects APPROVAL_REQUIRED at existing submission/approval
+entry points and rejects post-approval Add. Remove retains existing authority,
+revocation and lifecycle rules. Full application collection, group admission,
+answer presentation, badge bindings and CSV expansion are later phases. Anonymous
+authority, email delivery, credentials and realtime routing are unchanged.
+
+The following post-approval Add behavior applies only to FLEXIBLE.
 
 Registration.userId is linked party ownership, verified against the authoritative
 session; PRIMARY is the party owner’s admitted person. GUEST has userId null,
@@ -1356,22 +1410,22 @@ export uses the filename suffix `-template.json` (section 38).
 The transport-independent strict envelope is {format: "event-flow-template",
 event: {...}}. The explicit event DTO has exactly title, language, description,
 startsAt, endsAt, timezone, visibility, accountRequirement, capacity,
-maxGuestsPerRegistration, registrationOpensAt, registrationClosesAt,
+guestPolicy, maxGuestsPerRegistration, registrationOpensAt, registrationClosesAt,
 registrationForm, staff, badgeLayout, descriptionFormat, location, schedule,
 publicOrganizer and cover. Nullable values are required explicit
 nulls. Dates are original UTC ISO instants with milliseconds, without shifting
 past Events or copying Completed/Cancelled/Archived state.
 
-registrationForm is {fields: [...]}. Each field contains key, type, label,
+registrationForm is {fields: [...]}. Each field contains key, subject (APPLICANT/GUEST), type, label,
 description, required and options; each option contains only label. Array order
-is current position order. Field keys are exactly field_1 through field_N in
+is APPLICANT then GUEST, each in current position order. Field keys are exactly field_1 through field_N in
 that order. No field/form/option/revision IDs or built-in full name/email fields
 are serialized. Validation reuses current registrationFieldSchema semantics;
 EventTemplate limits are additional portability constraints, not authoring limits.
 
 badgeLayout is null or the constrained current badge format with secondaryField
 and tertiaryField descriptors {fieldKey, type, label}. Bindings map only by exact
-current fieldId/type/label. Missing, historical, deleted/recreated or mismatched
+current APPLICANT fieldId/type/label. Guest badge bindings are deferred. Missing, historical, deleted/recreated or mismatched
 bindings reject the entire export with a generic request to update Badge Design.
 No label-only mapping, silent removal or historical-question insertion occurs.
 The stored-layout parser requires explicit padding and rejects obsolete preset
@@ -2211,7 +2265,12 @@ revision and must restart after a publication change.
 ## V0 development policy
 
 Before the first release, breaking changes are allowed and local development data
-is disposable. EventSnapshot and EventTemplate each have one current, unversioned
+is disposable. This includes public demo accounts, events, applications, tickets
+and snapshots during product validation. GUEST-2 uses an incremental migration
+after the unchanged committed baseline. Old snapshots/templates without explicit
+guest configuration are invalid, not rewritten or interpreted by compatibility
+readers. Deployment and any data reset are separate authorized operations.
+EventSnapshot and EventTemplate each have one current, unversioned
 contract, without format version fields, legacy readers, converters or compatibility
 paths. Schema changes normally use incremental migrations. Consolidating applied
 migrations into a baseline and resetting local DB/media require explicit approval.

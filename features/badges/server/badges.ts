@@ -56,7 +56,7 @@ async function fieldCatalog(tx: Prisma.TransactionClient, eventId: string) {
     }
   };
   const draft = await tx.registrationField.findMany({
-    where: { form: { eventId } },
+    where: { form: { eventId }, subject: "APPLICANT" },
     orderBy: { position: "asc" },
     select: { id: true, type: true, label: true },
   });

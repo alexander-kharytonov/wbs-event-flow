@@ -80,6 +80,7 @@ export async function createTemplateEvent(
             visibility: event.visibility,
             accountRequirement: event.accountRequirement,
             capacity: event.capacity,
+            guestPolicy: event.guestPolicy,
             maxGuestsPerRegistration: event.maxGuestsPerRegistration,
             registrationOpensAt: event.registrationOpensAt
               ? new Date(event.registrationOpensAt)

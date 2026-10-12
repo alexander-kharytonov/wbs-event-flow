@@ -7,6 +7,7 @@
     "build": "prisma generate && next build",
     "start": "node scripts/start.mjs",
     "lint": "biome check",
+    "test:guest-persistence": "node --experimental-test-module-mocks --conditions=react-server --import tsx scripts/guest-persistence.test.mts",
     "test:registration-select-language": "node --experimental-test-module-mocks --import tsx --test scripts/registration-select-language.test.mts",
     "format": "biome format --write",
     "infra:up": "docker compose up -d --wait",

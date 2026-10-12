@@ -3,6 +3,10 @@ import {
   communicationContextSchema,
   deliveryAssociationSchema,
 } from "@/features/communications/server/contracts";
+import {
+  applicationAnswersSchema,
+  applicationInputSchema,
+} from "@/features/events/application-input";
 import { mediaManifestSchema } from "@/features/events/schemas/event-rich-content";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 
@@ -31,6 +35,9 @@ async function main() {
           UNION ALL SELECT 'RegistrationField', count(*) FROM "RegistrationField"
           UNION ALL SELECT 'RegistrationFieldOption', count(*) FROM "RegistrationFieldOption"
           UNION ALL SELECT 'Application', count(*) FROM "Application"
+          UNION ALL SELECT 'ApplicationGuest', count(*) FROM "ApplicationGuest"
+          UNION ALL SELECT 'ApplicationGuestAnswer', count(*) FROM "ApplicationGuestAnswer"
+          UNION ALL SELECT 'ApplicationGuestAnswerOption', count(*) FROM "ApplicationGuestAnswerOption"
           UNION ALL SELECT 'ApplicationAnswer', count(*) FROM "ApplicationAnswer"
           UNION ALL SELECT 'ApplicationAnswerOption', count(*) FROM "ApplicationAnswerOption"
           UNION ALL SELECT 'Registration', count(*) FROM "Registration"
@@ -162,6 +169,29 @@ async function main() {
             WHERE e."publishedRevisionId" IS NOT NULL
               AND (v.id IS NULL OR e."publicId" IS NULL OR e."publishedAt" IS NULL)
             UNION ALL
+            SELECT 'guest_field_policy', count(*)
+            FROM "RegistrationField" f JOIN "RegistrationForm" r ON r.id = f."formId"
+            JOIN "Event" e ON e.id = r."eventId"
+            WHERE f.subject = 'GUEST' AND e."guestPolicy" <> 'APPROVAL_REQUIRED'
+            UNION ALL
+            SELECT 'guest_declaration_positions', count(*) FROM (
+              SELECT "applicationId" FROM "ApplicationGuest" GROUP BY "applicationId"
+              HAVING min(position) <> 0 OR max(position) <> count(*) - 1
+            ) g
+            UNION ALL
+            SELECT 'guest_declaration_provenance', count(*)
+            FROM "Attendee" a
+            JOIN "Registration" r ON r.id = a."registrationId"
+            LEFT JOIN "ApplicationGuest" g ON g.id = a."applicationGuestId"
+            WHERE a."applicationGuestId" IS NOT NULL AND
+              (a.kind <> 'GUEST' OR g."applicationId" IS DISTINCT FROM r."sourceApplicationId"
+               OR a.name IS DISTINCT FROM g.name OR a.email IS DISTINCT FROM g.email)
+            UNION ALL
+            SELECT 'guest_policy_binding', count(*)
+            FROM "Application" a JOIN "Event" e ON e.id = a."eventId"
+            JOIN "EventRevision" v ON v.id = a."eventRevisionId"
+            WHERE v.snapshot->>'guestPolicy' IS DISTINCT FROM e."guestPolicy"::text
+            UNION ALL
             SELECT 'communication_delivery_count', count(*)
             FROM "Communication" c
             LEFT JOIN delivery_counts d ON d."communicationId" = c.id
@@ -289,6 +319,103 @@ async function main() {
           ...mediaReferences.filter((row) => row.invalid_count > BigInt(0)),
         );
         let mediaCursor: string | undefined;
+        let invalidGuests = BigInt(0);
+        let guestCursor: string | undefined;
+
+        while (true) {
+          const guests = await tx.applicationGuest.findMany({
+            where: guestCursor ? { id: { gt: guestCursor } } : {},
+            orderBy: { id: "asc" },
+            take: 200,
+            include: {
+              application: {
+                select: { eventRevision: { select: { snapshot: true } } },
+              },
+              answers: { include: { selectedOptions: true } },
+            },
+          });
+
+          if (!guests.length) {
+            break;
+          }
+
+          for (const guest of guests) {
+            const snapshot = eventSnapshotSchema.safeParse(
+              guest.application.eventRevision.snapshot,
+            );
+
+            if (
+              !applicationInputSchema.shape.fullName.safeParse(guest.name)
+                .success ||
+              (guest.email !== null &&
+                !applicationInputSchema.shape.email.safeParse(guest.email)
+                  .success) ||
+              !snapshot.success ||
+              snapshot.data.guestPolicy !== "APPROVAL_REQUIRED" ||
+              guest.position >= snapshot.data.maxGuestsPerRegistration
+            ) {
+              invalidGuests++;
+              continue;
+            }
+
+            const fields = snapshot.data.guestForm.fields;
+            const values: Record<string, string[]> = {};
+            let valid = guest.answers.length === fields.length;
+
+            for (const answer of guest.answers) {
+              const field = fields.find(
+                (candidate) => candidate.id === answer.fieldId,
+              );
+              const text =
+                field?.type === "SHORT_TEXT" || field?.type === "LONG_TEXT";
+              const checkbox = field?.type === "CHECKBOX";
+
+              if (
+                !field ||
+                (text &&
+                  (answer.booleanValue !== null ||
+                    answer.selectedOptions.length > 0)) ||
+                (checkbox &&
+                  (answer.booleanValue === null ||
+                    answer.textValue !== null ||
+                    answer.selectedOptions.length > 0)) ||
+                (!text &&
+                  !checkbox &&
+                  (answer.textValue !== null || answer.booleanValue !== null))
+              ) {
+                valid = false;
+              }
+
+              values[answer.fieldId] = text
+                ? answer.textValue === null
+                  ? []
+                  : [answer.textValue]
+                : checkbox
+                  ? answer.booleanValue
+                    ? ["true"]
+                    : []
+                  : answer.selectedOptions.map((option) => option.optionId);
+            }
+
+            if (
+              !valid ||
+              !applicationAnswersSchema({
+                registrationForm: snapshot.data.guestForm,
+              }).safeParse(values).success
+            ) {
+              invalidGuests++;
+            }
+          }
+          guestCursor = guests[guests.length - 1].id;
+        }
+
+        if (invalidGuests > BigInt(0)) {
+          violations.push({
+            invariant: "guest_declaration_answers",
+            invalid_count: invalidGuests,
+          });
+        }
+
         let invalidMedia = BigInt(0);
 
         while (true) {

@@ -7,24 +7,26 @@ import {
 // New publications satisfy the frozen snapshot contract AND today's authoring rules.
 export const eventPublicationSnapshotSchema = eventSnapshotSchema.superRefine(
   (event, ctx) => {
-    for (const [index, field] of event.registrationForm.fields.entries()) {
-      const validated = registrationFieldSchema.safeParse({
-        label: field.label,
-        type: field.type,
-        required: field.required,
-        description: field.description ?? "",
-        ...(isChoice(field.type)
-          ? { options: field.options.map(({ label }) => ({ label })) }
-          : {}),
-      });
+    for (const form of ["registrationForm", "guestForm"] as const) {
+      for (const [index, field] of event[form].fields.entries()) {
+        const validated = registrationFieldSchema.safeParse({
+          label: field.label,
+          type: field.type,
+          required: field.required,
+          description: field.description ?? "",
+          ...(isChoice(field.type)
+            ? { options: field.options.map(({ label }) => ({ label })) }
+            : {}),
+        });
 
-      if (!validated.success) {
-        for (const issue of validated.error.issues) {
-          ctx.addIssue({
-            code: "custom",
-            path: ["registrationForm", "fields", index, ...issue.path],
-            message: issue.message,
-          });
+        if (!validated.success) {
+          for (const issue of validated.error.issues) {
+            ctx.addIssue({
+              code: "custom",
+              path: [form, "fields", index, ...issue.path],
+              message: issue.message,
+            });
+          }
         }
       }
     }
