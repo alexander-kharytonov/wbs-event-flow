@@ -24,5 +24,7 @@
   "reviewApplications": "Rozpatrz zgłoszenia",
   "myRegistrations": "Moje zgłoszenia",
   "viewTicket": "Zobacz bilet",
-  "schedule": "{start} – {end} ({timezone})"
+  "schedule": "{start} – {end} ({timezone})",
+  "manageApplication": "Zarządzaj zgłoszeniem",
+  "anonymousApplication": "Otrzymaliśmy Twoje zgłoszenie i oczekuje ono na rozpatrzenie. Zachowaj ten prywatny link w tajemnicy: każda osoba, która go posiada, może przeglądać i wycofać zgłoszenie, w tym całą grupę po zatwierdzeniu."
 }

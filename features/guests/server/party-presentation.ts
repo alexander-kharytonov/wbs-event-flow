@@ -46,9 +46,11 @@ export async function presentPartyGuests(
         ? "guestsFrozen"
         : !published.success
           ? "guestsUnpublishedRemoveAllowed"
-          : limit === 0
-            ? "guestsDisabledRemoveAllowed"
-            : null;
+          : published.data.guestPolicy === "APPROVAL_REQUIRED"
+            ? "guestsApprovalRequired"
+            : limit === 0
+              ? "guestsDisabledRemoveAllowed"
+              : null;
   const items = await Promise.all(
     guests.map(async (guest) => {
       if (!guest.ticket) {
@@ -79,7 +81,11 @@ export async function presentPartyGuests(
     limit,
     reason,
     canRemove,
-    canAdd: canRemove && published.success && activeCount < limit,
+    canAdd:
+      canRemove &&
+      published.success &&
+      published.data.guestPolicy === "FLEXIBLE" &&
+      activeCount < limit,
   };
 }
 

@@ -104,22 +104,43 @@ application's existence or details.
 A verified user can see their linked current application on the public event or
 their account registration-detail page and
 withdraw a pending or approved application before the currently published event
-end. Approval atomically creates a Registration, its PRIMARY Attendee from the submitted identity, and that person’s Ticket.
+end. Approval atomically creates a Registration, its PRIMARY Attendee from the submitted identity, and one Ticket per admitted person. For Approval Required, all declared guests are admitted in the same transaction.
 Withdrawal keeps the old attempt and atomically revokes its Registration and all active Attendees and Tickets, freeing
-a place if it was approved. Revoked admission remains in history.
+all occupied party places if it was approved. Revoked admission remains in history.
 Anonymous applications are not claimed by signing in with a matching email and
 cannot be withdrawn through the account flow.
 
-After withdrawal, a linked user can apply again while registration is open. The
+After withdrawal, applicants can apply again while registration is open. The
 new attempt uses the current form, needs review again and creates a new Registration
 with a new PRIMARY and Ticket only on approval; old Registrations, Attendees and Tickets are never reactivated. It carries over answers
-only to unchanged questions. Changed or newly required questions must be
+only to unchanged applicant questions for linked users; guest declarations and answers
+are never copied automatically. Changed or newly required questions must be
 completed as needed. Rejected applications cannot be withdrawn or retried with
 the same event/email or event/account identity.
 
 An authenticated event owner cannot submit a new application to their own event.
 Existing eligible owner applications can still be withdrawn. This restriction
 does not identify the physical person behind an anonymous submission.
+
+## Private anonymous application access
+
+A newly submitted anonymous application gets an independent, attempt-specific private
+link in its application-received email. The public submission response remains neutral,
+including duplicate attempts. Matching an email address never grants access or claims
+an application. Existing applications without this credential do not gain one retroactively.
+
+The link uses `/application#<capability>` and the same protected POST exchange pattern as
+Tickets. The bearer never enters URL paths or queries. A two-hour HttpOnly, same-site
+session opens a credential-free application URL. It grants only that attempt's details,
+declared guests and confirmed withdrawal, including the entire party after approval.
+Ticket viewing and guest management still require the independent Ticket link.
+
+Withdrawal requires the existing Event lifecycle checks and explicit confirmation that
+approval, reserved places and active Tickets will be lost. The transaction revokes the
+whole active party and clears application access. Old links and sessions then fail closed;
+a new anonymous submission gets a new private link and needs organizer approval again.
+No old guest answers or credentials are copied. Anonymous forms retain ordinary opened
+revision rules; linked reapplication additionally requires the current revision as before.
 
 ## Account
 
@@ -282,7 +303,9 @@ GUEST has no linked account. QR credentials, anonymous access tokens and
 Ticket history remain immutable. Verified linked attendees see current and historical Tickets on their
 Registration Detail. Applicants who were anonymous at Ticket issue receive a
 separate private bearer link in approval email; no account is required. Anyone
-holding that link can view this party’s Tickets and add/remove its Guests. It never grants whole-party withdrawal or claiming.
+holding that link can view this party’s Tickets and manage Guests within the Event guest policy.
+The Ticket link never grants whole-party withdrawal or claiming. A separate application
+link in the application-received email grants application-scoped viewing and withdrawal.
 Private email links deliver the existing anonymous capability in a URL fragment
 (`/ticket#<capability>`), which is not sent in the HTTP URL. JavaScript exchanges
 it through a protected POST, clears the fragment on success, and opens a
@@ -343,7 +366,7 @@ visible without contributing to operational counters. Linked Ticket details refr
 through the existing account stream; anonymous Ticket pages show attendance after reload. Check-in alone does not hide
 the QR; existing revocation/cancellation visibility rules still apply.
 
-## Guest configuration and declarations (GUEST-2)
+## Guest configuration, applications and group admission (GUEST-2 / GUEST-3)
 
 Events have an explicit guest policy: FLEXIBLE (the default for newly created
 Events) or APPROVAL_REQUIRED. Flexible preserves post-approval party management.
@@ -359,11 +382,27 @@ The policy can change only before the first application, including withdrawn
 attempts; switching to Flexible requires explicitly removing guest fields first.
 Later field and limit changes never rewrite submitted declarations or revisions.
 
-GUEST-2 supplies persistence and publication only. Application collection, group
-review/admission, guest-answer display, guest badge bindings and guest-answer CSV
-exports are deferred. Existing submission and approval entry points fail closed
-for Approval Required. No new public or staff access to guest answers is provided.
-Guest configuration controls are not added to the manual Event editor in this phase.
+Approval Required collects zero to the opened revision's guest limit before submission.
+Each guest has a required name, optional email and answers to the organizer's GUEST
+questions. Applicant and guest answers stay separate and retain the opened immutable
+revision. Entered values and validation errors survive ordinary rerenders and UI language
+changes. Event-authored questions and option placeholders retain the Event language.
+Submission saves the complete application atomically and reserves no places.
+
+Owners and Managers see the entire declared group and historical answers before review.
+Approval validates that historical group and requires current published capacity for
+1 + declared guests. It admits everybody and issues every Ticket together, or changes
+nothing. Reception, public APIs and SSE receive no guest answers. Group approval may
+occur during an ongoing Event under existing review eligibility rules.
+
+After approval, adding or replacing guests is prohibited. Removal is available only
+before persisted Event start, revokes that guest's Ticket and releases one place.
+Declarations and answers remain in history; removed guests cannot be restored.
+Flexible events retain their existing post-approval Add/Remove flow.
+
+Guest badge bindings and guest-answer CSV exports remain deferred to GUEST-4.
+Manual Event editor guest-policy/question controls remain outside this phase; existing
+configuration services and template/import contracts supply the configuration.
 
 Publication requires explicit policy, limit and complete applicant/guest field
 sets. Templates require explicit policy and field subject, generate fresh field

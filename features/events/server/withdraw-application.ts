@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { applicationsFrozen } from "@/features/events/event-lifecycle";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
+import { authorizeApplication } from "@/features/events/server/application-access";
 import { lockEventForUpdate } from "@/features/events/server/lock-event-for-update";
 import type { Messages } from "@/lib/i18n/messages";
 import { prisma } from "@/lib/prisma";
@@ -17,8 +18,8 @@ export type WithdrawalResult = {
   message?: keyof Messages["events"];
 };
 
-export async function withdrawOwnApplication(
-  userId: string,
+async function withdrawAttempt(
+  actor: { userId: string } | { capability: string },
   input: unknown,
 ): Promise<WithdrawalResult> {
   const parsed = withdrawalInput.safeParse(input);
@@ -44,9 +45,24 @@ export async function withdrawOwnApplication(
 
         const eventId = locked.id;
 
+        if ("capability" in actor) {
+          const authorized = await authorizeApplication(tx, actor.capability);
+
+          if (
+            !authorized ||
+            authorized.id !== applicationId ||
+            authorized.eventId !== eventId
+          ) {
+            return unavailable;
+          }
+        }
         const application = await tx.application.findFirst({
-          where: { id: applicationId, eventId, userId },
-          select: { status: true, updatedAt: true },
+          where: {
+            id: applicationId,
+            eventId,
+            ...("userId" in actor ? { userId: actor.userId } : {}),
+          },
+          select: { status: true, updatedAt: true, userId: true },
         });
 
         if (!application) {
@@ -103,7 +119,7 @@ export async function withdrawOwnApplication(
           if (
             !admission ||
             admission.eventId !== eventId ||
-            admission.userId !== userId ||
+            admission.userId !== application.userId ||
             admission.revokedAt ||
             admission.attendees.length !== 1 ||
             !primary ||
@@ -125,11 +141,13 @@ export async function withdrawOwnApplication(
         await tx.application.update({
           where: {
             id: applicationId,
-            userId,
+            ...("userId" in actor ? { userId: actor.userId } : {}),
             status: { in: ["PENDING", "APPROVED"] },
           },
           data: {
             status: "WITHDRAWN",
+            anonymousAccessHash: null,
+            anonymousAccessEncrypted: null,
             withdrawnAt: now,
             updatedAt: application.updatedAt,
           },
@@ -186,7 +204,10 @@ export async function withdrawOwnApplication(
           }
         }
 
-        await notifyApplicationChanged(tx, { eventId, userId });
+        await notifyApplicationChanged(tx, {
+          eventId,
+          userId: application.userId,
+        });
 
         return { success: true };
       },
@@ -197,4 +218,16 @@ export async function withdrawOwnApplication(
       message: "withdrawFailed",
     };
   }
+}
+
+export async function withdrawOwnApplication(userId: string, input: unknown) {
+  return withdrawAttempt({ userId }, input);
+}
+
+// Capability comes from the protected application session, never a client selector.
+export async function withdrawAnonymousApplication(
+  capability: string,
+  input: unknown,
+) {
+  return withdrawAttempt({ capability }, input);
 }

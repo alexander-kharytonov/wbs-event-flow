@@ -293,6 +293,8 @@ model Application {
   reviewedByUser User? @relation("Reviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
   reviewedAt      DateTime?           @db.Timestamptz(3)
   withdrawnAt     DateTime?           @db.Timestamptz(3)
+  anonymousAccessHash String? @unique
+  anonymousAccessEncrypted String?
   guests          ApplicationGuest[]
   answers         ApplicationAnswer[]
   registrations   Registration[]

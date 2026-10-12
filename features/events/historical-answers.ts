@@ -44,6 +44,7 @@ function formatAnswer(
 export function historicalAnswers(
   snapshot: unknown,
   answers: Answer[],
+  subject: "APPLICANT" | "GUEST" = "APPLICANT",
 ): HistoricalAnswer[] | null {
   const parsed = eventSnapshotSchema.safeParse(snapshot);
 
@@ -51,7 +52,10 @@ export function historicalAnswers(
     return null;
   }
 
-  const fields = parsed.data.registrationForm.fields;
+  const fields =
+    subject === "GUEST"
+      ? parsed.data.guestForm.fields
+      : parsed.data.registrationForm.fields;
   const result: HistoricalAnswer[] = fields.map((field) => {
     const matches = answers.filter((answer) => answer.fieldId === field.id);
 

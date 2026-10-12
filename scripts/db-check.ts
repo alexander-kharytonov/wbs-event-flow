@@ -187,6 +187,23 @@ async function main() {
               (a.kind <> 'GUEST' OR g."applicationId" IS DISTINCT FROM r."sourceApplicationId"
                OR a.name IS DISTINCT FROM g.name OR a.email IS DISTINCT FROM g.email)
             UNION ALL
+            SELECT 'declared_group_admission', count(*)
+            FROM "ApplicationGuest" g JOIN "Registration" r ON r."sourceApplicationId" = g."applicationId"
+            LEFT JOIN "Attendee" a ON a."applicationGuestId" = g.id
+            WHERE a.id IS NULL OR a."registrationId" <> r.id OR a."createdAt" <> r."createdAt"
+            UNION ALL
+            SELECT 'guest_admission_policy', count(*)
+            FROM "Attendee" a JOIN "Registration" r ON r.id = a."registrationId"
+            JOIN "Application" p ON p.id = r."sourceApplicationId"
+            JOIN "EventRevision" v ON v.id = p."eventRevisionId"
+            WHERE a.kind = 'GUEST' AND (
+              (v.snapshot->>'guestPolicy' = 'APPROVAL_REQUIRED' AND a."applicationGuestId" IS NULL)
+              OR (v.snapshot->>'guestPolicy' = 'FLEXIBLE' AND a."applicationGuestId" IS NOT NULL))
+            UNION ALL
+            SELECT 'application_access_revocation', count(*) FROM "Application"
+            WHERE ("anonymousAccessHash" IS NULL) <> ("anonymousAccessEncrypted" IS NULL)
+              OR (status = 'WITHDRAWN' AND "anonymousAccessHash" IS NOT NULL)
+            UNION ALL
             SELECT 'guest_policy_binding', count(*)
             FROM "Application" a JOIN "Event" e ON e.id = a."eventId"
             JOIN "EventRevision" v ON v.id = a."eventRevisionId"

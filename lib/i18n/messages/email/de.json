@@ -24,5 +24,7 @@
   "reviewApplications": "Anmeldungen prüfen",
   "myRegistrations": "Meine Anmeldungen",
   "viewTicket": "Ticket ansehen",
-  "schedule": "{start} – {end} ({timezone})"
+  "schedule": "{start} – {end} ({timezone})",
+  "manageApplication": "Bewerbung verwalten",
+  "anonymousApplication": "Deine Bewerbung ist eingegangen und wird geprüft. Bewahre diesen privaten Link sicher auf: Jeder mit diesem Link kann die Bewerbung ansehen und zurückziehen, nach der Zusage einschließlich der gesamten Gruppe."
 }

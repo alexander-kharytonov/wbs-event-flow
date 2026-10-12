@@ -1,6 +1,7 @@
 import "server-only";
 import { createFormatter } from "use-intl/core";
 import { loadManualCommunicationEmail } from "@/features/communications/server/render";
+import { decryptApplicationSecret } from "@/features/events/server/application-access";
 import type { EmailOutboxType } from "@/generated/prisma/client";
 import {
   applicationApprovedPayload,
@@ -131,6 +132,40 @@ export async function renderOutboxEmail(
               url: absoluteUrl("/account/registrations"),
             }
           : { label: t("email.viewEvent"), url: eventUrl };
+
+      if (
+        "applicationId" in data &&
+        data.applicationId &&
+        "linkedApplicant" in data &&
+        !data.linkedApplicant
+      ) {
+        const application = await prisma.application.findUniqueOrThrow({
+          where: { id: data.applicationId },
+          select: {
+            id: true,
+            status: true,
+            anonymousAccessHash: true,
+            anonymousAccessEncrypted: true,
+          },
+        });
+
+        if (
+          application.status !== "WITHDRAWN" &&
+          application.anonymousAccessHash &&
+          application.anonymousAccessEncrypted
+        ) {
+          const access = decryptApplicationSecret(
+            application.anonymousAccessEncrypted,
+            application.id,
+            application.anonymousAccessHash,
+          );
+          introduction = t("email.anonymousApplication");
+          action = {
+            label: t("email.manageApplication"),
+            url: absoluteUrl(`/application#${access}`),
+          };
+        }
+      }
     } else {
       subject = t("email.approvedSubject");
       greeting = t("email.greetingName", { name: data.applicantName });

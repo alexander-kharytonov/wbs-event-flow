@@ -32,6 +32,7 @@ export const applicationReceivedPayload = z.strictObject({
   applicantName: z.string().min(1),
   event,
   linkedApplicant: z.boolean(),
+  applicationId: z.uuid().optional(),
 });
 
 export const newApplicationPayload = z.strictObject({

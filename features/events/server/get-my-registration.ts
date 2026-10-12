@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { historicalAnswers } from "@/features/events/historical-answers";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
+import { applicationGuestSelect } from "@/features/events/server/application-guests";
 import {
   partyAttendeeSelect,
   presentPartyGuests,
@@ -28,6 +29,10 @@ export async function getMyRegistration(userId: string, eventId: string) {
           createdAt: true,
           reviewedAt: true,
           withdrawnAt: true,
+          guests: {
+            select: applicationGuestSelect,
+            orderBy: { position: "asc" },
+          },
           eventRevisionId: true,
           registrations: {
             where: { userId },
@@ -173,6 +178,16 @@ export async function getMyRegistration(userId: string, eventId: string) {
         withdrawnAt: application.withdrawnAt,
         context,
         answers: historicalAnswers(application.snapshot, application.answers),
+        declaredGuests: application.guests.map((guest) => ({
+          id: guest.id,
+          name: guest.name,
+          email: guest.email,
+          answers: historicalAnswers(
+            application.snapshot,
+            guest.answers,
+            "GUEST",
+          ),
+        })),
       };
     }),
   );
