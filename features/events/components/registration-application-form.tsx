@@ -46,6 +46,7 @@ export function RegistrationApplicationForm({
   eventRevisionId: currentRevisionId = "",
   preview = false,
   fields: currentFields,
+  selectPlaceholders: currentSelectPlaceholders,
   reapplication = false,
   applicant,
   eventContext,
@@ -56,6 +57,7 @@ export function RegistrationApplicationForm({
   eventContext: ReactNode;
   initialValues?: Record<string, string[]>;
   fields: EventSnapshot["registrationForm"]["fields"];
+  selectPlaceholders: { chooseOption: string; noSelection: string };
 } & (
   | { preview: true; publicId?: never; eventRevisionId?: never }
   | { preview?: false; publicId: string; eventRevisionId: string }
@@ -66,8 +68,12 @@ export function RegistrationApplicationForm({
   const [openedForm] = useState(() => ({
     eventRevisionId: currentRevisionId,
     fields: currentFields,
+    selectPlaceholders: currentSelectPlaceholders,
   }));
   const fields = preview ? currentFields : openedForm.fields;
+  const selectPlaceholders = preview
+    ? currentSelectPlaceholders
+    : openedForm.selectPlaceholders;
   const eventRevisionId = preview
     ? currentRevisionId
     : openedForm.eventRevisionId;
@@ -470,8 +476,8 @@ export function RegistrationApplicationForm({
                       >
                         <MenuItem value="">
                           {field.required
-                            ? t("chooseOption")
-                            : t("noSelection")}
+                            ? selectPlaceholders.chooseOption
+                            : selectPlaceholders.noSelection}
                         </MenuItem>
                         {field.options.map((option) => (
                           <MenuItem key={option.id} value={option.id}>

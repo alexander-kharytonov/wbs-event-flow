@@ -13,6 +13,7 @@ import {
   buildEventSnapshot,
   workspaceInclude,
 } from "@/features/events/server/build-event-snapshot";
+import { getRegistrationSelectPlaceholders } from "@/features/events/server/registration-select-placeholders";
 import { requireEventPermission } from "@/features/events/server/require-event-permission";
 import { requireOrganizer } from "@/features/organizer/server/require-organizer";
 import { prisma } from "@/lib/prisma";
@@ -62,12 +63,15 @@ export default async function PreviewPage({
 
   const snapshot = buildEventSnapshot(event);
 
+  const selectPlaceholders = snapshot.success
+    ? await getRegistrationSelectPlaceholders(snapshot.data.language)
+    : null;
   const now = new Date();
 
   return (
     <Stack spacing={3}>
       <EventHeader eventId={id} active="preview" contentPadding={false}>
-        {snapshot.success ? (
+        {snapshot.success && selectPlaceholders ? (
           <EventPreviewTabs
             landing={
               <Paper
@@ -106,6 +110,7 @@ export default async function PreviewPage({
                     key={`registration-preview:${id}`}
                     preview
                     fields={snapshot.data.registrationForm.fields}
+                    selectPlaceholders={selectPlaceholders}
                     eventContext={
                       <PublicEventCard
                         preview
