@@ -37,6 +37,7 @@ import { prisma } from "@/lib/prisma";
 const selectorSchema = z.strictObject({
   eventId: z.uuid(),
   attendeeId: z.uuid().optional(),
+  previewKind: z.enum(["PRIMARY", "GUEST"]).optional(),
 });
 const saveSchema = z.strictObject({
   eventId: z.uuid(),
@@ -57,16 +58,23 @@ async function fieldCatalog(tx: Prisma.TransactionClient, eventId: string) {
   };
   const draft = await tx.registrationField.findMany({
     where: { form: { eventId } },
-    orderBy: { position: "asc" },
-    select: { id: true, type: true, label: true },
+    orderBy: [{ subject: "asc" }, { position: "asc" }],
+    select: {
+      id: true,
+      subject: true,
+      position: true,
+      type: true,
+      label: true,
+    },
   });
 
-  for (const [position, field] of draft.entries()) {
+  for (const field of draft) {
     add(
       { fieldId: field.id, type: field.type, label: field.label },
       {
+        subject: field.subject,
         context: "badgeCurrentQuestion",
-        contextValues: { number: position + 1 },
+        contextValues: { number: field.position + 1 },
       },
     );
   }
@@ -96,17 +104,25 @@ async function fieldCatalog(tx: Prisma.TransactionClient, eventId: string) {
     const parsed = eventSnapshotSchema.safeParse(revision.snapshot);
 
     if (parsed.success) {
-      for (const [
-        position,
-        field,
-      ] of parsed.data.registrationForm.fields.entries()) {
-        add(
-          { fieldId: field.id, type: field.type, label: field.label },
-          {
-            context: "badgePublishedQuestion",
-            contextValues: { number: position + 1, revision: revision.number },
-          },
-        );
+      for (const subject of ["APPLICANT", "GUEST"] as const) {
+        const form =
+          subject === "GUEST"
+            ? parsed.data.guestForm
+            : parsed.data.registrationForm;
+
+        for (const [position, field] of form.fields.entries()) {
+          add(
+            { fieldId: field.id, type: field.type, label: field.label },
+            {
+              subject,
+              context: "badgePublishedQuestion",
+              contextValues: {
+                number: position + 1,
+                revision: revision.number,
+              },
+            },
+          );
+        }
       }
     }
   }
@@ -143,7 +159,9 @@ export async function buildBadgePresentation(
   if (
     !selector.success ||
     (options.mode === "PRINT" &&
-      (!selector.data.attendeeId || options.draftLayout !== undefined))
+      (!selector.data.attendeeId ||
+        selector.data.previewKind !== undefined ||
+        options.draftLayout !== undefined))
   ) {
     return null;
   }
@@ -201,7 +219,11 @@ export async function buildBadgePresentation(
 
       const person = await tx.attendee.findFirst({
         where: {
-          ...(attendeeId ? { id: attendeeId } : {}),
+          ...(attendeeId
+            ? { id: attendeeId }
+            : selector.data.previewKind
+              ? { kind: selector.data.previewKind }
+              : {}),
           revokedAt: null,
           registration: { eventId, revokedAt: null },
         },
@@ -211,6 +233,7 @@ export async function buildBadgePresentation(
           id: true,
           name: true,
           kind: true,
+          applicationGuestId: true,
           revokedAt: true,
           registration: {
             select: {
@@ -241,34 +264,78 @@ export async function buildBadgePresentation(
       });
       const presentation: BadgePresentation = attendeeBadgePresentation(
         layout,
-        person ?? { name: t("badgeNamePlaceholder"), kind: "PRIMARY" },
+        person ?? {
+          name: t("badgeNamePlaceholder"),
+          kind: selector.data.previewKind ?? "PRIMARY",
+        },
         event.title,
       );
       presentation.qrPlaceholder = options.mode === "PREVIEW" && layout.showQr;
       const issues: BadgeIssue[] = [];
 
       if (!person) {
-        presentation.secondary = layout.secondaryField
-          ? badgeText(layout.secondaryField.label)
-          : null;
-        presentation.tertiary = layout.tertiaryField
-          ? badgeText(layout.tertiaryField.label)
-          : null;
+        for (const slot of ["secondary", "tertiary"] as const) {
+          const binding =
+            slot === "secondary" ? layout.secondaryField : layout.tertiaryField;
+          const subject =
+            selector.data.previewKind === "GUEST" ? "GUEST" : "APPLICANT";
+
+          if (
+            binding &&
+            catalog?.fields.some(
+              (field) =>
+                sameBadgeField(field, binding) && field.subject === subject,
+            )
+          ) {
+            presentation[slot] = badgeText(binding.label);
+          }
+        }
       } else if (
-        person.kind === "PRIMARY" &&
+        (person.kind === "PRIMARY" || person.applicationGuestId) &&
         (layout.secondaryField || layout.tertiaryField)
       ) {
         const application = await tx.application.findUniqueOrThrow({
           where: { id: person.registration.sourceApplicationId },
           select: {
             eventRevision: { select: { snapshot: true } },
+            guests: {
+              where: {
+                id: {
+                  in:
+                    person.kind === "GUEST" && person.applicationGuestId
+                      ? [person.applicationGuestId]
+                      : [],
+                },
+              },
+              select: {
+                answers: {
+                  where: {
+                    fieldId: {
+                      in: [
+                        layout.secondaryField?.fieldId,
+                        layout.tertiaryField?.fieldId,
+                      ].filter((id): id is string => Boolean(id)),
+                    },
+                  },
+                  select: {
+                    fieldId: true,
+                    textValue: true,
+                    booleanValue: true,
+                    selectedOptions: { select: { optionId: true } },
+                  },
+                },
+              },
+            },
             answers: {
               where: {
                 fieldId: {
-                  in: [
-                    layout.secondaryField?.fieldId,
-                    layout.tertiaryField?.fieldId,
-                  ].filter((id): id is string => Boolean(id)),
+                  in:
+                    person.kind === "PRIMARY"
+                      ? [
+                          layout.secondaryField?.fieldId,
+                          layout.tertiaryField?.fieldId,
+                        ].filter((id): id is string => Boolean(id))
+                      : [],
                 },
               },
               select: {
@@ -292,7 +359,10 @@ export async function buildBadgePresentation(
           const resolved = resolveBadgeField(
             binding,
             application.eventRevision.snapshot,
-            application.answers,
+            person.kind === "PRIMARY"
+              ? application.answers
+              : (application.guests[0]?.answers ?? []),
+            person.kind,
           );
 
           if (resolved.status === "VALUE") {
@@ -349,7 +419,15 @@ export async function buildBadgePresentation(
           }
 
           for (const snapshot of catalog.activeSnapshots) {
-            const result = resolveBadgeField(binding, snapshot, []);
+            const result = resolveBadgeField(
+              binding,
+              snapshot,
+              [],
+              catalog.fields.find((field) => sameBadgeField(field, binding))
+                ?.subject === "GUEST"
+                ? "GUEST"
+                : "PRIMARY",
+            );
 
             if (
               result.status === "INCOMPATIBLE" ||

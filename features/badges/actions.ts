@@ -7,13 +7,17 @@ import {
 } from "@/features/badges/server/badges";
 import { requireVerifiedUser } from "@/lib/session";
 
-export async function previewBadge(eventId: string, layout: unknown) {
+export async function previewBadge(
+  eventId: string,
+  layout: unknown,
+  previewKind: "PRIMARY" | "GUEST",
+) {
   const user = await requireVerifiedUser();
 
   try {
     return await buildBadgePresentation(
       { userId: user.id },
-      { eventId },
+      { eventId, previewKind },
       { mode: "PREVIEW", draftLayout: layout },
     );
   } catch {

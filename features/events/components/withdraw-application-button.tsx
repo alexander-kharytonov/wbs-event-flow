@@ -13,15 +13,20 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { EventText } from "@/features/events/components/event-text";
-import { withdrawApplication } from "@/features/events/withdraw-application-action";
+import {
+  withdrawApplication,
+  withdrawPrivateApplication,
+} from "@/features/events/withdraw-application-action";
 import { useNotifications } from "@/hooks/use-notifications";
 
 export function WithdrawApplicationButton({
   publicId,
   applicationId,
+  anonymous = false,
 }: {
   publicId: string;
   applicationId: string;
+  anonymous?: boolean;
 }) {
   const t = useTranslations("events");
   const [open, setOpen] = useState(false);
@@ -32,7 +37,9 @@ export function WithdrawApplicationButton({
   function withdraw() {
     startTransition(async () => {
       try {
-        const result = await withdrawApplication({ publicId, applicationId });
+        const result = await (anonymous
+          ? withdrawPrivateApplication
+          : withdrawApplication)({ publicId, applicationId });
 
         if (!result.success) {
           notifications.show(
@@ -47,7 +54,12 @@ export function WithdrawApplicationButton({
         notifications.show(<EventText id="withdrawSuccess" />, {
           severity: "success",
         });
-        router.refresh();
+
+        if (anonymous) {
+          router.replace(`/e/${publicId}/register`);
+        } else {
+          router.refresh();
+        }
       } catch {
         notifications.show(<EventText id="withdrawUnconfirmed" />, {
           severity: "error",

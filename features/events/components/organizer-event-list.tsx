@@ -31,31 +31,10 @@ export async function OrganizerEventList() {
     },
   });
 
-  const assigned = await prisma.eventStaff.findMany({
-    where: { userId: user.id },
-    select: {
-      role: true,
-      event: {
-        select: {
-          id: true,
-          title: true,
-          language: true,
-          startsAt: true,
-          endsAt: true,
-          timezone: true,
-          cancelledAt: true,
-          archivedAt: true,
-        },
-      },
-    },
-    orderBy: { createdAt: "desc" },
-  });
-  const summaries = [
-    ...events.map((event) => ({ ...event, role: "OWNER" as const })),
-    ...assigned.map(({ event, role }) => ({ ...event, role })),
-  ];
-
   return (
-    <OrganizerEventResults events={summaries} canCreate={Boolean(organizer)} />
+    <OrganizerEventResults
+      events={events.map((event) => ({ ...event, role: "OWNER" as const }))}
+      canCreate={Boolean(organizer)}
+    />
   );
 }

@@ -41,6 +41,7 @@ export async function createEventCore(
       visibility: configuration.visibility,
       accountRequirement: configuration.accountRequirement,
       capacity: configuration.capacity,
+      guestPolicy: configuration.guestPolicy,
       maxGuestsPerRegistration: configuration.maxGuestsPerRegistration,
       registrationOpensAt: configuration.registrationOpensAt,
       registrationClosesAt: configuration.registrationClosesAt,
@@ -68,25 +69,36 @@ export async function createEventCore(
       ...(isChoice(field.type) ? { options: field.options } : {}),
     }),
   );
+  const positions = { APPLICANT: 0, GUEST: 0 };
+  const fieldPositions = fields.map((field) => positions[field.subject]++);
   const created = fields.length
     ? await tx.registrationField.createManyAndReturn({
         data: normalized.map((field, position) => ({
           formId,
-          position,
+          subject: fields[position].subject,
+          position: fieldPositions[position],
           type: field.type,
           label: field.label,
           description: field.description,
           required: field.required,
         })),
-        select: { id: true, position: true, type: true, label: true },
+        select: {
+          id: true,
+          subject: true,
+          position: true,
+          type: true,
+          label: true,
+        },
       })
     : [];
-  const byPosition = new Map(created.map((field) => [field.position, field]));
+  const byPosition = new Map(
+    created.map((field) => [`${field.subject}:${field.position}`, field]),
+  );
   const byKey = new Map<string, (typeof created)[number]>();
   const options: Prisma.RegistrationFieldOptionCreateManyInput[] = [];
 
   for (const [position, field] of fields.entries()) {
-    const row = byPosition.get(position);
+    const row = byPosition.get(`${field.subject}:${fieldPositions[position]}`);
 
     if (!row || byKey.has(field.key)) {
       throw new Error("Invalid field identity map.");

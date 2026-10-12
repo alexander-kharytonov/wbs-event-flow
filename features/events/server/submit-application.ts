@@ -4,12 +4,16 @@ import { enqueueTransactionalCommunication } from "@/features/communications/ser
 import {
   type ApplicationFormState,
   applicationAnswersSchema,
+  applicationGuestsSchema,
   applicationInputSchema,
   applicationIssue,
+  guestIssue,
+  guestIssueKey,
 } from "@/features/events/application-input";
 import { applicationsFrozen } from "@/features/events/event-lifecycle";
 import { registrationAvailability } from "@/features/events/registration-availability";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
+import { createApplicationAccess } from "@/features/events/server/application-access";
 import { lockEventForUpdate } from "@/features/events/server/lock-event-for-update";
 import { Prisma } from "@/generated/prisma/client";
 import { emailEventSnapshot } from "@/lib/email-outbox/enqueue";
@@ -130,6 +134,21 @@ export async function submitEventApplication(
     }
 
     const { fullName, email, answers } = applicant.data;
+    const guests = applicationGuestsSchema(snapshot.data).safeParse(
+      applicant.data.guests,
+    );
+
+    if (!guests.success) {
+      return {
+        message: { code: "checkRegistrationAnswers" },
+        errors: Object.fromEntries(
+          guests.error.issues.map((issue) => [
+            guestIssueKey(issue),
+            guestIssue(issue),
+          ]),
+        ),
+      };
+    }
 
     const normalized = applicationAnswersSchema(snapshot.data).safeParse(
       answers,
@@ -186,6 +205,11 @@ export async function submitEventApplication(
             return unavailable;
           }
 
+          // Also reject an old opened form after a pre-application policy change.
+          if (snapshot.data.guestPolicy !== locked.guestPolicy) {
+            return { message: { code: "formUnavailable" } };
+          }
+
           if (!currentEvent) {
             return { message: { code: "formUnavailable" } };
           }
@@ -226,8 +250,22 @@ export async function submitEventApplication(
           }
 
           // Recheck current admission policy immediately before the atomic write.
+          const [{ id: applicationId }] = await tx.$queryRaw<
+            { id: string }[]
+          >`SELECT uuidv7() AS id`;
+          const access = user ? {} : createApplicationAccess(applicationId);
           const application = await tx.application.create({
             data: {
+              id: applicationId,
+              ...access,
+              guests: {
+                create: guests.data.map((guest, position) => ({
+                  position,
+                  name: guest.name,
+                  email: guest.email,
+                  answers: { create: Object.values(guest.answers) },
+                })),
+              },
               eventId: revision.eventId,
               eventRevisionId,
               userId: user?.id ?? null,
@@ -276,6 +314,7 @@ export async function submitEventApplication(
                   applicantName: fullName,
                   event: emailEvent,
                   linkedApplicant: user !== null,
+                  applicationId: application.id,
                 },
               },
             ],

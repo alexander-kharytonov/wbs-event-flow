@@ -18,6 +18,7 @@ export async function submitApplication(
     } else if (
       key !== "fullName" &&
       key !== "email" &&
+      key !== "guests" &&
       !key.startsWith("$ACTION_")
     ) {
       return { message: { code: "unknownRegistrationField" } };
@@ -31,7 +32,22 @@ export async function submitApplication(
     return { message: { code: "enterNameAndEmail" } };
   }
 
+  let guests: unknown;
+
+  try {
+    if (
+      formData.getAll("guests").length !== 1 ||
+      typeof formData.get("guests") !== "string"
+    ) {
+      return { message: { code: "formInvalid" } };
+    }
+    guests = JSON.parse(formData.get("guests") as string);
+  } catch {
+    return { message: { code: "formInvalid" } };
+  }
+
   return submitEventApplication({
+    guests,
     publicId,
     eventRevisionId,
     fullName: formData.get("fullName"),

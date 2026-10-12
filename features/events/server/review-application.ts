@@ -4,6 +4,10 @@ import { captureCommunicationActor } from "@/features/communications/server/elig
 import { enqueueTransactionalCommunication } from "@/features/communications/server/enqueue";
 import { applicationsFrozen } from "@/features/events/event-lifecycle";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
+import {
+  applicationGuestSelect,
+  validApplicationGuests,
+} from "@/features/events/server/application-guests";
 import { authorizeEventActor } from "@/features/events/server/event-access";
 import { lockEventForUpdate } from "@/features/events/server/lock-event-for-update";
 import { issueTicket } from "@/features/tickets/server/issue-ticket";
@@ -78,6 +82,10 @@ export async function reviewEventApplication(
         const application = await tx.application.findFirst({
           where: { id: applicationId, eventId },
           select: {
+            guests: {
+              select: applicationGuestSelect,
+              orderBy: { position: "asc" },
+            },
             status: true,
             updatedAt: true,
             userId: true,
@@ -111,13 +119,30 @@ export async function reviewEventApplication(
         );
 
         if (decision === "APPROVED") {
-          if (!snapshot.success) {
+          if (
+            !snapshot.success ||
+            snapshot.data.guestPolicy !== locked.guestPolicy
+          ) {
             return {
               code: "PUBLICATION_UNAVAILABLE",
               message: "applicationPublicationUnavailable",
             };
           }
 
+          const submitted = eventSnapshotSchema.safeParse(
+            application.eventRevision.snapshot,
+          );
+
+          if (
+            !submitted.success ||
+            submitted.data.guestPolicy !== locked.guestPolicy ||
+            !validApplicationGuests(submitted.data, application.guests)
+          ) {
+            return {
+              code: "UNAVAILABLE",
+              message: "applicationGroupUnavailable",
+            };
+          }
           const capacity = snapshot.data.capacity;
 
           if (capacity !== null) {
@@ -125,7 +150,7 @@ export async function reviewEventApplication(
               where: { registration: { eventId }, revokedAt: null },
             });
 
-            if (occupied >= capacity) {
+            if (occupied + 1 + application.guests.length > capacity) {
               return {
                 code: "CAPACITY_REACHED",
                 message: "applicationCapacityReached",
@@ -211,6 +236,21 @@ export async function reviewEventApplication(
             },
           });
           const ticket = await issueTicket(tx, primary);
+
+          for (const declaration of application.guests) {
+            const guest = await tx.attendee.create({
+              data: {
+                registrationId: registration.id,
+                kind: "GUEST",
+                name: declaration.name,
+                email: declaration.email,
+                applicationGuestId: declaration.id,
+                applicationGuestApplicationId: applicationId,
+                createdAt: reviewedAt,
+              },
+            });
+            await issueTicket(tx, guest);
+          }
 
           // Approval already requires a valid current published snapshot.
           if (!snapshot.success || !event.publicId) {

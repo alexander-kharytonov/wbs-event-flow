@@ -166,7 +166,11 @@ async function manageGuest(
           return { code: "NOT_PUBLISHED" };
         }
 
-        if (snapshot.data.maxGuestsPerRegistration === 0) {
+        if (
+          event.guestPolicy !== "FLEXIBLE" ||
+          snapshot.data.guestPolicy !== "FLEXIBLE" ||
+          snapshot.data.maxGuestsPerRegistration === 0
+        ) {
           return { code: "GUESTS_NOT_ALLOWED" };
         }
 

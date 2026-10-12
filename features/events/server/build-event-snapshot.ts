@@ -53,6 +53,22 @@ export function buildEventSnapshot(event: EventWorkspace) {
     location: event.location,
     schedule: event.schedule,
     publicOrganizer: event.publicOrganizer,
+    guestPolicy: event.guestPolicy,
+    guestForm: {
+      fields: event.registrationForm?.fields
+        .filter((field) => field.subject === "GUEST")
+        .toSorted((a, b) => a.position - b.position)
+        .map((field) => ({
+          id: field.id,
+          type: field.type,
+          label: field.label,
+          description: field.description,
+          required: field.required,
+          options: field.options
+            .toSorted((a, b) => a.position - b.position)
+            .map(({ id, label }) => ({ id, label })),
+        })),
+    },
     maxGuestsPerRegistration: event.maxGuestsPerRegistration,
     title: event.title,
     language: event.language,
@@ -67,6 +83,7 @@ export function buildEventSnapshot(event: EventWorkspace) {
     registrationClosesAt: event.registrationClosesAt?.toISOString() ?? null,
     registrationForm: {
       fields: event.registrationForm?.fields
+        .filter((field) => field.subject === "APPLICANT")
         .toSorted((a, b) => a.position - b.position)
         .map((field) => ({
           id: field.id,

@@ -74,8 +74,10 @@ AttendeeProfile, User.role, or isOrganizer domain field/entity.
 Registration, sign-in, GET `/dashboard`, and GET `/onboarding/organizer` do not
 create profiles. The verified-user `becomeOrganizer` action is the only current
 activation path; `ensureOrganizerProfile` is idempotent through unique userId and
-skipDuplicates. `/account` belongs to the User; `/dashboard` requires the
-OrganizerProfile. REQUIRED registration requires a verified User, not a profile.
+skipDuplicates. `/account` belongs to the User; `/dashboard` requires a verified User and
+shows owned-event metrics only for an activated organizer, with assignment navigation
+for Staff. Creation still requires OrganizerProfile. REQUIRED registration requires
+a verified User, not a profile.
 
 Sources: [activation](app/(application)/onboarding/organizer/actions.ts),
 [organizer guard](features/organizer/server/require-organizer.ts),
@@ -208,8 +210,8 @@ resolved through publicId, but need not still be current for an ordinary submiss
 registration availability, effective deadline, and accountRequirement. Ownership
 is checked against the current Event -> OrganizerProfile -> User relation.
 
-`submitEventApplication` resolves identity server-side, validates historical
-answers, obtains Event FOR UPDATE, rereads publication and owner, then checks
+`submitEventApplication` resolves identity server-side, validates historical applicant
+and guest answers, obtains Event FOR UPDATE, rereads publication and owner, then checks
 current admission policy. New applications and nested answers/options are atomic.
 The client cannot supply an authoritative userId or override a verified user's email.
 
@@ -228,7 +230,7 @@ Source: [submission](features/events/server/submit-application.ts).
 
 An Application is one historical submission attempt, not the person's mutable
 registration record. Its submitted payload is eventRevisionId, fullName, email,
-answers, and selected option IDs. Its lifecycle state is status, reviewedAt, reviewedByUserId, and
+answers, selected option IDs and ordered guest declarations with their own answers. Its lifecycle state is status, reviewedAt, reviewedByUserId, and
 withdrawnAt. userId is a nullable identity link, not a replacement for historical
 name/email. Verified sessions supply userId/email; names remain applicant input.
 Emails are trimmed and lowercased by submission code.
@@ -280,8 +282,8 @@ stateDiagram-v2
     [*] --> PENDING: New attempt
     PENDING --> APPROVED: Organizer approval / capacity permits
     PENDING --> REJECTED: Organizer rejection
-    PENDING --> WITHDRAWN: Linked user / before current end
-    APPROVED --> WITHDRAWN: Linked user / before current end
+    PENDING --> WITHDRAWN: Linked user or application capability / before current end
+    APPROVED --> WITHDRAWN: Linked user or application capability / before current end
     note right of WITHDRAWN
       Retained historical attempt.
       Reapply inserts a different PENDING row.
@@ -293,7 +295,8 @@ WITHDRAWN never transitions back to PENDING. Repeating withdrawal of an already
 WITHDRAWN own application returns success without changing it only while the
 Event lifecycle still permits application operations.
 Review accepts only PENDING, writes reviewedAt/reviewedByUserId, and uses a conditional update.
-Approval creates Registration, PRIMARY Attendee and Ticket before EmailOutbox/NOTIFY in the same transaction;
+Approval creates Registration, PRIMARY and declared GUEST Attendees with one Ticket
+each before EmailOutbox/NOTIFY in the same transaction;
 rejection never creates Registration.
 Withdrawal writes withdrawnAt and retains previous reviewedAt/reviewedByUserId. For an initially
 APPROVED attempt, exactly one active Registration must be conditionally revoked
@@ -335,8 +338,8 @@ available = max(0, capacity - filled)
 ```
 
 Submit and reapply may create PENDING even when full. Approve locks Event, reads
-current capacity, counts active Attendees, and refuses approval when full.
-APPROVED -> WITHDRAWN atomically revokes admission and releases a place. Publishing a lower capacity may make the
+current capacity, counts active Attendees, and refuses approval unless the whole group (1 + declared guests) fits.
+APPROVED -> WITHDRAWN atomically revokes admission and releases its occupied places. Publishing a lower capacity may make the
 Event over capacity without demoting existing approvals. Later approvals remain
 blocked until space exists. Concurrent approvals cannot independently take the
 same final slot through the current server flow.
@@ -346,7 +349,7 @@ Sources: [review](features/events/server/review-application.ts),
 
 ## 12. Withdrawal and reapplication
 
-The withdrawal action requires a verified User. The server finds the application
+Linked withdrawal requires a verified User. The server finds the application
 by id + Event + that userId, permits PENDING/APPROVED, and requires now < the
 current published endsAt and persisted Event endsAt, with no cancellation. It does not use the submitted revision's end or the
 registration close. REJECTED cannot be withdrawn. No payload/answers are deleted.
@@ -365,9 +368,13 @@ and order. Changed/deleted fields do not carry answers; new required fields must
 be answered. Workspace option replacement can invalidate choice prefill even if
 labels look unchanged. The previous attempt remains untouched.
 
-There is no anonymous withdrawal/claiming extension. The extra current-revision
-reapply check is keyed by verified userId, not anonymous email; ordinary anonymous
-submission still follows section 7.
+Anonymous withdrawal uses the attempt-specific application capability described in
+section 25. It is reauthorized under the same Event lock and delegates to the same
+whole-party revocation transaction. No email ownership or claiming is introduced.
+The extra current-revision reapply check remains keyed by verified userId, not
+anonymous email; ordinary anonymous submission still follows section 7. Every new
+anonymous attempt receives an independent credential. Guest declarations and answers
+are never automatically copied into either kind of reapplication.
 
 Sources: [Public Event](app/e/[publicId]/page.tsx),
 [prefill](features/events/application-prefill.ts),
@@ -939,7 +946,7 @@ account association, equal for PRIMARY; GUEST has no account. Deleting User
 SET NULLs both without inventing anonymous capabilities or rewriting snapshots.
 
 Approve is Event lock -> DB decisionNow -> guards/active Attendee capacity ->
-Application approval -> Registration -> PRIMARY -> Ticket -> Outbox -> NOTIFY ->
+Application approval -> Registration -> PRIMARY and declared GUESTs -> Tickets -> Outbox -> NOTIFY ->
 commit. Any failure rolls back all writes. Approved Withdraw verifies PRIMARY and
 Ticket correspondence and revokes the whole active party at the same decisionNow; Attendance
 is untouched. It selects PRIMARY by kind, not by assuming no future other people.
@@ -955,7 +962,135 @@ with the same token and URL.
 Active Registration count equals active PRIMARY count; Guests add further capacity seats.
 Guest policy and party management are defined below.
 
-## 25. Guests and party management (21B)
+## 25. Guests and party management (21B; GUEST-2 / GUEST-3)
+
+Event.guestPolicy is FLEXIBLE or APPROVAL_REQUIRED. Manual Create initializes
+FLEXIBLE; the validated authoring input requires an explicit policy, as do templates.
+The migration default remains FLEXIBLE. The Event editor saves policy with the other
+fields in updateEvent's owner-authorized, version-checked transaction. It shares the
+policy-change guard with updateGuestPolicy, with no intermediate partial save.
+Unchanged policies permit unrelated edits even after applications exist. Server
+field-error codes are translated at render time and do not reset other draft values.
+updateGuestPolicy takes a verified server actor, locks
+Event at ReadCommitted, checks owner permission and persisted lifecycle, and
+uses an optimistic updatedAt version. A policy change is prohibited after ANY
+Application exists, including withdrawn attempts. The policy write increments
+contentVersion and invalidates the workspace. Form mutations and submission use
+the same Event lock. A switch to FLEXIBLE with guest fields is rejected, without
+implicitly deleting configuration. An opened form with a different policy from
+the locked Event is rejected.
+
+RegistrationField.subject is APPLICANT or GUEST (APPLICANT creation/migration
+default). Subject is immutable through the configuration services: editing,
+deleting and reordering check membership within the specified subject. Ordering
+uniqueness is (formId, subject, position), with separate contiguous positions per
+subject. Guest fields use the existing RegistrationField/Option types and
+validation, require APPROVAL_REQUIRED, and share the existing form version and
+Event lock. The applicant builder selects APPLICANT only; badge catalogs include
+both subjects.
+
+ApplicationGuest stores immutable submitted name, nullable normalized contact
+email, zero-based position (0–9) and applicationId. It has no User, seat, Ticket
+or workflow status. ApplicationGuestAnswer and ApplicationGuestAnswerOption use
+one answer per declaration/field and unique selected historical option IDs.
+Field/option identifiers resolve exclusively through Application.eventRevision,
+not mutable RegistrationField FKs; deleting draft fields cannot delete answers.
+Requiredness, type, field membership and option membership follow the frozen
+guestForm. These invariants are verified by db:check, alongside guest count/position
+against the submitted limit and policy binding. Submission inserts declarations,
+answers and selected options with the Application in one transaction.
+
+Attendee.applicationGuestId is nullable and unique. Flexible guests have no
+provenance; declared admitted guests carry both applicationGuestId and
+applicationGuestApplicationId. Composite restrictive FKs bind that pair to the
+declaration and (registrationId, applicationGuestApplicationId) to
+Registration(id, sourceApplicationId). A CHECK requires both provenance columns
+or neither and allows non-null provenance only on GUEST. This prevents cross-party
+and cross-application linkage, including within the same Event. Declared identity
+must match the admitted copy; db:check verifies this correspondence. Declaration
+and answer history survives removal and withdrawal. Declaration persistence alone
+creates neither seats nor Tickets.
+
+EventSnapshot strictly requires guestPolicy and guestForm {fields: [...]}, alongside
+maxGuestsPerRegistration and registrationForm. Both field sets retain complete
+IDs, types, labels, descriptions, requiredness and ordered options. Field IDs are
+unique across both sets. FLEXIBLE requires an empty guestForm. Publish/Preview
+use one builder; later draft changes do not modify any EventRevision. Public
+catalog and restricted staff DTOs receive no submitted guest data.
+
+GUEST-3 accepts APPROVAL_REQUIRED through the existing application entry point.
+The opened revision freezes guest policy, limit, GUEST fields and applicant fields as
+one mounted form contract. Zero guests is valid. Name, optional normalized email and
+all five existing question types use shared client/server validation. Guest input is
+strictly bounded and remains separate from applicant answers; errors use stable codes
+and guest/field paths. Stable local guest keys preserve other guests' values and errors
+when removing a declaration. No locale key, refresh or navigation is introduced.
+
+Approval reauthorizes after Event FOR UPDATE, requires PENDING, and validates declared
+positions, identity, field membership, typed stored values, required answers and option
+IDs against the submitted snapshot. Current draft questions/limits cannot reinterpret
+that group. Current published capacity must fit PRIMARY plus every declared guest.
+All Attendees and Tickets have the same admission instant. Declaration provenance is
+recorded on each GUEST. Any failure, including Ticket issue or Outbox/NOTIFY failure,
+rolls back the entire transition. Rejection does not require readable guest history.
+The existing Event lock serializes competing approvals, publication, withdrawal and
+removal. Unique admission/provenance/Ticket constraints prevent duplicate admissions.
+
+OWNER/MANAGER application detail reads guest declarations only after applications.read
+authorization, under RepeatableRead, and renders historical answers. Linked account
+detail reads only the account's attempts. The private application capability reads only
+its attempt. Reception receives only explicitly selected badge values through
+authorized individual
+printing. Public APIs, catalog, emails and SSE receive no guest answers.
+Email remains one existing approval delivery to the applicant, with the PRIMARY Ticket
+reference; no guest emails are introduced. GUEST-4 resolves badge and CSV values from
+these immutable declarations. Post-approval Add is prohibited for APPROVAL_REQUIRED;
+Remove retains
+existing authority, revocation and persisted-start rules. No replacement or restore
+mutation exists.
+
+### Attempt-specific anonymous application access
+
+Application has a nullable unique anonymousAccessHash and nullable encrypted secret.
+An anonymous submission generates 32 random bytes and SHA-256 lookup hash atomically
+with the Application, guest declarations, answers and transactional communications.
+The AES-256-GCM envelope uses the existing encryption key with distinct authenticated
+context `eventflow:application:v1:<applicationId>:access`; it cannot be swapped between
+attempts or with Ticket envelopes. Linked submissions have no application capability.
+Deletion of a linked User never creates one. Incremental migration
+20261012180000_application_access adds the columns, pair CHECK and withdrawn-access
+CHECK without changing previous migrations or backfilling credentials.
+
+APPLICATION_RECEIVED payload carries only an optional applicationId reference, never
+bearer material. Existing queued deliveries without a reference retain their ordinary
+CTA. At delivery, an eligible stored application capability produces
+`/application#<capability>`. Withdrawal clears its hash/envelope, so later rendering
+cannot offer that link. Delivery already in progress may still contain a revoked link;
+the server rejects it. Submission and duplicate responses remain `{success:true}` with
+no credential or existing-record disclosure. Application references do not enter
+Communication context, manual message history or SSE.
+
+The entry page exchanges the fragment through bounded same-origin protected POST,
+clears the fragment, and opens `/application/view/<applicationId>`. The response contains
+only that nonsecret path. A two-hour nonrenewing HttpOnly SameSite=Strict cookie is
+scoped to the exact application path, Secure in production, with an application-specific
+HKDF/AES-GCM session purpose. Duplicate cookie names, invalid envelopes, mismatched IDs
+and expiry fail closed. Every view and withdrawal rechecks the database capability;
+a session never becomes authority for another attempt. Application pages are private,
+no-store, no-referrer and noindex; secrets never enter path/query, logs or analytics.
+Request-body logging must remain disabled in infrastructure, as for Ticket exchange.
+
+Application access grants only viewing that attempt's submitted details and confirmed
+withdrawal, including its admitted party. It grants no account identity, new application
+authority, Ticket view or Guest Add/Remove. Ticket credentials and capability transport
+remain independent. Withdrawal reauthorizes under Event lock, preserves historical
+payload, clears application access, and atomically revokes all still-active party
+Attendees and Tickets. Previously removed guests keep their original revocation times.
+Anonymous retries after access revocation return neutral unavailable; linked withdrawal
+retains its existing idempotent success. A fresh anonymous submission creates a new
+attempt and new capability, never reactivating old admissions or credentials.
+
+The following post-approval Add behavior applies only to FLEXIBLE.
 
 Registration.userId is linked party ownership, verified against the authoritative
 session; PRIMARY is the party owner’s admitted person. GUEST has userId null,
@@ -1054,8 +1189,14 @@ QR results omit email for Reception and omit historical identity for revoked adm
 while retaining the shared ALREADY_CHECKED_IN priority. Attendance schema, protocol,
 credential/AAD and immutable facts are unchanged.
 
-Owned and assigned Events share Dashboard cards; Staff without OrganizerProfile can
-navigate directly to their assignments. The Event workspace/header/navigation is shared,
+Owned and assigned Events use the shared card/list presentation on separate
+`/dashboard/events` and `/dashboard/staff` routes. Staff without OrganizerProfile can
+navigate directly to assignments. Staff reads filter by session userId, exclude owned
+Events, and check the existing event.context.read permission before projection.
+Membership existence is active access: there is no inactive membership flag.
+Reception/Manager list DTOs contain only identity/language/schedule/lifecycle and role;
+no application aggregates, attendee data or owner publication metadata are selected.
+The Event workspace/header/navigation is shared,
 with owner controls and metadata separated from operational projections. Owner sections
 include Staff; Manager sees Overview/Applications/Attendees/Check-in; Reception sees
 Overview/Attendees/Check-in. Reception counters are active/checked-in/not-arrived.
@@ -1071,11 +1212,12 @@ expiry/session reauthorization bounds lost-signal delivery to roughly 60 seconds
 periodic DB polling or new realtime transport is introduced. Already delivered data
 cannot be erased from a client by revocation.
 
-## 27. Derived badges / operational layout (24A)
+## 27. Derived badges / operational layout (24A; GUEST-4)
 
 Badge has no persistent entity, issuance, credential or print history. Its presentation
-is derived from Attendee, Event operational layout, available active Ticket and, only
-for PRIMARY, submitted Application answers. Printing does not write Attendance or
+is derived from Attendee, Event operational layout, available active Ticket and
+submitted Application answers for PRIMARY or linked ApplicationGuest answers for
+GUEST. Printing does not write Attendance or
 change admission. Guest answers are never inferred from their Registration PRIMARY.
 Badge preview and printed presentation labels use Event.language from the same authorized transaction
 as the operational title/layout, independently of the operator UI locale. This does
@@ -1099,7 +1241,13 @@ publication timestamps. Badge config is excluded from public EventRevision snaps
 The catalog combines draft fields, validated immutable EventRevision fields and saved
 bindings, deduplicated by ID/type/label. Historical bindings have no FK to mutable
 RegistrationField. Resolution uses Attendee -> Registration.sourceApplication ->
-Application.eventRevision.snapshot plus ApplicationAnswer, never current draft options.
+Application.eventRevision.snapshot plus ApplicationAnswer for PRIMARY. GUEST resolves
+only Attendee.applicationGuestId within that same source Application and its guestForm,
+plus ApplicationGuestAnswer. Flexible guests have no provenance and no custom values.
+Neither subject inherits the other's answers; current draft fields/options are never
+an answer source. Globally unique field IDs across the two snapshot forms preserve
+subject identity without changing the existing field descriptor or layout contract.
+The two existing slots are shared across subjects, not two slots per subject.
 Exact fieldId/type/label compatibility is required. SHORT_TEXT, LONG_TEXT,
 SINGLE_CHOICE and MULTIPLE_CHOICE are supported; choice labels come from that
 submitted snapshot. Multiple selections are joined with ", " in snapshot option
@@ -1115,8 +1263,15 @@ MANAGER and RECEPTION; badges.print.bulk/team to OWNER and MANAGER. The bulk per
 gates workspace visibility for OWNER/MANAGER; 24B2 implements bulk/team operations.
 Reception's existing read DTO restrictions remain, with this explicit exception:
 an authorized individual BadgePresentation may contain name/type, Event title,
-owner-selected custom values, Ticket number and decodable QR image. It never includes
+owner-selected applicant or guest custom values, Ticket number and decodable QR
+image. It never includes
 Application/answers/snapshot/email/catalog or raw/hash/encrypted Ticket fields.
+The owner selecting a badge field is explicit authorization for that value to appear
+for every authorized badge-printing role. Queries select only bound answer IDs and
+the linked declaration; the presentation contains only resolved values. Unselected
+GUEST answers never enter print HTML/PDF or client state. Reception still cannot edit
+layouts, review applications, export CSV or use bulk/team printing. No granular
+permissions, restrictive overrides or field/category visibility model is introduced.
 
 The server builder checks current session-derived actor permissions and Event-scoped
 Attendee/Registration activity in a consistent read transaction. Cancelled Events deny
@@ -1284,6 +1439,32 @@ effect disposal and listener/timeout cleanup prevent stale callbacks after chang
 There is no polling or new transport. Browser wall time only requests a fresh server
 read; lifecycle and mutation guards remain server-authoritative.
 
+### Organizer Dashboard (DASH-1)
+
+`/dashboard` is an overview of owned Events, independent of per-Event analytics.
+Its verified-session reader uses one RepeatableRead snapshot and one database clock.
+Ownership constrains every aggregate and summary query. SQL counts apply the existing
+lifecycle boundaries: Upcoming start > now, Ongoing start <= now < end, Completed
+end <= now, always excluding cancelled Events. Archived completed Events remain
+in lifecycle totals. No new lifecycle state or stored counter is introduced.
+
+Review counts group PENDING attempts by Event, scoped to owned, non-archived,
+non-cancelled Events with end > now. Own linked attempts are excluded under the
+existing self-review prohibition; anonymous identity is never inferred by email.
+These counts describe review work, not approval eligibility or unique people.
+The existing mutation boundary still checks current permissions, lifecycle,
+publication, historical contracts and capacity. Frozen pending attempts are not
+shown as actionable work and are not rewritten.
+
+Requires Attention selects only Event identity/title for those groups; Upcoming
+selects five summaries ordered by start/id, including only publication pointer/version
+metadata. No snapshots, application rows, answers or attendee collections cross the
+client boundary. Query count is constant with Event count; grouped attention data
+scales with Events having pending work. Lists retain their existing full card
+projection and local filters. No per-Event reads or SSE connections are added.
+A shared boundary refresher requests a new server read at the next start/end.
+Other changes are reflected on navigation/reload, without a new realtime guarantee.
+
 ## 29. CSV data export (26A)
 
 Authenticated GET /api/events/[eventId]/exports/[dataset] accepts applications,
@@ -1297,10 +1478,21 @@ response. Lifecycle does not independently forbid these read-only exports.
 
 Exports always cover the entire Event dataset, never client search/filter state.
 Applications order by createdAt/id ascending and include all attempts/statuses.
+Each attempt emits one APPLICANT row followed by GUEST declaration rows in position/id
+order, including pending/rejected/withdrawn declarations that have no admission.
+Application context repeats; answer values are subject-specific. Fixed columns add
+Row subject, Registration ID (nullable), Guest declaration ID, one-based Guest position,
+Guest name and Guest email. Row limits count applicant plus declaration rows before
+loading answers; no separate guest dataset or new export permission is added.
 Attendees order by createdAt/id ascending and include revoked records. Admission
 is ACTIVE only when both Attendee and Registration revokedAt are null; otherwise
-REVOKED. PRIMARY answers use Registration.sourceApplication; GUEST values are empty,
-state and Answers scope NOT_APPLICABLE, with the same Registration's PRIMARY name.
+REVOKED. PRIMARY answers use Registration.sourceApplication; declared GUEST answers
+use the
+Attendee's linked ApplicationGuest under that same source Application. Scope is
+SOURCE_APPLICATION or GUEST_DECLARATION respectively, with Guest declaration ID for
+joinability. Flexible GUEST values remain empty with NOT_APPLICABLE scope. All guest
+rows retain the same Registration's PRIMARY name. Removed declarations and answers
+remain history; revoked admission is explicitly marked.
 Attendance orders by checkedInAt/id ascending and includes immutable QR/MANUAL facts
 after later revocation. Actor/reviewer names use current User.name; null links yield
 empty names and UNAVAILABLE, never an inferred owner. Present links yield AVAILABLE.
@@ -1309,13 +1501,15 @@ ascending with MANAGER/RECEPTION roles. Projections never query Tickets or auth 
 
 Historical column identity is (eventRevisionId, fieldId). Only referenced revisions
 are read; each frozen snapshot is parsed once. Columns order by revision number
-then snapshot question order; headers are <Label> [v<revision> Q<position> <TYPE>],
+then APPLICANT/GUEST and snapshot question order; headers are
+<Label> [<SUBJECT> v<revision> <TYPE> <eventRevisionId>:<fieldId>],
 followed immediately by <header> — state. Duplicate labels and recreated questions
-remain separate. Nonmatching revisions and Guest cells have NOT_APPLICABLE state.
+remain separate. Nonmatching revisions and subjects have NOT_APPLICABLE state.
 CSV marks missing expected answers NOT_PROVIDED. Duplicate or incompatible answers
 for known fields are UNAVAILABLE; optional empty answers are NOT_PROVIDED. Before
-building Application or PRIMARY answer cells, every stored fieldId must belong to
-that submission's snapshot. An unknown fieldId rejects the entire export with a
+building applicant or declared-guest answer cells, every stored fieldId must belong to
+that subject in the submission's snapshot. An unknown fieldId rejects the entire
+export with a
 generic error, without exposing the identifier or guessing a column. The historical
 detail UI retains its existing missing-answer presentation. Choice labels come
 exclusively from that snapshot; multiple choice is
@@ -1356,22 +1550,24 @@ export uses the filename suffix `-template.json` (section 38).
 The transport-independent strict envelope is {format: "event-flow-template",
 event: {...}}. The explicit event DTO has exactly title, language, description,
 startsAt, endsAt, timezone, visibility, accountRequirement, capacity,
-maxGuestsPerRegistration, registrationOpensAt, registrationClosesAt,
+guestPolicy, maxGuestsPerRegistration, registrationOpensAt, registrationClosesAt,
 registrationForm, staff, badgeLayout, descriptionFormat, location, schedule,
 publicOrganizer and cover. Nullable values are required explicit
 nulls. Dates are original UTC ISO instants with milliseconds, without shifting
 past Events or copying Completed/Cancelled/Archived state.
 
-registrationForm is {fields: [...]}. Each field contains key, type, label,
+registrationForm is {fields: [...]}. Each field contains key, subject (APPLICANT/GUEST), type, label,
 description, required and options; each option contains only label. Array order
-is current position order. Field keys are exactly field_1 through field_N in
+is APPLICANT then GUEST, each in current position order. Field keys are exactly field_1 through field_N in
 that order. No field/form/option/revision IDs or built-in full name/email fields
 are serialized. Validation reuses current registrationFieldSchema semantics;
 EventTemplate limits are additional portability constraints, not authoring limits.
 
 badgeLayout is null or the constrained current badge format with secondaryField
 and tertiaryField descriptors {fieldKey, type, label}. Bindings map only by exact
-current fieldId/type/label. Missing, historical, deleted/recreated or mismatched
+current APPLICANT or GUEST fieldId/type/label. Import remaps either subject through
+the same portable key to fresh field/option identities; no answers or guest identities
+are included. Missing, historical, deleted/recreated or mismatched
 bindings reject the entire export with a generic request to update Badge Design.
 No label-only mapping, silent removal or historical-question insertion occurs.
 The stored-layout parser requires explicit padding and rejects obsolete preset
@@ -2211,7 +2407,12 @@ revision and must restart after a publication change.
 ## V0 development policy
 
 Before the first release, breaking changes are allowed and local development data
-is disposable. EventSnapshot and EventTemplate each have one current, unversioned
+is disposable. This includes public demo accounts, events, applications, tickets
+and snapshots during product validation. GUEST-2 uses an incremental migration
+after the unchanged committed baseline. Old snapshots/templates without explicit
+guest configuration are invalid, not rewritten or interpreted by compatibility
+readers. Deployment and any data reset are separate authorized operations.
+EventSnapshot and EventTemplate each have one current, unversioned
 contract, without format version fields, legacy readers, converters or compatibility
 paths. Schema changes normally use incremental migrations. Consolidating applied
 migrations into a baseline and resetting local DB/media require explicit approval.

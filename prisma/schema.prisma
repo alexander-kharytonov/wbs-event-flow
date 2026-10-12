@@ -96,6 +96,16 @@ enum EventLanguage {
   ru
 }
 
+enum GuestPolicy {
+  FLEXIBLE
+  APPROVAL_REQUIRED
+}
+
+enum RegistrationFieldSubject {
+  APPLICANT
+  GUEST
+}
+
 model Event {
   id                   String                  @id @default(uuid(7)) @db.Uuid
   organizerId          String                  @db.Uuid
@@ -116,6 +126,7 @@ model Event {
   timezone             String
   visibility           EventVisibility         @default(PRIVATE)
   accountRequirement   EventAccountRequirement @default(OPTIONAL)
+  guestPolicy          GuestPolicy @default(FLEXIBLE)
   maxGuestsPerRegistration Int @default(0)
   badgeLayout          Json?
   capacity             Int?
@@ -214,6 +225,7 @@ model RegistrationField {
   id          String                    @id @default(uuid(7)) @db.Uuid
   formId      String                    @db.Uuid
   form        RegistrationForm          @relation(fields: [formId], references: [id], onDelete: Cascade)
+  subject     RegistrationFieldSubject @default(APPLICANT)
   type        RegistrationFieldType
   label       String
   description String?
@@ -223,7 +235,7 @@ model RegistrationField {
   updatedAt   DateTime                  @updatedAt @db.Timestamptz(3)
   options     RegistrationFieldOption[]
 
-  @@unique([formId, position])
+  @@unique([formId, subject, position])
 }
 
 model RegistrationFieldOption {
@@ -281,6 +293,9 @@ model Application {
   reviewedByUser User? @relation("Reviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
   reviewedAt      DateTime?           @db.Timestamptz(3)
   withdrawnAt     DateTime?           @db.Timestamptz(3)
+  anonymousAccessHash String? @unique
+  anonymousAccessEncrypted String?
+  guests          ApplicationGuest[]
   answers         ApplicationAnswer[]
   registrations   Registration[]
 
@@ -322,7 +337,10 @@ model Registration {
   sourceApplication   Application @relation(fields: [eventId, sourceApplicationId], references: [eventId, id], onDelete: Restrict)
   user                User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
 
-  attendees Attendee[]
+  attendees Attendee[] @relation("PartyAttendees")
+  declaredAttendees Attendee[] @relation("DeclarationParty")
+
+  @@unique([id, sourceApplicationId])
 
   @@unique([eventId, userId], map: "Registration_active_user_key", where: raw("((\"revokedAt\" IS NULL) AND (\"userId\" IS NOT NULL))"))
   @@unique([eventId, attendeeEmail], map: "Registration_active_email_key", where: raw("(\"revokedAt\" IS NULL)"))
@@ -335,6 +353,10 @@ enum AttendeeKind {
 
 model Attendee {
   id             String       @id @default(uuid(7)) @db.Uuid
+  applicationGuestId String? @unique @db.Uuid
+  applicationGuestApplicationId String? @db.Uuid
+  applicationGuest ApplicationGuest? @relation(fields: [applicationGuestId, applicationGuestApplicationId], references: [id, applicationId], onDelete: Restrict, onUpdate: Restrict)
+  declarationRegistration Registration? @relation("DeclarationParty", fields: [registrationId, applicationGuestApplicationId], references: [id, sourceApplicationId], onDelete: Restrict, onUpdate: Restrict)
   registrationId String       @db.Uuid
   kind           AttendeeKind
   userId         String?      @db.Uuid
@@ -342,11 +364,12 @@ model Attendee {
   email          String?
   createdAt      DateTime     @default(now()) @db.Timestamptz(3)
   revokedAt      DateTime?    @db.Timestamptz(3)
-  registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Restrict)
+  registration   Registration @relation("PartyAttendees", fields: [registrationId], references: [id], onDelete: Restrict)
   user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
   ticket         Ticket?
   attendance     Attendance?
 
+  @@unique([applicationGuestId, applicationGuestApplicationId])
   @@unique([registrationId], map: "Attendee_primary_key", where: raw("(kind = 'PRIMARY'::\"AttendeeKind\")"))
   @@index([registrationId, revokedAt])
 }
@@ -366,6 +389,41 @@ model Attendance {
   attendee          Attendee         @relation(fields: [attendeeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   ticket            Ticket?          @relation(fields: [attendeeId, ticketId], references: [attendeeId, id], onDelete: Restrict, onUpdate: Restrict)
   checkedInByUser   User?            @relation(fields: [checkedInByUserId], references: [id], onDelete: SetNull, onUpdate: Restrict)
+}
+
+model ApplicationGuest {
+  id String @id @default(uuid(7)) @db.Uuid
+  applicationId String @db.Uuid
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  position Int
+  name String
+  email String?
+  answers ApplicationGuestAnswer[]
+  attendee Attendee?
+
+  @@unique([id, applicationId])
+  @@unique([applicationId, position])
+}
+
+model ApplicationGuestAnswer {
+  id String @id @default(uuid(7)) @db.Uuid
+  applicationGuestId String @db.Uuid
+  applicationGuest ApplicationGuest @relation(fields: [applicationGuestId], references: [id], onDelete: Cascade)
+  // Historical identifiers refer only to the application's immutable revision snapshot.
+  fieldId String @db.Uuid
+  textValue String?
+  booleanValue Boolean?
+  selectedOptions ApplicationGuestAnswerOption[]
+
+  @@unique([applicationGuestId, fieldId])
+}
+
+model ApplicationGuestAnswerOption {
+  answerId String @db.Uuid
+  optionId String @db.Uuid
+  answer ApplicationGuestAnswer @relation(fields: [answerId], references: [id], onDelete: Cascade)
+
+  @@id([answerId, optionId])
 }
 
 model ApplicationAnswer {

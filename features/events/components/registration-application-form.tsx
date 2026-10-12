@@ -1,19 +1,13 @@
 "use client";
 
 import ArrowForward from "@mui/icons-material/ArrowForward";
+import PeopleOutlined from "@mui/icons-material/PeopleOutlined";
 import SendOutlined from "@mui/icons-material/SendOutlined";
 import {
   Alert,
   AlertTitle,
   Box,
   Button,
-  Checkbox,
-  FormControl,
-  FormControlLabel,
-  FormGroup,
-  FormHelperText,
-  FormLabel,
-  MenuItem,
   Paper,
   Stack,
   TextField,
@@ -30,13 +24,18 @@ import {
   useState,
 } from "react";
 import { BackLink } from "@/components/ui/back-link";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   type ApplicationFormState,
   type ApplicationIssue,
   applicationAnswersSchema,
+  applicationGuestsSchema,
   applicationInputSchema,
   applicationIssue,
+  guestIssue,
+  guestIssueKey,
 } from "@/features/events/application-input";
+import { ApplicationQuestions } from "@/features/events/components/application-questions";
 import type { EventSnapshot } from "@/features/events/schemas/event-snapshot";
 import { submitApplication } from "@/features/events/submit-application-action";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
@@ -46,6 +45,7 @@ export function RegistrationApplicationForm({
   eventRevisionId: currentRevisionId = "",
   preview = false,
   fields: currentFields,
+  guestConfiguration: currentGuestConfiguration,
   selectPlaceholders: currentSelectPlaceholders,
   reapplication = false,
   applicant,
@@ -57,6 +57,10 @@ export function RegistrationApplicationForm({
   eventContext: ReactNode;
   initialValues?: Record<string, string[]>;
   fields: EventSnapshot["registrationForm"]["fields"];
+  guestConfiguration: Pick<
+    EventSnapshot,
+    "guestPolicy" | "guestForm" | "maxGuestsPerRegistration"
+  >;
   selectPlaceholders: { chooseOption: string; noSelection: string };
 } & (
   | { preview: true; publicId?: never; eventRevisionId?: never }
@@ -68,8 +72,12 @@ export function RegistrationApplicationForm({
   const [openedForm] = useState(() => ({
     eventRevisionId: currentRevisionId,
     fields: currentFields,
+    guestConfiguration: currentGuestConfiguration,
     selectPlaceholders: currentSelectPlaceholders,
   }));
+  const guestConfiguration = preview
+    ? currentGuestConfiguration
+    : openedForm.guestConfiguration;
   const fields = preview ? currentFields : openedForm.fields;
   const selectPlaceholders = preview
     ? currentSelectPlaceholders
@@ -88,6 +96,30 @@ export function RegistrationApplicationForm({
   const focusFirstError = () => setFocusRequest((current) => current + 1);
   // Keep entered values on errors; discard them only after server success.
   const [values, setValues] = useState<Record<string, string[]>>(initialValues);
+  const [guestKeys, setGuestKeys] = useState<number[]>([]);
+  const nextGuestKey = useRef(0);
+  const guestValues = () =>
+    guestKeys.map((key) => ({
+      name: values[`guest:${key}:name`]?.[0] ?? "",
+      email: values[`guest:${key}:email`]?.[0] ?? "",
+      answers: Object.fromEntries(
+        guestConfiguration.guestForm.fields.map((field) => [
+          field.id,
+          values[`guest:${key}:answers:${field.id}`] ?? [],
+        ]),
+      ),
+    }));
+  const mapGuestErrors = (errors: Record<string, ApplicationIssue>) =>
+    Object.fromEntries(
+      Object.entries(errors).map(([key, value]) => {
+        const match = /^guest:(\d+):(.*)$/.exec(key);
+
+        return [
+          match ? `guest:${guestKeys[Number(match[1])]}:${match[2]}` : key,
+          value,
+        ];
+      }),
+    );
   const [state, action, pending] = useActionState(
     async (previous: ApplicationFormState, formData: FormData) => {
       if (preview || mustRestart || !publicId || !eventRevisionId) {
@@ -108,7 +140,7 @@ export function RegistrationApplicationForm({
           router.refresh();
         }
       }
-      feedback.setErrors(next.errors ?? {});
+      feedback.setErrors(mapGuestErrors(next.errors ?? {}));
       feedback.setMessage(next.message);
 
       if (!next.success && next.errors) {
@@ -126,18 +158,36 @@ export function RegistrationApplicationForm({
   const complete =
     Boolean((values.fullName?.[0] ?? applicant?.name ?? "").trim()) &&
     Boolean((applicant?.email ?? values.email?.[0] ?? "").trim()) &&
+    guestKeys.every(
+      (key) =>
+        Boolean(values[`guest:${key}:name`]?.[0]?.trim()) &&
+        guestConfiguration.guestForm.fields.every(
+          (field) =>
+            !field.required ||
+            (values[`guest:${key}:answers:${field.id}`] ?? []).some((value) =>
+              value.trim(),
+            ),
+        ),
+    ) &&
     fields.every(
       (field) =>
         !field.required ||
         (values[`answer:${field.id}`] ?? []).some((value) => value.trim()),
     );
 
-  const hasFieldErrors = Object.keys(feedback.errors).some(
-    (name) =>
-      name === "fullName" ||
-      name === "email" ||
-      fields.some((field) => name === `answer:${field.id}`),
-  );
+  const isFieldError = (name: string) =>
+    name === "fullName" ||
+    name === "email" ||
+    fields.some((field) => name === `answer:${field.id}`) ||
+    guestKeys.some(
+      (key) =>
+        name === `guest:${key}:name` ||
+        name === `guest:${key}:email` ||
+        guestConfiguration.guestForm.fields.some(
+          (field) => name === `guest:${key}:answers:${field.id}`,
+        ),
+    );
+  const hasFieldErrors = Object.keys(feedback.errors).some(isFieldError);
 
   useEffect(() => {
     if (!focusRequest || pending) {
@@ -164,6 +214,7 @@ export function RegistrationApplicationForm({
     const input = applicationInputSchema.safeParse({
       publicId,
       eventRevisionId,
+      guests: guestValues(),
       fullName: values.fullName?.[0] ?? applicant?.name ?? "",
       email: applicant?.email ?? values.email?.[0] ?? "",
       answers: Object.fromEntries(
@@ -188,6 +239,24 @@ export function RegistrationApplicationForm({
       for (const issue of answers.error.issues) {
         errors[`answer:${String(issue.path[0])}`] ??= applicationIssue(issue);
       }
+    }
+
+    const guests = applicationGuestsSchema(guestConfiguration).safeParse(
+      guestValues(),
+    );
+
+    if (!guests.success) {
+      Object.assign(
+        errors,
+        mapGuestErrors(
+          Object.fromEntries(
+            guests.error.issues.map((issue) => [
+              guestIssueKey(issue),
+              guestIssue(issue),
+            ]),
+          ),
+        ),
+      );
     }
 
     return errors;
@@ -389,197 +458,119 @@ export function RegistrationApplicationForm({
                 "& .MuiFormHelperText-root": { overflowWrap: "anywhere" },
               }}
             >
-              {fields.map((field) => {
-                const name = `answer:${field.id}`;
-                const selected = values[name] ?? [];
-                const issue = feedback.errors[name];
-                const error = issue ? t(issue.code, issue.values) : undefined;
-
-                if (field.type === "SHORT_TEXT" || field.type === "LONG_TEXT") {
-                  return (
-                    <Stack key={field.id} spacing={1}>
-                      <FormLabel
-                        id={`question-${field.id}-label`}
-                        htmlFor={`question-${field.id}`}
-                        required={field.required}
-                        error={!!error}
-                        sx={{
-                          color: "text.primary",
-                          typography: "subtitle1",
-                          overflowWrap: "anywhere",
-                        }}
-                      >
-                        {field.label}
-                      </FormLabel>
-                      <TextField
-                        disabled={pending}
-                        id={`question-${field.id}`}
-                        name={name}
-                        required={field.required}
-                        multiline={field.type === "LONG_TEXT"}
-                        minRows={field.type === "LONG_TEXT" ? 3 : undefined}
-                        value={selected[0] ?? ""}
-                        onChange={(event) => update(name, [event.target.value])}
-                        error={!!error}
-                        helperText={error ?? field.description}
-                        fullWidth
-                        slotProps={{
-                          input: { readOnly: preview },
-                          htmlInput: {
-                            maxLength: field.type === "SHORT_TEXT" ? 500 : 5000,
-                          },
-                        }}
-                      />
-                    </Stack>
-                  );
-                }
-
-                if (field.type === "SINGLE_CHOICE") {
-                  return (
-                    <Stack key={field.id} spacing={1}>
-                      <FormLabel
-                        id={`question-${field.id}-label`}
-                        htmlFor={`question-${field.id}`}
-                        required={field.required}
-                        error={!!error}
-                        sx={{
-                          color: "text.primary",
-                          typography: "subtitle1",
-                          overflowWrap: "anywhere",
-                        }}
-                      >
-                        {field.label}
-                      </FormLabel>
-                      <TextField
-                        disabled={pending}
-                        id={`question-${field.id}`}
-                        name={name}
-                        select
-                        slotProps={{
-                          input: { readOnly: preview },
-                          select: {
-                            labelId: `question-${field.id}-label`,
-                            displayEmpty: true,
-                          },
-                        }}
-                        required={field.required}
-                        value={selected[0] ?? ""}
-                        onChange={(event) =>
-                          update(
-                            name,
-                            event.target.value ? [event.target.value] : [],
-                          )
-                        }
-                        error={!!error}
-                        helperText={error ?? field.description}
-                        fullWidth
-                      >
-                        <MenuItem value="">
-                          {field.required
-                            ? selectPlaceholders.chooseOption
-                            : selectPlaceholders.noSelection}
-                        </MenuItem>
-                        {field.options.map((option) => (
-                          <MenuItem key={option.id} value={option.id}>
-                            {option.label}
-                          </MenuItem>
-                        ))}
-                      </TextField>
-                    </Stack>
-                  );
-                }
-
-                return (
-                  <FormControl
-                    key={field.id}
-                    component={field.type === "CHECKBOX" ? "div" : "fieldset"}
-                    required={field.required}
-                    error={!!error}
-                  >
-                    {field.type !== "CHECKBOX" && (
-                      <FormLabel
-                        component="legend"
-                        sx={{
-                          color: "text.primary",
-                          typography: "subtitle1",
-                          overflowWrap: "anywhere",
-                        }}
-                      >
-                        {field.label}
-                      </FormLabel>
-                    )}
-                    <FormGroup aria-describedby={`${field.id}-help`}>
-                      {field.type === "CHECKBOX" ? (
-                        <FormControlLabel
-                          label={field.label}
-                          control={
-                            <Checkbox
-                              disabled={pending || preview}
-                              name={name}
-                              slotProps={{
-                                input: {
-                                  "aria-invalid": !!error,
-                                  "aria-describedby": `${field.id}-help`,
-                                },
-                              }}
-                              value="true"
-                              required={field.required}
-                              checked={selected.includes("true")}
-                              onChange={(event) =>
-                                update(
-                                  name,
-                                  event.target.checked ? ["true"] : [],
-                                )
-                              }
-                            />
-                          }
-                        />
-                      ) : (
-                        field.options.map((option) => (
-                          <FormControlLabel
-                            key={option.id}
-                            label={option.label}
-                            control={
-                              <Checkbox
-                                disabled={pending || preview}
-                                name={name}
-                                slotProps={{
-                                  input: {
-                                    "aria-invalid": !!error,
-                                    "aria-describedby": `${field.id}-help`,
-                                  },
-                                }}
-                                value={option.id}
-                                checked={selected.includes(option.id)}
-                                onChange={(event) =>
-                                  update(
-                                    name,
-                                    event.target.checked
-                                      ? [...selected, option.id]
-                                      : selected.filter(
-                                          (id) => id !== option.id,
-                                        ),
-                                  )
-                                }
-                              />
-                            }
-                          />
-                        ))
-                      )}
-                    </FormGroup>
-                    <FormHelperText id={`${field.id}-help`}>
-                      {error ??
-                        field.description ??
-                        (field.required
-                          ? t("questionRequiredLabel")
-                          : t("optional"))}
-                    </FormHelperText>
-                  </FormControl>
-                );
-              })}
+              <ApplicationQuestions
+                fields={fields}
+                values={values}
+                errors={feedback.errors}
+                update={update}
+                pending={pending}
+                preview={preview}
+                selectPlaceholders={selectPlaceholders}
+              />
             </Stack>
           </Stack>
         </Box>
+      )}
+      <input
+        type="hidden"
+        name="guests"
+        value={JSON.stringify(guestValues())}
+      />
+      {guestConfiguration.guestPolicy === "APPROVAL_REQUIRED" && (
+        <Stack component="section" spacing={3}>
+          <Typography variant="h5" component="h2">
+            {t("declaredGuests")}
+          </Typography>
+          <Alert severity="info">
+            {t("declareGuestsHint", {
+              count: guestConfiguration.maxGuestsPerRegistration,
+            })}
+          </Alert>
+          {guestKeys.length === 0 && (
+            <EmptyState
+              icon={<PeopleOutlined />}
+              title={t("noGuests")}
+              description={t("noDeclaredGuestsHint")}
+            />
+          )}
+          {guestKeys.map((key, index) => (
+            <Paper variant="outlined" key={key} sx={{ p: { xs: 2, sm: 3 } }}>
+              <Stack spacing={3}>
+                <Stack
+                  direction="row"
+                  sx={{ alignItems: "center", justifyContent: "space-between" }}
+                >
+                  <Typography variant="h6" component="h3">
+                    {t("declaredGuestNumber", { count: index + 1 })}
+                  </Typography>
+                  <Button
+                    disabled={pending || preview}
+                    color="error"
+                    onClick={() => {
+                      setGuestKeys((current) =>
+                        current.filter((value) => value !== key),
+                      );
+                      feedback.setErrors(
+                        Object.fromEntries(
+                          Object.entries(feedback.errors).filter(
+                            ([name]) => !name.startsWith(`guest:${key}:`),
+                          ),
+                        ),
+                      );
+                    }}
+                  >
+                    {t("removeGuest")}
+                  </Button>
+                </Stack>
+                <TextField
+                  required
+                  label={t("fullName")}
+                  value={values[`guest:${key}:name`]?.[0] ?? ""}
+                  disabled={pending || preview}
+                  onChange={(event) =>
+                    update(`guest:${key}:name`, [event.target.value])
+                  }
+                  {...feedback.field(`guest:${key}:name`)}
+                  slotProps={{ htmlInput: { maxLength: 200 } }}
+                />
+                <TextField
+                  label={t("guestEmailOptional")}
+                  type="email"
+                  value={values[`guest:${key}:email`]?.[0] ?? ""}
+                  disabled={pending || preview}
+                  onChange={(event) =>
+                    update(`guest:${key}:email`, [event.target.value])
+                  }
+                  {...feedback.field(`guest:${key}:email`)}
+                />
+                <ApplicationQuestions
+                  fields={guestConfiguration.guestForm.fields}
+                  values={values}
+                  errors={feedback.errors}
+                  update={update}
+                  pending={pending}
+                  preview={preview}
+                  prefix={`guest:${key}:answers:`}
+                  formNames={false}
+                  selectPlaceholders={selectPlaceholders}
+                />
+              </Stack>
+            </Paper>
+          ))}
+          {guestKeys.length < guestConfiguration.maxGuestsPerRegistration && (
+            <Button
+              variant="outlined"
+              disabled={pending || preview}
+              sx={{ alignSelf: "flex-start" }}
+              onClick={() => {
+                const key = nextGuestKey.current++;
+                setGuestKeys((current) => [...current, key]);
+              }}
+            >
+              {t("addGuest")}
+            </Button>
+          )}
+        </Stack>
       )}
       {!preview && (
         <Paper
@@ -598,12 +589,7 @@ export function RegistrationApplicationForm({
               <Alert severity="error">{feedback.message}</Alert>
             )}
             {Object.entries(feedback.errors)
-              .filter(
-                ([name]) =>
-                  name !== "fullName" &&
-                  name !== "email" &&
-                  !fields.some((field) => name === `answer:${field.id}`),
-              )
+              .filter(([name]) => !isFieldError(name))
               .map(([name, message]) => (
                 <Alert severity="error" key={name}>
                   {t(message.code, message.values)}

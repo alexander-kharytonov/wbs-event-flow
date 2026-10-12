@@ -24,5 +24,7 @@
   "reviewApplications": "Розглянути заявки",
   "myRegistrations": "Мої реєстрації",
   "viewTicket": "Переглянути квиток",
-  "schedule": "{start} – {end} ({timezone})"
+  "schedule": "{start} – {end} ({timezone})",
+  "manageApplication": "Керувати заявкою",
+  "anonymousApplication": "Вашу заявку отримано, вона очікує на розгляд. Зберігайте це приватне посилання в таємниці: кожен, хто має його, може переглянути та відкликати заявку, зокрема всю групу після схвалення."
 }

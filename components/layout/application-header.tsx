@@ -24,7 +24,10 @@ export async function ApplicationHeader() {
 
   const assigned = session
     ? await prisma.eventStaff.findFirst({
-        where: { userId: session.user.id },
+        where: {
+          userId: session.user.id,
+          event: { organizer: { userId: { not: session.user.id } } },
+        },
         select: { eventId: true },
       })
     : null;
@@ -60,7 +63,8 @@ export async function ApplicationHeader() {
           >
             <PrimaryNavigation
               signedIn={Boolean(session)}
-              organizer={Boolean(organizer || assigned)}
+              organizer={Boolean(organizer)}
+              staff={Boolean(assigned)}
             />
           </Box>
           <Stack

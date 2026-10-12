@@ -24,5 +24,7 @@
   "reviewApplications": "Рассмотреть заявки",
   "myRegistrations": "Мои регистрации",
   "viewTicket": "Посмотреть билет",
-  "schedule": "{start} – {end} ({timezone})"
+  "schedule": "{start} – {end} ({timezone})",
+  "manageApplication": "Управлять заявкой",
+  "anonymousApplication": "Ваша заявка получена и ожидает рассмотрения. Храните эту приватную ссылку в тайне: любой, у кого она есть, может просмотреть и отозвать заявку, включая всю группу после одобрения."
 }

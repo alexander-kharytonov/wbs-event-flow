@@ -92,6 +92,11 @@ export default async function AnonymousTicketPage({
           </Alert>
         )}
         <TicketCard ticket={data.ticket} />
+        {data.canWithdrawApplication && (
+          <Alert severity="info">
+            <EventText id="applicationAccessHint" />
+          </Alert>
+        )}
         <PartyGuests
           party={data.guests}
           addAction={add}

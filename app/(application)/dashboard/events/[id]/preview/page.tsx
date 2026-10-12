@@ -110,6 +110,7 @@ export default async function PreviewPage({
                     key={`registration-preview:${id}`}
                     preview
                     fields={snapshot.data.registrationForm.fields}
+                    guestConfiguration={snapshot.data}
                     selectPlaceholders={selectPlaceholders}
                     eventContext={
                       <PublicEventCard

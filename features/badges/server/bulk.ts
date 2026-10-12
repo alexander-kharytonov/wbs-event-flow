@@ -238,6 +238,7 @@ export async function buildBulkBadgeDocument(
           name: true,
           kind: true,
           createdAt: true,
+          applicationGuestId: true,
           registration: { select: { sourceApplicationId: true } },
         },
       });
@@ -265,9 +266,7 @@ export async function buildBulkBadgeDocument(
       ].filter((id): id is string => Boolean(id));
       const applicationIds = [
         ...new Set(
-          people
-            .filter((person) => person.kind === "PRIMARY")
-            .map((person) => person.registration.sourceApplicationId),
+          people.map((person) => person.registration.sourceApplicationId),
         ),
       ];
       const applications = fieldIds.length
@@ -276,6 +275,29 @@ export async function buildBulkBadgeDocument(
             select: {
               id: true,
               eventRevision: { select: { snapshot: true } },
+              guests: {
+                where: {
+                  id: {
+                    in: people.flatMap((person) =>
+                      person.applicationGuestId
+                        ? [person.applicationGuestId]
+                        : [],
+                    ),
+                  },
+                },
+                select: {
+                  id: true,
+                  answers: {
+                    where: { fieldId: { in: fieldIds } },
+                    select: {
+                      fieldId: true,
+                      textValue: true,
+                      booleanValue: true,
+                      selectedOptions: { select: { optionId: true } },
+                    },
+                  },
+                },
+              },
               answers: {
                 where: { fieldId: { in: fieldIds } },
                 select: {
@@ -341,10 +363,9 @@ export async function buildBulkBadgeDocument(
         person,
         event.title,
       );
-      const application =
-        person.kind === "PRIMARY"
-          ? applications.get(person.registration.sourceApplicationId)
-          : undefined;
+      const application = applications.get(
+        person.registration.sourceApplicationId,
+      );
 
       if (application) {
         for (const slot of ["secondary", "tertiary"] as const) {
@@ -355,7 +376,12 @@ export async function buildBulkBadgeDocument(
             const resolved = resolveBadgeField(
               binding,
               application.eventRevision.snapshot,
-              application.answers,
+              person.kind === "PRIMARY"
+                ? application.answers
+                : (application.guests.find(
+                    (guest) => guest.id === person.applicationGuestId,
+                  )?.answers ?? []),
+              person.kind,
             );
 
             if (resolved.status === "VALUE") {

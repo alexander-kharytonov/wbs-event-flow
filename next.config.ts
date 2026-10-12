@@ -7,15 +7,25 @@ const nextConfig: NextConfig = {
   images: {
     localPatterns: [{ pathname: "/_next/static/media/**", search: "" }],
   },
-  // Auth and anonymous Ticket URLs contain bearer secrets.
+  // Do not log auth or private access requests; bearer exchanges use POST bodies.
   logging: {
     serverFunctions: false,
-    incomingRequests: { ignore: [/\/api\/auth\//, /\/ticket(?:\/|%2f)/i] },
+    incomingRequests: {
+      ignore: [/\/api\/auth\//, /\/(?:ticket|application)(?:\/|%2f)/i],
+    },
   },
   async headers() {
     return [
       {
         source: "/print/:path*",
+        headers: [
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "Cache-Control", value: "private, no-store, max-age=0" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
+        ],
+      },
+      {
+        source: "/application/:path*",
         headers: [
           { key: "Referrer-Policy", value: "no-referrer" },
           { key: "Cache-Control", value: "private, no-store, max-age=0" },

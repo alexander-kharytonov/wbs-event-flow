@@ -322,8 +322,7 @@ are implemented and accepted.
 `scripts/` contains the read-only `db:check` and explicit `media:cleanup`
 maintenance commands.
 Use lint, TypeScript, build, Prisma validation/migration drift and `db:check` as
-routine gates. Changes to domain contracts also require focused verification with
-isolated disposable data; an empty development database is not domain coverage.
+routine gates.
 Publication snapshots, historical answers, concurrency, authorization and immutable
 media references remain authoritative. Only the current unversioned EventSnapshot
 and EventTemplate contracts are supported.
