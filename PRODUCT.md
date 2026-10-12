@@ -343,7 +343,36 @@ visible without contributing to operational counters. Linked Ticket details refr
 through the existing account stream; anonymous Ticket pages show attendance after reload. Check-in alone does not hide
 the QR; existing revocation/cancellation visibility rules still apply.
 
-## Guests / +1
+## Guest configuration and declarations (GUEST-2)
+
+Events have an explicit guest policy: FLEXIBLE (the default for newly created
+Events) or APPROVAL_REQUIRED. Flexible preserves post-approval party management.
+Approval Required means guests must be declared and reviewed with the application;
+post-approval additions and replacements are prohibited. Guest declarations are
+submission history, not admissions or reserved seats.
+
+Owners can persist guest configuration through the server configuration services
+and current template/import/duplicate contracts. Guest fields reuse registration
+question types, labels, requiredness and options, with a separate GUEST subject.
+They are available only under Approval Required. Applicant questions remain separate.
+The policy can change only before the first application, including withdrawn
+attempts; switching to Flexible requires explicitly removing guest fields first.
+Later field and limit changes never rewrite submitted declarations or revisions.
+
+GUEST-2 supplies persistence and publication only. Application collection, group
+review/admission, guest-answer display, guest badge bindings and guest-answer CSV
+exports are deferred. Existing submission and approval entry points fail closed
+for Approval Required. No new public or staff access to guest answers is provided.
+Guest configuration controls are not added to the manual Event editor in this phase.
+
+Publication requires explicit policy, limit and complete applicant/guest field
+sets. Templates require explicit policy and field subject, generate fresh field
+and option identities on import/duplicate, and never copy guest declarations.
+There is one current unversioned contract. Existing demo snapshots/templates
+without these fields are invalid; no compatibility reader or rewrite is provided.
+Disposable demo data does not authorize a reset or production data mutation.
+
+## Guests / +1 (FLEXIBLE)
 
 The PRIMARY manages their Registration party through a verified account owner
 session or their existing anonymous PRIMARY link. A Guest is an admitted person
@@ -553,12 +582,12 @@ it contains current staff emails. It uses current saved workspace configuration,
 including unpublished Event, Registration Form and Badge Design changes.
 
 The JSON contains title, nullable description, start/end, timezone, visibility,
-account requirement, nullable capacity, maximum guests per registration, nullable
+account requirement, guest policy, nullable capacity, maximum guests per registration, nullable
 registration open/close dates, registration form, staff and nullable badge layout.
 Dates retain their original instants, including past dates. Completed, cancelled
 and archived Events can be exported without copying their lifecycle state.
 
-Custom questions retain their array order, type, label, nullable description,
+Custom questions retain their subject (APPLICANT/GUEST), order within that subject, type, label, nullable description,
 required flag and ordered option labels. Full name/email are built-in inputs,
 not custom fields. Questions receive local keys field_1, field_2, etc.; database
 identities are excluded. Badge bindings use those keys only when the saved

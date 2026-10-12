@@ -47,6 +47,7 @@ export function projectEventTemplate(
   const registrationForm = {
     fields: fields.map((field, index) => ({
       key: `field_${index + 1}`,
+      subject: field.subject,
       type: field.type,
       label: field.label,
       description: field.description,
@@ -70,6 +71,7 @@ export function projectEventTemplate(
 
       const index = fields.findIndex(
         (field) =>
+          field.subject === "APPLICANT" &&
           field.id === binding.fieldId &&
           field.type === binding.type &&
           field.label === binding.label,
@@ -119,6 +121,7 @@ export function projectEventTemplate(
       visibility: source.visibility,
       accountRequirement: source.accountRequirement,
       capacity: source.capacity,
+      guestPolicy: source.guestPolicy,
       maxGuestsPerRegistration: source.maxGuestsPerRegistration,
       registrationOpensAt: source.registrationOpensAt?.toISOString() ?? null,
       registrationClosesAt: source.registrationClosesAt?.toISOString() ?? null,

@@ -41,7 +41,7 @@ function admissionError(
 ): ApplicationFormState | null {
   const current = eventSnapshotSchema.safeParse(currentSnapshot);
 
-  if (!current.success) {
+  if (!current.success || current.data.guestPolicy !== "FLEXIBLE") {
     return { message: { code: "formUnavailable" } };
   }
 
@@ -101,7 +101,11 @@ export async function submitEventApplication(
     });
     const snapshot = eventSnapshotSchema.safeParse(revision?.snapshot);
 
-    if (!revision || !snapshot.success) {
+    if (
+      !revision ||
+      !snapshot.success ||
+      snapshot.data.guestPolicy !== "FLEXIBLE"
+    ) {
       return { message: { code: "formUnavailable" } };
     }
 
@@ -184,6 +188,15 @@ export async function submitEventApplication(
 
           if (unavailable) {
             return unavailable;
+          }
+
+          // Guest application collection/admission is deliberately deferred to GUEST-3.
+          // Also reject an old opened form after a pre-application policy change.
+          if (
+            snapshot.data.guestPolicy !== locked.guestPolicy ||
+            locked.guestPolicy !== "FLEXIBLE"
+          ) {
+            return { message: { code: "formUnavailable" } };
           }
 
           if (!currentEvent) {
