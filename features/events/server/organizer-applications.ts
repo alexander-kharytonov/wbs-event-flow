@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { applicationGuestSelect } from "@/features/events/server/application-guests";
 import { authorizeEventActor } from "@/features/events/server/event-access";
 import { prisma } from "@/lib/prisma";
 
@@ -126,6 +127,10 @@ export async function getEventApplication(
           userId: true,
           reviewedByUser: { select: { name: true } },
           withdrawnAt: true,
+          guests: {
+            select: applicationGuestSelect,
+            orderBy: { position: "asc" },
+          },
           eventRevisionId: true,
           registrations: { select: { createdAt: true, revokedAt: true } },
         },

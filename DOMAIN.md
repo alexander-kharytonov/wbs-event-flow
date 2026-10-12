@@ -208,8 +208,8 @@ resolved through publicId, but need not still be current for an ordinary submiss
 registration availability, effective deadline, and accountRequirement. Ownership
 is checked against the current Event -> OrganizerProfile -> User relation.
 
-`submitEventApplication` resolves identity server-side, validates historical
-answers, obtains Event FOR UPDATE, rereads publication and owner, then checks
+`submitEventApplication` resolves identity server-side, validates historical applicant
+and guest answers, obtains Event FOR UPDATE, rereads publication and owner, then checks
 current admission policy. New applications and nested answers/options are atomic.
 The client cannot supply an authoritative userId or override a verified user's email.
 
@@ -228,7 +228,7 @@ Source: [submission](features/events/server/submit-application.ts).
 
 An Application is one historical submission attempt, not the person's mutable
 registration record. Its submitted payload is eventRevisionId, fullName, email,
-answers, and selected option IDs. Its lifecycle state is status, reviewedAt, reviewedByUserId, and
+answers, selected option IDs and ordered guest declarations with their own answers. Its lifecycle state is status, reviewedAt, reviewedByUserId, and
 withdrawnAt. userId is a nullable identity link, not a replacement for historical
 name/email. Verified sessions supply userId/email; names remain applicant input.
 Emails are trimmed and lowercased by submission code.
@@ -280,8 +280,8 @@ stateDiagram-v2
     [*] --> PENDING: New attempt
     PENDING --> APPROVED: Organizer approval / capacity permits
     PENDING --> REJECTED: Organizer rejection
-    PENDING --> WITHDRAWN: Linked user / before current end
-    APPROVED --> WITHDRAWN: Linked user / before current end
+    PENDING --> WITHDRAWN: Linked user or application capability / before current end
+    APPROVED --> WITHDRAWN: Linked user or application capability / before current end
     note right of WITHDRAWN
       Retained historical attempt.
       Reapply inserts a different PENDING row.
@@ -293,7 +293,8 @@ WITHDRAWN never transitions back to PENDING. Repeating withdrawal of an already
 WITHDRAWN own application returns success without changing it only while the
 Event lifecycle still permits application operations.
 Review accepts only PENDING, writes reviewedAt/reviewedByUserId, and uses a conditional update.
-Approval creates Registration, PRIMARY Attendee and Ticket before EmailOutbox/NOTIFY in the same transaction;
+Approval creates Registration, PRIMARY and declared GUEST Attendees with one Ticket
+each before EmailOutbox/NOTIFY in the same transaction;
 rejection never creates Registration.
 Withdrawal writes withdrawnAt and retains previous reviewedAt/reviewedByUserId. For an initially
 APPROVED attempt, exactly one active Registration must be conditionally revoked
@@ -335,8 +336,8 @@ available = max(0, capacity - filled)
 ```
 
 Submit and reapply may create PENDING even when full. Approve locks Event, reads
-current capacity, counts active Attendees, and refuses approval when full.
-APPROVED -> WITHDRAWN atomically revokes admission and releases a place. Publishing a lower capacity may make the
+current capacity, counts active Attendees, and refuses approval unless the whole group (1 + declared guests) fits.
+APPROVED -> WITHDRAWN atomically revokes admission and releases its occupied places. Publishing a lower capacity may make the
 Event over capacity without demoting existing approvals. Later approvals remain
 blocked until space exists. Concurrent approvals cannot independently take the
 same final slot through the current server flow.
@@ -346,7 +347,7 @@ Sources: [review](features/events/server/review-application.ts),
 
 ## 12. Withdrawal and reapplication
 
-The withdrawal action requires a verified User. The server finds the application
+Linked withdrawal requires a verified User. The server finds the application
 by id + Event + that userId, permits PENDING/APPROVED, and requires now < the
 current published endsAt and persisted Event endsAt, with no cancellation. It does not use the submitted revision's end or the
 registration close. REJECTED cannot be withdrawn. No payload/answers are deleted.
@@ -365,9 +366,13 @@ and order. Changed/deleted fields do not carry answers; new required fields must
 be answered. Workspace option replacement can invalidate choice prefill even if
 labels look unchanged. The previous attempt remains untouched.
 
-There is no anonymous withdrawal/claiming extension. The extra current-revision
-reapply check is keyed by verified userId, not anonymous email; ordinary anonymous
-submission still follows section 7.
+Anonymous withdrawal uses the attempt-specific application capability described in
+section 25. It is reauthorized under the same Event lock and delegates to the same
+whole-party revocation transaction. No email ownership or claiming is introduced.
+The extra current-revision reapply check remains keyed by verified userId, not
+anonymous email; ordinary anonymous submission still follows section 7. Every new
+anonymous attempt receives an independent credential. Guest declarations and answers
+are never automatically copied into either kind of reapplication.
 
 Sources: [Public Event](app/e/[publicId]/page.tsx),
 [prefill](features/events/application-prefill.ts),
@@ -939,7 +944,7 @@ account association, equal for PRIMARY; GUEST has no account. Deleting User
 SET NULLs both without inventing anonymous capabilities or rewriting snapshots.
 
 Approve is Event lock -> DB decisionNow -> guards/active Attendee capacity ->
-Application approval -> Registration -> PRIMARY -> Ticket -> Outbox -> NOTIFY ->
+Application approval -> Registration -> PRIMARY and declared GUESTs -> Tickets -> Outbox -> NOTIFY ->
 commit. Any failure rolls back all writes. Approved Withdraw verifies PRIMARY and
 Ticket correspondence and revokes the whole active party at the same decisionNow; Attendance
 is untouched. It selects PRIMARY by kind, not by assuming no future other people.
@@ -955,7 +960,7 @@ with the same token and URL.
 Active Registration count equals active PRIMARY count; Guests add further capacity seats.
 Guest policy and party management are defined below.
 
-## 25. Guests and party management (21B; GUEST-2 persistence)
+## 25. Guests and party management (21B; GUEST-2 / GUEST-3)
 
 Event.guestPolicy is FLEXIBLE or APPROVAL_REQUIRED, with a FLEXIBLE creation
 and migration default. updateGuestPolicy takes a verified server actor, locks
@@ -983,7 +988,8 @@ Field/option identifiers resolve exclusively through Application.eventRevision,
 not mutable RegistrationField FKs; deleting draft fields cannot delete answers.
 Requiredness, type, field membership and option membership follow the frozen
 guestForm. These invariants are verified by db:check, alongside guest count/position
-against the submitted limit and policy binding. Submission writers remain deferred.
+against the submitted limit and policy binding. Submission inserts declarations,
+answers and selected options with the Application in one transaction.
 
 Attendee.applicationGuestId is nullable and unique. Flexible guests have no
 provenance; declared admitted guests carry both applicationGuestId and
@@ -993,8 +999,8 @@ Registration(id, sourceApplicationId). A CHECK requires both provenance columns
 or neither and allows non-null provenance only on GUEST. This prevents cross-party
 and cross-application linkage, including within the same Event. Declared identity
 must match the admitted copy; db:check verifies this correspondence. Declaration
-and answer history survives removal and withdrawal. Admission is not implemented
-in GUEST-2; neither seats nor Tickets are created by declaration persistence.
+and answer history survives removal and withdrawal. Declaration persistence alone
+creates neither seats nor Tickets.
 
 EventSnapshot strictly requires guestPolicy and guestForm {fields: [...]}, alongside
 maxGuestsPerRegistration and registrationForm. Both field sets retain complete
@@ -1003,11 +1009,74 @@ unique across both sets. FLEXIBLE requires an empty guestForm. Publish/Preview
 use one builder; later draft changes do not modify any EventRevision. Public
 catalog and restricted staff DTOs receive no submitted guest data.
 
-GUEST-2 deliberately rejects APPROVAL_REQUIRED at existing submission/approval
-entry points and rejects post-approval Add. Remove retains existing authority,
-revocation and lifecycle rules. Full application collection, group admission,
-answer presentation, badge bindings and CSV expansion are later phases. Anonymous
-authority, email delivery, credentials and realtime routing are unchanged.
+GUEST-3 accepts APPROVAL_REQUIRED through the existing application entry point.
+The opened revision freezes guest policy, limit, GUEST fields and applicant fields as
+one mounted form contract. Zero guests is valid. Name, optional normalized email and
+all five existing question types use shared client/server validation. Guest input is
+strictly bounded and remains separate from applicant answers; errors use stable codes
+and guest/field paths. Stable local guest keys preserve other guests' values and errors
+when removing a declaration. No locale key, refresh or navigation is introduced.
+
+Approval reauthorizes after Event FOR UPDATE, requires PENDING, and validates declared
+positions, identity, field membership, typed stored values, required answers and option
+IDs against the submitted snapshot. Current draft questions/limits cannot reinterpret
+that group. Current published capacity must fit PRIMARY plus every declared guest.
+All Attendees and Tickets have the same admission instant. Declaration provenance is
+recorded on each GUEST. Any failure, including Ticket issue or Outbox/NOTIFY failure,
+rolls back the entire transition. Rejection does not require readable guest history.
+The existing Event lock serializes competing approvals, publication, withdrawal and
+removal. Unique admission/provenance/Ticket constraints prevent duplicate admissions.
+
+OWNER/MANAGER application detail reads guest declarations only after applications.read
+authorization, under RepeatableRead, and renders historical answers. Linked account
+detail reads only the account's attempts. The private application capability reads only
+its attempt. Reception, public APIs, catalog, emails and SSE receive no guest answers.
+Email remains one existing approval delivery to the applicant, with the PRIMARY Ticket
+reference; no guest emails are introduced. GUEST-4 badge bindings and CSV expansion
+remain deferred. Post-approval Add is prohibited for APPROVAL_REQUIRED; Remove retains
+existing authority, revocation and persisted-start rules. No replacement or restore
+mutation exists.
+
+### Attempt-specific anonymous application access
+
+Application has a nullable unique anonymousAccessHash and nullable encrypted secret.
+An anonymous submission generates 32 random bytes and SHA-256 lookup hash atomically
+with the Application, guest declarations, answers and transactional communications.
+The AES-256-GCM envelope uses the existing encryption key with distinct authenticated
+context `eventflow:application:v1:<applicationId>:access`; it cannot be swapped between
+attempts or with Ticket envelopes. Linked submissions have no application capability.
+Deletion of a linked User never creates one. Incremental migration
+20261012180000_application_access adds the columns, pair CHECK and withdrawn-access
+CHECK without changing previous migrations or backfilling credentials.
+
+APPLICATION_RECEIVED payload carries only an optional applicationId reference, never
+bearer material. Existing queued deliveries without a reference retain their ordinary
+CTA. At delivery, an eligible stored application capability produces
+`/application#<capability>`. Withdrawal clears its hash/envelope, so later rendering
+cannot offer that link. Delivery already in progress may still contain a revoked link;
+the server rejects it. Submission and duplicate responses remain `{success:true}` with
+no credential or existing-record disclosure. Application references do not enter
+Communication context, manual message history or SSE.
+
+The entry page exchanges the fragment through bounded same-origin protected POST,
+clears the fragment, and opens `/application/view/<applicationId>`. The response contains
+only that nonsecret path. A two-hour nonrenewing HttpOnly SameSite=Strict cookie is
+scoped to the exact application path, Secure in production, with an application-specific
+HKDF/AES-GCM session purpose. Duplicate cookie names, invalid envelopes, mismatched IDs
+and expiry fail closed. Every view and withdrawal rechecks the database capability;
+a session never becomes authority for another attempt. Application pages are private,
+no-store, no-referrer and noindex; secrets never enter path/query, logs or analytics.
+Request-body logging must remain disabled in infrastructure, as for Ticket exchange.
+
+Application access grants only viewing that attempt's submitted details and confirmed
+withdrawal, including its admitted party. It grants no account identity, new application
+authority, Ticket view or Guest Add/Remove. Ticket credentials and capability transport
+remain independent. Withdrawal reauthorizes under Event lock, preserves historical
+payload, clears application access, and atomically revokes all still-active party
+Attendees and Tickets. Previously removed guests keep their original revocation times.
+Anonymous retries after access revocation return neutral unavailable; linked withdrawal
+retains its existing idempotent success. A fresh anonymous submission creates a new
+attempt and new capability, never reactivating old admissions or credentials.
 
 The following post-approval Add behavior applies only to FLEXIBLE.
 

@@ -24,5 +24,7 @@
   "reviewApplications": "Review applications",
   "myRegistrations": "My registrations",
   "viewTicket": "View ticket",
-  "schedule": "{start} – {end} ({timezone})"
+  "schedule": "{start} – {end} ({timezone})",
+  "manageApplication": "Manage application",
+  "anonymousApplication": "Your application has been received and is awaiting review. Keep this private link safe: anyone holding it can view this application and withdraw it, including the whole party after approval."
 }

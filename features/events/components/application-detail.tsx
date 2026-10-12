@@ -10,6 +10,7 @@ import { EventHeader } from "@/features/events/components/event-header";
 import { EventText } from "@/features/events/components/event-text";
 import { RegistrationAdmission } from "@/features/events/components/registration-admission";
 import { SubmittedAnswers } from "@/features/events/components/submitted-answers";
+import { SubmittedGuests } from "@/features/events/components/submitted-guests";
 import { applicationsFrozen } from "@/features/events/event-lifecycle";
 import { historicalAnswers } from "@/features/events/historical-answers";
 import { getEventApplication } from "@/features/events/server/organizer-applications";
@@ -158,6 +159,18 @@ export async function ApplicationDetail({
         </Stack>
         <SubmittedAnswers answers={answers} />
       </Stack>
+      <SubmittedGuests
+        guests={application.guests.map((guest) => ({
+          id: guest.id,
+          name: guest.name,
+          email: guest.email,
+          answers: historicalAnswers(
+            application.eventRevision.snapshot,
+            guest.answers,
+            "GUEST",
+          ),
+        }))}
+      />
       {applicationsFrozen(event, new Date()) && (
         <Alert severity="info">
           <EventText id="applicationFrozenHint" />

@@ -23,6 +23,7 @@ export const applicationInputSchema = z.strictObject({
     .pipe(z.email())
     .transform((email) => email.toLowerCase()),
   answers: z.record(z.string(), z.array(z.string())),
+  guests: z.array(z.unknown()).max(10),
 });
 
 export function applicationAnswersSchema(snapshot: {
@@ -150,4 +151,52 @@ export function applicationIssue(issue: z.core.$ZodIssue): ApplicationIssue {
   return {
     code: issue.path[0] === "fullName" ? "fullNameRequired" : "invalidAnswer",
   };
+}
+
+export function applicationGuestsSchema(
+  snapshot: Pick<
+    EventSnapshot,
+    "guestPolicy" | "maxGuestsPerRegistration" | "guestForm"
+  >,
+) {
+  return z
+    .array(
+      z.strictObject({
+        name: applicationInputSchema.shape.fullName,
+        email: z.preprocess(
+          (value) =>
+            typeof value === "string" && !value.trim() ? null : value,
+          applicationInputSchema.shape.email
+            .nullable()
+            .optional()
+            .transform((value) => value ?? null),
+        ),
+        answers: applicationAnswersSchema({
+          registrationForm: snapshot.guestForm,
+        }),
+      }),
+    )
+    .max(
+      snapshot.guestPolicy === "APPROVAL_REQUIRED"
+        ? snapshot.maxGuestsPerRegistration
+        : 0,
+    );
+}
+
+export function guestIssue(issue: z.core.$ZodIssue): ApplicationIssue {
+  if (issue.path.length === 0) {
+    return { code: "guestLimitReached" };
+  }
+
+  return applicationIssue({
+    ...issue,
+    path: [
+      issue.path[1] === "name" ? "fullName" : issue.path[1],
+      ...issue.path.slice(2),
+    ],
+  });
+}
+
+export function guestIssueKey(issue: z.core.$ZodIssue) {
+  return issue.path.length ? `guest:${issue.path.join(":")}` : "guests";
 }

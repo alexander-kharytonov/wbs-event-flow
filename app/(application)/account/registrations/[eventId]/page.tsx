@@ -20,6 +20,7 @@ import { ApplicationStatus } from "@/features/events/components/application-stat
 import { EventText } from "@/features/events/components/event-text";
 import { RegistrationAdmission } from "@/features/events/components/registration-admission";
 import { SubmittedAnswers } from "@/features/events/components/submitted-answers";
+import { SubmittedGuests } from "@/features/events/components/submitted-guests";
 import { WithdrawApplicationButton } from "@/features/events/components/withdraw-application-button";
 import { getMyRegistration } from "@/features/events/server/get-my-registration";
 import { PartyGuests } from "@/features/guests/components/party-guests";
@@ -136,6 +137,7 @@ function AttemptAnswers({ attempt }: { attempt: Attempt }) {
         <EventText id="applicationAnswers" />
       </Typography>
       <SubmittedAnswers answers={attempt.answers} />
+      <SubmittedGuests guests={attempt.declaredGuests} />
     </Stack>
   );
 }

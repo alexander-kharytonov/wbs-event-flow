@@ -35,7 +35,10 @@ export async function getAnonymousTicket(access: string) {
                 orderBy: [{ createdAt: "asc" }, { id: "asc" }],
               },
               sourceApplication: {
-                select: { eventRevision: { select: { snapshot: true } } },
+                select: {
+                  anonymousAccessHash: true,
+                  eventRevision: { select: { snapshot: true } },
+                },
               },
               event: {
                 select: {
@@ -71,6 +74,15 @@ export async function getAnonymousTicket(access: string) {
       : null;
 
   return {
+    canWithdrawApplication:
+      Boolean(
+        ticket.attendee.registration.sourceApplication.anonymousAccessHash,
+      ) &&
+      !ticket.attendee.registration.revokedAt &&
+      !event.cancelledAt &&
+      event.endsAt.getTime() > Date.now() &&
+      published.success &&
+      Date.parse(published.data.endsAt) > Date.now(),
     guests: await presentPartyGuests(
       ticket.attendee.registration,
       event,
