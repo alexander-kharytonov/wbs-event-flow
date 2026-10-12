@@ -1063,5 +1063,14 @@
   "noUpcomingEvents": "No upcoming events",
   "noUpcomingEventsHint": "Create an event or open My Events to view your existing workspaces.",
   "staffDashboardTitle": "Your staff workspace",
-  "staffDashboardHint": "Open Staff Events to access the events you help manage."
+  "staffDashboardHint": "Open Staff Events to access the events you help manage.",
+  "guestPolicyLabel": "Guest policy",
+  "guestPolicyFlexible": "Flexible Guests",
+  "guestPolicyApprovalRequired": "Approval Required",
+  "guestPolicyChangeHint": "Saved with the event draft. Publish the draft to update the public page.",
+  "guestPolicyFlexibleHint": "Participants can add and remove guests after approval, until the event starts. Guests occupy places.",
+  "guestPolicyApprovalHint": "Guests are declared in the application and approved together with the participant. Adding or replacing guests after approval is not allowed; removal is possible before the event starts.",
+  "guestPolicyLocked": "The guest policy cannot change after the first application, including withdrawn applications.",
+  "guestPolicyFieldsExist": "Remove all guest questions before switching to Flexible Guests.",
+  "inputGuestPolicy": "Select a guest policy."
 }

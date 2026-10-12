@@ -425,8 +425,15 @@ Declarations and answers remain in history; removed guests cannot be restored.
 Flexible events retain their existing post-approval Add/Remove flow.
 
 Guest badge bindings and guest-answer CSV exports are integrated in GUEST-4 below.
-Manual Event editor guest-policy/question controls remain outside this phase; existing
-configuration services and template/import contracts supply the configuration.
+The Event editor's Registration section exposes Flexible Guests / Approval Required.
+The selected policy is saved atomically with the other draft fields; new manual
+Events default to Flexible. Import/duplicate review preserves the source policy
+and permits changes only when compatible with its guest fields. The selector is
+locked after any application exists and explains the restriction. Switching back
+to Flexible is disabled while guest questions exist; the server rechecks both rules
+under the Event lock. Disabling guests changes the limit to zero, not the policy.
+Published content still changes only on publication. Manual guest-question editing
+remains outside this UI change.
 
 Publication requires explicit policy, limit and complete applicant/guest field
 sets. Templates require explicit policy and field subject, generate fresh field

@@ -964,8 +964,14 @@ Guest policy and party management are defined below.
 
 ## 25. Guests and party management (21B; GUEST-2 / GUEST-3)
 
-Event.guestPolicy is FLEXIBLE or APPROVAL_REQUIRED, with a FLEXIBLE creation
-and migration default. updateGuestPolicy takes a verified server actor, locks
+Event.guestPolicy is FLEXIBLE or APPROVAL_REQUIRED. Manual Create initializes
+FLEXIBLE; the validated authoring input requires an explicit policy, as do templates.
+The migration default remains FLEXIBLE. The Event editor saves policy with the other
+fields in updateEvent's owner-authorized, version-checked transaction. It shares the
+policy-change guard with updateGuestPolicy, with no intermediate partial save.
+Unchanged policies permit unrelated edits even after applications exist. Server
+field-error codes are translated at render time and do not reset other draft values.
+updateGuestPolicy takes a verified server actor, locks
 Event at ReadCommitted, checks owner permission and persisted lifecycle, and
 uses an optimistic updatedAt version. A policy change is prohibited after ANY
 Application exists, including withdrawn attempts. The policy write increments

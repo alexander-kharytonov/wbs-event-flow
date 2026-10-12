@@ -355,6 +355,7 @@ export function templateEventValues(event: TemplateEvent) {
     visibility: event.visibility,
     accountRequirement: event.accountRequirement,
     capacity: event.capacity?.toString() ?? "",
+    guestPolicy: event.guestPolicy,
     maxGuestsPerRegistration: String(event.maxGuestsPerRegistration),
   };
 }

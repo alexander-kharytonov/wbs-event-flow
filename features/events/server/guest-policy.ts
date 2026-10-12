@@ -3,6 +3,7 @@ import { z } from "zod";
 import { workspaceReadOnly } from "@/features/events/event-lifecycle";
 import { authorizeEventActor } from "@/features/events/server/event-access";
 import { lockEventForUpdate } from "@/features/events/server/lock-event-for-update";
+import type { GuestPolicy, Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { notifyEventChanged } from "@/lib/realtime/application-notifications";
 
@@ -41,17 +42,15 @@ export async function updateGuestPolicy(actorUserId: string, input: unknown) {
         return { code: "UNCHANGED" } as const;
       }
 
-      if (await tx.application.count({ where: { eventId: event.id } })) {
-        return { code: "POLICY_LOCKED" } as const;
-      }
+      const error = await guestPolicyChangeError(
+        tx,
+        event.id,
+        event.guestPolicy,
+        command.guestPolicy,
+      );
 
-      if (
-        command.guestPolicy === "FLEXIBLE" &&
-        (await tx.registrationField.count({
-          where: { form: { eventId: event.id }, subject: "GUEST" },
-        }))
-      ) {
-        return { code: "GUEST_FIELDS_EXIST" } as const;
+      if (error) {
+        return { code: error } as const;
       }
 
       const saved = await tx.event.update({
@@ -74,4 +73,31 @@ export async function updateGuestPolicy(actorUserId: string, input: unknown) {
     },
     { isolationLevel: "ReadCommitted" },
   );
+}
+
+// The caller must authorize the owner and hold the Event lock before this check.
+export async function guestPolicyChangeError(
+  tx: Prisma.TransactionClient,
+  eventId: string,
+  current: GuestPolicy,
+  next: GuestPolicy,
+) {
+  if (current === next) {
+    return null;
+  }
+
+  if (await tx.application.count({ where: { eventId } })) {
+    return "POLICY_LOCKED" as const;
+  }
+
+  if (
+    next === "FLEXIBLE" &&
+    (await tx.registrationField.count({
+      where: { form: { eventId }, subject: "GUEST" },
+    }))
+  ) {
+    return "GUEST_FIELDS_EXIST" as const;
+  }
+
+  return null;
 }

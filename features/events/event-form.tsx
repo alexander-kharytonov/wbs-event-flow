@@ -57,6 +57,7 @@ const emptyValues: Omit<EventFormValues, "language"> = {
   visibility: "PRIVATE",
   accountRequirement: "OPTIONAL",
   capacity: "",
+  guestPolicy: "FLEXIBLE",
   maxGuestsPerRegistration: "0",
   registrationOpensAt: "",
   registrationClosesAt: "",
@@ -64,6 +65,8 @@ const emptyValues: Omit<EventFormValues, "language"> = {
 
 export function EventForm({
   initialValues,
+  guestPolicyLocked = false,
+  hasGuestFields = false,
   serverAction,
   edit,
   startLocked: initialStartLocked = false,
@@ -77,6 +80,8 @@ export function EventForm({
   extraDirty = false,
   onBusyChange,
 }: {
+  guestPolicyLocked?: boolean;
+  hasGuestFields?: boolean;
   onBusyChange?: (busy: boolean) => void;
   extraDirty?: boolean;
   initialCover?: EditableCover;
@@ -519,6 +524,11 @@ export function EventForm({
             }}
             disabled={pending || coverBusy}
             startLocked={startLocked}
+            guestPolicyLocked={guestPolicyLocked}
+            persistedGuestPolicy={
+              initialValues?.guestPolicy ?? initial.guestPolicy
+            }
+            hasGuestFields={hasGuestFields}
             edit={edit && dateSource ? { dates: dateSource } : undefined}
             timezones={timezones}
             markDateEdited={markDateEdited}
