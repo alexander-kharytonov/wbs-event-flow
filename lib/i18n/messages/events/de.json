@@ -1063,5 +1063,14 @@
   "noUpcomingEvents": "Keine bevorstehenden Events",
   "noUpcomingEventsHint": "Erstelle ein Event oder öffne Meine Events, um deine Arbeitsbereiche zu sehen.",
   "staffDashboardTitle": "Dein Team-Arbeitsbereich",
-  "staffDashboardHint": "Öffne Team-Events, um auf die Events zuzugreifen, bei denen du mithilfst."
+  "staffDashboardHint": "Öffne Team-Events, um auf die Events zuzugreifen, bei denen du mithilfst.",
+  "guestPolicyLabel": "Gästemodus",
+  "guestPolicyFlexible": "Flexible Guests — flexibel",
+  "guestPolicyApprovalRequired": "Approval Required — Genehmigung erforderlich",
+  "guestPolicyChangeHint": "Wird mit dem Event-Entwurf gespeichert. Veröffentliche den Entwurf, um die öffentliche Seite zu aktualisieren.",
+  "guestPolicyFlexibleHint": "Teilnehmende können nach der Genehmigung und bis zum Eventbeginn Gäste hinzufügen und entfernen. Gäste belegen Plätze.",
+  "guestPolicyApprovalHint": "Gäste werden in der Anmeldung angegeben und gemeinsam genehmigt. Danach können keine Gäste hinzugefügt oder ersetzt werden; Entfernen ist vor Eventbeginn möglich.",
+  "guestPolicyLocked": "Der Gästemodus kann nach der ersten Anmeldung nicht mehr geändert werden, auch wenn sie zurückgezogen wurde.",
+  "guestPolicyFieldsExist": "Entferne alle Gästefragen, bevor du zu Flexible Guests wechselst.",
+  "inputGuestPolicy": "Wähle einen Gästemodus."
 }

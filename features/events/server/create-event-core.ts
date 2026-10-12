@@ -14,9 +14,7 @@ import {
 import type { StaffInput } from "@/features/events/staff-input";
 import { Prisma } from "@/generated/prisma/client";
 
-type EventConfiguration = z.output<typeof eventInputSchema> & {
-  guestPolicy?: "FLEXIBLE" | "APPROVAL_REQUIRED";
-};
+type EventConfiguration = z.output<typeof eventInputSchema>;
 
 // Authorization and validation belong to the server adapter. All writes use its tx.
 export async function createEventCore(
@@ -43,7 +41,7 @@ export async function createEventCore(
       visibility: configuration.visibility,
       accountRequirement: configuration.accountRequirement,
       capacity: configuration.capacity,
-      guestPolicy: configuration.guestPolicy ?? "FLEXIBLE",
+      guestPolicy: configuration.guestPolicy,
       maxGuestsPerRegistration: configuration.maxGuestsPerRegistration,
       registrationOpensAt: configuration.registrationOpensAt,
       registrationClosesAt: configuration.registrationClosesAt,

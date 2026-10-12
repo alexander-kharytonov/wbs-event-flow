@@ -1063,5 +1063,14 @@
   "noUpcomingEvents": "Brak nadchodzących wydarzeń",
   "noUpcomingEventsHint": "Utwórz wydarzenie lub otwórz Moje wydarzenia, aby zobaczyć istniejące wydarzenia.",
   "staffDashboardTitle": "Twój obszar zespołu",
-  "staffDashboardHint": "Otwórz Wydarzenia zespołu, aby przejść do wydarzeń, przy których pomagasz."
+  "staffDashboardHint": "Otwórz Wydarzenia zespołu, aby przejść do wydarzeń, przy których pomagasz.",
+  "guestPolicyLabel": "Tryb gości",
+  "guestPolicyFlexible": "Flexible Guests — elastyczny",
+  "guestPolicyApprovalRequired": "Approval Required — wymaga zatwierdzenia",
+  "guestPolicyChangeHint": "Zapisywany wraz ze szkicem wydarzenia. Opublikuj szkic, aby zaktualizować stronę publiczną.",
+  "guestPolicyFlexibleHint": "Po zatwierdzeniu zgłoszenia uczestnicy mogą dodawać i usuwać gości do rozpoczęcia wydarzenia. Goście zajmują miejsca.",
+  "guestPolicyApprovalHint": "Goście są zgłaszani we wniosku i zatwierdzani razem z uczestnikiem. Później nie można ich dodawać ani zastępować; usunięcie jest możliwe przed rozpoczęciem wydarzenia.",
+  "guestPolicyLocked": "Trybu gości nie można zmienić po pierwszym zgłoszeniu, także wycofanym.",
+  "guestPolicyFieldsExist": "Usuń wszystkie pytania dla gości przed przejściem do Flexible Guests.",
+  "inputGuestPolicy": "Wybierz tryb gości."
 }

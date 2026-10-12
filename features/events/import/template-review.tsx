@@ -283,6 +283,9 @@ export function TemplateReview({
         sx={{ border: 0, p: 0, m: 0, minWidth: 0 }}
       >
         <EventForm
+          hasGuestFields={event.registrationForm.fields.some(
+            (field) => field.subject === "GUEST",
+          )}
           extraDirty={JSON.stringify(event) !== JSON.stringify(initial)}
           importedDates={initial}
           initialErrors={
