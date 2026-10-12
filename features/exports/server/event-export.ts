@@ -8,6 +8,7 @@ import {
 import {
   checkRowLimit,
   createCsv,
+  ExportError,
   MAX_EXPORT_ROWS,
 } from "@/features/exports/csv";
 import {
@@ -42,6 +43,12 @@ const headers = {
     "Reviewer availability",
     "Withdrawn at",
     "Submitted revision",
+    "Row subject",
+    "Registration ID",
+    "Guest declaration ID",
+    "Guest position",
+    "Guest name",
+    "Guest email",
   ],
   attendees: [
     ...contextHeaders,
@@ -59,6 +66,7 @@ const headers = {
     "Primary name",
     "Submitted revision",
     "Answers scope",
+    "Guest declaration ID",
   ],
   attendance: [
     ...contextHeaders,
@@ -218,9 +226,13 @@ export async function buildEventCsv(
             withdrawnAt: true,
             eventRevisionId: true,
             reviewedByUser: { select: { name: true } },
+            registrations: { select: { id: true } },
+            _count: { select: { guests: true } },
           },
         });
-        checkRowLimit(rows.length);
+        checkRowLimit(
+          rows.reduce((count, row) => count + 1 + row._count.guests, 0),
+        );
         const { columns, numbers } = await history(
           tx,
           eventId,
@@ -236,8 +248,28 @@ export async function buildEventCsv(
             batch.map(({ id }) => id),
           );
 
+          const guests = await tx.applicationGuest.findMany({
+            where: { applicationId: { in: batch.map(({ id }) => id) } },
+            orderBy: [{ position: "asc" }, { id: "asc" }],
+            select: {
+              id: true,
+              applicationId: true,
+              position: true,
+              name: true,
+              email: true,
+              answers: {
+                select: {
+                  fieldId: true,
+                  textValue: true,
+                  booleanValue: true,
+                  selectedOptions: { select: { optionId: true } },
+                },
+              },
+            },
+          });
+
           for (const row of batch) {
-            output.add([
+            const applicationContext = [
               ...context,
               row.id,
               row.fullName,
@@ -250,13 +282,42 @@ export async function buildEventCsv(
               row.reviewedByUser ? "AVAILABLE" : "UNAVAILABLE",
               row.withdrawnAt,
               numbers.get(row.eventRevisionId) ?? null,
+            ];
+            output.add([
+              ...applicationContext,
+              "APPLICANT",
+              row.registrations[0]?.id ?? null,
+              null,
+              null,
+              null,
+              null,
               ...answerCells(
                 columns,
                 row.eventRevisionId,
                 answers.get(row.id) ?? [],
-                true,
+                "APPLICANT",
               ),
             ]);
+
+            for (const guest of guests.filter(
+              (guest) => guest.applicationId === row.id,
+            )) {
+              output.add([
+                ...applicationContext,
+                "GUEST",
+                row.registrations[0]?.id ?? null,
+                guest.id,
+                guest.position + 1,
+                guest.name,
+                guest.email,
+                ...answerCells(
+                  columns,
+                  row.eventRevisionId,
+                  guest.answers,
+                  "GUEST",
+                ),
+              ]);
+            }
           }
         }
 
@@ -269,6 +330,7 @@ export async function buildEventCsv(
           select: {
             id: true,
             kind: true,
+            applicationGuestId: true,
             name: true,
             email: true,
             createdAt: true,
@@ -294,10 +356,48 @@ export async function buildEventCsv(
               .map((row) => row.registration.sourceApplicationId),
           );
 
+          const guests = await tx.applicationGuest.findMany({
+            where: {
+              id: {
+                in: batch.flatMap((row) =>
+                  row.applicationGuestId ? [row.applicationGuestId] : [],
+                ),
+              },
+            },
+            select: {
+              id: true,
+              applicationId: true,
+              answers: {
+                select: {
+                  fieldId: true,
+                  textValue: true,
+                  booleanValue: true,
+                  selectedOptions: { select: { optionId: true } },
+                },
+              },
+            },
+          });
+          const declarations = new Map(
+            guests.map((guest) => [guest.id, guest]),
+          );
+
           for (const row of batch) {
             const registration = row.registration;
             const revisionId = registration.sourceApplication.eventRevisionId;
             const primary = row.kind === "PRIMARY";
+            const guest = row.applicationGuestId
+              ? declarations.get(row.applicationGuestId)
+              : undefined;
+
+            if (
+              row.applicationGuestId &&
+              (!guest ||
+                primary ||
+                guest.applicationId !== registration.sourceApplicationId)
+            ) {
+              throw new ExportError("exportHistory");
+            }
+
             output.add([
               ...context,
               row.id,
@@ -313,14 +413,19 @@ export async function buildEventCsv(
               registration.sourceApplicationId,
               primary ? null : (registration.attendees[0]?.name ?? null),
               numbers.get(revisionId) ?? null,
-              primary ? "SOURCE_APPLICATION" : "NOT_APPLICABLE",
+              primary
+                ? "SOURCE_APPLICATION"
+                : guest
+                  ? "GUEST_DECLARATION"
+                  : "NOT_APPLICABLE",
+              row.applicationGuestId,
               ...answerCells(
                 columns,
                 revisionId,
                 primary
                   ? (answers.get(registration.sourceApplicationId) ?? [])
-                  : [],
-                primary,
+                  : (guest?.answers ?? []),
+                primary ? "APPLICANT" : guest ? "GUEST" : null,
               ),
             ]);
           }

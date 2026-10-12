@@ -109,10 +109,6 @@ function ReviewBadge({
       }
     : null;
   const catalog = event.registrationForm.fields.flatMap((field, index) => {
-    if (field.subject !== "APPLICANT") {
-      return [];
-    }
-
     const parsed = badgeFieldSchema.safeParse({
       fieldId: field.key,
       type: field.type,
@@ -123,6 +119,7 @@ function ReviewBadge({
       ? [
           {
             ...parsed.data,
+            subject: field.subject,
             context: "templateQuestion" as const,
             contextValues: { number: index + 1 },
           },

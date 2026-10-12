@@ -130,7 +130,7 @@ export async function createEventCore(
       const field = byKey.get(binding.fieldKey);
 
       if (
-        field?.subject !== "APPLICANT" ||
+        !field ||
         field.type !== binding.type ||
         field.label !== binding.label
       ) {
@@ -141,9 +141,7 @@ export async function createEventCore(
     };
     const catalog: BadgeField[] = [];
 
-    for (const field of created.filter(
-      (field) => field.subject === "APPLICANT",
-    )) {
+    for (const field of created) {
       const candidate = badgeFieldSchema.safeParse({
         fieldId: field.id,
         type: field.type,

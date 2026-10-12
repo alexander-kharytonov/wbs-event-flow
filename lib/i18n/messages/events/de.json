@@ -915,7 +915,7 @@
   "badgeAttendeeType": "Teilnehmertyp",
   "badgeSecondary": "Zweites Feld",
   "badgeTertiary": "Drittes Feld",
-  "badgePrivacyHint": "Ausgewählte Werte sind für Teammitglieder mit Druckberechtigung sichtbar, einschließlich Empfang. Gäste übernehmen diese Antworten nie.",
+  "badgePrivacyHint": "Jeder Platz verwendet eine Antragsteller- oder Gastfrage. Ausgewählte Werte sind für alle zum Badge-Druck berechtigten Mitarbeitenden sichtbar, auch für die Rezeption. Andere Antworten werden nicht aufgenommen.",
   "badgePreviewUnavailable": "Vorschau nicht verfügbar. Lade neu, um Zugriff und Einstellungen zu prüfen.",
   "badgePreviewFailed": "Die Vorschau konnte nicht aktualisiert werden. Versuche es erneut.",
   "badgeCheckBindings": "Prüfe die Layouteinstellungen und wähle passende Fragenzuordnungen.",
@@ -1038,5 +1038,8 @@
   "applicationAccessUnavailable": "Dieser private Bewerbungslink ist nicht verfügbar oder abgelaufen. Öffne den Link aus deiner Bewerbungs-E-Mail erneut.",
   "applicationAccessHint": "Um die gesamte Bewerbung oder zugelassene Gruppe zurückzuziehen, öffne den privaten Link in der Eingangsbestätigung deiner Bewerbung.",
   "applicationOpening": "Bewerbung wird geöffnet",
-  "applicationJavascriptRequired": "JavaScript ist erforderlich, um deinen privaten Bewerbungslink zu öffnen."
+  "applicationJavascriptRequired": "JavaScript ist erforderlich, um deinen privaten Bewerbungslink zu öffnen.",
+  "badgeApplicantFields": "Antragsteller",
+  "badgeGuestFields": "Gast",
+  "badgePreviewPerson": "Teilnehmertyp in der Vorschau"
 }

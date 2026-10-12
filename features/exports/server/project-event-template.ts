@@ -71,7 +71,6 @@ export function projectEventTemplate(
 
       const index = fields.findIndex(
         (field) =>
-          field.subject === "APPLICANT" &&
           field.id === binding.fieldId &&
           field.type === binding.type &&
           field.label === binding.label,

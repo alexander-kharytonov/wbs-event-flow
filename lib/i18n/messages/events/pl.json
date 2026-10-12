@@ -915,7 +915,7 @@
   "badgeAttendeeType": "Typ uczestnika",
   "badgeSecondary": "Drugie pole",
   "badgeTertiary": "Trzecie pole",
-  "badgePrivacyHint": "Wybrane wartości są widoczne dla zespołu z prawem drukowania identyfikatorów, w tym recepcji. Goście nigdy nie dziedziczą tych odpowiedzi.",
+  "badgePrivacyHint": "Każde pole wykorzystuje pytanie dla wnioskodawcy lub gościa. Wybrane odpowiedzi są widoczne dla całego personelu z prawem drukowania identyfikatorów, w tym recepcji. Inne odpowiedzi nie są dołączane.",
   "badgePreviewUnavailable": "Podgląd niedostępny. Odśwież, aby sprawdzić dostęp i bieżące ustawienia.",
   "badgePreviewFailed": "Nie udało się odświeżyć podglądu. Spróbuj ponownie.",
   "badgeCheckBindings": "Sprawdź ustawienia układu i wybierz zgodne powiązania pytań.",
@@ -1038,5 +1038,8 @@
   "applicationAccessUnavailable": "Ten prywatny link jest niedostępny lub wygasł. Otwórz ponownie link z wiadomości potwierdzającej zgłoszenie.",
   "applicationAccessHint": "Aby wycofać całe zgłoszenie lub zatwierdzoną grupę, otwórz prywatny link w potwierdzeniu otrzymania zgłoszenia.",
   "applicationOpening": "Otwieranie zgłoszenia",
-  "applicationJavascriptRequired": "JavaScript jest wymagany do otwarcia prywatnego linku do zgłoszenia."
+  "applicationJavascriptRequired": "JavaScript jest wymagany do otwarcia prywatnego linku do zgłoszenia.",
+  "badgeApplicantFields": "Wnioskodawca",
+  "badgeGuestFields": "Gość",
+  "badgePreviewPerson": "Typ uczestnika w podglądzie"
 }

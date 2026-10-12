@@ -915,7 +915,7 @@
   "badgeAttendeeType": "Attendee type",
   "badgeSecondary": "Secondary field",
   "badgeTertiary": "Tertiary field",
-  "badgePrivacyHint": "Selected values are visible to staff who can print badges, including Reception. Guests never inherit these answers.",
+  "badgePrivacyHint": "Each slot uses an applicant or guest question. Selected values are visible to all staff permitted to print badges, including Reception. Other answers are not included.",
   "badgePreviewUnavailable": "Preview unavailable. Reload to check your access and current settings.",
   "badgePreviewFailed": "Could not refresh the preview. Please try again.",
   "badgeCheckBindings": "Check the layout settings and select compatible question bindings.",
@@ -1038,5 +1038,8 @@
   "applicationAccessUnavailable": "This private application link is unavailable or has expired. Reopen the link from your application email.",
   "applicationAccessHint": "To withdraw the entire application or approved party, open the private link in your application-received email.",
   "applicationOpening": "Opening application",
-  "applicationJavascriptRequired": "JavaScript is required to open your private application link."
+  "applicationJavascriptRequired": "JavaScript is required to open your private application link.",
+  "badgeApplicantFields": "Applicant",
+  "badgeGuestFields": "Guest",
+  "badgePreviewPerson": "Preview attendee type"
 }

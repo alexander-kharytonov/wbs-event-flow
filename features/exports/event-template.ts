@@ -189,7 +189,6 @@ export const eventTemplateSchema = z
         binding &&
         !fields.some(
           (field) =>
-            field.subject === "APPLICANT" &&
             field.key === binding.fieldKey &&
             field.type === binding.type &&
             field.label === binding.label,
