@@ -5,7 +5,7 @@ import { Box, IconButton, Menu, MenuItem, Tooltip } from "@mui/material";
 import { useLocale, useTranslations } from "next-intl";
 import { useId, useRef, useState } from "react";
 import { useNotifications } from "@/hooks/use-notifications";
-import { localeNames, locales } from "@/lib/i18n/locale";
+import { localeNames, selectableLocales } from "@/lib/i18n/locale";
 import { useLocalePreference } from "@/providers/locale-provider";
 
 function LocaleSaveError() {
@@ -46,7 +46,7 @@ export function LanguageSelector() {
         onClose={() => setAnchor(null)}
         slotProps={{ list: { "aria-label": t("label") } }}
       >
-        {locales.map((value) => (
+        {selectableLocales.map((value) => (
           <MenuItem
             key={value}
             lang={value}

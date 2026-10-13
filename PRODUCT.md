@@ -1268,7 +1268,9 @@ alone does not authorize them.
 
 ## UI language foundation
 
-The interface supports English, German, Polish, Ukrainian and Russian. Resolution
+The interface currently offers English, German, Polish and Ukrainian. Russian
+translations remain supported but are temporarily unavailable for selection.
+Locale resolution and preference writes accept only the offered languages. Resolution
 is account preference → validated first-party cookie → browser Accept-Language
 (including regional tags and quality weights) → English. A new/existing account
 without an explicit preference continues to use cookie/browser resolution; GET
@@ -1322,7 +1324,7 @@ name and saved design in the authorized snapshot. Print controls and errors reta
 the operator UI locale. Authored names/answers and admission credentials are unchanged.
 Localized metadata is resolved on the server; it updates on the next server render.
 UI acceptance must still exercise authenticated organizer workflows and populated
-historical/attendance/communication states in all five locales.
+historical/attendance/communication states in all offered UI languages.
 
 Server-only translated output updates on the next server render; immediately
 switchable labels consume client context with SSR initial messages. UI locale is
@@ -1362,6 +1364,10 @@ the form opens. Changing UI locale afterward preserves all form values, includin
 Event language. Basics offers explicit language selection in Create, Edit, Import
 Review and Duplicate Review.
 
+Language selectors in the editor and public catalog currently offer en/de/pl/uk.
+Russian remains a supported content language and retains its translations, but is
+temporarily hidden from selection; serialized contracts are unchanged.
+
 Language is a draft field with the existing save/version/lifecycle guards. Publish
 freezes it in EventSnapshot; editing draft language never changes an existing
 publication or historical revision. EventTemplate export/import/duplicate preserve
@@ -1374,7 +1380,7 @@ Unavailable registration cards do not infer language from drafts. The public cat
 has an independent Event language selector, defaulting to All languages. Its URL
 parameter `language` filters published language before choosing the featured event
 and Upcoming/Happening now/Past groups. UI language changes do not alter that filter.
-Unknown or repeated language parameters behave as All languages. Other URL
+Unknown, unavailable or repeated language parameters behave as All languages. Other URL
 parameters are retained. Existing grouping/order is unchanged; this catalog has no
 pagination. Search events filters published titles immediately, using trimmed,
 case-insensitive substring matching as in the organizer dashboard. Search and

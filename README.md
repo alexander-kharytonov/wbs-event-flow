@@ -350,6 +350,9 @@ Apply the baseline using `pnpm exec prisma migrate deploy`, generate the client
 with `pnpm db:generate`, and restart the server after schema/client changes.
 
 - Request configuration: `lib/i18n/request.ts` (account → cookie → browser → en).
+- Available UI, Event editor and catalog choices: en/de/pl/uk. Russian translations
+  and serialized language support remain maintained, but ru is temporarily hidden
+  from selectors and excluded from UI locale resolution and preference writes.
 - Dictionaries: `lib/i18n/messages/{shell,locale,validation,auth,events,landing,email}/{en,de,pl,uk,ru}.json`.
   English is merged per key before rendering. Add new features to the loader.
 - Server: `await getTranslations("shell")`; Client: `useTranslations("shell")`.

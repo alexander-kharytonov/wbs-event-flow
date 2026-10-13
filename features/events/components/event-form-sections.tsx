@@ -26,7 +26,7 @@ import type {
 } from "@/features/events/event-input-schema";
 import {
   eventLanguageNames,
-  eventLanguages,
+  selectableEventLanguages,
 } from "@/features/events/event-language";
 import { formatTimezone } from "@/features/events/format-timezone";
 import type { useFormFeedback } from "@/hooks/use-form-feedback";
@@ -123,7 +123,7 @@ export function EventFormSections({
                   : t("contentLanguageHint")
               }
             >
-              {eventLanguages.map((language) => (
+              {selectableEventLanguages.map((language) => (
                 <MenuItem key={language} value={language}>
                   {language.toUpperCase()} — {eventLanguageNames[language]}
                 </MenuItem>

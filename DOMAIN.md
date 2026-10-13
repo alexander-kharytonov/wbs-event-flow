@@ -2450,12 +2450,15 @@ verification, ownership, lifecycle, authorization or Event content semantics.
 `lib/ui-preferences.ts` resolves both preferences with one request-cached User
 query after the normal `getSession()` lookup. Locale precedence is account →
 validated event-flow-locale cookie → Accept-Language → English.
+Only en/de/pl/uk are currently selectable and eligible for this resolution.
+Russian dictionaries and the supported locale contract remain intact; ru is
+temporarily excluded from user selection and browser negotiation.
 `lib/i18n/request.ts` supplies the resolved locale and messages to next-intl.
 No process-global locale or auth cookie-cache authority is introduced. Normal
 Better Auth session renewal/expired-session cleanup behavior is accepted;
 preference reads never persist inferred locale or mode values.
 
-`PUT /api/preferences/locale` accepts only a supported JSON string, bounded to
+`PUT /api/preferences/locale` accepts only a currently selectable locale JSON string, bounded to
 64 bytes, requires Origin equal to BETTER_AUTH_URL or an explicitly configured
 BETTER_AUTH_TRUSTED_ORIGINS entry, derives the
 User solely from the session, and updates only uiLocale (plus Prisma updatedAt).
@@ -2544,6 +2547,9 @@ Import/Duplicate initialize from their frozen EventTemplate source. Later UI loc
 changes cannot reset the language, revision binding, date markers or unsaved values.
 The new validation result is the stable invalidEventLanguage code, translated
 when the field error renders; unrelated existing errors retain their contracts.
+Editor and catalog selectors currently expose only en/de/pl/uk. Russian remains
+supported by Event, EventSnapshot and EventTemplate; selection availability does
+not change persistence or serialization validation.
 
 Language follows the existing Event edit row lock, updatedAt optimistic token,
 contentVersion increment, OWNER authorization and lifecycle guards. It is included
@@ -2565,7 +2571,7 @@ organizer details and unused media metadata stay on the server. Featured covers
 are keyed by asset identity so an image failure cannot carry over to another cover.
 Selection is
 an explicit optional language URL parameter, independent of request/UI locale.
-Invalid, absent or repeated values select all languages. Filtering precedes featured
+Invalid, unavailable, absent or repeated values select all languages. Filtering precedes featured
 selection and time grouping; ties still use publicId. Client-side title search uses
 trimmed, case-insensitive substring matching against those validated publications
 and runs before featured selection/grouping. Search state survives language-filter

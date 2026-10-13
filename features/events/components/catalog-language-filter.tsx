@@ -7,7 +7,7 @@ import { useTransition } from "react";
 import {
   type EventLanguage,
   eventLanguageNames,
-  eventLanguages,
+  selectableEventLanguages,
 } from "@/features/events/event-language";
 
 export function CatalogLanguageFilter({
@@ -45,7 +45,7 @@ export function CatalogLanguageFilter({
       }}
     >
       <MenuItem value="ALL">{t("allLanguages")}</MenuItem>
-      {eventLanguages.map((value) => (
+      {selectableEventLanguages.map((value) => (
         <MenuItem key={value} value={value}>
           {value.toUpperCase()} — {eventLanguageNames[value]}
         </MenuItem>
