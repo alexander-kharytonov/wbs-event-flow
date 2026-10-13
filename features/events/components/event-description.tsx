@@ -69,34 +69,14 @@ function renderedText(node: unknown): string {
 
 // Extract only rendered text from the same sanitized parser output: never hrefs,
 // raw HTML, image alt text, or a second Markdown interpretation for metadata.
-export function eventDescriptionText(
-  text: string,
-  format: "PLAIN_TEXT" | "MARKDOWN",
-) {
-  const plain =
-    format === "MARKDOWN"
-      ? renderedText(Markdown({ ...markdownOptions, children: text }))
-      : text;
+export function eventDescriptionText(text: string) {
+  const plain = renderedText(Markdown({ ...markdownOptions, children: text }));
 
   return plain.replace(/\s+/g, " ").trim();
 }
 
 // The same restricted renderer runs in the form preview and server Preview.
-export function EventDescription({
-  text,
-  format,
-}: {
-  text: string;
-  format: "PLAIN_TEXT" | "MARKDOWN";
-}) {
-  if (format === "PLAIN_TEXT") {
-    return (
-      <Box sx={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
-        {text}
-      </Box>
-    );
-  }
-
+export function EventDescription({ text }: { text: string }) {
   return (
     <Box
       sx={{

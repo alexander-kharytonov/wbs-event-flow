@@ -9,7 +9,7 @@ export function SubmittedGuests({
   guests: {
     id: string;
     name: string;
-    email: string | null;
+    email: string;
     answers: HistoricalAnswer[] | null;
   }[];
 }) {
@@ -34,11 +34,9 @@ export function SubmittedGuests({
             <Typography variant="subtitle1" component="h4">
               {guest.name}
             </Typography>
-            {guest.email && (
-              <Typography variant="body2" color="text.secondary">
-                {guest.email}
-              </Typography>
-            )}
+            <Typography variant="body2" color="text.secondary">
+              {guest.email}
+            </Typography>
             <SubmittedAnswers answers={guest.answers} />
           </Stack>
         </Paper>

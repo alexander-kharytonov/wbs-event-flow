@@ -53,7 +53,6 @@ export const eventSnapshotSchema = z
   .strictObject({
     language: z.enum(["en", "de", "pl", "uk", "ru"]),
     maxGuestsPerRegistration: z.number().int().min(0).max(10),
-    descriptionFormat: z.enum(["PLAIN_TEXT", "MARKDOWN"]),
     cover: coverDescriptorSchema.nullable(),
     location: locationSchema.nullable(),
     schedule: scheduleSchema,
@@ -106,6 +105,28 @@ export const eventSnapshotSchema = z
 
     if (event.startsAt >= event.endsAt) {
       ctx.addIssue({ code: "custom", message: "End must be after start." });
+    }
+
+    if (
+      event.registrationOpensAt &&
+      event.registrationOpensAt > event.startsAt
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["registrationOpensAt"],
+        message: "Registration must open no later than the event start.",
+      });
+    }
+
+    if (
+      event.registrationClosesAt &&
+      event.registrationClosesAt > event.endsAt
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["registrationClosesAt"],
+        message: "Registration must not extend beyond the event end.",
+      });
     }
 
     if (

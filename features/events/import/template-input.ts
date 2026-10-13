@@ -30,7 +30,6 @@ export type TemplateEvent = EventTemplate["event"];
 export type TemplateField = TemplateEvent["registrationForm"]["fields"][number];
 
 const knownSegments = new Set([
-  "descriptionFormat",
   "location",
   "schedule",
   "publicOrganizer",
@@ -337,7 +336,6 @@ export function templateEventValues(event: TemplateEvent) {
       : "";
 
   return {
-    descriptionFormat: event.descriptionFormat,
     location: event.location,
     publicOrganizer: event.publicOrganizer,
     schedule: scheduleFormValues(event.schedule, event.timezone),

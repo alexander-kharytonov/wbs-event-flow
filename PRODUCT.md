@@ -104,9 +104,9 @@ reapplication rule below. A new account requirement applies to old open forms to
 
 Registration is Not open yet, Open, or Closed. It closes at the earlier of the
 configured close time and event end, or at event end if no close time was set.
-It may remain open after the event starts, but never after it ends. New event
-settings require registration opening no later than event start and closing no
-later than event end. When both registration boundaries are set, closing must be
+It may remain open after the event starts, but never after it ends. Event settings
+and frozen publication snapshots require registration opening no later than event
+start and closing no later than event end. When both registration boundaries are set, closing must be
 after opening. Event end must be after event start. Create/Edit and template review
 date fields provide linked calendar min/max bounds; explicit validation explains
 invalid date combinations.
@@ -666,7 +666,7 @@ Duplicate Event reuses this portable configuration (see iteration 28 below).
 Create event defaults to manual entry in the full-page workspace editor. A **Use template**
 switch in the header opens template import.
 Upload a UTF-8 JSON file or paste JSON, then Validate. Both use the same strict
-parser, reject unsupported versions/unknown properties/internal identity fields,
+parser, reject obsolete properties and internal identity fields,
 and enforce the same template limits. Preview performs no writes or account lookup.
 
 Review allows editing Event settings, local questions/options, staff email/role,
@@ -753,8 +753,8 @@ locks enforce these limits under concurrent submissions; these limits never appl
 transactional emails, including Event cancellation.
 
 Communications includes transactional Event emails, manual Send, unified History
-and delivery details, as described below. Legacy Outbox rows are not backfilled or
-inferred into history. Delivery uses the existing Outbox infrastructure; there is
+and delivery details, as described below. Every delivery belongs to a Communication
+with a required request digest. Delivery uses the existing Outbox infrastructure; there is
 no Communication cleanup/retention job.
 
 
@@ -789,8 +789,7 @@ Deterministic Event-scoped keys use Application id plus type for submission,
 Application id plus PENDING-to-decision transition and type for review, and Event
 id plus EVENT_CANCELLED for the irreversible one-time cancellation. Existing Outbox
 deduplication keys are preserved. Same key/digest reuses the intent; conflicting
-content fails. History contains associated sends; null-linked legacy deliveries
-remain deliverable. Manual Send and the shared History/Details UI use the same
+content fails. All deliveries belong to the corresponding historical send. Manual Send and the shared History/Details UI use the same
 Communication records and are described below.
 
 
@@ -984,10 +983,9 @@ Draft/upload previews are owner-only and Event-scoped; public media is available
 only when it is the cover of the current valid published revision.
 
 EventSnapshot is the current unversioned publication and historical format.
-Historical revisions remain immutable;
-PLAIN_TEXT descriptions are never interpreted as Markdown. Location,
-agenda, public organizer and description-format fields use the existing snapshot
-contract; 29B adds their authoring UI and OWNER Preview rendering.
+Historical revisions remain immutable. Descriptions use only Markdown, with no
+format selector or format property. Location, agenda and public organizer data use
+the same current snapshot contract and OWNER Preview rendering.
 
 Import, Export and Duplicate support only EventTemplate, preserving rich
 configuration and explicitly reporting omitted source cover images.
@@ -1045,16 +1043,15 @@ or another upload. Existing private preview/publication rules and image limits r
 
 The existing Create/Edit and Import/Duplicate Review forms share rich authoring.
 Descriptions are authored as Markdown, with a 20,000-character limit. Ordinary
-text needs no special formatting. There is no Plain text mode selector. Opening
-a draft or template preserves the source text; saving through the editor uses
-MARKDOWN. The editor combines Write/Preview with
+text needs no special formatting. Opening a draft or template preserves its Markdown
+source text. The editor combines Write/Preview with
 grouped formatting toggles for selected text (bold, italic, heading and list)
 and a separate link insertion action. Toggling an active format removes it.
-Existing stored descriptions are not bulk-converted; previously published
-plain-text snapshots retain their original interpretation. The Markdown preview, Overview and
+The Markdown preview, Overview and
 OWNER Event Preview share a renderer permitting headings, paragraphs, emphasis,
 lists and absolute HTTP(S) links without credentials. Raw HTML, images, MDX and
-iframes are not rendered. Historical plain-text snapshots remain plain text.
+iframes are not rendered. Templates with obsolete description-format fields are
+rejected rather than converted.
 
 Location is None, Physical, Online or Hybrid. None stores null; the selected type
 requires its applicable venue/address and/or online label/URL fields. Agenda has
@@ -1087,12 +1084,12 @@ unpublished or unpublished-changes status and exposes Publish, Republish or
 Publish changes. The existing menu action remains available. Both use the same
 publication action, version checks, conflict feedback and lifecycle guards.
 
-EventTemplate preserves portable settings including description format, location,
+EventTemplate preserves portable settings including Markdown description, location,
 exact agenda and public organizer. Its cover marker is NONE if absent or OMITTED
 if the source has a cover. Images/asset IDs/storage keys are never copied. Export,
 Import Review and Duplicate Review explain omission; organizers may select a new
 cover during creation. Source images are never copied.
-V1 Import is rejected without conversion. Existing Staff/Badge identity rules,
+Obsolete template properties are rejected without conversion. Existing Staff/Badge identity rules,
 size limits, atomic Create and Duplicate refresh/revocation semantics are preserved.
 
 OWNER Preview displays the draft cover and rich content from the workspace's
@@ -1175,8 +1172,7 @@ for owned Events through the owner-only media route; assigned staff cards do not
 request private owner media.
 
 Description, location, schedule and public organizer sections appear only when
-present. EventSnapshot uses its explicit description format and the same restricted Markdown
-renderer as the editor. Agenda uses MUI Timeline with a vertical rail, time on the opposite side from
+present. EventSnapshot uses the same restricted Markdown renderer as the editor. Agenda uses MUI Timeline with a vertical rail, time on the opposite side from
 the title, and smaller supporting descriptions below each title. Entries retain their original order and instants, grouped by day
 in the Event timezone. The timezone is stated once above the agenda; individual
 times show hours and minutes without repeated UTC offsets. Exact instants remain
@@ -1394,7 +1390,10 @@ Event titles, names, cancellation reasons, manual subjects/messages and all othe
 authored content remain unchanged. No password-reset, Guest-add/remove or
 withdrawal email is introduced.
 
-The server freezes a locale per Outbox recipient when creating the delivery:
+Every Outbox payload requires a frozen locale; missing or invalid locales fail
+validation. Application receipt emails require their Application reference, while
+private application/Ticket links are resolved and checked at delivery time.
+The server selects the locale per recipient when creating the delivery:
 explicitly linked Users (including organizers and staff) use User.uiLocale, or en
 when unset. Anonymous recipients use the Event language in their submitted
 Application revision; admitted attendees use Registration.sourceApplication's

@@ -48,7 +48,6 @@ import { eventPasswordSchema } from "@/features/events/event-password-input";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 
 const emptyValues: Omit<EventFormValues, "language"> = {
-  descriptionFormat: "MARKDOWN",
   location: null,
   schedule: [],
   publicOrganizer: null,
@@ -131,7 +130,6 @@ export function EventForm({
       ...emptyValues,
       language: eventLanguageSchema.parse(locale),
     }),
-    descriptionFormat: "MARKDOWN",
   }));
   const [values, setValues] = useState<EventFormValues>(initial);
   const [editedDates, setEditedDates] = useState<EventDateField[]>([]);

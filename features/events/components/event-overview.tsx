@@ -297,10 +297,7 @@ export function EventOverviewContent({ data }: { data: EventOverview }) {
             <EventText id="markdownDescription" />
           </Typography>
           <Box sx={{ maxWidth: "75ch" }}>
-            <EventDescription
-              text={data.description}
-              format={data.descriptionFormat}
-            />
+            <EventDescription text={data.description} />
           </Box>
         </Paper>
       )}

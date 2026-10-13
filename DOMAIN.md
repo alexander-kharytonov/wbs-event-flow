@@ -93,9 +93,9 @@ Unpublished changes are visible to the organizer and Preview, not public content
 
 Dates are stored as instants with an IANA timezone for input/display. Authoring
 rejects ambiguous/nonexistent edited local DST times. Event end must be after start.
-New authoring/publication requires registration opening <= Event start, closing <=
-Event end, and closing > opening when both boundaries are configured. Empty
-registration boundaries remain allowed; historical snapshots retain their frozen rules.
+Authoring and the frozen EventSnapshot contract require registration opening <=
+Event start, closing <= Event end, and closing > opening when both boundaries are
+configured. Empty registration boundaries remain allowed.
 Minute-resolution Event Edit preserves untouched dates, including nullable registration
 boundaries, from the locked authoritative Event row with exact seconds/milliseconds.
 Client edit markers never supply preserved timestamps; changed local values or timezone
@@ -159,9 +159,10 @@ locally in the snapshot parser, without runtime imports of mutable authoring val
 Future authoring changes must not silently redefine that frozen historical contract.
 
 `buildEventSnapshot` constructs the snapshot from workspace and applies the current
-publication validator, also for Preview. New publication forbids registration
-opening after Event start or closing after Event end. Historical snapshots still
-read older registration windows; effective availability caps closing at Event end.
+publication validator, also for Preview. The frozen snapshot parser itself rejects
+registration opening after Event start or closing after Event end. Publication adds
+current question-authoring validation without repeating those date relationships.
+Runtime availability independently caps closing at Event end.
 
 Public Event, metadata, catalog, historical detail, prefill, and policy consumers
 use validated historical snapshots. Invalid snapshots fail closed or produce an
@@ -197,8 +198,8 @@ otherwise                              => OPEN
 
 Closed is checked before opening. startsAt does not close registration; event end
 always does. UI computes at render time. Submit checks current published dates
-under the Event lock and immediately before insert, using one PostgreSQL
-decisionNow obtained after the lock. Persisted Event end/cancellation also guard admission.
+once under the Event lock before insert, using one PostgreSQL decisionNow obtained
+after the lock. Persisted Event end/cancellation also guard admission.
 
 ## 7. Current policy vs historical form
 
@@ -537,13 +538,14 @@ applicant notification. Since 27B, each type creates its own Communication
 the same transaction. Duplicate/no-op/error paths create no delivery intent; rollback
 removes the mutation, Communication and outbox. Withdrawal creates no email.
 
-Legacy EmailOutbox has no direct Event/Application foreign keys; 27A adds an optional
-Communication relation (section 32). Its unique deduplicationKey is
+EmailOutbox requires its Communication relation (section 32). Its unique
+deduplicationKey is
 Application.id + purpose. Recipient and versioned JSON payload are immutable
 delivery snapshots (v1 contracts except APPLICATION_APPROVED, which requires v2
 with a Ticket reference, described below). They contain only the fields needed by that
 email, not answers, rendered HTML/subject, or an absolute hostname. Separate Zod
-contracts validate each type on creation and again before rendering. Received,
+contracts require a frozen locale for every delivery and an Application ID for
+application receipts, validating each type on creation and before rendering. Received,
 organizer, and approval emails snapshot the current published event under the
 Event lock, never mutable workspace content. Render constructs absolute links
 from the server app origin.
@@ -905,7 +907,7 @@ error and no-op paths do not. Browser frames remain empty invalidations followed
 by authoritative router.refresh(), with existing reconnect/session boundaries.
 Operational counts include only currently active Attendees with Attendance
 over all active Attendees; revoked attendance remains historical. Organizer's safe
-loaded projection includes name, nullable email, kind, PRIMARY name for Guests,
+loaded projection includes name, required email, kind, PRIMARY name for Guests,
 admission/Ticket status, Ticket number, attendance time/method and actor name only.
 It contains no Ticket credentials, hashes or encrypted fields. Actor deletion is
 shown as unavailable. Client search covers name/email/Ticket number case-insensitively;
@@ -946,7 +948,7 @@ External infrastructure must not capture action request bodies containing secret
 Registration is an approved party: it retains userId for ownership/routing and
 createdAt/revokedAt for lifecycle. attendeeName/attendeeEmail retain submitted
 PRIMARY snapshots. Attendee is a concrete admitted person and capacity seat, with
-UUIDv7 id, Registration RESTRICT, optional User SET NULL, name, nullable email,
+UUIDv7 id, Registration RESTRICT, optional User SET NULL, name, required email,
 createdAt and nullable revokedAt (timestamptz(3)). CHECKs enforce revokedAt >=
 createdAt and GUEST.userId IS NULL. Guest writers and published policy are defined in section 25.
 
@@ -965,7 +967,7 @@ Ticket correspondence and revokes the whole active party at the same decisionNow
 is untouched. It selects PRIMARY by kind, not by assuming no future other people.
 Reapply never resurrects old Registration/PRIMARY/Ticket/Attendance history.
 
-Person rows, scanner identity (nullable email), Tickets, attendance and seat counts
+Person rows, scanner identity, Tickets, attendance and seat counts
 come from Attendee. Detail projects Registration -> PRIMARY/GUEST -> Ticket/Attendance.
 Applications, answers, attempts, ownership, cancellation recipients and account
 lists remain Registration/Application based. Registration.userId continues to
@@ -987,13 +989,12 @@ EventSnapshot contains maxGuestsPerRegistration and registrationForm with comple
 and option identities, types, labels, descriptions and required rules. The opened revision
 binds the primary and all guests to that same form and guest limit. Current publication
 still controls access, account requirement, registration availability and approval capacity.
-Old demo snapshot/template shapes are rejected, without conversion, revision rewriting or
-compatibility paths. The additive migration removes obsolete guest-only workspace fields,
-field subject and Event policy, leaving committed migration history unchanged.
+Snapshot/template parsing accepts only this current shape, without conversion or
+revision rewriting. Submitted participant answers remain independent.
 
 ApplicationGuest stores immutable submitted name, normalized contact email, zero-based
-position (0–9) and applicationId. Name and email are required by the same input schemas as
-the primary participant; nullable historical storage is not permission to submit null email.
+position (0–9) and applicationId. Name and email are required in storage and by the
+same input schemas as the primary participant.
 It has no User, seat, Ticket or separate workflow status. ApplicationGuestAnswer and
 ApplicationGuestAnswerOption retain one answer per declaration/field and unique historical
 option IDs. All field/option IDs resolve through the Application's frozen registrationForm,
@@ -1013,10 +1014,11 @@ Outbox or notification failure rolls back everything. No partial approval is pos
 Rejection does not require readable guest history. Existing unique constraints and Event
 locking preserve admission idempotency and serialize competing mutations.
 
-Attendee.applicationGuestId is unique and every new GUEST has declaration provenance.
+Attendee.applicationGuestId is unique and every GUEST requires declaration provenance.
 The paired applicationGuestApplicationId and composite restrictive FKs bind it to both
 ApplicationGuest and Registration.sourceApplicationId. Both provenance columns must be
-present together, only on GUEST. The admitted identity matches its declaration. Integrity
+present on GUEST and both absent on PRIMARY, enforced by a database CHECK. Neither
+composite FK can be bypassed with partial-null provenance. The admitted identity matches its declaration. Integrity
 checks verify group correspondence, positions, shared-form answers and required email.
 Declarations and answers survive removal and withdrawal.
 
@@ -1493,7 +1495,7 @@ The transport-independent strict envelope is {format: "event-flow-template",
 event: {...}}. The explicit event DTO has exactly title, language, description,
 startsAt, endsAt, timezone, visibility, accountRequirement, capacity,
 maxGuestsPerRegistration, registrationOpensAt, registrationClosesAt,
-registrationForm, staff, badgeLayout, descriptionFormat, location, schedule,
+registrationForm, staff, badgeLayout, location, schedule,
 publicOrganizer and cover. Nullable values are required explicit
 nulls. Dates are original UTC ISO instants with milliseconds, without shifting
 past Events or copying Completed/Cancelled/Archived state.
@@ -1639,7 +1641,7 @@ Communication is one immutable logical send belonging to exactly one Event. It
 contains UUID id, kind MANUAL/TRANSACTIONAL, nullable transactional trigger,
 createdAt, nullable actor User FK and frozen name/role, nullable manual audience,
 subject, nullable message, strict versioned contextSnapshot, nonnegative
-recipientCount, Event-scoped unique idempotencyKey and nullable SHA-256
+recipientCount, Event-scoped unique idempotencyKey and required SHA-256
 requestDigest. Manual records require audience, message, actor snapshots and
 requestDigest; transactional records require trigger, and have no audience/message.
 System-origin transactional records use null actor fields. Human-origin writers
@@ -1654,11 +1656,10 @@ actor reconstruction. Retention is the lifetime of the Event, with no cleanup jo
 Content immutability is enforced by server code, like EventRevision; only delivery
 operational fields change. No content update API exists.
 
-EmailOutbox adds nullable communicationId, MANUAL_EVENT_MESSAGE, unique
-(communicationId, recipientEmail), (communicationId, status, id) and
-(type, status, communicationId) indexes. PostgreSQL's ordinary NULL-distinct unique
-semantics preserve all legacy rows, including repeated addresses with null FK.
-Associated addresses must be trimmed/lowercased. No third Delivery table exists.
+EmailOutbox requires communicationId for every type, including MANUAL_EVENT_MESSAGE.
+It retains unique (communicationId, recipientEmail), (communicationId, status, id)
+and (type, status, communicationId) indexes. Recipient addresses must be
+trimmed/lowercased. No third Delivery table exists.
 Communication indexes support Event history, Event/kind/time and actor/kind/time
 admission queries. DB CHECKs enforce content shape/nullability, actor snapshot
 pairing, nonnegative count, bounded subject/message and idempotency key/digest
@@ -1695,7 +1696,7 @@ server domain keys and remain globally unique. There is no skipDuplicates.
 A canonical SHA-256 digest covers Event, trigger, subject, safe context, actor and
 sorted normalized delivery intents. A supplied digest must match; repeated
 Event/idempotencyKey with the same digest returns the original id without enqueue;
-a different digest fails. Legacy/null-digest records cannot be replayed by guessing.
+a different digest fails. All Communication records require a valid digest.
 Caller must propagate any error to abort the enclosing domain transaction. SQL
 failures abort it; notification and writes commit together. No nested independent
 transaction or SMTP is opened. Section 33 describes integration into Event writers;
@@ -1738,9 +1739,7 @@ communications.read before using them and keep Event scoping; these primitives
 are not public endpoints. No raw payload, SMTP errors, lease metadata, credentials,
 capability URLs or auth/session fields belong to UI DTOs.
 
-The baseline includes the full Communication/Outbox schema. Legacy rows may have
-null communicationId and remain deliverable; history includes associated sends
-without inferring or backfilling legacy history. Transactional writers, manual
+Every Outbox row belongs to its immutable Communication. Transactional writers, manual
 orchestration and unified History/Details presentation are implemented as described
 in sections 33–35. They reuse the existing Outbox infrastructure without a separate
 delivery retention job.
@@ -1821,8 +1820,6 @@ remain as in section 18. No manual admission lock is acquired by these writers.
 Existing Event/application invalidations remain unchanged and contain no new
 history content; section 35 defines delivery-status refresh.
 
-Cutover applies only to new successful operations. Previously queued rows with null
-communicationId remain deliverable; legacy history is not inferred/backfilled.
 Section 34 describes Manual Send; section 35 describes the implemented unified
 History/Details UI.
 
@@ -2060,14 +2057,14 @@ must preserve bytes/checksums and references, not rewrite historical snapshots.
 
 Event.coverAssetId is the mutable draft FK. EventRevision.coverAssetId is the frozen
 reference with ON DELETE RESTRICT; any draft/revision reference prevents cleanup.
-Cover alt belongs to Event authoring and is copied into the snapshot. EventSnapshot includes
-descriptionFormat, nullable cover/location/publicOrganizer and
-ordered schedule. Description reuses Event.description, defaults to PLAIN_TEXT, and
-old snapshots are never reinterpreted as Markdown. The frozen snapshot validators cap agenda
+Cover alt belongs to Event authoring and is copied into the snapshot. EventSnapshot
+includes a Markdown description, nullable cover/location/publicOrganizer and an
+ordered schedule. Description uses Event.description without a format property.
+The frozen snapshot validators cap agenda
 at 100 chronological entries with UTC millisecond instants inside the Event interval;
 location is PHYSICAL/ONLINE/HYBRID, and organizer display data is explicit public
-content rather than account/profile/Staff projection. These fields have no new editor
-in 29A. New authoring contracts must not redefine historical snapshot parsing.
+content rather than account/profile/Staff projection. Authoring changes must not
+silently redefine the frozen snapshot contract.
 
 Upload uses POST /api/events/[eventId]/cover/uploads with raw image bytes and exact
 image/jpeg, image/png or image/webp Content-Type. The optional X-Event-Cover-Crop
@@ -2256,13 +2253,11 @@ leaving/reload follows the existing dirty-navigation protections, with no persis
 
 ## 38. Rich authoring and EventTemplate (29B)
 
-The description editor authors MARKDOWN in Create/Edit and Import/Duplicate
-Review. Plain text can be entered directly as Markdown; there is no format selector.
-Opening a persisted draft or template preserves source text and initializes the
-editor to MARKDOWN; only an explicit Save/Create persists that format. Historical
-PLAIN_TEXT snapshots retain literal rendering. Both formats remain valid in frozen
-snapshot and EventTemplate transport contracts. No migration, bulk conversion or
-historical revision rewrite is performed.
+Create/Edit and Import/Duplicate Review author Markdown as the only description
+format. Ordinary text needs no special formatting. Opening a draft or template
+preserves its source text; only explicit Save/Create persists edits. There is no
+format property in Event, EventSnapshot or EventTemplate. Strict serialized readers
+reject obsolete fields; no conversion or historical revision rewrite occurs.
 
 The shared Event authoring schema extends the existing Create/Edit/Review path.
 It reuses location/publicOrganizer constraints and the schedule entry shape from
@@ -2291,7 +2286,7 @@ The existing 29A upload, immutable storage, reference and cleanup rules are unch
 One shared react-markdown renderer handles explicit MARKDOWN in client/OWNER
 Preview. It skips HTML, restricts elements to text formatting/lists/links, excludes
 images/MDX/raw plugins and permits only absolute HTTP(S) URLs without credentials.
-Links use noopener/noreferrer. PLAIN_TEXT remains literal. Preview uses the current
+Links use noopener/noreferrer. Preview uses the current
 workspace snapshot builder and controlled OWNER media routes without the image optimizer.
 Public /e/[publicId] retains its published-revision authority and Staff DTOs are not
 expanded. Public landing/metadata is defined by 29C below. Iterations 29A/B/C/D
@@ -2299,8 +2294,7 @@ are implemented and accepted; 29D polish preserves these domain contracts.
 
 EventTemplate has the envelope {format: "event-flow-template", event: {...}}
 without a version field. It contains portable Event configuration, language and
-rich fields descriptionFormat,
-nullable location/publicOrganizer,
+a Markdown description, nullable location/publicOrganizer,
 ordered exact schedule and strict cover {status: NONE|OMITTED}. The strict semantic
 constraints/limits, deterministic serialization, explicit nulls, field_N identity,
 normalized Staff and Badge remapping apply. Unknown fields and private/internal
@@ -2549,7 +2543,7 @@ existing column contracts and historical snapshot authority.
 
 The public catalog filters publishedRevision.snapshot.language alongside PUBLIC
 visibility, then validates the complete snapshot before projection. The client receives
-only catalog titles/language, description/format, event and registration times,
+only catalog titles/language, Markdown description, event and registration times,
 timezone, and cover identity/alt/responsive dimensions; forms, agenda, location,
 organizer details and unused media metadata stay on the server. Featured covers
 are keyed by asset identity so an image failure cannot carry over to another cover.
@@ -2577,11 +2571,10 @@ Renderers receive an explicit locale; the Outbox worker reads no request/session
 cookie, sender preference or current Event language. Shared HTML escapes all
 interpolated text and URLs and declares the rendered language.
 
-Every new transactional payload and manual Outbox payload freezes locale inside
-the existing JSON column. No database schema, migration, delivery type or provider
-is added. The same optional locale field is validated on existing payload contracts:
-absence retains English for already queued mail; invalid values fail validation.
-No conversion, format-version branch, backfill or alternate delivery path is added.
+Every transactional and manual Outbox payload requires a frozen locale inside its
+JSON column. Missing or invalid locale fails payload validation at enqueue, delivery
+and integrity checking; rendering never substitutes a locale for an invalid payload.
+Locale selection at enqueue remains independent of this required delivery field.
 Transactional digests include the frozen locale. Manual replay still returns the
 original intent before audience resolution, so preference changes cannot conflict
 with a retry or replace frozen recipients/locales. Leases, fencing, retry limits,
@@ -2600,7 +2593,7 @@ winner's historical language independently of the current-or-last Event content.
 
 Manual audience resolution remains one bounded SQL statement (10,001 sentinel),
 selecting only contact, linked identity/preference and the historical language key.
-Eligibility, missing-email skipping and normalized-address deduplication stay intact.
+Eligibility, invalid-address skipping and normalized-address deduplication stay intact.
 For a shared address, linked recipient account preference wins (including en when
 unset); otherwise choose the earliest Registration.createdAt, then Registration.id,
 then Attendee.id, all ascending. Multiple linked candidates use that same ordering.

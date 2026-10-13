@@ -24,13 +24,10 @@ globalForDelivery.deliveryInvalidations = invalidations;
 // Overflow is deliberately dropped: reconnect/refresh recover missed signals.
 // A change arriving during a flush stays pending for the next flush.
 function invalidateDeliveryHistory(
-  rows: readonly { communicationId: string | null }[],
+  rows: readonly { communicationId: string }[],
 ) {
   for (const row of rows) {
-    if (
-      row.communicationId &&
-      invalidations.pending.size < maxPendingInvalidations
-    ) {
+    if (invalidations.pending.size < maxPendingInvalidations) {
       invalidations.pending.add(row.communicationId);
     }
   }
@@ -117,9 +114,7 @@ export async function finishEmailDelivery(
   retryAfterMs = 0,
 ) {
   if (error === null) {
-    const updated = await prisma.$queryRaw<
-      { communicationId: string | null }[]
-    >`
+    const updated = await prisma.$queryRaw<{ communicationId: string }[]>`
       UPDATE "EmailOutbox" SET "status" = 'SENT', "sentAt" = now(),
         "nextAttemptAt" = NULL, "lockedAt" = NULL, "lockedBy" = NULL,
         "lastError" = NULL, "updatedAt" = now()
@@ -135,7 +130,7 @@ export async function finishEmailDelivery(
   const delayMs =
     retryDelay === undefined ? null : Math.max(retryDelay, retryAfterMs);
 
-  const updated = await prisma.$queryRaw<{ communicationId: string | null }[]>`
+  const updated = await prisma.$queryRaw<{ communicationId: string }[]>`
     UPDATE "EmailOutbox" SET
       "status" = CASE WHEN ${delayMs}::double precision IS NULL
         THEN 'FAILED'::"EmailOutboxStatus" ELSE 'PENDING'::"EmailOutboxStatus" END,

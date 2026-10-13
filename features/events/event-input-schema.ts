@@ -114,7 +114,6 @@ const eventInputFields = z.object({
   language: eventLanguageSchema,
   title: z.string().trim().min(1, "inputEventName").max(200, "inputMax200"),
   description: z.string().trim().max(20000, "inputMax20000"),
-  descriptionFormat: z.enum(["PLAIN_TEXT", "MARKDOWN"]),
   location: locationSchema.nullable(),
   publicOrganizer: publicOrganizerSchema.nullable(),
   schedule: z

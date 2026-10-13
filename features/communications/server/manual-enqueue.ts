@@ -15,6 +15,7 @@ import {
 import { ManualCommunicationError } from "@/features/communications/server/manual-error";
 import type { Prisma } from "@/generated/prisma/client";
 import { emailOutboxChannel } from "@/lib/email-outbox/enqueue";
+import { manualEmailPayload } from "@/lib/email-outbox/payload";
 import { notifyEventChanged } from "@/lib/realtime/application-notifications";
 
 export const manualSendSchema = manualContentSchema.extend({
@@ -182,7 +183,9 @@ export async function enqueueManualCommunication(
             type: "MANUAL_EVENT_MESSAGE",
             status: "PENDING",
             recipientEmail,
-            payload: { locale: locales.get(recipientEmail) },
+            payload: manualEmailPayload.parse({
+              locale: locales.get(recipientEmail),
+            }),
             deduplicationKey: `manual:${id}:${createHash("sha256").update(recipientEmail).digest("hex")}`,
           })),
         },

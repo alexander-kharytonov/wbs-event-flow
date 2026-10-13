@@ -17,9 +17,7 @@ export type EditorSection = (typeof editorSections)[number]["id"];
 export function errorSection(field: string): EditorSection | undefined {
   const root = field.split(".")[0];
 
-  if (
-    ["title", "language", "description", "descriptionFormat"].includes(root)
-  ) {
+  if (["title", "language", "description"].includes(root)) {
     return "basics";
   }
 

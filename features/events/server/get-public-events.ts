@@ -48,7 +48,6 @@ export async function getPublicEvents(language?: EventLanguage) {
           title: snapshot.title,
           language: snapshot.language,
           description: snapshot.description,
-          descriptionFormat: snapshot.descriptionFormat,
           startsAt: snapshot.startsAt,
           endsAt: snapshot.endsAt,
           timezone: snapshot.timezone,

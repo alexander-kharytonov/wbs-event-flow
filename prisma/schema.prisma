@@ -54,11 +54,6 @@ enum EventAccountRequirement {
   OPTIONAL
 }
 
-enum DescriptionFormat {
-  PLAIN_TEXT
-  MARKDOWN
-}
-
 enum MediaAssetState {
   UPLOADING
   READY
@@ -120,7 +115,6 @@ model Event {
   title                String
   language             EventLanguage
   description          String?
-  descriptionFormat    DescriptionFormat @default(PLAIN_TEXT)
   coverAssetId         String? @db.Uuid
   coverAsset           MediaAsset? @relation("DraftCover", fields: [coverAssetId], references: [id], onDelete: Restrict)
   coverAlt             String?
@@ -371,7 +365,7 @@ model Attendee {
   kind           AttendeeKind
   userId         String?      @db.Uuid
   name           String
-  email          String?
+  email          String
   createdAt      DateTime     @default(now()) @db.Timestamptz(3)
   revokedAt      DateTime?    @db.Timestamptz(3)
   registration   Registration @relation("PartyAttendees", fields: [registrationId], references: [id], onDelete: Restrict)
@@ -407,7 +401,7 @@ model ApplicationGuest {
   application Application @relation(fields: [applicationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   position Int
   name String
-  email String?
+  email String
   answers ApplicationGuestAnswer[]
   attendee Attendee?
 
@@ -500,7 +494,7 @@ model Communication {
   contextSnapshot   Json
   recipientCount    Int
   idempotencyKey    String
-  requestDigest     String?
+  requestDigest     String
   event             Event @relation(fields: [eventId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   actor             User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull, onUpdate: Restrict)
   deliveries        EmailOutbox[]
@@ -529,8 +523,8 @@ enum EmailOutboxStatus {
 
 model EmailOutbox {
   id               String            @id @default(uuid(7)) @db.Uuid
-  communicationId  String? @db.Uuid
-  communication    Communication? @relation(fields: [communicationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  communicationId  String @db.Uuid
+  communication    Communication @relation(fields: [communicationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   type             EmailOutboxType
   status           EmailOutboxStatus @default(PENDING)
   deduplicationKey String            @unique

@@ -22,7 +22,7 @@ export const applicationGuestSelect = {
 type Declaration = {
   position: number;
   name: string;
-  email: string | null;
+  email: string;
   answers: StoredAnswer[];
 };
 
@@ -39,8 +39,7 @@ export function validApplicationGuests(
     if (
       guest.position !== index ||
       guest.name !== guest.name.trim() ||
-      (guest.email !== null &&
-        guest.email !== guest.email.trim().toLowerCase()) ||
+      guest.email !== guest.email.trim().toLowerCase() ||
       guest.answers.length !== fields.length ||
       new Set(guest.answers.map(({ fieldId }) => fieldId)).size !==
         fields.length

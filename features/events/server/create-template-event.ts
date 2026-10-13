@@ -62,7 +62,6 @@ export async function createTemplateEvent(
           tx,
           organizerId,
           {
-            descriptionFormat: event.descriptionFormat,
             location: event.location,
             schedule: event.schedule,
             publicOrganizer: event.publicOrganizer,

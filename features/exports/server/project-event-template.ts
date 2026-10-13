@@ -105,7 +105,6 @@ export function projectEventTemplate(
   const result = eventTemplateSchema.safeParse({
     format: "event-flow-template",
     event: {
-      descriptionFormat: source.descriptionFormat,
       location: source.location,
       schedule: source.schedule,
       publicOrganizer: source.publicOrganizer,

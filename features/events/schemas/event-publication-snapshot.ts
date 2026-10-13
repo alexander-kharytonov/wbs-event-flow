@@ -28,29 +28,5 @@ export const eventPublicationSnapshotSchema = eventSnapshotSchema.superRefine(
         }
       }
     }
-
-    if (
-      event.registrationOpensAt &&
-      Date.parse(event.registrationOpensAt) > Date.parse(event.startsAt)
-    ) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["registrationOpensAt"],
-        message: "Registration must open no later than the event start.",
-      });
-    }
-
-    for (const field of [
-      "registrationOpensAt",
-      "registrationClosesAt",
-    ] as const) {
-      if (event[field] && Date.parse(event[field]) > Date.parse(event.endsAt)) {
-        ctx.addIssue({
-          code: "custom",
-          path: [field],
-          message: "Registration must not extend beyond the event end.",
-        });
-      }
-    }
   },
 );
