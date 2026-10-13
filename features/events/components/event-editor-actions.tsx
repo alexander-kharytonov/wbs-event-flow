@@ -139,16 +139,11 @@ export function EventEditorActions({
             >
               {t("completeRequiredFields")}
             </Button>
-          ) : conflict ||
-            coverConflict ||
-            (serverMessage && !saved) ||
-            !eventId ? (
+          ) : conflict || coverConflict || (serverMessage && !saved) ? (
             <Alert severity="info" role="status">
               {conflict || coverConflict
                 ? t("reloadRequired")
-                : serverMessage && !saved
-                  ? t("saveFailedEditsKept")
-                  : t("readyToCreate")}
+                : t("saveFailedEditsKept")}
             </Alert>
           ) : null}
           {coverDirty && (
