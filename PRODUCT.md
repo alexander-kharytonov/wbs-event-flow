@@ -1435,16 +1435,31 @@ English transactional subject label, since grouped sends may have several langua
 Access in the Event editor offers optional password protection for PRIVATE events.
 Manual Create and Edit support entering a password, generating a secure password,
 show/hide and copy. Passwords use the existing 10–128 character policy. Show/hide
-and copy apply only to the newly entered value before Save; saved passwords cannot
-be recovered. Leave the replacement input blank to keep the saved password. A
-forgotten password requires entering a replacement, Save, then Republish.
-Password values are cleared after a save attempt, including failures; reenter a
-replacement to retry. No password is retained in React state or browser storage.
+and copy support both newly entered values and the saved draft password. Saved
+passwords are encrypted at rest and can be retrieved only by the verified Event
+owner, explicitly using Show password or Copy in Access. One password input supports both
+viewing the saved draft password and entering a replacement. Revealing a saved value
+does not mark the form dirty or submit it as a replacement; typing or generating
+a password makes it a replacement. An eye icon inside the input shows or hides the
+password and displays a spinner while the saved password is loading. Below the input,
+Generate secure password (Generate new secure password when one is saved) precedes
+Copy. Copy is available for both entered and saved passwords regardless of visibility.
+Copying a hidden saved password loads it on demand without revealing it in the input;
+the Copy button shows a spinner while the operation is pending. Viewing or copying
+performs no mutation and does not change existing visitor access.
+Leave the input blank to keep the saved password. Passwords saved
+before encrypted storage was introduced cannot be recovered; entering and saving
+the same password enables retrieval without changing its hash or visitor grants.
+A lost old password still requires a replacement and Republish.
+New password input is cleared after every save attempt, including failures.
+A password retrieved for copying is not retained in the form. A revealed password
+is kept only while shown in the current Access panel; Hide,
+leaving the panel, disabling protection or submitting the form clears it. No password
+is stored in URLs, browser storage, snapshots, templates or ordinary page payloads.
 
 Save changes only the draft. The currently published password continues to work
-until Publish/Republish. The Access panel identifies saved unpublished access
-changes and offers Republish, which publishes all saved Event changes. Unsaved
-Event or cover changes must be saved or discarded first. Switching the draft to
+until Publish/Republish through the Event actions. Access contains no pending-publication
+notice or publication button. Switching the draft to
 PUBLIC clears its password on Save; public access changes only on publication.
 Disabling protection likewise takes effect only on publication.
 

@@ -14,6 +14,7 @@ import {
   creationInput,
 } from "@/features/events/server/create-event-with-cover";
 import { draftEventPassword } from "@/features/events/server/event-password";
+import { encryptEventPassword } from "@/features/events/server/event-password-encryption";
 import { isEventPasswordOrigin } from "@/features/events/server/event-password-session";
 import { MediaError } from "@/features/events/server/media-image";
 import { requireOrganizer } from "@/features/organizer/server/require-organizer";
@@ -59,7 +60,13 @@ export async function createEvent(
         const id = await createEventCore(tx, organizer.id, parsed.data);
         await tx.event.update({
           where: { id },
-          data: { draftPasswordHash: password.hash },
+          data: {
+            draftPasswordHash: password.hash,
+            draftPasswordEncrypted:
+              password.hash && password.value
+                ? encryptEventPassword(password.value, id, password.hash)
+                : null,
+          },
         });
 
         return {

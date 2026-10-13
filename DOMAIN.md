@@ -2688,13 +2688,34 @@ DTOs, action results, template exports, logs or client props. EventSnapshot and
 EventTemplate each retain their single current strict contract. Existing revisions
 receive null access columns without rewriting their immutable snapshot content.
 
-Passwords are never stored reversibly. Node crypto scrypt uses N=32768, r=8, p=3,
+Visitor verification continues to use only hashes. Node crypto scrypt uses N=32768, r=8, p=3,
 a random 16-byte salt and 32-byte output; comparison uses timingSafeEqual. New
 password input is validated at 10–128 UTF-16 code units (matching account policy),
 without trimming or normalization. The browser generates 18 cryptographically random
-bytes encoded as 24 URL-safe characters. Plaintext exists only transiently in the
-password input and the POST/hash operation; an explicit Copy uses the clipboard.
-No saved secret is returned. Draft writes require verified OWNER authorization,
+bytes encoded as 24 URL-safe characters. `Event.draftPasswordEncrypted` stores an
+optional AES-256-GCM envelope alongside the draft hash. A 32-byte key is derived
+from the existing credential encryption key via HKDF-SHA256 with purpose
+`eventflow:event-password:v1`; each envelope uses a random 12-byte IV and a 16-byte
+authentication tag. AAD binds its purpose, Event ID and exact password hash.
+Decryption also verifies the recovered value against the hash. The DB requires a
+hash whenever ciphertext is present. PUBLIC/disabled protection clears both fields;
+blank replacement preserves both. Reentering the same password adds or refreshes
+ciphertext while retaining the existing hash and grant semantics. Existing hashes
+receive no invented password or backfill. Immutable revisions remain unchanged.
+
+`POST /api/events/[eventId]/password` is the sole saved-password read surface. It
+requires a trusted same-origin request, a live verified session checked without
+cookie cache, and ownership in the database query. The `X-Event-Version` header
+must match the current draft's opaque update version. Only this explicit response
+returns plaintext, with private/no-store headers; errors contain stable codes only.
+Neither hash nor ciphertext enters client props, action results, snapshots,
+templates, exports, logs or public/staff responses. The client reveals on demand,
+clears on Hide/unmount/save attempt and never persists the value. Reads change no
+hash, revision, grant, failure counter or lifecycle state. Explicit Copy can retrieve
+the hidden saved password through the same authorized read without revealing it
+or retaining it in the form. Clipboard writing begins with the user gesture and
+receives the password asynchronously; failed or aborted reads supply no clipboard value.
+Draft writes require verified OWNER authorization,
 trusted same-origin POST, existing lifecycle/optimistic guards and Event row locking.
 
 Publication copies the draft hash into a new revision under the existing Event
