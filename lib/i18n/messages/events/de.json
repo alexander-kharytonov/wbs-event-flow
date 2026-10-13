@@ -984,10 +984,10 @@
   "badgeTrySearch": "Versuche eine andere Suche.",
   "badgeAttendee": "Teilnehmende Person",
   "accessChanged": "Dein Zugriff auf diese Veranstaltung hat sich geändert.",
-  "templateCoverExcluded": "Das ursprüngliche Titelbild ist nicht enthalten. Lade nach der Erstellung ein neues Titelbild hoch.",
+  "templateCoverExcluded": "Das Coverbild der Vorlage ist nicht enthalten. Du kannst im Tab Coverbild ein neues Bild auswählen.",
   "duplicateUnavailable": "Diese Veranstaltung kann nicht dupliziert werden. Prüfe deinen Zugriff, die Vorlagengrenzen und ob das Namensschild-Design zum aktuellen Formular passt.",
   "editorReadOnlyHint": "Diese Veranstaltung ist schreibgeschützt. Informationen und Verlauf bleiben verfügbar.",
-  "coverUnavailable": "Titelbild nicht verfügbar",
+  "coverUnavailable": "Coverbild nicht verfügbar",
   "assignedEvent": "Zugewiesene Veranstaltung",
   "privateTicketHint": "Über diesen privaten Link kannst du Tickets ansehen und Gäste deiner Anmeldung verwalten. Bewahre ihn sicher auf.",
   "viewForm": "Formular ansehen",
@@ -1093,5 +1093,13 @@
   "accessPending": "Gespeicherte Zugriffsänderungen sind noch nicht aktiv. Der veröffentlichte Zugriff bleibt bestehen. Erneutes Veröffentlichen aktiviert alle gespeicherten Veranstaltungsänderungen.",
   "accessSaveFirst": "Vor dem erneuten Veröffentlichen ungespeicherte Änderungen speichern oder verwerfen.",
   "accessTemplateHint": "Passwörter sind nicht in Vorlagen oder Duplikaten enthalten. Richte den Schutz nach dem Erstellen im Veranstaltungseditor ein.",
-  "accessPasswordInvalid": "Gib ein Passwort mit 10–128 Zeichen ein."
+  "accessPasswordInvalid": "Gib ein Passwort mit 10–128 Zeichen ein.",
+  "creationCoverHint": "Wähle ein Bild, passe den Ausschnitt an und lade es hoch. Vorbereitete Coverbilder bleiben 24 Stunden privat und werden beim Erstellen der Veranstaltung angehängt. JPEG, PNG oder WebP, bis zu 5 MiB und 4096 × 4096 Pixel.",
+  "creationUploadProgress": "Upload: {percent} %",
+  "creationCoverReady": "Coverbild bereit. Es wird beim Erstellen der Veranstaltung angehängt. Temporäre Uploads laufen nach 24 Stunden ab.",
+  "creationRetry": "Erstellung erneut versuchen",
+  "creationUncertain": "Die Erstellung konnte nicht bestätigt werden. Deine übermittelten Werte sind gesperrt. Wiederhole dieselbe Anfrage, um das Ergebnis ohne Duplikat abzurufen. Lass diese Seite bis zur Klärung geöffnet.",
+  "creationPrepareFirst": "Lade den gewählten Ausschnitt hoch oder verwirf die Auswahl, bevor du die Veranstaltung erstellst.",
+  "creationInvalid": "Diese Erstellungsanfrage kann nicht erneut verwendet werden. Prüfe Meine Veranstaltungen, bevor du eine neue Erstellung beginnst.",
+  "creationCoverUnavailable": "Das vorbereitete Coverbild ist nicht verfügbar oder abgelaufen. Entferne es oder lade es erneut hoch, bevor du die Veranstaltung erstellst."
 }

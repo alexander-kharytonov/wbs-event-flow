@@ -41,6 +41,7 @@ model OrganizerProfile {
   updatedAt DateTime @updatedAt
   events    Event[]
   mediaAssets MediaAsset[]
+  creationReceipts EventCreationReceipt[]
 }
 
 enum EventVisibility {
@@ -76,6 +77,7 @@ model MediaAsset {
   manifest        Json?
   createdAt       DateTime @default(now()) @db.Timestamptz(3)
   uploadExpiresAt DateTime @db.Timestamptz(3)
+  temporaryExpiresAt DateTime? @db.Timestamptz(3)
   readyAt         DateTime? @db.Timestamptz(3)
   unusedSince     DateTime? @db.Timestamptz(3)
   deletingAt      DateTime? @db.Timestamptz(3)
@@ -86,6 +88,7 @@ model MediaAsset {
   @@index([eventId])
   @@index([state, uploadExpiresAt])
   @@index([state, unusedSince])
+  @@index([temporaryExpiresAt])
 }
 
 enum EventLanguage {
@@ -106,7 +109,21 @@ enum RegistrationFieldSubject {
   GUEST
 }
 
+model EventCreationReceipt {
+  key String @id @db.Uuid
+  organizerId String @db.Uuid
+  organizer OrganizerProfile @relation(fields: [organizerId], references: [id], onDelete: Restrict)
+  eventId String? @unique @db.Uuid
+  event Event? @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  result Json
+  fingerprint String
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([organizerId])
+}
+
 model Event {
+  creationReceipt EventCreationReceipt?
   id                   String                  @id @default(uuid(7)) @db.Uuid
   organizerId          String                  @db.Uuid
   organizer            OrganizerProfile        @relation(fields: [organizerId], references: [id])

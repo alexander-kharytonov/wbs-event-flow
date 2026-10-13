@@ -6,6 +6,7 @@ import {
   Alert,
   Box,
   Button,
+  LinearProgress,
   Skeleton,
   Stack,
   TextField,
@@ -37,8 +38,10 @@ export function EventCoverEditor({
   onSaved,
   onDirtyChange,
   onConflictChange,
+  onUnpreparedChange,
+  onPreparedChange,
 }: {
-  eventId: string;
+  eventId?: string;
   initial: EditableCover;
   version: string;
   disabled: boolean;
@@ -47,8 +50,11 @@ export function EventCoverEditor({
   onSaved: (version: string) => void;
   onDirtyChange: (dirty: boolean) => void;
   onConflictChange: (conflict: boolean) => void;
+  onUnpreparedChange?: (unprepared: boolean) => void;
+  onPreparedChange?: (assetId: string | null) => void;
 }) {
   const t = useTranslations("events");
+  const [progress, setProgress] = useState(0);
   const [cover, setCover] = useState(initial);
   const [assetId, setAssetId] = useState(initial.assetId);
   const [alt, setAlt] = useState(initial.alt ?? "");
@@ -138,6 +144,62 @@ export function EventCoverEditor({
     }
   }
 
+  async function uploadTemporary(controller: AbortController) {
+    return new Promise<Response>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", "/api/event-covers/uploads");
+      xhr.timeout = 90_000;
+      xhr.setRequestHeader("Content-Type", file?.type ?? "");
+      xhr.setRequestHeader("X-Event-Cover-Crop", JSON.stringify(crop));
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable)
+          setProgress(Math.round((event.loaded / event.total) * 100));
+      };
+      const abort = () => xhr.abort();
+      controller.signal.addEventListener("abort", abort, { once: true });
+      xhr.onloadend = () =>
+        controller.signal.removeEventListener("abort", abort);
+      xhr.onload = () =>
+        resolve(new Response(xhr.responseText, { status: xhr.status }));
+      xhr.onerror =
+        xhr.ontimeout =
+        xhr.onabort =
+          () => reject(new Error("Upload unconfirmed"));
+      xhr.send(file);
+    });
+  }
+
+  async function removeTemporary() {
+    if (disabled || pending || !begin()) {
+      return;
+    }
+    setPending("save");
+    feedback.reset();
+
+    try {
+      if (assetId) {
+        const response = await fetch(`/api/event-covers/${assetId}`, {
+          method: "DELETE",
+        });
+
+        if (!response.ok && response.status !== 404) {
+          feedback.setMessage("coverSaveFailed");
+
+          return;
+        }
+      }
+      setAssetId(null);
+      setAlt("");
+      setFile(undefined);
+      setSource(null);
+    } catch {
+      feedback.setMessage("coverConfirmFailed");
+    } finally {
+      setPending(null);
+      end();
+    }
+  }
+
   async function mutate(kind: "upload" | "save", remove = false) {
     if (disabled || pending || (kind === "upload" && !file)) {
       return;
@@ -154,36 +216,40 @@ export function EventCoverEditor({
       return;
     }
     setPending(kind);
+    setProgress(0);
     const controller = new AbortController();
     request.current = controller;
 
     try {
-      const response = await fetch(
-        `/api/events/${eventId}/cover${kind === "upload" ? "/uploads" : ""}`,
-        {
-          method: kind === "upload" ? "POST" : "PUT",
-          headers: {
-            "Content-Type":
-              kind === "upload" ? (file?.type ?? "") : "application/json",
-            ...(kind === "upload"
-              ? { "X-Event-Cover-Crop": JSON.stringify(crop) }
-              : {}),
-          },
-          body:
-            kind === "upload"
-              ? file
-              : JSON.stringify({
-                  assetId: remove ? null : assetId,
-                  alt: remove || !assetId ? null : alt.trim() || null,
-                  version,
-                }),
-          signal: controller.signal,
-        },
-      );
+      const response =
+        !eventId && kind === "upload"
+          ? await uploadTemporary(controller)
+          : await fetch(
+              `/api/events/${eventId}/cover${kind === "upload" ? "/uploads" : ""}`,
+              {
+                method: kind === "upload" ? "POST" : "PUT",
+                headers: {
+                  "Content-Type":
+                    kind === "upload" ? (file?.type ?? "") : "application/json",
+                  ...(kind === "upload"
+                    ? { "X-Event-Cover-Crop": JSON.stringify(crop) }
+                    : {}),
+                },
+                body:
+                  kind === "upload"
+                    ? file
+                    : JSON.stringify({
+                        assetId: remove ? null : assetId,
+                        alt: remove || !assetId ? null : alt.trim() || null,
+                        version,
+                      }),
+                signal: controller.signal,
+              },
+            );
       const result = await response.json();
 
       if (!response.ok) {
-        if (response.status === 409) {
+        if (eventId && response.status === 409) {
           setConflict(true);
         }
         feedback.setMessage(
@@ -197,6 +263,12 @@ export function EventCoverEditor({
       }
 
       if (kind === "upload") {
+        if (!eventId && assetId) {
+          // A failed discard stays tracked and expires automatically.
+          void fetch(`/api/event-covers/${assetId}`, {
+            method: "DELETE",
+          }).catch(() => {});
+        }
         setAssetId(result.assetId);
         setFile(undefined);
         setSource(null);
@@ -240,6 +312,12 @@ export function EventCoverEditor({
   useEffect(() => {
     onConflictChange(conflict);
   }, [conflict, onConflictChange]);
+  useEffect(() => {
+    onUnpreparedChange?.(Boolean(source));
+  }, [source, onUnpreparedChange]);
+  useEffect(() => {
+    onPreparedChange?.(assetId);
+  }, [assetId, onPreparedChange]);
   const chooseButton = (
     <Button
       type="button"
@@ -260,7 +338,20 @@ export function EventCoverEditor({
       aria-label={t("coverEvent")}
       aria-busy={Boolean(pending)}
     >
-      <SectionHeader title={t("coverImage")} description={t("coverHint")} />
+      <SectionHeader
+        title={t("coverImage")}
+        description={t(eventId ? "coverHint" : "creationCoverHint")}
+      />
+      {!eventId && (
+        <>
+          <input type="hidden" name="temporaryCoverId" value={assetId ?? ""} />
+          <input
+            type="hidden"
+            name="temporaryCoverAlt"
+            value={assetId ? alt.trim() : ""}
+          />
+        </>
+      )}
       <input
         ref={fileInput}
         hidden
@@ -281,8 +372,19 @@ export function EventCoverEditor({
             animation="wave"
             sx={{ width: "100%", height: "auto", aspectRatio: "16 / 9" }}
           />
+          {!eventId && pending === "upload" && (
+            <LinearProgress
+              aria-label={t("coverUploading")}
+              variant={progress < 100 ? "determinate" : "indeterminate"}
+              value={progress}
+            />
+          )}
           <Typography variant="body2" color="text.secondary">
-            {pending === "upload" ? t("coverProcessing") : t("coverPreparing")}
+            {!eventId && pending === "upload" && progress < 100
+              ? t("creationUploadProgress", { percent: progress })
+              : pending === "upload"
+                ? t("coverProcessing")
+                : t("coverPreparing")}
           </Typography>
         </Stack>
       ) : source ? (
@@ -315,7 +417,11 @@ export function EventCoverEditor({
           ) : (
             <Box
               component="img"
-              src={`/api/events/${eventId}/cover/${assetId}/1280`}
+              src={
+                eventId
+                  ? `/api/events/${eventId}/cover/${assetId}/1280`
+                  : `/api/event-covers/${assetId}/1280`
+              }
               alt={alt || t("coverPreview")}
               onError={() => setFailedAssetId(assetId)}
               ref={(element: HTMLImageElement | null) => {
@@ -358,7 +464,7 @@ export function EventCoverEditor({
               {t("coverCancelSelection")}
             </Button>
           )}
-          {assetId !== cover.assetId && !source && (
+          {eventId && assetId !== cover.assetId && !source && (
             <Button
               type="button"
               disabled={busy || conflict}
@@ -414,7 +520,9 @@ export function EventCoverEditor({
         </Alert>
       )}
       {assetId && assetId !== cover.assetId && !source && (
-        <Alert severity="info">{t("coverUploadedHint")}</Alert>
+        <Alert severity="info">
+          {t(eventId ? "coverUploadedHint" : "creationCoverReady")}
+        </Alert>
       )}
       {(source || assetId || pending) && (
         <Stack
@@ -423,13 +531,15 @@ export function EventCoverEditor({
           useFlexGap
           sx={{ alignItems: { xs: "stretch", sm: "center" } }}
         >
-          {cover.assetId && (
+          {(eventId ? cover.assetId : assetId || source) && (
             <Button
               type="button"
               color="error"
               sx={{ alignSelf: { xs: "flex-start", sm: "center" } }}
               disabled={busy || conflict}
-              onClick={() => void mutate("save", true)}
+              onClick={() =>
+                void (eventId ? mutate("save", true) : removeTemporary())
+              }
             >
               {t("coverRemove")}
             </Button>
@@ -452,7 +562,7 @@ export function EventCoverEditor({
                   ? t("coverUploading")
                   : t("coverUploadCrop")}
               </Button>
-            ) : (
+            ) : eventId ? (
               <Button
                 type="button"
                 variant="contained"
@@ -461,7 +571,7 @@ export function EventCoverEditor({
               >
                 {pending === "save" ? t("saving") : t("coverSave")}
               </Button>
-            )}
+            ) : null}
           </Stack>
         </Stack>
       )}

@@ -984,7 +984,7 @@
   "badgeTrySearch": "Try another search.",
   "badgeAttendee": "Attendee",
   "accessChanged": "Your access to this event has changed.",
-  "templateCoverExcluded": "The source cover image is not included. Upload a new cover after creating this event.",
+  "templateCoverExcluded": "The source cover image is not included. You can select a new cover in the Cover tab.",
   "duplicateUnavailable": "This event cannot be duplicated. Check your access and whether its configuration meets template limits and its badge design matches the current form.",
   "editorReadOnlyHint": "This event is read-only. Its information and history remain available.",
   "coverUnavailable": "Cover image unavailable",
@@ -1093,5 +1093,13 @@
   "accessPending": "Saved access changes are not live yet. The current published access remains in effect. Republish activates all saved event changes.",
   "accessSaveFirst": "Save or discard unsaved changes before republishing.",
   "accessTemplateHint": "Passwords are not included in templates or duplicates. Configure protection in the event editor after creation.",
-  "accessPasswordInvalid": "Enter a password with 10–128 characters."
+  "accessPasswordInvalid": "Enter a password with 10–128 characters.",
+  "creationCoverHint": "Choose and crop an image, then upload it. Prepared covers stay private for 24 hours and attach when you create the event. JPEG, PNG or WebP, up to 5 MiB and 4096 × 4096 pixels.",
+  "creationUploadProgress": "Uploading: {percent}%",
+  "creationCoverReady": "Cover ready. It will be attached when you create the event. Temporary uploads expire after 24 hours.",
+  "creationRetry": "Retry same creation",
+  "creationUncertain": "Creation could not be confirmed. Your submitted values are locked. Retry the same request to recover the result without creating a duplicate. Keep this page open until resolved.",
+  "creationPrepareFirst": "Upload your selected crop or cancel the selection before creating the event.",
+  "creationInvalid": "This creation request cannot be reused. Check My Events before starting a new creation.",
+  "creationCoverUnavailable": "The prepared cover is unavailable or expired. Remove it or upload it again before creating the event."
 }

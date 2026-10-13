@@ -65,6 +65,7 @@ export function requireMediaId(id: string) {
 export async function serveEventMedia(
   request: Request,
   context: {
+    temporary?: boolean;
     eventId?: string;
     publicId?: string;
     assetId: string;
@@ -79,10 +80,30 @@ export async function serveEventMedia(
     throw new MediaError(404, "mediaUnavailable");
   }
 
-  const userId = context.eventId ? await mediaActor(request) : null;
-  requireMediaId(context.eventId ?? context.publicId ?? "");
+  const userId =
+    context.eventId || context.temporary ? await mediaActor(request) : null;
+
+  if (!context.temporary) {
+    requireMediaId(context.eventId ?? context.publicId ?? "");
+  }
   const asset = await prisma.$transaction(
     async (tx) => {
+      if (context.temporary) {
+        const [clock] = await tx.$queryRaw<
+          { now: Date }[]
+        >`SELECT clock_timestamp() AS now`;
+
+        return tx.mediaAsset.findFirst({
+          where: {
+            id: assetId,
+            eventId: null,
+            state: "READY",
+            organizer: { userId: userId ?? "" },
+            temporaryExpiresAt: { gt: clock.now },
+          },
+        });
+      }
+
       if (context.eventId) {
         const actor = await authorizeEventActor(
           tx,

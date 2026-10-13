@@ -10,7 +10,7 @@ import { prisma } from "@/lib/prisma";
 
 export const mediaCleanupBudget = { assets: 100, orphanFiles: 100 } as const;
 
-export async function cleanupMedia() {
+export async function cleanupMedia(temporaryOnly = false) {
   // Reject an unsafe DB-storage configuration before claiming rows.
   const storage = mediaStorage();
   await storage.validate();
@@ -27,10 +27,12 @@ export async function cleanupMedia() {
   >`SELECT clock_timestamp() AS now`;
   const batch = await prisma.mediaAsset.findMany({
     where: {
+      ...(temporaryOnly ? { temporaryExpiresAt: { not: null } } : {}),
       draftEvents: { none: {} },
       revisions: { none: {} },
       OR: [
         { state: "DELETING" },
+        { temporaryExpiresAt: { lte: clock.now } },
         { state: "UPLOADING", uploadExpiresAt: { lte: clock.now } },
         {
           state: "READY",
@@ -59,7 +61,10 @@ export async function cleanupMedia() {
             { now: Date }[]
           >`SELECT clock_timestamp() AS now`;
           const expired =
-            asset.state === "UPLOADING" && asset.uploadExpiresAt <= clock.now;
+            (asset.state === "UPLOADING" &&
+              asset.uploadExpiresAt <= clock.now) ||
+            (asset.temporaryExpiresAt !== null &&
+              asset.temporaryExpiresAt <= clock.now);
           const unused =
             asset.state === "READY" &&
             asset.unusedSince &&
@@ -146,4 +151,62 @@ export async function cleanupMedia() {
   }
 
   return result;
+}
+
+const runtime = globalThis as typeof globalThis & {
+  eventTemporaryMediaCleanup?: {
+    timer: ReturnType<typeof setInterval>;
+    running?: Promise<void>;
+  };
+};
+
+export function startTemporaryMediaCleanup() {
+  if (runtime.eventTemporaryMediaCleanup) {
+    return;
+  }
+  const worker: {
+    timer: ReturnType<typeof setInterval>;
+    running?: Promise<void>;
+  } = {
+    timer: setInterval(sweep, 15 * 60 * 1000),
+  };
+  worker.timer.unref();
+  runtime.eventTemporaryMediaCleanup = worker;
+
+  function sweep() {
+    if (worker.running) {
+      return;
+    }
+    worker.running = cleanupMedia(true)
+      .then((result) => {
+        if (result.failed) {
+          console.error(
+            "Temporary media cleanup incomplete; a later sweep will retry.",
+          );
+        }
+      })
+      .catch(() => {
+        console.error(
+          "Temporary media cleanup failed; a later sweep will retry.",
+        );
+      })
+      .finally(() => {
+        worker.running = undefined;
+      });
+  }
+  sweep();
+}
+
+export async function stopTemporaryMediaCleanup() {
+  const worker = runtime.eventTemporaryMediaCleanup;
+
+  if (!worker) {
+    return;
+  }
+  clearInterval(worker.timer);
+  await worker.running;
+
+  if (runtime.eventTemporaryMediaCleanup === worker) {
+    runtime.eventTemporaryMediaCleanup = undefined;
+  }
 }
