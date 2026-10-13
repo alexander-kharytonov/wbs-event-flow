@@ -116,10 +116,18 @@ These are the scripts currently defined in package.json:
 | `pnpm infra:down` | Stop/remove service containers; preserve database volume |
 | `pnpm infra:status` | Show Compose service status |
 | `pnpm db:migrate` | Run local `prisma migrate dev` |
+| `pnpm db:reset` | Delete development database data and reapply current migrations, with Prisma confirmation |
 | `pnpm db:generate` | Generate Prisma Client |
 | `pnpm db:studio` | Open Prisma Studio |
 | `pnpm db:check` | Check migration/schema alignment, then current domain integrity in a read-only RepeatableRead snapshot; report aggregate violations without private data |
 | `pnpm media:cleanup` | Explicitly collect expired/unreferenced media and reconcile generated orphan files; writes to DB and the configured media directory |
+
+Before `pnpm db:reset`, stop the application and confirm DATABASE_URL targets the
+intended local development database. After a successful reset, run `pnpm db:generate`,
+`pnpm exec prisma migrate status` and `pnpm db:check` before restarting the application.
+The reset does not delete media files or populate seed data. For a fully clean start, clear
+the paired local MEDIA_STORAGE_ROOT contents while the application remains stopped,
+preserving the directory and its permissions.
 
 `db:check` first checks the migration ledger against repository migration names and
 checksums, rejecting missing history, pending, failed, unexpected, duplicate or
