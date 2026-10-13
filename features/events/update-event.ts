@@ -20,7 +20,6 @@ import {
 } from "@/features/events/event-lifecycle";
 import { draftEventPassword } from "@/features/events/server/event-password";
 import { isEventPasswordOrigin } from "@/features/events/server/event-password-session";
-import { guestPolicyChangeError } from "@/features/events/server/guest-policy";
 import { lockEventForUpdate } from "@/features/events/server/lock-event-for-update";
 import { requireOrganizer } from "@/features/organizer/server/require-organizer";
 import { Prisma } from "@/generated/prisma/client";
@@ -119,25 +118,6 @@ export async function updateEvent(
         ) {
           return {
             message: "inputOngoingDates",
-          };
-        }
-
-        const policyError = await guestPolicyChangeError(
-          tx,
-          id,
-          event.guestPolicy,
-          parsed.data.guestPolicy,
-        );
-
-        if (policyError) {
-          return {
-            errors: {
-              guestPolicy: [
-                policyError === "POLICY_LOCKED"
-                  ? "guestPolicyLocked"
-                  : "guestPolicyFieldsExist",
-              ],
-            },
           };
         }
 

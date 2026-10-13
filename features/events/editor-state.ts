@@ -51,7 +51,6 @@ export function errorSection(field: string): EditorSection | undefined {
     [
       "capacity",
       "maxGuestsPerRegistration",
-      "guestPolicy",
       "registrationOpensAt",
       "registrationClosesAt",
     ].includes(root)

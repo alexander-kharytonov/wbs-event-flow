@@ -138,7 +138,6 @@ const eventInputFields = z.object({
   accountRequirement: z.enum(["OPTIONAL", "REQUIRED"], {
     error: "inputAccountRequirement",
   }),
-  guestPolicy: z.enum(["FLEXIBLE", "APPROVAL_REQUIRED"]),
   maxGuestsPerRegistration: z
     .string()
     .regex(/^\d+$/)
@@ -449,10 +448,6 @@ export function eventInputIssueMessage(issue: z.core.$ZodIssue): string {
 
   if (issue.path[0] === "language") {
     return "invalidEventLanguage";
-  }
-
-  if (issue.path[0] === "guestPolicy") {
-    return "inputGuestPolicy";
   }
 
   if (issue.path[0] === "maxGuestsPerRegistration") {

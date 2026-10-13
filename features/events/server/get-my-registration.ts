@@ -182,11 +182,7 @@ export async function getMyRegistration(userId: string, eventId: string) {
           id: guest.id,
           name: guest.name,
           email: guest.email,
-          answers: historicalAnswers(
-            application.snapshot,
-            guest.answers,
-            "GUEST",
-          ),
+          answers: historicalAnswers(application.snapshot, guest.answers),
         })),
       };
     }),

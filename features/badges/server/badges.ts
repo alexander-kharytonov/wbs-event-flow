@@ -58,10 +58,9 @@ async function fieldCatalog(tx: Prisma.TransactionClient, eventId: string) {
   };
   const draft = await tx.registrationField.findMany({
     where: { form: { eventId } },
-    orderBy: [{ subject: "asc" }, { position: "asc" }],
+    orderBy: { position: "asc" },
     select: {
       id: true,
-      subject: true,
       position: true,
       type: true,
       label: true,
@@ -72,7 +71,6 @@ async function fieldCatalog(tx: Prisma.TransactionClient, eventId: string) {
     add(
       { fieldId: field.id, type: field.type, label: field.label },
       {
-        subject: field.subject,
         context: "badgeCurrentQuestion",
         contextValues: { number: field.position + 1 },
       },
@@ -104,25 +102,20 @@ async function fieldCatalog(tx: Prisma.TransactionClient, eventId: string) {
     const parsed = eventSnapshotSchema.safeParse(revision.snapshot);
 
     if (parsed.success) {
-      for (const subject of ["APPLICANT", "GUEST"] as const) {
-        const form =
-          subject === "GUEST"
-            ? parsed.data.guestForm
-            : parsed.data.registrationForm;
-
-        for (const [position, field] of form.fields.entries()) {
-          add(
-            { fieldId: field.id, type: field.type, label: field.label },
-            {
-              subject,
-              context: "badgePublishedQuestion",
-              contextValues: {
-                number: position + 1,
-                revision: revision.number,
-              },
+      for (const [
+        position,
+        field,
+      ] of parsed.data.registrationForm.fields.entries()) {
+        add(
+          { fieldId: field.id, type: field.type, label: field.label },
+          {
+            context: "badgePublishedQuestion",
+            contextValues: {
+              number: position + 1,
+              revision: revision.number,
             },
-          );
-        }
+          },
+        );
       }
     }
   }
@@ -277,15 +270,10 @@ export async function buildBadgePresentation(
         for (const slot of ["secondary", "tertiary"] as const) {
           const binding =
             slot === "secondary" ? layout.secondaryField : layout.tertiaryField;
-          const subject =
-            selector.data.previewKind === "GUEST" ? "GUEST" : "APPLICANT";
 
           if (
             binding &&
-            catalog?.fields.some(
-              (field) =>
-                sameBadgeField(field, binding) && field.subject === subject,
-            )
+            catalog?.fields.some((field) => sameBadgeField(field, binding))
           ) {
             presentation[slot] = badgeText(binding.label);
           }
@@ -362,7 +350,6 @@ export async function buildBadgePresentation(
             person.kind === "PRIMARY"
               ? application.answers
               : (application.guests[0]?.answers ?? []),
-            person.kind,
           );
 
           if (resolved.status === "VALUE") {
@@ -419,15 +406,7 @@ export async function buildBadgePresentation(
           }
 
           for (const snapshot of catalog.activeSnapshots) {
-            const result = resolveBadgeField(
-              binding,
-              snapshot,
-              [],
-              catalog.fields.find((field) => sameBadgeField(field, binding))
-                ?.subject === "GUEST"
-                ? "GUEST"
-                : "PRIMARY",
-            );
+            const result = resolveBadgeField(binding, snapshot, []);
 
             if (
               result.status === "INCOMPATIBLE" ||

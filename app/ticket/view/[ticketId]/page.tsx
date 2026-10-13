@@ -7,7 +7,7 @@ import { getTranslations } from "next-intl/server";
 import { LanguageSelector } from "@/components/ui/language-selector";
 import { EventText } from "@/features/events/components/event-text";
 import { PartyGuests } from "@/features/guests/components/party-guests";
-import { addGuest, removeGuest } from "@/features/guests/server/manage-guests";
+import { removeGuest } from "@/features/guests/server/manage-guests";
 import { TicketCard } from "@/features/tickets/components/ticket-card";
 import { getAnonymousTicket } from "@/features/tickets/server/get-anonymous-ticket";
 import {
@@ -46,21 +46,6 @@ export default async function AnonymousTicketPage({
   }
 
   // Bind only the nonsecret Ticket id; authorize the current cookie on every mutation.
-  async function add(input: { name: string; email: string }) {
-    "use server";
-
-    const capability = await readTicketSession(ticketId);
-
-    if (!capability || !isTicketMutationOrigin(await headers())) {
-      return { code: "UNAVAILABLE" as const };
-    }
-
-    const result = await addGuest({ capability }, input);
-    refresh();
-
-    return result;
-  }
-
   async function remove(guestId: string) {
     "use server";
 
@@ -97,11 +82,7 @@ export default async function AnonymousTicketPage({
             <EventText id="applicationAccessHint" />
           </Alert>
         )}
-        <PartyGuests
-          party={data.guests}
-          addAction={add}
-          removeAction={remove}
-        />
+        <PartyGuests party={data.guests} removeAction={remove} />
       </Stack>
     </Container>
   );

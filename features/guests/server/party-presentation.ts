@@ -1,5 +1,4 @@
 import "server-only";
-import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 import {
   presentTicket,
   type TicketPresentation,
@@ -30,10 +29,6 @@ export async function presentPartyGuests(
   },
   context: TicketPresentation["context"],
 ) {
-  const published = eventSnapshotSchema.safeParse(
-    event.publishedRevision?.snapshot,
-  );
-  const limit = published.success ? published.data.maxGuestsPerRegistration : 0;
   const guests = registration.attendees.filter(({ kind }) => kind === "GUEST");
   const activeCount = guests.filter(({ revokedAt }) => !revokedAt).length;
   const frozen = Date.now() >= event.startsAt.getTime();
@@ -44,13 +39,7 @@ export async function presentPartyGuests(
       ? "eventCancelledMessage"
       : frozen
         ? "guestsFrozen"
-        : !published.success
-          ? "guestsUnpublishedRemoveAllowed"
-          : published.data.guestPolicy === "APPROVAL_REQUIRED"
-            ? "guestsApprovalRequired"
-            : limit === 0
-              ? "guestsDisabledRemoveAllowed"
-              : null;
+        : "guestsDeclaredAtRegistration";
   const items = await Promise.all(
     guests.map(async (guest) => {
       if (!guest.ticket) {
@@ -78,14 +67,8 @@ export async function presentPartyGuests(
     showSection: !frozen || guests.length > 0,
     items,
     activeCount,
-    limit,
     reason,
     canRemove,
-    canAdd:
-      canRemove &&
-      published.success &&
-      published.data.guestPolicy === "FLEXIBLE" &&
-      activeCount < limit,
   };
 }
 

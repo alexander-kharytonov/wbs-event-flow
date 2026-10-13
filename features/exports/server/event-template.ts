@@ -58,7 +58,6 @@ export async function readEventTemplate(userId: string, eventId: string) {
           visibility: true,
           accountRequirement: true,
           capacity: true,
-          guestPolicy: true,
           maxGuestsPerRegistration: true,
           registrationOpensAt: true,
           registrationClosesAt: true,
@@ -66,10 +65,9 @@ export async function readEventTemplate(userId: string, eventId: string) {
           registrationForm: {
             select: {
               fields: {
-                orderBy: [{ subject: "asc" }, { position: "asc" }],
+                orderBy: { position: "asc" },
                 select: {
                   id: true,
-                  subject: true,
                   type: true,
                   label: true,
                   description: true,

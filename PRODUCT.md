@@ -127,7 +127,7 @@ application's existence or details.
 A verified user can see their linked current application on the public event or
 their account registration-detail page and
 withdraw a pending or approved application before the currently published event
-end. Approval atomically creates a Registration, its PRIMARY Attendee from the submitted identity, and one Ticket per admitted person. For Approval Required, all declared guests are admitted in the same transaction.
+end. Approval atomically creates a Registration, its PRIMARY Attendee from the submitted identity, and one Ticket per admitted person. All declared guests are admitted in the same transaction.
 Withdrawal keeps the old attempt and atomically revokes its Registration and all active Attendees and Tickets, freeing
 all occupied party places if it was approved. Revoked admission remains in history.
 Anonymous applications are not claimed by signing in with a matching email and
@@ -327,7 +327,7 @@ GUEST has no linked account. QR credentials, anonymous access tokens and
 Ticket history remain immutable. Verified linked attendees see current and historical Tickets on their
 Registration Detail. Applicants who were anonymous at Ticket issue receive a
 separate private bearer link in approval email; no account is required. Anyone
-holding that link can view this party’s Tickets and manage Guests within the Event guest policy.
+holding that link can view this party’s Tickets and manage Guests by removing guests before Event start.
 The Ticket link never grants whole-party withdrawal or claiming. A separate application
 link in the application-received email grants application-scoped viewing and withdrawal.
 Private email links deliver the existing anonymous capability in a URL fragment
@@ -390,82 +390,38 @@ visible without contributing to operational counters. Linked Ticket details refr
 through the existing account stream; anonymous Ticket pages show attendance after reload. Check-in alone does not hide
 the QR; existing revocation/cancellation visibility rules still apply.
 
-## Guest configuration, applications and group admission (GUEST-2 / GUEST-3)
+## Guest registration and group admission (GUEST-5)
 
-Events have an explicit guest policy: FLEXIBLE (the default for newly created
-Events) or APPROVAL_REQUIRED. Flexible preserves post-approval party management.
-Approval Required means guests must be declared and reviewed with the application;
-post-approval additions and replacements are prohibited. Guest declarations are
-submission history, not admissions or reserved seats.
+Organizers configure only Allow guests and Maximum guests per applicant (0–10;
+zero means disabled). Every participant completes the same Registration Form Builder
+questions, including identical field types, options and required rules. Full name and
+email are required for the primary and each guest. Each participant's answers are
+independent. Guest email is contact data and never grants an account, ownership,
+application access or a private management capability. Guests do not need accounts.
 
-Owners can persist guest configuration through the server configuration services
-and current template/import/duplicate contracts. Guest fields reuse registration
-question types, labels, requiredness and options, with a separate GUEST subject.
-They are available only under Approval Required. Applicant questions remain separate.
-The policy can change only before the first application, including withdrawn
-attempts; switching to Flexible requires explicitly removing guest fields first.
-Later field and limit changes never rewrite submitted declarations or revisions.
+Applicants declare zero to the opened revision's guest limit during initial registration.
+The complete group is saved atomically against that immutable EventRevision. Pending
+applications reserve no places. Owners and Managers review every participant and their
+historical answers before approval. Approval admits the entire group and issues all
+Tickets atomically, only if current published capacity fits everybody. Concurrent
+approval, publication, removal and withdrawal retain the Event lock.
 
-Approval Required collects zero to the opened revision's guest limit before submission.
-Each guest has a required name, optional email and answers to the organizer's GUEST
-questions. Applicant and guest answers stay separate and retain the opened immutable
-revision. Entered values and validation errors survive ordinary rerenders and UI language
-changes. Event-authored questions and option placeholders retain the Event language.
-Submission saves the complete application atomically and reserves no places.
+After approval, guests cannot be added, replaced or restored. The linked party owner or
+independent anonymous PRIMARY Ticket capability can remove guests before persisted
+Event start, without requiring publication or a positive guest limit. Removal revokes
+the guest's Ticket and releases their place, preserving declaration and answer history.
+Adding guests requires withdrawal and a new application with renewed approval. Whole
+party withdrawal revokes active admission, Tickets and application credentials; a new
+attempt never reuses old credentials or automatically copies guests.
 
-Owners and Managers see the entire declared group and historical answers before review.
-Approval validates that historical group and requires current published capacity for
-1 + declared guests. It admits everybody and issues every Ticket together, or changes
-nothing. Reception receives only organizer-selected badge values through authorized
-individual printing; public APIs and SSE receive no guest answers. Group approval may
-occur during an ongoing Event under existing review eligibility rules.
-
-After approval, adding or replacing guests is prohibited. Removal is available only
-before persisted Event start, revokes that guest's Ticket and releases one place.
-Declarations and answers remain in history; removed guests cannot be restored.
-Flexible events retain their existing post-approval Add/Remove flow.
-
-Guest badge bindings and guest-answer CSV exports are integrated in GUEST-4 below.
-The Event editor's Registration section exposes Flexible Guests / Approval Required.
-The selected policy is saved atomically with the other draft fields; new manual
-Events default to Flexible. Import/duplicate review preserves the source policy
-and permits changes only when compatible with its guest fields. The selector is
-locked after any application exists and explains the restriction. Switching back
-to Flexible is disabled while guest questions exist; the server rechecks both rules
-under the Event lock. Disabling guests changes the limit to zero, not the policy.
-Published content still changes only on publication. Manual guest-question editing
-remains outside this UI change.
-
-Publication requires explicit policy, limit and complete applicant/guest field
-sets. Templates require explicit policy and field subject, generate fresh field
-and option identities on import/duplicate, and never copy guest declarations.
-There is one current unversioned contract. Existing demo snapshots/templates
-without these fields are invalid; no compatibility reader or rewrite is provided.
-Disposable demo data does not authorize a reset or production data mutation.
-
-## Guests / +1 (FLEXIBLE)
-
-The PRIMARY manages their Registration party through a verified account owner
-session or their existing anonymous PRIMARY link. A Guest is an admitted person
-and capacity seat, with a required name and optional email contact snapshot.
-Email grants no identity or ownership. Guests have no account association or own
-browser capability; their normal Tickets and Attendance use the existing QR flow.
-
-Organizers configure 0–10 maximum active guests per registration in the Event
-workspace and publish the policy. Zero disables adding guests. EventSnapshot
-always carries the explicit limit. Add requires a current published
-permission and available published capacity. Remove needs neither publication nor
-a positive limit. Both require an active party, a non-cancelled Event, and time
-strictly before the persisted event start; party composition then freezes.
-After the event starts, the Guests section is hidden if no guests were ever
-added to that Registration. Existing guest tickets, including revoked ones,
-remain visible in history.
-Reducing the published guest limit never revokes existing Guests. Already removed
-guests remain history and consume no seats. Whole-party withdrawal keeps its
-existing lifecycle rules and revokes all active people and Tickets; reapplication
-starts with a new PRIMARY only. Adding/removing Guests sends no email. Cancellation
-recipients remain pending applicants and Registration/PRIMARY owners.
-
+There is one shared form and no policy selector, policy lock, separate guest questions
+or policy-specific publication guard. Changed questions/limits affect new publications,
+never existing submissions. Templates carry the shared form and remap field/option IDs.
+Snapshots/templates use one strict current contract, without compatibility readers or
+versioning. Old demo artifacts are invalid rather than converted or rewritten. The
+incremental migration removes obsolete guest-only workspace fields and policy columns;
+committed migrations and submitted history stay unchanged. Deployment/reset remain
+separate operations requiring authorization.
 
 ## Event staff
 
@@ -515,12 +471,10 @@ opened print documents.
 Owners explicitly select up to two SHORT_TEXT, LONG_TEXT, SINGLE_CHOICE or
 MULTIPLE_CHOICE questions. Multiple-choice values list selected option labels
 separated by a comma and space, in the submitted form's option order.
-PRIMARY values come from the submitted Application revision only when field ID, type
-and label match the selected descriptor. The same two text slots also accept configured
-GUEST questions, clearly labeled separately from applicant questions. Each slot applies
-only to its question's subject; choosing a guest question does not populate PRIMARY
-badges. Declared guest values come only from that Attendee's linked declaration and
-its submitted Application revision. Flexible guests have no declaration answers.
+Each slot references a question from the shared registration form. Values resolve
+for the specific attendee from their submitted Application or linked guest declaration,
+using that immutable revision and exact field ID/type/label. Guests never inherit the
+primary participant's answers.
 The designer can preview Applicant or Guest, using semantic labels when that type has
 no active attendee. CHECKBOX questions are excluded from badge selection. Missing
 values are omitted; incompatible
@@ -528,7 +482,7 @@ values are omitted with owner preview warnings. Guests never inherit PRIMARY ans
 Text is limited to two visible lines per field.
 
 Reception may see the owner-approved individual BadgePresentation, including selected
-applicant or guest custom values and the existing, decodable Ticket QR. This narrow
+attendee custom values and the existing, decodable Ticket QR. This narrow
 exception does not
 expose Applications, answer models, revision snapshots, email, the field catalog or
 raw Ticket crypto fields. Selecting a question for the badge explicitly authorizes its
@@ -645,17 +599,16 @@ separate Guest name/email retain group relationships without treating a declarat
 admission. Applicant identity/status context repeats on guest rows; answers do not.
 Attendees include PRIMARY/GUEST and revoked admission. PRIMARY rows contain source
 Application answers; declared guests contain their own historical answers with
-GUEST_DECLARATION scope and Guest declaration ID. Flexible guests retain empty answers
-with NOT_APPLICABLE scope. Guest rows retain PRIMARY name context. Attendance includes
+GUEST_DECLARATION scope and Guest declaration ID. Guest rows retain PRIMARY name context. Attendance includes
 every recorded arrival, even after
 admission revocation, with QR/Manual and available actor name. Staff includes the
 owner first, then current Managers/Reception. Reviewer and actor names reflect
 current linked accounts; unavailable identities are never replaced by the owner.
 
 Historical answer columns are separated by submitted revision and question, with
-human labels, subject, type, revision number and stable revisionId:fieldId identifiers,
-with adjacent VALUE/NOT_PROVIDED/NOT_APPLICABLE/UNAVAILABLE states. Applicant and guest
-answer columns remain separate; questions belonging to another subject are NOT_APPLICABLE.
+human labels, type, revision number and stable revisionId:fieldId identifiers,
+with adjacent VALUE/NOT_PROVIDED/NOT_APPLICABLE/UNAVAILABLE states. Every participant uses the same answer columns, with values from their own answers.
+Questions from another revision are NOT_APPLICABLE.
 Removed guests remain exportable history, with revoked admission in Attendees.
 Question and choice meanings come from the submitted snapshot, never today's form.
 Invalid historical snapshots reject the whole export.
@@ -679,16 +632,16 @@ it contains current staff emails. It uses current saved workspace configuration,
 including unpublished Event, Registration Form and Badge Design changes.
 
 The JSON contains title, nullable description, start/end, timezone, visibility,
-account requirement, guest policy, nullable capacity, maximum guests per registration, nullable
+account requirement, nullable capacity, maximum guests per registration, nullable
 registration open/close dates, registration form, staff and nullable badge layout.
 Dates retain their original instants, including past dates. Completed, cancelled
 and archived Events can be exported without copying their lifecycle state.
 
-Custom questions retain their subject (APPLICANT/GUEST), order within that subject, type, label, nullable description,
+Custom questions retain their order, type, label, nullable description,
 required flag and ordered option labels. Full name/email are built-in inputs,
 not custom fields. Questions receive local keys field_1, field_2, etc.; database
 identities are excluded. Badge bindings use those keys only when the saved
-field ID, type and label exactly match a current applicant or guest question. A
+field ID, type and label exactly match a current shared registration question. A
 historical, deleted,
 recreated or changed binding rejects the whole export and asks the owner to
 update Badge Design. Invalid saved layouts also fail; null remains null and

@@ -52,8 +52,6 @@ const snapshotFieldSchema = z
 export const eventSnapshotSchema = z
   .strictObject({
     language: z.enum(["en", "de", "pl", "uk", "ru"]),
-    guestPolicy: z.enum(["FLEXIBLE", "APPROVAL_REQUIRED"]),
-    guestForm: z.strictObject({ fields: z.array(snapshotFieldSchema) }),
     maxGuestsPerRegistration: z.number().int().min(0).max(10),
     descriptionFormat: z.enum(["PLAIN_TEXT", "MARKDOWN"]),
     cover: coverDescriptorSchema.nullable(),
@@ -97,18 +95,7 @@ export const eventSnapshotSchema = z
         });
       }
     }
-    const fieldIds = [
-      ...event.registrationForm.fields,
-      ...event.guestForm.fields,
-    ].map((field) => field.id);
-
-    if (event.guestPolicy === "FLEXIBLE" && event.guestForm.fields.length > 0) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["guestForm"],
-        message: "Flexible guests cannot have application fields.",
-      });
-    }
+    const fieldIds = event.registrationForm.fields.map((field) => field.id);
 
     if (new Set(fieldIds).size !== fieldIds.length) {
       ctx.addIssue({

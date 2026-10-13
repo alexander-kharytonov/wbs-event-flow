@@ -119,7 +119,6 @@ function ReviewBadge({
       ? [
           {
             ...parsed.data,
-            subject: field.subject,
             context: "templateQuestion" as const,
             contextValues: { number: index + 1 },
           },
@@ -283,9 +282,6 @@ export function TemplateReview({
         sx={{ border: 0, p: 0, m: 0, minWidth: 0 }}
       >
         <EventForm
-          hasGuestFields={event.registrationForm.fields.some(
-            (field) => field.subject === "GUEST",
-          )}
           extraDirty={JSON.stringify(event) !== JSON.stringify(initial)}
           importedDates={initial}
           initialErrors={
@@ -653,7 +649,6 @@ export function TemplateReview({
 
               const field: TemplateField = {
                 ...parsed.data,
-                subject: editor.field?.subject ?? "APPLICANT",
                 key: editor.field?.key ?? `field_${nextKey.current++}`,
                 description: parsed.data.description || null,
                 options,

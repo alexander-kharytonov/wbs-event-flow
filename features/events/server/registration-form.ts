@@ -15,25 +15,23 @@ import type { Prisma } from "@/generated/prisma/client";
 import type { Messages } from "@/lib/i18n/messages";
 import { prisma } from "@/lib/prisma";
 
-const formSelection = (subject: "APPLICANT" | "GUEST") =>
-  ({
-    updatedAt: true,
-    fields: {
-      where: { subject },
-      orderBy: { position: "asc" },
-      select: {
-        id: true,
-        type: true,
-        label: true,
-        description: true,
-        required: true,
-        options: { orderBy: { position: "asc" }, select: { label: true } },
-      },
+const formSelection = {
+  updatedAt: true,
+  fields: {
+    orderBy: { position: "asc" },
+    select: {
+      id: true,
+      type: true,
+      label: true,
+      description: true,
+      required: true,
+      options: { orderBy: { position: "asc" }, select: { label: true } },
     },
-  }) satisfies Prisma.RegistrationFormSelect;
+  },
+} satisfies Prisma.RegistrationFormSelect;
 
 type SelectedForm = Prisma.RegistrationFormGetPayload<{
-  select: ReturnType<typeof formSelection>;
+  select: typeof formSelection;
 }>;
 
 function serializeForm(form: SelectedForm): BuilderForm {
@@ -49,7 +47,6 @@ function serializeForm(form: SelectedForm): BuilderForm {
 export async function getRegistrationForm(
   eventId: string,
   organizerId: string,
-  subject: "APPLICANT" | "GUEST" = "APPLICANT",
 ) {
   if (!z.uuid().safeParse(eventId).success) {
     return null;
@@ -79,7 +76,7 @@ export async function getRegistrationForm(
           publishedRevision: {
             select: { contentVersion: true, number: true, snapshot: true },
           },
-          registrationForm: { select: formSelection(subject) },
+          registrationForm: { select: formSelection },
         },
       });
 
@@ -124,7 +121,6 @@ const unavailable = "questionUnavailable";
 export async function mutateRegistrationForm(
   organizerId: string,
   input: unknown,
-  subject: "APPLICANT" | "GUEST" = "APPLICANT",
 ): Promise<RegistrationResult> {
   const parsed = registrationMutationSchema.safeParse(input);
 
@@ -158,10 +154,6 @@ export async function mutateRegistrationForm(
         throw new FormMutationError("mediaReadOnly");
       }
 
-      if (subject === "GUEST" && locked.guestPolicy !== "APPROVAL_REQUIRED") {
-        throw new FormMutationError(unavailable);
-      }
-
       const forms = await tx.$queryRaw<{ id: string; updatedAt: Date }[]>`
         SELECT "id", "updatedAt" FROM "RegistrationForm"
         WHERE "eventId" = ${command.eventId}::uuid FOR UPDATE`;
@@ -172,7 +164,7 @@ export async function mutateRegistrationForm(
       }
 
       const fields = await tx.registrationField.findMany({
-        where: { formId: current.id, subject },
+        where: { formId: current.id },
         orderBy: { position: "asc" },
         select: { id: true },
       });
@@ -218,7 +210,6 @@ export async function mutateRegistrationForm(
             data: {
               ...data,
               formId: current.id,
-              subject,
               position: ids.length,
             },
           });
@@ -270,7 +261,7 @@ export async function mutateRegistrationForm(
       return serializeForm(
         await tx.registrationForm.findUniqueOrThrow({
           where: { id: current.id },
-          select: formSelection(subject),
+          select: formSelection,
         }),
       );
     });

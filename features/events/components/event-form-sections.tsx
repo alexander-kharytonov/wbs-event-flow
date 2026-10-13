@@ -40,9 +40,6 @@ type Props = {
   feedback: ReturnType<typeof useFormFeedback<string>>;
   disabled: boolean;
   startLocked: boolean;
-  guestPolicyLocked: boolean;
-  persistedGuestPolicy: EventFormValues["guestPolicy"];
-  hasGuestFields: boolean;
   edit?: { dates: EventDateSource };
   timezones: string[];
   markDateEdited: (name: keyof EventFormValues) => void;
@@ -81,9 +78,6 @@ export function EventFormSections({
   feedback,
   disabled,
   startLocked,
-  guestPolicyLocked,
-  persistedGuestPolicy,
-  hasGuestFields,
   edit,
   timezones,
   markDateEdited,
@@ -335,76 +329,17 @@ export function EventFormSections({
                 }
               />
               {values.maxGuestsPerRegistration !== "0" ? (
-                <>
-                  <TextField
-                    {...field("maxGuestsPerRegistration")}
-                    label={t("maxGuests")}
-                    type="number"
-                    slotProps={{ htmlInput: { min: 1, max: 10 } }}
-                  />
-                  <TextField
-                    {...field("guestPolicy")}
-                    select
-                    label={t("guestPolicyLabel")}
-                    disabled={
-                      disabled ||
-                      (guestPolicyLocked &&
-                        values.guestPolicy === persistedGuestPolicy)
-                    }
-                    helperText={
-                      feedback.errors.guestPolicy ||
-                      t(
-                        guestPolicyLocked
-                          ? "guestPolicyLocked"
-                          : "guestPolicyChangeHint",
-                      )
-                    }
-                  >
-                    <MenuItem
-                      value="FLEXIBLE"
-                      disabled={
-                        hasGuestFields ||
-                        (guestPolicyLocked &&
-                          persistedGuestPolicy !== "FLEXIBLE")
-                      }
-                    >
-                      {t("guestPolicyFlexible")}
-                    </MenuItem>
-                    <MenuItem
-                      value="APPROVAL_REQUIRED"
-                      disabled={
-                        guestPolicyLocked &&
-                        persistedGuestPolicy !== "APPROVAL_REQUIRED"
-                      }
-                    >
-                      {t("guestPolicyApprovalRequired")}
-                    </MenuItem>
-                  </TextField>
-                  {hasGuestFields && !guestPolicyLocked && (
-                    <Alert severity="info">{t("guestPolicyFieldsExist")}</Alert>
-                  )}
-                  <Alert severity="info">
-                    {t(
-                      values.guestPolicy === "APPROVAL_REQUIRED"
-                        ? "guestPolicyApprovalHint"
-                        : "guestPolicyFlexibleHint",
-                    )}
-                  </Alert>
-                </>
+                <TextField
+                  {...field("maxGuestsPerRegistration")}
+                  label={t("maxGuests")}
+                  type="number"
+                  slotProps={{ htmlInput: { min: 1, max: 10 } }}
+                />
               ) : (
                 <input
                   type="hidden"
                   name="maxGuestsPerRegistration"
                   value="0"
-                />
-              )}
-              {(values.maxGuestsPerRegistration === "0" ||
-                (guestPolicyLocked &&
-                  values.guestPolicy === persistedGuestPolicy)) && (
-                <input
-                  type="hidden"
-                  name="guestPolicy"
-                  value={values.guestPolicy}
                 />
               )}
             </Stack>

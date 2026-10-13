@@ -167,7 +167,6 @@ export async function ApplicationDetail({
           answers: historicalAnswers(
             application.eventRevision.snapshot,
             guest.answers,
-            "GUEST",
           ),
         }))}
       />

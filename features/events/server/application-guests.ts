@@ -32,7 +32,7 @@ export function validApplicationGuests(
   snapshot: EventSnapshot,
   guests: Declaration[],
 ) {
-  const fields = snapshot.guestForm.fields;
+  const fields = snapshot.registrationForm.fields;
   const input = [];
 
   for (const [index, guest] of guests.entries()) {

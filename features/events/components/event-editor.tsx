@@ -111,12 +111,6 @@ export async function EditEventView({ eventId: id }: { eventId: string }) {
     where: { id, organizerId: organizer.id },
     include: {
       publishedRevision: { select: { passwordHash: true, snapshot: true } },
-      _count: { select: { applications: true } },
-      registrationForm: {
-        select: {
-          _count: { select: { fields: { where: { subject: "GUEST" } } } },
-        },
-      },
     },
   });
 
@@ -166,8 +160,6 @@ export async function EditEventView({ eventId: id }: { eventId: string }) {
                     ).visibility !== event.visibility),
               ),
             }}
-            guestPolicyLocked={event._count.applications > 0}
-            hasGuestFields={Boolean(event.registrationForm?._count.fields)}
             serverAction={updateEvent}
             edit={{
               id: event.id,

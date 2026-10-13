@@ -127,7 +127,6 @@ export default async function PrivateApplicationPage({
             answers: historicalAnswers(
               application.eventRevision.snapshot,
               guest.answers,
-              "GUEST",
             ),
           }))}
         />
