@@ -181,11 +181,6 @@ async function main() {
             WHERE e."publishedRevisionId" IS NOT NULL
               AND (v.id IS NULL OR e."publicId" IS NULL OR e."publishedAt" IS NULL)
             UNION ALL
-            SELECT 'guest_field_policy', count(*)
-            FROM "RegistrationField" f JOIN "RegistrationForm" r ON r.id = f."formId"
-            JOIN "Event" e ON e.id = r."eventId"
-            WHERE f.subject = 'GUEST' AND e."guestPolicy" <> 'APPROVAL_REQUIRED'
-            UNION ALL
             SELECT 'guest_declaration_positions', count(*) FROM (
               SELECT "applicationId" FROM "ApplicationGuest" GROUP BY "applicationId"
               HAVING min(position) <> 0 OR max(position) <> count(*) - 1
@@ -204,22 +199,12 @@ async function main() {
             LEFT JOIN "Attendee" a ON a."applicationGuestId" = g.id
             WHERE a.id IS NULL OR a."registrationId" <> r.id OR a."createdAt" <> r."createdAt"
             UNION ALL
-            SELECT 'guest_admission_policy', count(*)
-            FROM "Attendee" a JOIN "Registration" r ON r.id = a."registrationId"
-            JOIN "Application" p ON p.id = r."sourceApplicationId"
-            JOIN "EventRevision" v ON v.id = p."eventRevisionId"
-            WHERE a.kind = 'GUEST' AND (
-              (v.snapshot->>'guestPolicy' = 'APPROVAL_REQUIRED' AND a."applicationGuestId" IS NULL)
-              OR (v.snapshot->>'guestPolicy' = 'FLEXIBLE' AND a."applicationGuestId" IS NOT NULL))
+            SELECT 'guest_admission_provenance', count(*) FROM "Attendee"
+            WHERE kind = 'GUEST' AND "applicationGuestId" IS NULL
             UNION ALL
             SELECT 'application_access_revocation', count(*) FROM "Application"
             WHERE ("anonymousAccessHash" IS NULL) <> ("anonymousAccessEncrypted" IS NULL)
               OR (status = 'WITHDRAWN' AND "anonymousAccessHash" IS NOT NULL)
-            UNION ALL
-            SELECT 'guest_policy_binding', count(*)
-            FROM "Application" a JOIN "Event" e ON e.id = a."eventId"
-            JOIN "EventRevision" v ON v.id = a."eventRevisionId"
-            WHERE v.snapshot->>'guestPolicy' IS DISTINCT FROM e."guestPolicy"::text
             UNION ALL
             SELECT 'communication_delivery_count', count(*)
             FROM "Communication" c
@@ -388,18 +373,16 @@ async function main() {
             if (
               !applicationInputSchema.shape.fullName.safeParse(guest.name)
                 .success ||
-              (guest.email !== null &&
-                !applicationInputSchema.shape.email.safeParse(guest.email)
-                  .success) ||
+              !applicationInputSchema.shape.email.safeParse(guest.email)
+                .success ||
               !snapshot.success ||
-              snapshot.data.guestPolicy !== "APPROVAL_REQUIRED" ||
               guest.position >= snapshot.data.maxGuestsPerRegistration
             ) {
               invalidGuests++;
               continue;
             }
 
-            const fields = snapshot.data.guestForm.fields;
+            const fields = snapshot.data.registrationForm.fields;
             const values: Record<string, string[]> = {};
             let valid = guest.answers.length === fields.length;
 
@@ -441,7 +424,7 @@ async function main() {
             if (
               !valid ||
               !applicationAnswersSchema({
-                registrationForm: snapshot.data.guestForm,
+                registrationForm: snapshot.data.registrationForm,
               }).safeParse(values).success
             ) {
               invalidGuests++;

@@ -7,11 +7,9 @@ import { TicketCard } from "@/features/tickets/components/ticket-card";
 
 export function PartyGuests({
   party,
-  addAction,
   removeAction,
 }: {
   party: PartyGuestsPresentation;
-  addAction: (input: { name: string; email: string }) => Promise<GuestResult>;
   removeAction: (guestId: string) => Promise<GuestResult>;
 }) {
   if (!party.showSection) {
@@ -31,7 +29,6 @@ export function PartyGuests({
           title={<EventText id="guestTicket" />}
         />
       ))}
-      addAction={addAction}
       removeAction={removeAction}
     />
   );

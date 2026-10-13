@@ -229,11 +229,6 @@ export async function submitEventApplication(
             return unavailable;
           }
 
-          // Also reject an old opened form after a pre-application policy change.
-          if (snapshot.data.guestPolicy !== locked.guestPolicy) {
-            return { message: { code: "formUnavailable" } };
-          }
-
           if (!currentEvent) {
             return { message: { code: "formUnavailable" } };
           }

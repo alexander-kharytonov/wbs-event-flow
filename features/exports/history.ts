@@ -12,7 +12,6 @@ import {
 
 export type AnswerColumn = {
   revisionId: string;
-  subject: "APPLICANT" | "GUEST";
   field: HistoricalField;
   header: string;
 };
@@ -27,26 +26,16 @@ export function revisionColumns(
     throw new ExportError("exportHistory");
   }
 
-  const fields = [
-    ...parsed.data.registrationForm.fields.map((field) => ({
-      field,
-      subject: "APPLICANT" as const,
-    })),
-    ...parsed.data.guestForm.fields.map((field) => ({
-      field,
-      subject: "GUEST" as const,
-    })),
-  ];
+  const fields = parsed.data.registrationForm.fields;
 
   if (existingColumns + fields.length * 2 > MAX_EXPORT_COLUMNS) {
     throw new ExportError("exportColumns");
   }
 
-  return fields.map(({ field, subject }) => ({
-    subject,
+  return fields.map((field) => ({
     revisionId: revision.id,
     field,
-    header: `${field.label} [${subject} v${revision.number} ${field.type} ${revision.id}:${field.id}]`,
+    header: `${field.label} [v${revision.number} ${field.type} ${revision.id}:${field.id}]`,
   }));
 }
 
@@ -54,21 +43,14 @@ export function answerCells(
   columns: AnswerColumn[],
   revisionId: string,
   answers: StoredAnswer[],
-  subject: "APPLICANT" | "GUEST" | null,
 ): CsvCell[] {
   const submittedFieldIds = new Set(
     columns
-      .filter(
-        (column) =>
-          column.revisionId === revisionId && column.subject === subject,
-      )
+      .filter((column) => column.revisionId === revisionId)
       .map((column) => column.field.id),
   );
 
-  if (
-    subject !== null &&
-    answers.some((answer) => !submittedFieldIds.has(answer.fieldId))
-  ) {
+  if (answers.some((answer) => !submittedFieldIds.has(answer.fieldId))) {
     throw new ExportError("exportHistory");
   }
 
@@ -81,7 +63,7 @@ export function answerCells(
   }
 
   return columns.flatMap((column): CsvCell[] => {
-    if (column.subject !== subject || column.revisionId !== revisionId) {
+    if (column.revisionId !== revisionId) {
       return [null, "NOT_APPLICABLE"];
     }
 

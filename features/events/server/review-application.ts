@@ -119,10 +119,7 @@ export async function reviewEventApplication(
         );
 
         if (decision === "APPROVED") {
-          if (
-            !snapshot.success ||
-            snapshot.data.guestPolicy !== locked.guestPolicy
-          ) {
+          if (!snapshot.success) {
             return {
               code: "PUBLICATION_UNAVAILABLE",
               message: "applicationPublicationUnavailable",
@@ -135,7 +132,6 @@ export async function reviewEventApplication(
 
           if (
             !submitted.success ||
-            submitted.data.guestPolicy !== locked.guestPolicy ||
             !validApplicationGuests(submitted.data, application.guests)
           ) {
             return {

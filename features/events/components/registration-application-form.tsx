@@ -45,7 +45,7 @@ export function RegistrationApplicationForm({
   eventRevisionId: currentRevisionId = "",
   preview = false,
   fields: currentFields,
-  guestConfiguration: currentGuestConfiguration,
+  maxGuestsPerRegistration: currentMaxGuestsPerRegistration,
   selectPlaceholders: currentSelectPlaceholders,
   reapplication = false,
   applicant,
@@ -57,10 +57,7 @@ export function RegistrationApplicationForm({
   eventContext: ReactNode;
   initialValues?: Record<string, string[]>;
   fields: EventSnapshot["registrationForm"]["fields"];
-  guestConfiguration: Pick<
-    EventSnapshot,
-    "guestPolicy" | "guestForm" | "maxGuestsPerRegistration"
-  >;
+  maxGuestsPerRegistration: number;
   selectPlaceholders: { chooseOption: string; noSelection: string };
 } & (
   | { preview: true; publicId?: never; eventRevisionId?: never }
@@ -72,12 +69,12 @@ export function RegistrationApplicationForm({
   const [openedForm] = useState(() => ({
     eventRevisionId: currentRevisionId,
     fields: currentFields,
-    guestConfiguration: currentGuestConfiguration,
+    maxGuestsPerRegistration: currentMaxGuestsPerRegistration,
     selectPlaceholders: currentSelectPlaceholders,
   }));
-  const guestConfiguration = preview
-    ? currentGuestConfiguration
-    : openedForm.guestConfiguration;
+  const maxGuestsPerRegistration = preview
+    ? currentMaxGuestsPerRegistration
+    : openedForm.maxGuestsPerRegistration;
   const fields = preview ? currentFields : openedForm.fields;
   const selectPlaceholders = preview
     ? currentSelectPlaceholders
@@ -103,7 +100,7 @@ export function RegistrationApplicationForm({
       name: values[`guest:${key}:name`]?.[0] ?? "",
       email: values[`guest:${key}:email`]?.[0] ?? "",
       answers: Object.fromEntries(
-        guestConfiguration.guestForm.fields.map((field) => [
+        fields.map((field) => [
           field.id,
           values[`guest:${key}:answers:${field.id}`] ?? [],
         ]),
@@ -161,7 +158,8 @@ export function RegistrationApplicationForm({
     guestKeys.every(
       (key) =>
         Boolean(values[`guest:${key}:name`]?.[0]?.trim()) &&
-        guestConfiguration.guestForm.fields.every(
+        Boolean(values[`guest:${key}:email`]?.[0]?.trim()) &&
+        fields.every(
           (field) =>
             !field.required ||
             (values[`guest:${key}:answers:${field.id}`] ?? []).some((value) =>
@@ -183,9 +181,7 @@ export function RegistrationApplicationForm({
       (key) =>
         name === `guest:${key}:name` ||
         name === `guest:${key}:email` ||
-        guestConfiguration.guestForm.fields.some(
-          (field) => name === `guest:${key}:answers:${field.id}`,
-        ),
+        fields.some((field) => name === `guest:${key}:answers:${field.id}`),
     );
   const hasFieldErrors = Object.keys(feedback.errors).some(isFieldError);
 
@@ -241,9 +237,10 @@ export function RegistrationApplicationForm({
       }
     }
 
-    const guests = applicationGuestsSchema(guestConfiguration).safeParse(
-      guestValues(),
-    );
+    const guests = applicationGuestsSchema({
+      registrationForm: { fields },
+      maxGuestsPerRegistration,
+    }).safeParse(guestValues());
 
     if (!guests.success) {
       Object.assign(
@@ -476,14 +473,14 @@ export function RegistrationApplicationForm({
         name="guests"
         value={JSON.stringify(guestValues())}
       />
-      {guestConfiguration.guestPolicy === "APPROVAL_REQUIRED" && (
+      {maxGuestsPerRegistration > 0 && (
         <Stack component="section" spacing={3}>
           <Typography variant="h5" component="h2">
             {t("declaredGuests")}
           </Typography>
           <Alert severity="info">
             {t("declareGuestsHint", {
-              count: guestConfiguration.maxGuestsPerRegistration,
+              count: maxGuestsPerRegistration,
             })}
           </Alert>
           {guestKeys.length === 0 && (
@@ -534,7 +531,8 @@ export function RegistrationApplicationForm({
                   slotProps={{ htmlInput: { maxLength: 200 } }}
                 />
                 <TextField
-                  label={t("guestEmailOptional")}
+                  required
+                  label={t("email")}
                   type="email"
                   value={values[`guest:${key}:email`]?.[0] ?? ""}
                   disabled={pending || preview}
@@ -544,7 +542,7 @@ export function RegistrationApplicationForm({
                   {...feedback.field(`guest:${key}:email`)}
                 />
                 <ApplicationQuestions
-                  fields={guestConfiguration.guestForm.fields}
+                  fields={fields}
                   values={values}
                   errors={feedback.errors}
                   update={update}
@@ -557,7 +555,7 @@ export function RegistrationApplicationForm({
               </Stack>
             </Paper>
           ))}
-          {guestKeys.length < guestConfiguration.maxGuestsPerRegistration && (
+          {guestKeys.length < maxGuestsPerRegistration && (
             <Button
               variant="outlined"
               disabled={pending || preview}

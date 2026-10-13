@@ -353,7 +353,7 @@ export async function PublicEventExperience({
             publicId={publicId}
             eventRevisionId={eventRevisionId}
             fields={snapshot.registrationForm.fields}
-            guestConfiguration={snapshot}
+            maxGuestsPerRegistration={snapshot.maxGuestsPerRegistration}
             selectPlaceholders={selectPlaceholders}
             applicant={
               user ? { name: user.name, email: user.email } : undefined

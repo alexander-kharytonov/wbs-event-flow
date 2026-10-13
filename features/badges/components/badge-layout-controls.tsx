@@ -74,8 +74,6 @@ export function BadgeLayoutControls({
             value={String(position)}
             sx={{ whiteSpace: "normal" }}
           >
-            {field.subject &&
-              `${t(field.subject === "GUEST" ? "badgeGuestFields" : "badgeApplicantFields")} · `}
             {field.label} · {t(fieldTypeLabels[field.type])}
             {catalog.some(
               (other) =>

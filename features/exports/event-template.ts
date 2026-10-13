@@ -62,7 +62,6 @@ const fieldKeySchema = z.string().regex(/^field_[1-9]\d*$/);
 const portableFieldSchema = z
   .strictObject({
     key: fieldKeySchema,
-    subject: z.enum(["APPLICANT", "GUEST"]),
     type: registrationFieldSchema.shape.type,
     label: registrationFieldSchema.shape.label,
     description: registrationFieldSchema.shape.description.unwrap().nullable(),
@@ -122,7 +121,6 @@ export const eventTemplateSchema = z
       visibility: eventFields.visibility,
       accountRequirement: eventFields.accountRequirement,
       capacity: z.number().int().min(1).max(2147483647).nullable(),
-      guestPolicy: z.enum(["FLEXIBLE", "APPROVAL_REQUIRED"]),
       maxGuestsPerRegistration: z.number().int().min(0).max(10),
       registrationOpensAt: instantSchema.nullable(),
       registrationClosesAt: instantSchema.nullable(),
@@ -153,16 +151,6 @@ export const eventTemplateSchema = z
         }),
     );
     const fields = event.registrationForm.fields;
-
-    if (
-      event.guestPolicy === "FLEXIBLE" &&
-      fields.some((field) => field.subject === "GUEST")
-    ) {
-      ctx.addIssue({
-        code: "custom",
-        message: "Flexible guests cannot have application fields.",
-      });
-    }
 
     if (
       fields.reduce((sum, field) => sum + field.options.length, 0) >

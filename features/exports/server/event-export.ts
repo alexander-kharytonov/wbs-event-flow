@@ -295,7 +295,6 @@ export async function buildEventCsv(
                 columns,
                 row.eventRevisionId,
                 answers.get(row.id) ?? [],
-                "APPLICANT",
               ),
             ]);
 
@@ -310,12 +309,7 @@ export async function buildEventCsv(
                 guest.position + 1,
                 guest.name,
                 guest.email,
-                ...answerCells(
-                  columns,
-                  row.eventRevisionId,
-                  guest.answers,
-                  "GUEST",
-                ),
+                ...answerCells(columns, row.eventRevisionId, guest.answers),
               ]);
             }
           }
@@ -390,10 +384,10 @@ export async function buildEventCsv(
               : undefined;
 
             if (
-              row.applicationGuestId &&
-              (!guest ||
-                primary ||
-                guest.applicationId !== registration.sourceApplicationId)
+              (primary && row.applicationGuestId !== null) ||
+              (!primary &&
+                (!guest ||
+                  guest.applicationId !== registration.sourceApplicationId))
             ) {
               throw new ExportError("exportHistory");
             }
@@ -413,11 +407,7 @@ export async function buildEventCsv(
               registration.sourceApplicationId,
               primary ? null : (registration.attendees[0]?.name ?? null),
               numbers.get(revisionId) ?? null,
-              primary
-                ? "SOURCE_APPLICATION"
-                : guest
-                  ? "GUEST_DECLARATION"
-                  : "NOT_APPLICABLE",
+              primary ? "SOURCE_APPLICATION" : "GUEST_DECLARATION",
               row.applicationGuestId,
               ...answerCells(
                 columns,
@@ -425,7 +415,6 @@ export async function buildEventCsv(
                 primary
                   ? (answers.get(registration.sourceApplicationId) ?? [])
                   : (guest?.answers ?? []),
-                primary ? "APPLICANT" : guest ? "GUEST" : null,
               ),
             ]);
           }
