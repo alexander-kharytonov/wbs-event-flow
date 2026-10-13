@@ -7,6 +7,7 @@ import {
 } from "@/features/events/schemas/event-rich-content";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 import { authorizeEventActor } from "@/features/events/server/event-access";
+import { hasEventPasswordAccess } from "@/features/events/server/event-password-session";
 import { MediaError } from "@/features/events/server/media-image";
 import { auth } from "@/lib/auth";
 import { getServerEnv } from "@/lib/env";
@@ -112,11 +113,24 @@ export async function serveEventMedia(
           id: true,
           organizerId: true,
           publishedRevision: {
-            select: { coverAssetId: true, snapshot: true, coverAsset: true },
+            select: {
+              coverAssetId: true,
+              snapshot: true,
+              coverAsset: true,
+              passwordHash: true,
+              passwordGrantId: true,
+            },
           },
         },
       });
       const revision = event?.publishedRevision;
+
+      if (
+        !revision ||
+        !(await hasEventPasswordAccess(context.publicId ?? "", revision))
+      ) {
+        throw new MediaError(404, "mediaUnavailable");
+      }
       const snapshot = eventSnapshotSchema.safeParse(revision?.snapshot);
       const publishedAsset = revision?.coverAsset;
 

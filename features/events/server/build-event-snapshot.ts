@@ -18,6 +18,8 @@ export const workspaceInclude = {
       number: true,
       snapshot: true,
       coverAssetId: true,
+      passwordHash: true,
+      passwordGrantId: true,
     },
   },
   registrationForm: {

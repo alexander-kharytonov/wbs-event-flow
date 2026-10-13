@@ -86,8 +86,8 @@ inclusive until its end exclusive. Past events remain in the catalog.
 
 Published PUBLIC and PRIVATE events both have direct `/e/[publicId]` URLs with a
 stable UUIDv7 publicId assigned on first publication. PRIVATE events are
-excluded from discovery and marked noindex/nofollow; they are not password
-protected. Public event content and catalog entries show the published version,
+excluded from discovery and marked noindex/nofollow. Organizers may optionally
+protect PRIVATE events with a password (ACCESS-1 below). Public event content and catalog entries show the published version,
 including its visibility, rather than unpublished organizer edits.
 
 ## Registration
@@ -1416,3 +1416,53 @@ unchanged. Event dates use the frozen Event timezone. Already queued deliveries
 without locale retain English; delivery addresses, links, idempotency, retry and
 security behavior are unchanged. Communication history keeps its existing stable
 English transactional subject label, since grouped sends may have several languages.
+
+
+## Private event password protection (ACCESS-1)
+
+Access in the Event editor offers optional password protection for PRIVATE events.
+Manual Create and Edit support entering a password, generating a secure password,
+show/hide and copy. Passwords use the existing 10–128 character policy. Show/hide
+and copy apply only to the newly entered value before Save; saved passwords cannot
+be recovered. Leave the replacement input blank to keep the saved password. A
+forgotten password requires entering a replacement, Save, then Republish.
+Password values are cleared after a save attempt, including failures; reenter a
+replacement to retry. No password is retained in React state or browser storage.
+
+Save changes only the draft. The currently published password continues to work
+until Publish/Republish. The Access panel identifies saved unpublished access
+changes and offers Republish, which publishes all saved Event changes. Unsaved
+Event or cover changes must be saved or discarded first. Switching the draft to
+PUBLIC clears its password on Save; public access changes only on publication.
+Disabling protection likewise takes effect only on publication.
+
+Published protected pages display a generic password form, without Event title,
+description, form questions, cover, location, agenda or organizer details, until
+verification succeeds. The registration URL and cover URLs enforce the same gate.
+Unpublished/invalid Events remain unavailable. OWNER Preview continues to require
+owner authority and displays the saved draft without a visitor password challenge;
+it neither grants visitor access nor accepts registrations.
+
+Successful verification grants access only to that Event for two hours, with no
+sliding expiration or automatic renewal. Navigation and UI language changes retain
+access. Expiry requires verification again. Password changes or removal invalidate
+previous grants atomically on publication. Publishing without changing the effective
+password configuration preserves valid grants, including republishing after unpublish.
+Unpublish still removes all visitor access while the Event is unpublished.
+
+An Event permits at most 100 failed password attempts in a fixed 15-minute window
+starting at its first failure. Successful attempts do not reset the counter. At the
+limit all verification is temporarily unavailable, including correct passwords;
+already valid grants continue to work. Availability returns after the window ends.
+Errors are generic and do not reveal counters or internal timing. This event-wide
+availability trade-off is accepted for the current public demo.
+
+Password access grants no account, organizer, staff, application, admission or ticket
+privileges. Those independently authorized surfaces retain their current rules.
+Every new submission checks the current password grant as well as existing policy;
+password access does not change historical form binding. Already delivered content
+cannot be recalled from a visitor; revocation rejects subsequent server access.
+
+Templates and duplicates never include passwords, hashes or password grants. Their
+review explains that protection must be configured in the new Event editor before
+publication. They retain the current strict EventTemplate contract.

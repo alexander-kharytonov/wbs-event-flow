@@ -43,7 +43,7 @@ export function errorSection(field: string): EditorSection | undefined {
     return "organizer";
   }
 
-  if (["visibility", "accountRequirement"].includes(root)) {
+  if (["visibility", "accountRequirement", "eventPassword"].includes(root)) {
     return "access";
   }
 

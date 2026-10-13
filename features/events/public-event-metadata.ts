@@ -9,6 +9,16 @@ export async function publicEventMetadata(
   origin: string,
 ): Promise<Metadata> {
   const t = await getTranslations("events");
+
+  if (published.locked) {
+    return {
+      title: t("accessLockedTitle"),
+      description: null,
+      robots: { index: false, follow: false },
+      openGraph: null,
+      twitter: null,
+    };
+  }
   const { snapshot, cancelledAt, archived } = published;
   const title = `${snapshot.title} | Event Flow`;
   const description =
