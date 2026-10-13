@@ -87,7 +87,7 @@ inclusive until its end exclusive. Past events remain in the catalog.
 Published PUBLIC and PRIVATE events both have direct `/e/[publicId]` URLs with a
 stable UUIDv7 publicId assigned on first publication. PRIVATE events are
 excluded from discovery and marked noindex/nofollow. Organizers may optionally
-protect PRIVATE events with a password (ACCESS-1 below). Public event content and catalog entries show the published version,
+protect PRIVATE events with a password (see Private event password protection below). Public event content and catalog entries show the published version,
 including its visibility, rather than unpublished organizer edits.
 
 ## Registration
@@ -390,7 +390,7 @@ visible without contributing to operational counters. Linked Ticket details refr
 through the existing account stream; anonymous Ticket pages show attendance after reload. Check-in alone does not hide
 the QR; existing revocation/cancellation visibility rules still apply.
 
-## Guest registration and group admission (GUEST-5)
+## Guest registration and group admission
 
 Organizers configure only Allow guests and Maximum guests per applicant (0–10;
 zero means disabled). Every participant completes the same Registration Form Builder
@@ -453,7 +453,7 @@ changes refresh open workspaces; revoked users see “Your access to this event 
 changed.” and return to Dashboard. Role changes discard previous-role client state.
 Direct visits to inaccessible Events or sections return neutral not-found responses.
 
-## Badges (24A)
+## Badges
 
 A badge is a derived presentation of one active Attendee, not a new admission,
 credential or stored Badge entity. Printing never changes Attendance and can happen
@@ -506,7 +506,7 @@ changing its physical dimensions or content padding.
 Browser/OS paper and scaling settings remain the operator's responsibility. There is
 no Badge issuance or print history.
 
-Individual operational printing (24B1): successful QR check-in offers Print badge;
+Individual operational printing: successful QR check-in offers Print badge;
 Already checked in offers Reprint badge only when the server supplies a current
 print target. Reprint describes the attendance context, not a recorded previous print.
 The target is only an opaque selector hint; the separate print document rechecks
@@ -520,7 +520,7 @@ printing is a persistent detail action. Reception's attendee data is unchanged;
 approved badge content is loaded only in the authorized print document.
 
 
-Operational batch printing (24B2): OWNER has Design / Staff / Attendees sections;
+Operational batch printing: OWNER has Design / Staff / Attendees sections;
 MANAGER has Staff / Attendees, without Designer/settings/save. RECEPTION remains
 individual-only and has no Badges workspace. Operational lists contain only attendee
 ID/name/kind with Guest-of context, or team name/email/role. The Staff list uses
@@ -551,7 +551,7 @@ No schema migration, persistent Badge, TeamBadge, PrintJob, print history, vendo
 printer integration or automatic printing is introduced.
 
 
-## Event Overview (25)
+## Event Overview
 
 The existing Overview adapts to the persisted Event lifecycle: readiness and
 applications before start, attendance during the Event, and an operational
@@ -586,7 +586,7 @@ boundary, without polling. Absolute boundary checks on timer callbacks and retur
 a visible/active page handle delayed callbacks and device sleep; the server still
 determines lifecycle. Cards open existing sections without implied URL filters.
 
-## CSV data exports (26A)
+## CSV data exports
 
 The Event header Export menu downloads whole-Event datasets, independent of local
 search and filters. Owners export Applications, Attendees, Attendance and Staff;
@@ -621,13 +621,13 @@ reopening files. Exports are complete or fail: at most 10,000 data rows, 500 tot
 columns and 20 MiB serialized output. Empty datasets produce headers only. No
 partial file, persistent export file, export history or background job is created.
 
-## Event template export (26B)
+## Event template export
 
 Owners can download **Export template** from the Event header Export menu.
 The menu groups CSV datasets and JSON configuration separately. Template filenames
 include a sanitized Event title followed by `-template.json`, preserving Unicode.
 EventTemplate is the only supported format and includes the rich
-configuration described in 29B below. A template is portable
+configuration described in Rich Event editor and EventTemplate below. A template is portable
 configuration, not a backup or a public artifact:
 it contains current staff emails. It uses current saved workspace configuration,
 including unpublished Event, Registration Form and Badge Design changes.
@@ -658,10 +658,10 @@ EventTemplate allows at most 100 questions, 100 options per question, 1,000 opti
 in total, 100 staff and 512 KiB of serialized UTF-8 JSON. Exports are complete or
 fail; these limits do not restrict manual editing. Downloads are private and
 uncached. Import/Create uses the same strict EventTemplate contract.
-Duplicate Event reuses this portable configuration (see iteration 28 below).
+Duplicate Event reuses this portable configuration (see Duplicate event below).
 
 
-## Event template import / create (26C)
+## Event template import / create
 
 Create event defaults to manual entry in the full-page workspace editor. A **Use template**
 switch in the header opens template import.
@@ -710,7 +710,7 @@ memory and may vanish on reload; the private server retry receipt retains the re
 No emails are placed in navigation URLs, cookies or persistent
 browser storage. There is no ImportJob, invitation or destructive import.
 
-## Communications foundation (27A)
+## Communications foundation
 
 Communication stores one immutable logical send for one Event, with kind
 (MANUAL/TRANSACTIONAL), optional transactional trigger, actor name/role snapshot,
@@ -758,7 +758,7 @@ with a required request digest. Delivery uses the existing Outbox infrastructure
 no Communication cleanup/retention job.
 
 
-## Transactional Communications integration (27B)
+## Transactional Communications integration
 
 Every new APPLICATION_RECEIVED, NEW_APPLICATION, APPLICATION_APPROVED,
 APPLICATION_REJECTED and EVENT_CANCELLED intent belongs to a Communication.
@@ -775,7 +775,7 @@ atomically. An enqueue error rolls back the domain action; a subsequent delivery
 failure does not. Ticket CTA/private anonymous access, dynamic delivery
 eligibility, retries and at-least-once guarantee are
 unchanged. History keeps stable English subject labels from the email dictionary;
-I18N-D localizes delivered subjects and text/HTML per recipient.
+email localization translates delivered subjects and text/HTML per recipient.
 
 History stores only the trigger and safely available frozen Event title, never
 applicant identity/answers, Ticket references, credentials or capability URLs.
@@ -793,7 +793,7 @@ content fails. All deliveries belong to the corresponding historical send. Manua
 Communication records and are described below.
 
 
-## Manual Communications Center (27C)
+## Manual Communications Center
 
 The Event workspace has a Communications section for Owner and Manager, with New
 message and History in separate internal tabs for all Communications in that Event,
@@ -852,12 +852,12 @@ History shows Manual/Transactional, subject, time, audience/trigger, recipient
 count and Pending/Processing/Sent/Failed counts, newest first, 20 per page.
 Sent means email transport accepted, not mailbox delivery or opening. Enqueue
 reuses routing-only Event SSE invalidation; History also has an explicit refresh.
-27D extends this same History with delivery-status invalidation and safe details;
+This same History includes delivery-status invalidation and safe details;
 historical transactional content is never reconstructed. No new transactional trigger, delivery
 worker, polling mechanism or background infrastructure is introduced.
 
 
-## Unified History and Delivery Visibility (27D)
+## Unified History and Delivery Visibility
 
 The existing Communications History unifies Manual and Transactional messages,
 with subject, trigger/audience, creation time, frozen actor name/role, recipient
@@ -912,7 +912,7 @@ live. Archive/Restore preserve history and the queue. There is no manual resend,
 retry-failed, cancel-delivery or delivery override UI; Send eligibility is unchanged.
 
 
-## Duplicate event (28)
+## Duplicate event
 
 Owners can choose **Duplicate event** from the Event actions menu in any lifecycle,
 publication or archive state. It opens the full Create page
@@ -950,15 +950,15 @@ Submit locking prevents resubmission after confirmed success in that UI. After a
 lost response, retrying the same authenticated request key and payload recovers the
 committed result from its creation receipt without creating another Event. A full
 reload loses the in-memory retry state; a new request key can create another Event.
-The receipt and temporary-cover rules are defined in MEDIA-1 below.
+The receipt and temporary-cover rules are defined in Cover during Event creation below.
 
-## Event cover foundation (29A)
+## Event cover foundation
 
 Owners with verified accounts can upload cover images for existing editable Events
 through the media API, then explicitly attach, replace or remove the draft cover.
-The 29B editor below uses these APIs; the public landing page is described in 29C.
+The rich Event editor uses these APIs; see Public Event landing page and SEO below for public presentation.
 Create/Import/Duplicate Review supports private temporary covers before Create,
-as described in MEDIA-1 below. Template validation alone still performs no writes.
+as described in Cover during Event creation below. Template validation alone still performs no writes.
 
 Uploads accept one static JPEG, PNG or WebP, at most 5 MiB and 4096 × 4096 pixels.
 The editor offers a fixed 16:9 crop with drag positioning, zoom and keyboard-accessible
@@ -996,7 +996,7 @@ by any draft or revision are retained. Historical media remains for the lifetime
 its revision. Operators must invoke cleanup and maintain storage/backups.
 
 
-## Cover during Event creation (MEDIA-1)
+## Cover during Event creation
 
 Create, Import Review and Duplicate Review allow selecting, cropping, uploading,
 previewing, replacing and removing a new cover before the Event exists. All tabs
@@ -1039,7 +1039,7 @@ Missing, expired or inaccessible prepared media prevents creation and offers rem
 or another upload. Existing private preview/publication rules and image limits remain.
 
 
-## Rich Event editor and EventTemplate (29B)
+## Rich Event editor and EventTemplate
 
 The existing Create/Edit and Import/Duplicate Review forms share rich authoring.
 Descriptions are authored as Markdown, with a 20,000-character limit. Ordinary
@@ -1094,8 +1094,8 @@ size limits, atomic Create and Duplicate refresh/revocation semantics are preser
 
 OWNER Preview displays the draft cover and rich content from the workspace's
 snapshot. Public pages still use published revisions only. Overview remains an
-operational view without expanded Staff access. 29B adds no worker, polling or
-storage backend; the public presentation is extended by 29C below.
+operational view without expanded Staff access. Rich authoring requires no worker, polling or
+additional storage backend; see Public Event landing page and SEO below for public presentation.
 
 ## Event Workspace Editor
 
@@ -1151,7 +1151,7 @@ controls and expandable details. New items expand and receive focus; reorder/del
 restore focus to the affected/neighboring item. Rows retain stable UI identities.
 No sorting or time shifting occurs; exact instants and DST rules remain authoritative.
 
-## Public Event landing page and SEO (29C)
+## Public Event landing page and SEO
 
 The direct Event page presents the current published revision in a responsive
 Hero with title, dates/timezone, location summary and registration navigation.
@@ -1249,8 +1249,7 @@ Public social cards reference the current published JPEG social variant. Existin
 private/no-store and noindex media headers remain; external card display/caching
 is best effort. Old cover URLs stop authorizing after replacement/unpublish, and
 previously downloaded images cannot be recalled. No OG generator, discovery or
-private access controls are added. Iterations 29A/B/C/D are implemented and accepted,
-including the final UX and integration polish.
+private access controls are added.
 
 ## V0 development policy
 
@@ -1267,7 +1266,7 @@ remain mandatory. Future schema changes use incremental migrations. Further base
 consolidation or database/media resets require explicit approval; disposable data
 alone does not authorize them.
 
-## UI language foundation (I18N-A)
+## UI language foundation
 
 The interface supports English, German, Polish, Ukrainian and Russian. Resolution
 is account preference → validated first-party cookie → browser Accept-Language
@@ -1301,12 +1300,11 @@ account; an expired session saves only the anonymous cookie. There is no automat
 retry or replay. Concurrent writes use last-write-wins behavior. A lost response
 can leave persistence uncertain; repeating the selection is safe.
 
-I18N-A introduced shared navigation, account navigation, language/appearance
-controls and essential shell labels. MUI built-in labels and the shared DateTime
-component use the active UI locale; Event timezone and instant semantics stay
-unchanged.
+Shared navigation, account navigation, language/appearance controls, essential
+shell labels, MUI built-in labels and the shared DateTime component use the active
+UI locale; Event timezone and instant semantics stay unchanged.
 
-The current I18N-C implementation extends dictionaries to authentication, profile,
+Dictionaries cover authentication, profile,
 the home page, public discovery and registration, application history/review/withdrawal, guests,
 tickets, staff, communications, scanner and manual check-in controls, registration
 questions, Event authoring validation, cover controls, overview and arrival charts,
@@ -1329,10 +1327,10 @@ historical/attendance/communication states in all five locales.
 Server-only translated output updates on the next server render; immediately
 switchable labels consume client context with SSR initial messages. UI locale is
 not included in Event snapshots/templates, mutation inputs, revision bindings or
-domain idempotency digests; I18N-D separately freezes recipient language in email
+domain idempotency digests; email localization separately freezes recipient language in email
 delivery intents. Exported technical headers, formats and stored timestamps
 remain unchanged. Background translation can receive an explicit locale without
-HTTP context; email localization is implemented separately in I18N-D below.
+HTTP context; see Email localization below.
 
 ## UI appearance preference
 
@@ -1350,7 +1348,7 @@ MUI localStorage is not an authority and old local-only preferences are not impo
 MUI follows OS changes in system mode without persistence requests. The same
 reload-based freshness and request-time session semantics as language apply.
 
-## Event language (I18N-B)
+## Event language
 
 Every Event has one required content language: en, de, pl, uk or ru. This describes
 organizer-authored content; it does not translate content. Public registration
@@ -1383,9 +1381,9 @@ case-insensitive substring matching as in the organizer dashboard. Search and
 language filters combine before featured selection and grouping; search text
 persists when the language selection changes.
 
-I18N-B adds no automatic translation or multilingual content fields. Email localization is described below.
+Event language provides no automatic translation or multilingual content fields. Email localization is described below.
 
-## Email localization (I18N-D)
+## Email localization
 
 All existing email presentation supports en, de, pl, uk and ru: email verification,
 application receipt, organizer notification, approval/Ticket links (including
@@ -1423,7 +1421,7 @@ security behavior are unchanged. Communication history keeps its existing stable
 English transactional subject label, since grouped sends may have several languages.
 
 
-## Private event password protection (ACCESS-1)
+## Private event password protection
 
 Access in the Event editor offers optional password protection for PRIVATE events.
 Manual Create and Edit support entering a password, generating a secure password,

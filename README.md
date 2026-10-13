@@ -221,7 +221,7 @@ bodies, cookies, capability fragments or private email content; disable provider
 click/open tracking. Old demo links and sessions cease to work
 after the approved clean release because their backing records no longer exist.
 
-## Private Event media (29A)
+## Private Event media
 
 Media operations require MEDIA_STORAGE_ROOT: an existing absolute persistent
 directory owned by the application OS user, mode 0700, outside Git checkouts,
@@ -246,7 +246,7 @@ this directory as static web content. Provision the root during local/deployment
 setup; upload handlers never create or substitute the root themselves.
 
 The existing Event editor uses the POST/PUT/GET contracts documented in DOMAIN.md.
-The public landing page and SEO are implemented in 29C, with final UX polish in 29D.
+Public landing page and SEO behavior are described in PRODUCT.md and DOMAIN.md.
 POST accepts raw JPEG/PNG/WebP bytes, not multipart or remote URLs. The server checks
 Origin against BETTER_AUTH_URL and verifies OWNER scope. Input limits are 5 MiB,
 4096 × 4096, one frame and two process-local operations. A new upload is refused
@@ -288,7 +288,7 @@ Template Export, Import and Duplicate use EventTemplate, preserving rich configu
 and explicitly omitting cover images. Both contracts are unversioned and strictly
 validate the current shape, without compatibility readers or converters.
 
-## Rich Event authoring and EventTemplate (29B)
+## Rich Event authoring and EventTemplate
 
 Create, Edit, Import Review and Duplicate Review share a full-page, eight-tab
 workspace editor (plus Additional settings for Import/Duplicate Review) and the atomic create path. Edit saves stay open; successful Create
@@ -322,9 +322,7 @@ a newly prepared cover is explicitly included during creation.
 
 OWNER Preview reads the draft workspace through EventSnapshot. Public pages still
 read only the published revision; publish/republish is required to expose changes.
-Overview and Staff projections remain operational. The media foundation (29A),
-rich authoring (29B), public landing/SEO (29C), and UX/integration polish (29D)
-are implemented and accepted.
+Overview and Staff projections remain operational.
 
 ## Engineering verification
 
@@ -365,7 +363,7 @@ with `pnpm db:generate`, and restart the server after schema/client changes.
 - Dates: `useFormatter` / `getFormatter`, always supplying Event timezone for
   Event instants. Never reinterpret stored dates when changing UI language.
 - Background work: `createBackgroundTranslator(explicitPreference)` works without
-  a request. Email rendering uses it with each delivery’s frozen recipient locale (I18N-D).
+  a request. Email rendering uses it with each delivery’s frozen recipient locale.
 
 Optional native build scripts introduced transitively by next-intl (`@swc/core`
 and `@parcel/watcher`) are disabled; the application uses neither optional feature.
@@ -388,7 +386,7 @@ Writes target only the request's authenticated User; stale tabs can save to the
 currently signed-in account. Normal Better Auth session behavior is retained.
 See PRODUCT.md and DOMAIN.md for the accepted V0 consistency limitations.
 
-## Event language (I18N-B)
+## Event language
 
 The current baseline includes required Event.language (en/de/pl/uk/ru) without a
 database default. Manual Create captures the organizer's active UI locale once;
@@ -405,7 +403,7 @@ Template export/import/duplicate retain the Event language and exact dates.
 The catalog also provides immediate, case-insensitive published-title search,
 combined with the language filter in the same field sizing/grid as the organizer dashboard.
 
-## Railway Hobby deployment (DEPLOY-2)
+## Railway Hobby deployment
 
 Prepared for one always-on service with PostgreSQL 18 and a persistent volume;
 no Redis, worker, cron or replacement queue. This repository does not deploy itself.

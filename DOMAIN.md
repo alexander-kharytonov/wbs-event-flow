@@ -172,7 +172,7 @@ unavailable state; they never fall back to mutable form/content.
 PUBLIC is reachable by direct URL and discoverable in `/e`. PRIVATE is reachable
 by direct URL, excluded from `/e`, and marked noindex/nofollow. PRIVATE alone is
 not an access-control boundary; optional published password protection is specified
-in ACCESS-1 below.
+in Private event password access below.
 
 Catalog eligibility uses current snapshot.visibility and requires a publicId and
 valid published revision. Upcoming means startsAt > now; Happening now means
@@ -555,7 +555,7 @@ Sources: [emission](lib/realtime/application-notifications.ts),
 Each committed new Application (including reapply) creates APPLICATION_RECEIVED
 for its historical Application.email and NEW_APPLICATION for the organizer's
 User.email. Actual PENDING -> APPROVED/REJECTED transitions create the matching
-applicant notification. Since 27B, each type creates its own Communication
+applicant notification. Each type creates its own Communication
 (section 33). Mutation, Communication, EmailOutbox rows, and wake-up NOTIFY share
 the same transaction. Duplicate/no-op/error paths create no delivery intent; rollback
 removes the mutation, Communication and outbox. Withdrawal creates no email.
@@ -836,8 +836,7 @@ third-party resources or analytics. Request/body/cookie/fragment logging and ema
 link tracking are prohibited. The legacy `/ticket/<access-token>` handler is removed;
 redirecting it cannot prevent the initial ingress path leak. Before migrating any
 retained environment, inspect already-issued links and obtain an explicit cutover
-decision if old path links exist. DEPLOY-2 inspected the local DB and Mailpit:
-zero Tickets, anonymous approval deliveries and messages; no existing rows changed.
+decision if old path links exist.
 
 Approve holds the existing Event lock, obtains decisionNow, updates Application,
 creates Registration, PRIMARY and Ticket, then enqueues approval email and NOTIFY in one
@@ -847,7 +846,7 @@ one decisionNow and notifies in the same transaction. Any failure rolls back all
 writes. Pending withdrawal has no Ticket. Reapply creates a new attempt and, on
 approval, new Registration/PRIMARY/Ticket/number/secrets; old rows stay revoked.
 
-Effective credential state for this iteration is: credential resolves AND Ticket
+Effective credential state is: credential resolves AND Ticket
 not revoked AND Attendee not revoked AND Registration not revoked AND Event not cancelled. Completed,
 archived and unpublished are independent context, not new check-in rules.
 No lifecycle command mutates Ticket history. Revoked/cancelled cards suppress QR;
@@ -1001,7 +1000,7 @@ with the same token and URL.
 Active Registration count equals active PRIMARY count; Guests add further capacity seats.
 Guest configuration and party management are defined below.
 
-## 25. Guest registration and party management (GUEST-5)
+## 25. Guest registration and party management
 
 Event.maxGuestsPerRegistration is the only guest configuration: integer 0–10, with
 zero disabling guest declarations. There is no GuestPolicy or RegistrationFieldSubject.
@@ -1177,7 +1176,7 @@ expiry/session reauthorization bounds lost-signal delivery to roughly 60 seconds
 periodic DB polling or new realtime transport is introduced. Already delivered data
 cannot be erased from a client by revocation.
 
-## 27. Derived badges / operational layout (24A; GUEST-4)
+## 27. Derived badges / operational layout
 
 Badge has no persistent entity, issuance, credential or print history. Its presentation
 is derived from Attendee, Event operational layout, available active Ticket and
@@ -1223,7 +1222,7 @@ registrations beyond its selected preview attendee.
 
 The fixed matrix grants badges.configure to OWNER; badges.print.individual to OWNER,
 MANAGER and RECEPTION; badges.print.bulk/team to OWNER and MANAGER. The bulk permission
-gates workspace visibility for OWNER/MANAGER; 24B2 implements bulk/team operations.
+gates workspace visibility for OWNER/MANAGER.
 Reception's existing read DTO restrictions remain, with this explicit exception:
 an authorized individual BadgePresentation may contain name/type, Event title,
 owner-selected attendee custom values, Ticket number and decodable QR
@@ -1265,7 +1264,7 @@ polling or promise to retract previously delivered HTML/PDF/paper. New documents
 current state. Revoked paper QR cannot create new Attendance; the existing historical
 ALREADY_CHECKED_IN priority is unchanged. Browser/OS scaling is outside application control.
 
-Individual operational printing (24B1) adds only an optional opaque
+Individual operational printing uses an optional opaque
 printTarget.attendeeId to QR CHECKED_IN/ALREADY_CHECKED_IN results, after Event
 authorization and match. A shared server-only individual eligibility helper checks
 permission, Event relation, cancellation and active Registration/Attendee. It does
@@ -1280,10 +1279,10 @@ Event/Attendee IDs. Manual result notifications and refresh remain unchanged.
 Reception attendee records are not expanded; a section-level permission boolean
 only controls action visibility. No badge content crosses these operational DTOs.
 Scanner Reprint is attendance-context language, not evidence of earlier printing.
-24B1 introduces no print history, bulk/team endpoint or new credential lifecycle.
+Individual printing creates no print history and does not change the credential lifecycle.
 
 
-24B2 adds operational Staff and Attendees workspace sections for OWNER/MANAGER;
+Batch printing provides operational Staff and Attendees workspace sections for OWNER/MANAGER;
 Design remains OWNER-only and Reception has no workspace, bulk or team access. The
 selection read model projects only attendee ID/name/kind and, for GUEST only, the
 PRIMARY name from the same Registration's Attendees. This Guest-of context is only
@@ -1314,7 +1313,7 @@ Each bulk/team document uses one RepeatableRead snapshot for actor authorization
 Event/current layout and all required domain reads. Limits are enforced before loading
 historical answers or Ticket crypto, and again on final presentation count. Attendee,
 source Application/answer and active Ticket reads are batched, never an individual
-builder per attendee. Shared 24A normalization/historical resolution and Ticket AAD/hash
+builder per attendee. Shared badge normalization/historical resolution and Ticket AAD/hash
 verification remain authoritative; sequential QR generation occurs after transaction
 completion. Missing/revoked Tickets omit Ticket content. Bulk crypto/QR/render failure
 returns a generic retry state for the whole document. Cancellation or permission loss
@@ -1346,7 +1345,7 @@ Badge/TeamBadge/PrintJob/PrintSelection entity, print history, vendor printer
 or automatic printing is introduced; Ticket/Attendance/protocol semantics are unchanged.
 
 
-## 28. Event Overview / operational dashboard (25)
+## 28. Event Overview / operational dashboard
 
 The server-only Overview loader checks verified session identity, authorizes Event
 access and reads header/context/aggregates in one RepeatableRead snapshot, using
@@ -1405,7 +1404,7 @@ effect disposal and listener/timeout cleanup prevent stale callbacks after chang
 There is no polling or new transport. Browser wall time only requests a fresh server
 read; lifecycle and mutation guards remain server-authoritative.
 
-### Organizer Dashboard (DASH-1)
+### Organizer Dashboard
 
 `/dashboard` is an overview of owned Events, independent of per-Event analytics.
 Its verified-session reader uses one RepeatableRead snapshot and one database clock.
@@ -1431,7 +1430,7 @@ projection and local filters. No per-Event reads or SSE connections are added.
 A shared boundary refresher requests a new server read at the next start/end.
 Other changes are reflected on navigation/reload, without a new realtime guarantee.
 
-## 29. CSV data export (26A)
+## 29. CSV data export
 
 Authenticated GET /api/events/[eventId]/exports/[dataset] accepts applications,
 attendees, attendance or staff. Each request verifies a fresh verified unexpired
@@ -1503,12 +1502,11 @@ Downloads have deterministic ASCII-safe title/dataset filenames, attachment
 Content-Disposition, text/csv UTF-8, private/no-store/max-age=0, nosniff, no-referrer
 and noindex/nofollow/noarchive. Errors also have privacy headers, but plain-text
 content and no attachment. The menu uses ordinary anchors without Next prefetch.
-CSV content/PII is not logged. Iteration 26A introduced no persistent files,
-export history/jobs, schema changes, migrations or dependencies. Template export
-and Import/Create were outside 26A; they are now implemented in 26B and 26C
-(sections 30 and 31).
+CSV content/PII is not logged. CSV export creates no persistent files or
+export history/jobs. Template export and Import/Create are described in
+sections 30 and 31.
 
-## 30. Portable EventTemplate / export (26B, updated in 29B)
+## 30. Portable EventTemplate / export
 
 This section defines the current unversioned transport contract;
 export uses the filename suffix `-template.json` (section 38).
@@ -1575,12 +1573,11 @@ The artifact contains no database identities, organizer/publicId, timestamps of
 creation/modification, publication pointers/contentVersion/revisions, cancellation/
 archive state, Applications/Registrations/Attendees/Guests, Tickets/QR/credentials,
 Attendance, notifications/outbox or runtime/lock/history data. It is private
-configuration because staff emails are present. Iteration 26B introduced no
-schema/dependency changes and covered export only. Import/Create and its local
-review editor are now implemented in 26C (section 31). Duplicate Event reuses this pipeline (section 36).
+configuration because staff emails are present. Import/Create and its local
+review editor are described in section 31. Duplicate Event reuses this pipeline (section 36).
 
 
-## 31. Event template import / atomic create (26C)
+## 31. Event template import / atomic create
 
 The full-page Create editor shares manual/import modes. Upload and Paste use
 one UTF-8 byte-limit -> JSON parse -> format -> strict EventTemplate ->
@@ -1591,7 +1588,6 @@ Portability limits remain 512 KiB,
 100 fields, 100 options/field, 1,000 total options and 100 Staff, including after
 review edits. Errors expose only code/known path/safe message, never raw parser,
 Zod or database errors. No payload/email logging or untrusted deep merge occurs.
-The 26A CSV and 26B export contracts are unchanged.
 
 No Event write or account eligibility query occurs before explicit Create.
 Review state is local and not authority. The server rechecks fresh verified
@@ -1657,7 +1653,7 @@ ephemeral; no URL/cookie/persistent storage or ImportJob is used. No destructive
 import, CSV import, publication import, backup/restore, automatic date shifting,
 background job, schema migration or dependency is introduced.
 
-## 32. Communications persistence and delivery foundation (27A)
+## 32. Communications persistence and delivery foundation
 
 Communication is one immutable logical send belonging to exactly one Event. It
 contains UUID id, kind MANUAL/TRANSACTIONAL, nullable transactional trigger,
@@ -1767,7 +1763,7 @@ in sections 33–35. They reuse the existing Outbox infrastructure without a sep
 delivery retention job.
 
 
-## 33. Transactional Communications integration (27B)
+## 33. Transactional Communications integration
 
 The existing submit-application, review-application and event-lifecycle cancellation
 writers now call enqueueTransactionalCommunication inside their original
@@ -1788,7 +1784,7 @@ Registration and withdrawn/rejected Application contacts are not added.
 
 All new Communication rows have kind TRANSACTIONAL, trigger equal to the delivery
 type, null audience/message and the existing actual subject from the shared
-transactionalEmailSubjects map. History retains this stable English label; I18N-D renders recipient subjects from
+transactionalEmailSubjects map. History retains this stable English label; email localization renders recipient subjects from
 the email dictionary, preserving CTA and payload validation behavior. Context is strict semantic v1:
 schemaVersion=1, kind=TRANSACTIONAL, trigger and optional frozen eventTitle only.
 Submission/approval use current published context; cancellation uses the existing
@@ -1846,7 +1842,7 @@ Section 34 describes Manual Send; section 35 describes the implemented unified
 History/Details UI.
 
 
-## 34. Manual Communications Center (27C)
+## 34. Manual Communications Center
 
 `/dashboard/events/[id]/communications` reuses EventHeader/navigation and the
 permission-aware EventWorkspace. Fresh verified sessions gate both Server Actions;
@@ -1938,7 +1934,7 @@ There is no new polling, websocket, background worker, transactional trigger,
 schema migration, dependency or change to existing transactional content/recipients.
 
 
-## 35. Unified History and Delivery Visibility (27D)
+## 35. Unified History and Delivery Visibility
 
 The same History reader serves MANUAL and TRANSACTIONAL records. Request-facing
 History and Details readers obtain a fresh verified session (cookie cache disabled),
@@ -2020,7 +2016,7 @@ Archive/Restore neither changes status nor restarts/cancels mail. There is no ne
 send operation or manual resend/retry-failed/override UI.
 
 
-## 36. Duplicate Event (28)
+## 36. Duplicate Event
 
 The full-page Create route consumes optional duplicateFrom through CreateEventView.
 The owner menu link disables prefetch. Before reading source configuration the
@@ -2064,11 +2060,11 @@ with the same authorization boundary. There is no new create action, schema, job
 Exact dates, past-date warnings, Staff skips, rollback and confirmed-success submit
 locking retain section 31 semantics, without adding server-side idempotency.
 
-## 37. Immutable Event media and EventSnapshot (29A)
+## 37. Immutable Event media and EventSnapshot
 
 MediaAsset belongs to an OrganizerProfile and is scoped to the existing Event
 which authorized its upload, or starts as an organizer-owned temporary creation upload
-under MEDIA-1 below. eventId becomes null on pristine Event deletion;
+under Temporary creation covers and atomic retry receipts below. eventId becomes null on pristine Event deletion;
 the record/files remain tracked for cleanup.
 backend/storageKey locate bytes privately; generated opaque keys contain no original
 filename. IDs, fixed variant metadata and alt are the only media snapshot data.
@@ -2152,13 +2148,13 @@ GET /e/[publicId]/cover/[assetId]/[variant] requires the current valid published
 matching cover descriptor/revision FK, asset Event/owner, READY manifest and checksum.
 It does not authorize drafts or arbitrary historical assets. Current PRIVATE
 publication retains direct-link availability unless its current revision enables
-ACCESS-1 password protection; public media then requires that Event grant.
+password protection; public media then requires that Event grant.
 Cancellation/archive do not independently hide a still-published cover. Each read
 authorizes one consistent DB snapshot; an already authorized in-flight response can
 finish after an unpublish, and previously downloaded bytes cannot be recalled.
 Only fixed generated variants are served, with correct MIME, nosniff, private/no-store,
 noindex/nofollow/noarchive and no-referrer. Media paths are excluded from Next's image
-optimizer allowlist. New metadata/landing rendering is outside 29A.
+optimizer allowlist. Public landing and metadata are described in section 39.
 
 Local storage validates the complete ancestor chain top-down: no symlinks, every
 ancestor owned by root or the application UID and not group/other writable. The
@@ -2195,8 +2191,8 @@ Rerun the command until neither budget is reached; repeated calls are idempotent
 Successful deletions remove candidates from subsequent runs, including late-upload
 temp/orphan files. Persistent failures require operator intervention and may occupy
 the DB candidate budget until repaired. There are no persistent cursors, new tables,
-workers or cron for existing Event assets. MEDIA-1 adds automatic temporary-upload
-collection below.
+workers or cron for existing Event assets. Automatic temporary-upload
+collection is described below.
 
 SQL CHECKs enforce locator, lifecycle/nullability, manifest container shape,
 timestamps and Event rich-field/alt shape. Full manifest/snapshot validity, asset
@@ -2206,7 +2202,7 @@ EventTemplate below is the current portable contract. Binary inclusion, shared m
 remote media fetch remain unsupported.
 
 
-### Temporary creation covers and atomic retry receipts (MEDIA-1)
+### Temporary creation covers and atomic retry receipts
 
 MediaAsset.temporaryExpiresAt distinguishes unconsumed creation uploads from both
 Event-scoped uploads and pristine-delete orphans. It equals uploadExpiresAt, with a
@@ -2273,7 +2269,7 @@ correction with the same uncommitted key. Mode changes are blocked during uncert
 leaving/reload follows the existing dirty-navigation protections, with no persistent draft.
 
 
-## 38. Rich authoring and EventTemplate (29B)
+## 38. Rich authoring and EventTemplate
 
 Create/Edit and Import/Duplicate Review author Markdown as the only description
 format. Ordinary text needs no special formatting. Opening a draft or template
@@ -2282,8 +2278,8 @@ format property in Event, EventSnapshot or EventTemplate. Strict serialized read
 reject obsolete fields; no conversion or historical revision rewrite occurs.
 
 The shared Event authoring schema extends the existing Create/Edit/Review path.
-It reuses location/publicOrganizer constraints and the schedule entry shape from
-29A without changing the frozen snapshot parser. Nullable JSON authoring
+It reuses location/publicOrganizer constraints and the schedule entry shape
+defined by EventSnapshot without changing the frozen snapshot parser. Nullable JSON authoring
 writes use Prisma.DbNull for SQL NULL. Existing fresh OWNER checks, Event lock,
 version/contentVersion, lifecycle/Ongoing-start guards, atomic Create and realtime
 invalidation remain authoritative. No new persistence model or migration is needed.
@@ -2303,7 +2299,7 @@ mutation guard excludes overlapping Event Save and cover upload/save operations.
 Only successful PUT attachment responses advance the cover mutation token;
 router refresh never silently replaces it. Other form values survive cover saves.
 Failures/conflicts retain the existing reload contract and never delete assets.
-The existing 29A upload, immutable storage, reference and cleanup rules are unchanged.
+The upload, immutable storage, reference and cleanup rules in section 37 apply.
 
 One shared react-markdown renderer handles explicit MARKDOWN in client/OWNER
 Preview. It skips HTML, restricts elements to text formatting/lists/links, excludes
@@ -2311,8 +2307,7 @@ images/MDX/raw plugins and permits only absolute HTTP(S) URLs without credential
 Links use noopener/noreferrer. Preview uses the current
 workspace snapshot builder and controlled OWNER media routes without the image optimizer.
 Public /e/[publicId] retains its published-revision authority and Staff DTOs are not
-expanded. Public landing/metadata is defined by 29C below. Iterations 29A/B/C/D
-are implemented and accepted; 29D polish preserves these domain contracts.
+expanded. Public landing/metadata is defined in section 39 below.
 
 EventTemplate has the envelope {format: "event-flow-template", event: {...}}
 without a version field. It contains portable Event configuration, language and
@@ -2329,7 +2324,7 @@ UTF-8 byte limits apply at text input, validated Create and serialized Export.
 EventTemplate validates the complete rich configuration and agenda interval.
 Export and the existing authorized Duplicate source reader project EventTemplate. Review
 warns about OMITTED; Create copies no source cover. A separately selected temporary
-cover can attach through MEDIA-1 using the existing atomic core. Source reload/revocation checks, Staff resolution, fresh question/option IDs,
+cover can attach through the temporary-cover transaction using the existing atomic core. Source reload/revocation checks, Staff resolution, fresh question/option IDs,
 Badge bindings and rollback behavior are preserved. There is no second editor or
 cloning service, media copy, worker, polling or cloud backend.
 
@@ -2346,11 +2341,11 @@ edited-date markers only on confirmed success. Later writes still derive exact
 instants from the locked database row, never the returned client source. RSC refresh
 does not overwrite a mounted editor's local values or advance its token.
 
-Manual Create uses the atomic create core and MEDIA-1 receipt/cover transaction,
+Manual Create uses the atomic create core and creation receipt/cover transaction,
 returning the ID for navigation to Edit. Import/Duplicate keep atomic creation, Staff budgets, Badge remapping,
 frozen Review and confirmed-success locking; success now opens Edit. There is no
-EventTemplate transport, admission or publication change. MEDIA-1 extends creation
-persistence and temporary media lifecycle as specified below.
+EventTemplate transport, admission or publication change. Creation receipts and
+temporary media lifecycle are specified in section 37.
 
 Dirty tracking includes Event values/date intent, unsaved cover selection/alt/upload
 and modified Review extras. A committed cover is not an unsaved Event-field change.
@@ -2360,7 +2355,7 @@ protection is not universal. Confirmed session/source revocation still removes
 protected state. Preview uses saved authorized workspace data in a separate tab;
 local edits do not become public without the existing explicit publication action.
 
-## 39. Public landing and metadata (29C)
+## 39. Public landing and metadata
 
 The public page, route-layout guard and generateMetadata share the request-scoped
 getPublishedEvent cache. The reader validates the current EventRevision with the
@@ -2447,7 +2442,7 @@ incremental migrations; further consolidation and database/media resets require
 explicit approval. Historical revisions remain immutable within the current contract;
 authorization, concurrency controls and idempotency remain mandatory.
 
-## 40. UI locale preference (I18N-A)
+## 40. UI locale preference
 
 `User.uiLocale` is nullable text constrained by PostgreSQL to en/de/pl/uk/ru.
 Null means no explicit account preference, not English. It changes no identity,
@@ -2470,8 +2465,8 @@ may set this presentation preference without gaining verified-user permissions.
 No caller-supplied User ID is accepted. Repeated selections are idempotent in value;
 concurrent requests use last committed write. Failures return stable identifiers,
 never account details. UI locale does not enter Event snapshots, templates, business
-mutation inputs or revision keys. I18N-D separately freezes recipient language in
-email intent digests. I18N-B captures it only as
+mutation inputs or revision keys. Email localization separately freezes recipient language in
+email intent digests. Event creation captures the UI locale only as
 the initial independently editable Event language when manual Create opens.
 
 The root locale provider uses SSR values only to initialize the document. Selection
@@ -2503,7 +2498,7 @@ full reload. Cookie acceptance is not confirmed by the client.
 Event dates keep explicit IANA timezones; UTC is the deterministic provider default
 for formatting without an explicit timezone. `createBackgroundTranslator` takes
 an explicit preference (invalid/absent → English), never request headers/cookies.
-I18N-D uses this helper with frozen per-recipient locale metadata; domain content
+Email localization uses this helper with frozen per-recipient locale metadata; domain content
 and Communication semantic history remain independent of delivery translation. Server-only translations
 update on server render; immediately switchable labels consume client context.
 
@@ -2539,7 +2534,7 @@ MUI storageManager is null; the pre-content initializer uses the server-resolved
 mode and matchMedia without reading localStorage. It uses the same data-light /
 data-dark selectors as MUI, which continues listening to OS changes in system mode.
 
-## 42. Event language (I18N-B)
+## 42. Event language
 
 Event.language is a non-null EventLanguage database enum with exactly en, de, pl,
 uk and ru, and no database default. Shared authoring validation requires it;
@@ -2584,7 +2579,7 @@ UI preferences. Later schema changes use incremental migrations; the complete
 migration history is authoritative. Snapshot/Template parsing accepts only the
 current contract and never rewrites historical JSON.
 
-## 43. Email locale resolution (I18N-D)
+## 43. Email locale resolution
 
 Email presentation uses the existing next-intl/use-intl translator, formatter and
 flat email/{en,de,pl,uk,ru}.json dictionaries, with English per-key fallback.
@@ -2645,7 +2640,7 @@ origin. No request Host is promoted into the trusted list. Cookies remain host-o
 preference cookies use Secure for an accepted HTTPS Origin. Users sign in separately
 on localhost and a LAN IP. This does not change email rendering or recipient locale.
 
-## Production process and email transport (DEPLOY-2)
+## Production process and email transport
 
 Railway uses one always-on Next.js process, a direct private PostgreSQL 18 connection,
 the existing LOCAL volume, outbox and LISTEN/NOTIFY/SSE. The Prisma pool defaults to
@@ -2676,7 +2671,7 @@ including verification and Outbox deliveries. SMTP_FROM remains a plain email ad
 the transport adds the display name without changing the sender address or recipients.
 
 
-## Private event password access (ACCESS-1)
+## Private event password access
 
 `Event.draftPasswordHash` is nullable and may be populated only for PRIVATE draft
 visibility. `EventRevision.passwordHash` and `passwordGrantId` are immutable,
