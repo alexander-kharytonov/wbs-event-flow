@@ -932,6 +932,7 @@
   "badgePrintTeam": "Drukuj zespół wydarzenia",
   "badgeCheckSettings": "Sprawdź ustawienia identyfikatora i spróbuj ponownie.",
   "badgeEventUnavailable": "To wydarzenie jest niedostępne.",
+  "badgeSelectedQuestionUnavailable": "Wybrane pytanie jest niedostępne. Odśwież projektant identyfikatorów.",
   "badgeLayoutSaved": "Układ identyfikatora zapisany. Nowe dokumenty używają tych ustawień.",
   "badgeLayoutSaveFailed": "Nie udało się zapisać układu identyfikatora. Spróbuj ponownie.",
   "badgeTitle": "Identyfikator",

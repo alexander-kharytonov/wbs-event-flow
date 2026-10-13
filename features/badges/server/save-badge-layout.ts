@@ -48,8 +48,7 @@ export async function saveBadgeLayout(
     if (!validBadgeBindings(parsed.data.layout, catalog.fields)) {
       return {
         success: false,
-        message:
-          "A selected question is unavailable. Reload the badge designer.",
+        message: "badgeSelectedQuestionUnavailable",
       };
     }
 

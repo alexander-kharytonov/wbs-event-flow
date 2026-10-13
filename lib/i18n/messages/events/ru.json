@@ -932,6 +932,7 @@
   "badgePrintTeam": "Печатать команду события",
   "badgeCheckSettings": "Проверьте настройки бейджа и попробуйте ещё раз.",
   "badgeEventUnavailable": "Это событие недоступно.",
+  "badgeSelectedQuestionUnavailable": "Выбранный вопрос недоступен. Обновите конструктор бейджей.",
   "badgeLayoutSaved": "Макет бейджа сохранён. Новые документы используют эти настройки.",
   "badgeLayoutSaveFailed": "Не удалось сохранить макет бейджа. Попробуйте ещё раз.",
   "badgeTitle": "Бейдж",

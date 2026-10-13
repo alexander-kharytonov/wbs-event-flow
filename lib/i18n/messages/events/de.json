@@ -932,6 +932,7 @@
   "badgePrintTeam": "Veranstaltungsteam drucken",
   "badgeCheckSettings": "Prüfe die Namensschildeinstellungen und versuche es erneut.",
   "badgeEventUnavailable": "Diese Veranstaltung ist nicht verfügbar.",
+  "badgeSelectedQuestionUnavailable": "Eine ausgewählte Frage ist nicht verfügbar. Lade den Namensschild-Designer neu.",
   "badgeLayoutSaved": "Namensschildlayout gespeichert. Neue Druckdokumente verwenden diese Einstellungen.",
   "badgeLayoutSaveFailed": "Das Namensschildlayout konnte nicht gespeichert werden. Versuche es erneut.",
   "badgeTitle": "Namensschild",

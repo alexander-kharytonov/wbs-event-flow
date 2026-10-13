@@ -932,6 +932,7 @@
   "badgePrintTeam": "Print event team",
   "badgeCheckSettings": "Check the badge settings and try again.",
   "badgeEventUnavailable": "This event is unavailable.",
+  "badgeSelectedQuestionUnavailable": "A selected question is unavailable. Reload the badge designer.",
   "badgeLayoutSaved": "Badge layout saved. New print documents use these settings.",
   "badgeLayoutSaveFailed": "Could not save the badge layout. Please try again.",
   "badgeTitle": "Badge",

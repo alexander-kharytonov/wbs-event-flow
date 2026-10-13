@@ -104,7 +104,11 @@ export function AttendeeDetailDialog({
                       sx={{ mt: 0.5 }}
                     >
                       {selected.kind === "GUEST"
-                        ? `Guest of ${selected.registration.attendees[0]?.name ?? t("unavailable")}`
+                        ? t("attendeeGuestOf", {
+                            name:
+                              selected.registration.attendees[0]?.name ??
+                              t("unavailable"),
+                          })
                         : t("primaryAttendee")}
                     </Typography>
                   </Box>
