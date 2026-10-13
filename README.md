@@ -492,6 +492,35 @@ Do not open real legacy bearer paths on Railway. Keep tracing/body/header loggin
 and analytics disabled on private/auth flows. A fragment exchange requires JS;
 invalid/expired sessions instruct users to reopen their private email link.
 
+### SECURITY-1 release decision and deferred technical debt
+
+On 2026-10-13, the Product Owner accepted SECURITY-1 Part A and explicitly
+deferred Part B for the current small public demo on Resend Free. Submission abuse
+protection and additional email quota management are **deferred technical debt,
+not blockers for this clean release**. The previously proposed limits are not
+approved production policy and must not be implemented as part of this release.
+
+The accepted risks include automated anonymous or authenticated submissions,
+application/database growth, organizer notification flooding, and exhaustion of
+the shared authentication/transactional email allowance. Existing quota cooldowns
+are process-local; quota-related delivery failures can consume Outbox attempts
+and eventually leave terminal FAILED messages. This decision accepts those risks;
+it does not assert that abuse protection exists or that delivery is guaranteed
+during quota exhaustion.
+
+Keep existing authentication, authorization, credentials, uniqueness constraints,
+transaction/concurrency controls, neutral duplicate responses and Email Outbox
+admission, delivery and retry behavior unchanged. No CAPTCHA, new limiter, email
+budget mechanism or provider/settings change is included. Revisit Part B through
+a separate Product Owner decision if demo usage, abuse or sending requirements
+warrant it; the current release does not depend on that work.
+
+Clean-release preparation continues with the operator runbook below. Include the
+accepted Part A changes and this decision in the reviewed release artifact before
+pinning its final commit/image. The Part B deferral does not authorize a reset,
+merge, push or deployment, or replace target verification and post-deployment
+acceptance. Production operations remain a separate release step.
+
 ### Controlled clean release of the disposable demo
 
 This is an operator runbook for the explicitly approved destruction of **all demo
