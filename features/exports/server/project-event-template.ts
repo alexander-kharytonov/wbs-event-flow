@@ -47,7 +47,6 @@ export function projectEventTemplate(
   const registrationForm = {
     fields: fields.map((field, index) => ({
       key: `field_${index + 1}`,
-      subject: field.subject,
       type: field.type,
       label: field.label,
       description: field.description,
@@ -106,7 +105,6 @@ export function projectEventTemplate(
   const result = eventTemplateSchema.safeParse({
     format: "event-flow-template",
     event: {
-      descriptionFormat: source.descriptionFormat,
       location: source.location,
       schedule: source.schedule,
       publicOrganizer: source.publicOrganizer,
@@ -120,7 +118,6 @@ export function projectEventTemplate(
       visibility: source.visibility,
       accountRequirement: source.accountRequirement,
       capacity: source.capacity,
-      guestPolicy: source.guestPolicy,
       maxGuestsPerRegistration: source.maxGuestsPerRegistration,
       registrationOpensAt: source.registrationOpensAt?.toISOString() ?? null,
       registrationClosesAt: source.registrationClosesAt?.toISOString() ?? null,

@@ -30,7 +30,6 @@ export type TemplateEvent = EventTemplate["event"];
 export type TemplateField = TemplateEvent["registrationForm"]["fields"][number];
 
 const knownSegments = new Set([
-  "descriptionFormat",
   "location",
   "schedule",
   "publicOrganizer",
@@ -54,8 +53,6 @@ const knownSegments = new Set([
   "accountRequirement",
   "capacity",
   "maxGuestsPerRegistration",
-  "guestPolicy",
-  "subject",
   "registrationOpensAt",
   "registrationClosesAt",
   "registrationForm",
@@ -224,7 +221,6 @@ export function validateTemplateCreate(input: unknown): TemplateResult {
 
     return {
       key: field.key,
-      subject: field.subject,
       ...normalized,
       options: normalized.options.map(({ label }) => ({ label })),
     };
@@ -340,7 +336,6 @@ export function templateEventValues(event: TemplateEvent) {
       : "";
 
   return {
-    descriptionFormat: event.descriptionFormat,
     location: event.location,
     publicOrganizer: event.publicOrganizer,
     schedule: scheduleFormValues(event.schedule, event.timezone),
@@ -355,7 +350,6 @@ export function templateEventValues(event: TemplateEvent) {
     visibility: event.visibility,
     accountRequirement: event.accountRequirement,
     capacity: event.capacity?.toString() ?? "",
-    guestPolicy: event.guestPolicy,
     maxGuestsPerRegistration: String(event.maxGuestsPerRegistration),
   };
 }

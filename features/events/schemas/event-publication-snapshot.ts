@@ -7,51 +7,25 @@ import {
 // New publications satisfy the frozen snapshot contract AND today's authoring rules.
 export const eventPublicationSnapshotSchema = eventSnapshotSchema.superRefine(
   (event, ctx) => {
-    for (const form of ["registrationForm", "guestForm"] as const) {
-      for (const [index, field] of event[form].fields.entries()) {
-        const validated = registrationFieldSchema.safeParse({
-          label: field.label,
-          type: field.type,
-          required: field.required,
-          description: field.description ?? "",
-          ...(isChoice(field.type)
-            ? { options: field.options.map(({ label }) => ({ label })) }
-            : {}),
-        });
-
-        if (!validated.success) {
-          for (const issue of validated.error.issues) {
-            ctx.addIssue({
-              code: "custom",
-              path: [form, "fields", index, ...issue.path],
-              message: issue.message,
-            });
-          }
-        }
-      }
-    }
-
-    if (
-      event.registrationOpensAt &&
-      Date.parse(event.registrationOpensAt) > Date.parse(event.startsAt)
-    ) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["registrationOpensAt"],
-        message: "Registration must open no later than the event start.",
+    for (const [index, field] of event.registrationForm.fields.entries()) {
+      const validated = registrationFieldSchema.safeParse({
+        label: field.label,
+        type: field.type,
+        required: field.required,
+        description: field.description ?? "",
+        ...(isChoice(field.type)
+          ? { options: field.options.map(({ label }) => ({ label })) }
+          : {}),
       });
-    }
 
-    for (const field of [
-      "registrationOpensAt",
-      "registrationClosesAt",
-    ] as const) {
-      if (event[field] && Date.parse(event[field]) > Date.parse(event.endsAt)) {
-        ctx.addIssue({
-          code: "custom",
-          path: [field],
-          message: "Registration must not extend beyond the event end.",
-        });
+      if (!validated.success) {
+        for (const issue of validated.error.issues) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["registrationForm", "fields", index, ...issue.path],
+            message: issue.message,
+          });
+        }
       }
     }
   },

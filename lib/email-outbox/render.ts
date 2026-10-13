@@ -15,29 +15,23 @@ import {
 import { renderEmailTemplate } from "@/lib/email-template";
 import { getServerEnv } from "@/lib/env";
 import { createBackgroundTranslator } from "@/lib/i18n/background";
-import { defaultLocale } from "@/lib/i18n/locale";
 import { prisma } from "@/lib/prisma";
 import { decryptTicketSecret } from "@/lib/ticket-crypto";
 
 export async function renderOutboxEmail(
   type: EmailOutboxType,
   payload: unknown,
-  communicationId: string | null = null,
+  communicationId: string,
 ) {
   if (type === "MANUAL_EVENT_MESSAGE") {
-    if (!communicationId) {
-      throw new Error("Manual delivery has no Communication.");
-    }
-
     return loadManualCommunicationEmail(
       prisma,
       communicationId,
-      manualEmailPayload.parse(payload).locale ?? defaultLocale,
+      manualEmailPayload.parse(payload).locale,
     );
   }
 
-  const locale =
-    emailPayloadSchemas[type].parse(payload).locale ?? defaultLocale;
+  const locale = emailPayloadSchemas[type].parse(payload).locale;
   const t = await createBackgroundTranslator(locale);
   const origin = getServerEnv().BETTER_AUTH_URL;
   const absoluteUrl = (path: string) => new URL(path, origin).href;
@@ -135,7 +129,6 @@ export async function renderOutboxEmail(
 
       if (
         "applicationId" in data &&
-        data.applicationId &&
         "linkedApplicant" in data &&
         !data.linkedApplicant
       ) {

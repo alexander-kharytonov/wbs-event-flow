@@ -26,7 +26,6 @@ export type BadgeLayout = z.infer<typeof badgeLayoutSchema>;
 export type BadgeField = z.infer<typeof badgeFieldSchema>;
 
 export type BadgeFieldContext = {
-  subject?: "APPLICANT" | "GUEST";
   context:
     | "badgeCurrentQuestion"
     | "badgePublishedQuestion"

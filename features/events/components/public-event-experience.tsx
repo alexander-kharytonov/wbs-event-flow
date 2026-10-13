@@ -1,3 +1,4 @@
+import { EventPasswordGate } from "@/features/events/components/event-password-gate";
 import { EventText } from "@/features/events/components/event-text";
 import "server-only";
 import ArrowForward from "@mui/icons-material/ArrowForward";
@@ -34,13 +35,21 @@ export async function PublicEventExperience({
   publicId: string;
   registration?: boolean;
 }) {
+  const published = (await getPublishedEvent(publicId)) ?? notFound();
+
+  if (published.locked) {
+    return (
+      <EventPasswordGate publicId={publicId} registration={registration} />
+    );
+  }
+
   const {
     snapshot,
     eventRevisionId,
     cancelledAt,
     cancellationReason,
     lifecycleEndsAt,
-  } = (await getPublishedEvent(publicId)) ?? notFound();
+  } = published;
   const now = new Date();
   const occupied =
     !cancelledAt &&
@@ -344,7 +353,7 @@ export async function PublicEventExperience({
             publicId={publicId}
             eventRevisionId={eventRevisionId}
             fields={snapshot.registrationForm.fields}
-            guestConfiguration={snapshot}
+            maxGuestsPerRegistration={snapshot.maxGuestsPerRegistration}
             selectPlaceholders={selectPlaceholders}
             applicant={
               user ? { name: user.name, email: user.email } : undefined

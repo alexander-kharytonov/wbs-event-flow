@@ -1,6 +1,6 @@
 import type { EventSnapshot } from "@/features/events/schemas/event-snapshot";
 
-// Historical revisions may contain a later deadline; the event end always wins.
+// The event end remains an independent admission cutoff.
 export function registrationDeadline(
   snapshot: Pick<EventSnapshot, "endsAt" | "registrationClosesAt">,
 ): string {

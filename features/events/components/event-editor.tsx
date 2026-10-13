@@ -110,12 +110,7 @@ export async function EditEventView({ eventId: id }: { eventId: string }) {
   const event = await prisma.event.findFirst({
     where: { id, organizerId: organizer.id },
     include: {
-      _count: { select: { applications: true } },
-      registrationForm: {
-        select: {
-          _count: { select: { fields: { where: { subject: "GUEST" } } } },
-        },
-      },
+      publishedRevision: { select: { passwordHash: true, snapshot: true } },
     },
   });
 
@@ -151,8 +146,20 @@ export async function EditEventView({ eventId: id }: { eventId: string }) {
             initialCover={{ assetId: event.coverAssetId, alt: event.coverAlt }}
             startLocked={eventLifecycle(event, new Date()) === "Ongoing"}
             initialValues={eventFormValues(event)}
-            guestPolicyLocked={event._count.applications > 0}
-            hasGuestFields={Boolean(event.registrationForm?._count.fields)}
+            initialPasswordProtected={Boolean(event.draftPasswordHash)}
+            initialAccessPublication={{
+              contentVersion: event.contentVersion,
+              pending: Boolean(
+                event.publishedRevision &&
+                  (event.publishedRevision.passwordHash !==
+                    event.draftPasswordHash ||
+                    (
+                      event.publishedRevision.snapshot as {
+                        visibility?: string;
+                      }
+                    ).visibility !== event.visibility),
+              ),
+            }}
             serverAction={updateEvent}
             edit={{
               id: event.id,

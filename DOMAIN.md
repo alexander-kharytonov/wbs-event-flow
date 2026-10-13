@@ -15,8 +15,7 @@ PostgreSQL enforces unique `(providerId, accountId)` through
 `account_providerId_accountId_key`. This is the final authority for concurrent
 OAuth callbacks, including attempts in different sessions. A conflicting insert
 is rejected; it never creates a second provider identity. No application locks or
-custom OAuth synchronization are used. The incremental migration adds only this
-index; existing duplicates must be reviewed explicitly before any data changes.
+custom OAuth synchronization are used. The current baseline includes this index.
 Better Auth 1.7.6 surfaces a losing manual-link insert as HTTP 500; retrying the
 native link resolves the existing account. The uniqueness guarantee does not
 require both racing requests to report success.
@@ -93,9 +92,9 @@ Unpublished changes are visible to the organizer and Preview, not public content
 
 Dates are stored as instants with an IANA timezone for input/display. Authoring
 rejects ambiguous/nonexistent edited local DST times. Event end must be after start.
-New authoring/publication requires registration opening <= Event start, closing <=
-Event end, and closing > opening when both boundaries are configured. Empty
-registration boundaries remain allowed; historical snapshots retain their frozen rules.
+Authoring and the frozen EventSnapshot contract require registration opening <=
+Event start, closing <= Event end, and closing > opening when both boundaries are
+configured. Empty registration boundaries remain allowed.
 Minute-resolution Event Edit preserves untouched dates, including nullable registration
 boundaries, from the locked authoritative Event row with exact seconds/milliseconds.
 Client edit markers never supply preserved timestamps; changed local values or timezone
@@ -159,9 +158,10 @@ locally in the snapshot parser, without runtime imports of mutable authoring val
 Future authoring changes must not silently redefine that frozen historical contract.
 
 `buildEventSnapshot` constructs the snapshot from workspace and applies the current
-publication validator, also for Preview. New publication forbids registration
-opening after Event start or closing after Event end. Historical snapshots still
-read older registration windows; effective availability caps closing at Event end.
+publication validator, also for Preview. The frozen snapshot parser itself rejects
+registration opening after Event start or closing after Event end. Publication adds
+current question-authoring validation without repeating those date relationships.
+Runtime availability independently caps closing at Event end.
 
 Public Event, metadata, catalog, historical detail, prefill, and policy consumers
 use validated historical snapshots. Invalid snapshots fail closed or produce an
@@ -170,8 +170,9 @@ unavailable state; they never fall back to mutable form/content.
 ## 5. Visibility
 
 PUBLIC is reachable by direct URL and discoverable in `/e`. PRIVATE is reachable
-by direct URL, excluded from `/e`, and marked noindex/nofollow. PRIVATE is not
-password protection or an access-control boundary.
+by direct URL, excluded from `/e`, and marked noindex/nofollow. PRIVATE alone is
+not an access-control boundary; optional published password protection is specified
+in Private event password access below.
 
 Catalog eligibility uses current snapshot.visibility and requires a publicId and
 valid published revision. Upcoming means startsAt > now; Happening now means
@@ -196,8 +197,8 @@ otherwise                              => OPEN
 
 Closed is checked before opening. startsAt does not close registration; event end
 always does. UI computes at render time. Submit checks current published dates
-under the Event lock and immediately before insert, using one PostgreSQL
-decisionNow obtained after the lock. Persisted Event end/cancellation also guard admission.
+once under the Event lock before insert, using one PostgreSQL decisionNow obtained
+after the lock. Persisted Event end/cancellation also guard admission.
 
 ## 7. Current policy vs historical form
 
@@ -445,6 +446,29 @@ PostgreSQL enforces the following independently of UI/server guards:
 | Unique publication identity/version | Event publicId and publishedRevisionId; EventRevision `(eventId, number)` |
 | Unique form/order slots | RegistrationForm.eventId; field `(formId, position)`; option `(fieldId, position)` |
 
+The current baseline contains 25 application tables, 15 enums, 40 foreign keys,
+87 indexes (including 25 primary-key indexes and five partial unique indexes), and
+36 custom CHECK constraints. There are no application-defined database functions,
+triggers, sequences or row-security policies. PostgreSQL 18's native `uuidv7()` and
+default `plpgsql` installation suffice; no additional extension is required.
+
+Custom CHECKs cover application credential pairing/revocation, guest declaration
+shape and answer value exclusivity, complete PRIMARY/GUEST provenance, guest account
+exclusion, admission/Ticket revocation timestamps, QR versus manual attendance,
+communication actor/content/context/digest/recipient metadata, normalized delivery
+addresses, cancellation reasons, guest limits, cover/rich-content shape, private
+password state, creation receipts, media lifecycle/manifest/timestamps and user
+preferences. Exact names and expressions are in the baseline SQL. All composite
+foreign keys, unique keys, delete/update actions and partial-index predicates are
+preserved. The email-type enum retains its installed PostgreSQL ordering.
+
+The five partial unique indexes enforce active application email/user attempts,
+active registration email/user admission, and one PRIMARY attendee per Registration.
+Participant emails, Communication.requestDigest and EmailOutbox.communicationId are
+required. Guest provenance participates in both declaration/Application and
+Registration/source-Application composite foreign keys. Obsolete guest-policy,
+field-subject and description-format enums/columns are absent.
+
 Foreign-key actions:
 
 | Referencing -> referenced relation | ON DELETE | ON UPDATE |
@@ -531,18 +555,19 @@ Sources: [emission](lib/realtime/application-notifications.ts),
 Each committed new Application (including reapply) creates APPLICATION_RECEIVED
 for its historical Application.email and NEW_APPLICATION for the organizer's
 User.email. Actual PENDING -> APPROVED/REJECTED transitions create the matching
-applicant notification. Since 27B, each type creates its own Communication
+applicant notification. Each type creates its own Communication
 (section 33). Mutation, Communication, EmailOutbox rows, and wake-up NOTIFY share
 the same transaction. Duplicate/no-op/error paths create no delivery intent; rollback
 removes the mutation, Communication and outbox. Withdrawal creates no email.
 
-Legacy EmailOutbox has no direct Event/Application foreign keys; 27A adds an optional
-Communication relation (section 32). Its unique deduplicationKey is
+EmailOutbox requires its Communication relation (section 32). Its unique
+deduplicationKey is
 Application.id + purpose. Recipient and versioned JSON payload are immutable
 delivery snapshots (v1 contracts except APPLICATION_APPROVED, which requires v2
 with a Ticket reference, described below). They contain only the fields needed by that
 email, not answers, rendered HTML/subject, or an absolute hostname. Separate Zod
-contracts validate each type on creation and again before rendering. Received,
+contracts require a frozen locale for every delivery and an Application ID for
+application receipts, validating each type on creation and before rendering. Received,
 organizer, and approval emails snapshot the current published event under the
 Event lock, never mutable workspace content. Render constructs absolute links
 from the server app origin.
@@ -600,20 +625,34 @@ Sources: [creation](features/communications/server/enqueue.ts),
 - Public UI can briefly be stale; authoritative mutations recheck conditions.
 
 These are current boundaries, not a roadmap. The single PostgreSQL 18 migration
-`20261011030000_baseline` creates the current schema, including all 25 custom CHECK
-constraints. It replaces disposable local development history without data
-transformation or seeding. Replacing applied history is not a deployment strategy
-for persistent production data. Fresh databases use `prisma migrate deploy`.
+`20261015000000_baseline` creates the current schema directly. Fresh databases use
+`prisma migrate deploy`; future changes use incremental migrations without editing
+an applied baseline. Existing demo installations must use README.md's controlled
+clean release, which removes the old application schema and migration ledger together
+while writers are stopped. `migrate deploy` alone cannot replace the old history;
+marking the baseline applied is not a substitute for creating its objects.
 
-`db:check` uses one read-only RepeatableRead snapshot. It reports counts for all
-21 application tables and aggregate violations for Application/Registration
+`db:check` first compares the migration ledger with repository migration names and
+SHA-256 checksums in a read-only transaction. Missing history, pending, failed,
+unexpected, duplicate or altered migrations stop the command. A separate read-only
+Prisma datasource-to-schema comparison then rejects drift or an unavailable
+comparison. It needs the installed Prisma CLI, uses no shadow database and applies
+no migrations. This checks Prisma-managed objects, not custom SQL CHECK definitions.
+Run against a stable schema; these sequential preflight checks and the data snapshot
+are not one atomic schema-change barrier.
+
+After preflight, one read-only RepeatableRead snapshot reports counts for all
+application tables and aggregate violations for Application/Registration
 correspondence, PRIMARY identity/cardinality, party activity, Ticket lifecycle,
 QR/MANUAL Attendance, publication references and Communication/Outbox consistency.
-Every revision is checked against the strict snapshot contract and its cover
-reference, including revisions without media. Strict Communication context
-validation uses bounded keyset pages and the existing
-versioned contract. Empty databases pass with explicit zero data coverage. No
-repair, credential decryption, raw payload/identity logging or email occurs.
+Every revision is checked against the strict EventSnapshot contract, including
+revisions without media. Invalid snapshots, invalid READY media manifests and
+revision cover-reference/variant mismatches are separate categories. A malformed
+snapshot skips its cover comparison; malformed manifests are reported as manifest
+failures, without a derivative variant mismatch. Ownership/state/reference SQL
+checks remain independent. JSON validation uses bounded keyset pages and current
+runtime contracts. Empty aligned databases pass with explicit zero data coverage.
+No repair, credential decryption, raw payload/identity logging or email occurs.
 
 
 ## 20. Event lifecycle
@@ -797,8 +836,7 @@ third-party resources or analytics. Request/body/cookie/fragment logging and ema
 link tracking are prohibited. The legacy `/ticket/<access-token>` handler is removed;
 redirecting it cannot prevent the initial ingress path leak. Before migrating any
 retained environment, inspect already-issued links and obtain an explicit cutover
-decision if old path links exist. DEPLOY-2 inspected the local DB and Mailpit:
-zero Tickets, anonymous approval deliveries and messages; no existing rows changed.
+decision if old path links exist.
 
 Approve holds the existing Event lock, obtains decisionNow, updates Application,
 creates Registration, PRIMARY and Ticket, then enqueues approval email and NOTIFY in one
@@ -808,7 +846,7 @@ one decisionNow and notifies in the same transaction. Any failure rolls back all
 writes. Pending withdrawal has no Ticket. Reapply creates a new attempt and, on
 approval, new Registration/PRIMARY/Ticket/number/secrets; old rows stay revoked.
 
-Effective credential state for this iteration is: credential resolves AND Ticket
+Effective credential state is: credential resolves AND Ticket
 not revoked AND Attendee not revoked AND Registration not revoked AND Event not cancelled. Completed,
 archived and unpublished are independent context, not new check-in rules.
 No lifecycle command mutates Ticket history. Revoked/cancelled cards suppress QR;
@@ -892,7 +930,7 @@ error and no-op paths do not. Browser frames remain empty invalidations followed
 by authoritative router.refresh(), with existing reconnect/session boundaries.
 Operational counts include only currently active Attendees with Attendance
 over all active Attendees; revoked attendance remains historical. Organizer's safe
-loaded projection includes name, nullable email, kind, PRIMARY name for Guests,
+loaded projection includes name, required email, kind, PRIMARY name for Guests,
 admission/Ticket status, Ticket number, attendance time/method and actor name only.
 It contains no Ticket credentials, hashes or encrypted fields. Actor deletion is
 shown as unavailable. Client search covers name/email/Ticket number case-insensitively;
@@ -933,7 +971,7 @@ External infrastructure must not capture action request bodies containing secret
 Registration is an approved party: it retains userId for ownership/routing and
 createdAt/revokedAt for lifecycle. attendeeName/attendeeEmail retain submitted
 PRIMARY snapshots. Attendee is a concrete admitted person and capacity seat, with
-UUIDv7 id, Registration RESTRICT, optional User SET NULL, name, nullable email,
+UUIDv7 id, Registration RESTRICT, optional User SET NULL, name, required email,
 createdAt and nullable revokedAt (timestamptz(3)). CHECKs enforce revokedAt >=
 createdAt and GUEST.userId IS NULL. Guest writers and published policy are defined in section 25.
 
@@ -952,7 +990,7 @@ Ticket correspondence and revokes the whole active party at the same decisionNow
 is untouched. It selects PRIMARY by kind, not by assuming no future other people.
 Reapply never resurrects old Registration/PRIMARY/Ticket/Attendance history.
 
-Person rows, scanner identity (nullable email), Tickets, attendance and seat counts
+Person rows, scanner identity, Tickets, attendance and seat counts
 come from Attendee. Detail projects Registration -> PRIMARY/GUEST -> Ticket/Attendance.
 Applications, answers, attempts, ownership, cancellation recipients and account
 lists remain Registration/Application based. Registration.userId continues to
@@ -960,94 +998,66 @@ route realtime notifications; applications.changed and attendance.changed and th
 SSE protocol are unchanged. Anonymous PRIMARY access now authorizes this party’s view and Guest management
 with the same token and URL.
 Active Registration count equals active PRIMARY count; Guests add further capacity seats.
-Guest policy and party management are defined below.
+Guest configuration and party management are defined below.
 
-## 25. Guests and party management (21B; GUEST-2 / GUEST-3)
+## 25. Guest registration and party management
 
-Event.guestPolicy is FLEXIBLE or APPROVAL_REQUIRED. Manual Create initializes
-FLEXIBLE; the validated authoring input requires an explicit policy, as do templates.
-The migration default remains FLEXIBLE. The Event editor saves policy with the other
-fields in updateEvent's owner-authorized, version-checked transaction. It shares the
-policy-change guard with updateGuestPolicy, with no intermediate partial save.
-Unchanged policies permit unrelated edits even after applications exist. Server
-field-error codes are translated at render time and do not reset other draft values.
-updateGuestPolicy takes a verified server actor, locks
-Event at ReadCommitted, checks owner permission and persisted lifecycle, and
-uses an optimistic updatedAt version. A policy change is prohibited after ANY
-Application exists, including withdrawn attempts. The policy write increments
-contentVersion and invalidates the workspace. Form mutations and submission use
-the same Event lock. A switch to FLEXIBLE with guest fields is rejected, without
-implicitly deleting configuration. An opened form with a different policy from
-the locked Event is rejected.
+Event.maxGuestsPerRegistration is the only guest configuration: integer 0–10, with
+zero disabling guest declarations. There is no GuestPolicy or RegistrationFieldSubject.
+All participants use RegistrationForm.fields, ordered uniquely by (formId, position).
+The existing owner-authorized builder, form version, Event lock and publication builder
+apply to this single form. No application-count policy lock remains.
 
-RegistrationField.subject is APPLICANT or GUEST (APPLICANT creation/migration
-default). Subject is immutable through the configuration services: editing,
-deleting and reordering check membership within the specified subject. Ordering
-uniqueness is (formId, subject, position), with separate contiguous positions per
-subject. Guest fields use the existing RegistrationField/Option types and
-validation, require APPROVAL_REQUIRED, and share the existing form version and
-Event lock. The applicant builder selects APPLICANT only; badge catalogs include
-both subjects.
+EventSnapshot contains maxGuestsPerRegistration and registrationForm with complete field
+and option identities, types, labels, descriptions and required rules. The opened revision
+binds the primary and all guests to that same form and guest limit. Current publication
+still controls access, account requirement, registration availability and approval capacity.
+Snapshot/template parsing accepts only this current shape, without conversion or
+revision rewriting. Submitted participant answers remain independent.
 
-ApplicationGuest stores immutable submitted name, nullable normalized contact
-email, zero-based position (0–9) and applicationId. It has no User, seat, Ticket
-or workflow status. ApplicationGuestAnswer and ApplicationGuestAnswerOption use
-one answer per declaration/field and unique selected historical option IDs.
-Field/option identifiers resolve exclusively through Application.eventRevision,
-not mutable RegistrationField FKs; deleting draft fields cannot delete answers.
-Requiredness, type, field membership and option membership follow the frozen
-guestForm. These invariants are verified by db:check, alongside guest count/position
-against the submitted limit and policy binding. Submission inserts declarations,
-answers and selected options with the Application in one transaction.
+ApplicationGuest stores immutable submitted name, normalized contact email, zero-based
+position (0–9) and applicationId. Name and email are required in storage and by the
+same input schemas as the primary participant.
+It has no User, seat, Ticket or separate workflow status. ApplicationGuestAnswer and
+ApplicationGuestAnswerOption retain one answer per declaration/field and unique historical
+option IDs. All field/option IDs resolve through the Application's frozen registrationForm,
+never mutable workspace FKs. Requiredness, option membership and types are validated
+independently for every participant. No email uniqueness or User lookup applies to guests.
 
-Attendee.applicationGuestId is nullable and unique. Flexible guests have no
-provenance; declared admitted guests carry both applicationGuestId and
-applicationGuestApplicationId. Composite restrictive FKs bind that pair to the
-declaration and (registrationId, applicationGuestApplicationId) to
-Registration(id, sourceApplicationId). A CHECK requires both provenance columns
-or neither and allows non-null provenance only on GUEST. This prevents cross-party
-and cross-application linkage, including within the same Event. Declared identity
-must match the admitted copy; db:check verifies this correspondence. Declaration
-and answer history survives removal and withdrawal. Declaration persistence alone
-creates neither seats nor Tickets.
+Submission atomically writes the primary, declarations, answers, application credential
+and communications. Pending groups reserve no capacity. Stable local guest keys preserve
+independent values and unrelated errors through removals, rerenders and locale changes.
+OWNER/MANAGER application reads show every declaration only after applications.read
+permission; linked account and private application reads remain scoped to their attempts.
 
-EventSnapshot strictly requires guestPolicy and guestForm {fields: [...]}, alongside
-maxGuestsPerRegistration and registrationForm. Both field sets retain complete
-IDs, types, labels, descriptions, requiredness and ordered options. Field IDs are
-unique across both sets. FLEXIBLE requires an empty guestForm. Publish/Preview
-use one builder; later draft changes do not modify any EventRevision. Public
-catalog and restricted staff DTOs receive no submitted guest data.
+Approval reauthorizes after Event FOR UPDATE, requires PENDING and validates the complete
+historical group. Current published capacity must fit 1 + declared guests. Registration,
+PRIMARY, all GUEST Attendees and Tickets are created at one admission instant. Ticket,
+Outbox or notification failure rolls back everything. No partial approval is possible.
+Rejection does not require readable guest history. Existing unique constraints and Event
+locking preserve admission idempotency and serialize competing mutations.
 
-GUEST-3 accepts APPROVAL_REQUIRED through the existing application entry point.
-The opened revision freezes guest policy, limit, GUEST fields and applicant fields as
-one mounted form contract. Zero guests is valid. Name, optional normalized email and
-all five existing question types use shared client/server validation. Guest input is
-strictly bounded and remains separate from applicant answers; errors use stable codes
-and guest/field paths. Stable local guest keys preserve other guests' values and errors
-when removing a declaration. No locale key, refresh or navigation is introduced.
+Attendee.applicationGuestId is unique and every GUEST requires declaration provenance.
+The paired applicationGuestApplicationId and composite restrictive FKs bind it to both
+ApplicationGuest and Registration.sourceApplicationId. Both provenance columns must be
+present on GUEST and both absent on PRIMARY, enforced by a database CHECK. Neither
+composite FK can be bypassed with partial-null provenance. The admitted identity matches its declaration. Integrity
+checks verify group correspondence, positions, shared-form answers and required email.
+Declarations and answers survive removal and withdrawal.
 
-Approval reauthorizes after Event FOR UPDATE, requires PENDING, and validates declared
-positions, identity, field membership, typed stored values, required answers and option
-IDs against the submitted snapshot. Current draft questions/limits cannot reinterpret
-that group. Current published capacity must fit PRIMARY plus every declared guest.
-All Attendees and Tickets have the same admission instant. Declaration provenance is
-recorded on each GUEST. Any failure, including Ticket issue or Outbox/NOTIFY failure,
-rolls back the entire transition. Rejection does not require readable guest history.
-The existing Event lock serializes competing approvals, publication, withdrawal and
-removal. Unique admission/provenance/Ticket constraints prevent duplicate admissions.
+After approval there is no Add, replacement or restore operation. Remove retains linked
+Registration ownership or the independent anonymous PRIMARY Ticket capability, checked
+before and after Event locking. It requires an active party, no cancellation and DB
+decisionNow strictly before persisted Event start. Publication and guest limit are not
+removal guards. Foreign targets fail neutrally. Guest and Ticket are revoked at one
+instant; consistent repeated removal is a no-op, and Attendance remains immutable.
+Successful removal emits attendees.changed; no-op removal emits nothing. No guest email
+is sent. New guests require whole-party withdrawal and a new reviewed application.
 
-OWNER/MANAGER application detail reads guest declarations only after applications.read
-authorization, under RepeatableRead, and renders historical answers. Linked account
-detail reads only the account's attempts. The private application capability reads only
-its attempt. Reception receives only explicitly selected badge values through
-authorized individual
-printing. Public APIs, catalog, emails and SSE receive no guest answers.
-Email remains one existing approval delivery to the applicant, with the PRIMARY Ticket
-reference; no guest emails are introduced. GUEST-4 resolves badge and CSV values from
-these immutable declarations. Post-approval Add is prohibited for APPROVAL_REQUIRED;
-Remove retains
-existing authority, revocation and persisted-start rules. No replacement or restore
-mutation exists.
+Badges and CSV use each attendee's own answers to the shared registration form. Reception
+receives only organizer-selected badge values through individual print authorization;
+public APIs, catalog, email and SSE receive no answers. Unselected answers remain server
+side. Approval mail remains one delivery to the applicant with the PRIMARY Ticket reference.
 
 ### Attempt-specific anonymous application access
 
@@ -1057,13 +1067,11 @@ with the Application, guest declarations, answers and transactional communicatio
 The AES-256-GCM envelope uses the existing encryption key with distinct authenticated
 context `eventflow:application:v1:<applicationId>:access`; it cannot be swapped between
 attempts or with Ticket envelopes. Linked submissions have no application capability.
-Deletion of a linked User never creates one. Incremental migration
-20261012180000_application_access adds the columns, pair CHECK and withdrawn-access
-CHECK without changing previous migrations or backfilling credentials.
+Deletion of a linked User never creates one. The current baseline includes the
+nullable credential pair, unique lookup hash and withdrawn-access CHECK.
 
-APPLICATION_RECEIVED payload carries only an optional applicationId reference, never
-bearer material. Existing queued deliveries without a reference retain their ordinary
-CTA. At delivery, an eligible stored application capability produces
+APPLICATION_RECEIVED payload requires an applicationId reference and delivery locale,
+never bearer material. At delivery, an eligible stored application capability produces
 `/application#<capability>`. Withdrawal clears its hash/envelope, so later rendering
 cannot offer that link. Delivery already in progress may still contain a revoked link;
 the server rejects it. Submission and duplicate responses remain `{success:true}` with
@@ -1082,7 +1090,7 @@ Request-body logging must remain disabled in infrastructure, as for Ticket excha
 
 Application access grants only viewing that attempt's submitted details and confirmed
 withdrawal, including its admitted party. It grants no account identity, new application
-authority, Ticket view or Guest Add/Remove. Ticket credentials and capability transport
+authority, Ticket view or Guest removal. Ticket credentials and capability transport
 remain independent. Withdrawal reauthorizes under Event lock, preserves historical
 payload, clears application access, and atomically revokes all still-active party
 Attendees and Tickets. Previously removed guests keep their original revocation times.
@@ -1090,54 +1098,10 @@ Anonymous retries after access revocation return neutral unavailable; linked wit
 retains its existing idempotent success. A fresh anonymous submission creates a new
 attempt and new capability, never reactivating old admissions or credentials.
 
-The following post-approval Add behavior applies only to FLEXIBLE.
-
-Registration.userId is linked party ownership, verified against the authoritative
-session; PRIMARY is the party owner’s admitted person. GUEST has userId null,
-a trimmed name (1–200), and an optional trimmed/lowercase validated email contact
-snapshot (empty becomes null). No email uniqueness or User lookup applies.
-
-Event.maxGuestsPerRegistration is draft authority: NOT NULL DEFAULT 0, CHECK 0–10.
-Only current published snapshot policy authorizes Add. EventSnapshot requires the
-explicit maxGuestsPerRegistration field. Publish/Preview and history use snapshot.
-Historical EventRevision JSON is never rewritten. Lowering
-the limit, including to zero, preserves all existing guests and Tickets.
-
-Both mutations authorize before and again after Event FOR UPDATE, then use its
-single post-lock DB decisionNow. Linked authorization compares Registration.userId;
-anonymous authorization validates the canonical existing access token, hashes it,
-and resolves Ticket -> PRIMARY -> this Registration. Guest Tickets, QR credentials,
-support numbers and client IDs grant no management authority. Capability presence
-remains historical issuance data, not inferred from a later null userId. The same
-PRIMARY capability can read revoked history; mutations require active Registration
-and PRIMARY/Ticket. It grants no account identity or whole-party withdrawal.
-
-Add/Remove require no cancellation and decisionNow < persisted Event.startsAt.
-Add additionally requires valid current publication, active GUEST count below its
-limit, and active Attendee count below published snapshot.capacity (null unlimited).
-Remove does not require publication or guest permission. It only targets a GUEST
-of the authorized Registration, revokes Guest and Ticket at one decisionNow, and
-never deletes or changes Attendance. A consistent already-revoked Guest is a no-op;
-partial Guest/Ticket state fails. Lifecycle guards still apply to repeated requests.
-Unknown/foreign parties, capabilities and targets return neutral UNAVAILABLE.
-
-Add creates GUEST and its normal Ticket atomically at decisionNow using existing
-Attendee AAD, credential and QR protocol. GUEST never gets an anonymous capability.
-Ticket failure rolls back the Guest. Event locking serializes guest limit/capacity
-with Approve, publication, Withdraw and Cancel, without mutable seat counters.
-Approved Withdraw retains PRIMARY correspondence validation and its previous
-lifecycle rules, revoking all active party people/Tickets at one decisionNow while
-preserving prior revocations and Attendance. Reapply never copies old Guests.
-
-Linked detail and the existing anonymous PRIMARY URL project all party Tickets
-through safe TicketPresentation before JSX. Revoked/cancelled QR suppression stays
-unchanged. Account lists remain party-based; organizer Attendees and scanner show
-kind, and organizer Guest rows name their PRIMARY. Successful Add/Remove emit
-transactional attendees.changed with only eventId and nullable Registration.userId.
-The existing broker/SSE invalidates Event and linked account views; anonymous pages
-refresh after mutation without SSE. No-op Remove emits nothing. Guest operations
-send no email; cancellation recipients remain Registration/PRIMARY-owner based.
-
+Linked detail and the anonymous PRIMARY URL project party Tickets through safe
+TicketPresentation. Revoked/cancelled QR suppression and account ownership remain unchanged.
+Removed guests remain readable history. Cancellation recipients remain Registration/PRIMARY
+owners. Reapplication creates fresh admission and credentials and never copies old guests.
 
 ## 26. Event Staff / fixed permissions
 
@@ -1212,7 +1176,7 @@ expiry/session reauthorization bounds lost-signal delivery to roughly 60 seconds
 periodic DB polling or new realtime transport is introduced. Already delivered data
 cannot be erased from a client by revocation.
 
-## 27. Derived badges / operational layout (24A; GUEST-4)
+## 27. Derived badges / operational layout
 
 Badge has no persistent entity, issuance, credential or print history. Its presentation
 is derived from Attendee, Event operational layout, available active Ticket and
@@ -1242,12 +1206,10 @@ The catalog combines draft fields, validated immutable EventRevision fields and 
 bindings, deduplicated by ID/type/label. Historical bindings have no FK to mutable
 RegistrationField. Resolution uses Attendee -> Registration.sourceApplication ->
 Application.eventRevision.snapshot plus ApplicationAnswer for PRIMARY. GUEST resolves
-only Attendee.applicationGuestId within that same source Application and its guestForm,
-plus ApplicationGuestAnswer. Flexible guests have no provenance and no custom values.
-Neither subject inherits the other's answers; current draft fields/options are never
-an answer source. Globally unique field IDs across the two snapshot forms preserve
-subject identity without changing the existing field descriptor or layout contract.
-The two existing slots are shared across subjects, not two slots per subject.
+only Attendee.applicationGuestId within that same source Application and its shared
+registrationForm, plus ApplicationGuestAnswer.
+Each participant has independent answers; current draft fields/options are never an
+answer source. The same two field bindings apply to every attendee.
 Exact fieldId/type/label compatibility is required. SHORT_TEXT, LONG_TEXT,
 SINGLE_CHOICE and MULTIPLE_CHOICE are supported; choice labels come from that
 submitted snapshot. Multiple selections are joined with ", " in snapshot option
@@ -1260,10 +1222,10 @@ registrations beyond its selected preview attendee.
 
 The fixed matrix grants badges.configure to OWNER; badges.print.individual to OWNER,
 MANAGER and RECEPTION; badges.print.bulk/team to OWNER and MANAGER. The bulk permission
-gates workspace visibility for OWNER/MANAGER; 24B2 implements bulk/team operations.
+gates workspace visibility for OWNER/MANAGER.
 Reception's existing read DTO restrictions remain, with this explicit exception:
 an authorized individual BadgePresentation may contain name/type, Event title,
-owner-selected applicant or guest custom values, Ticket number and decodable QR
+owner-selected attendee custom values, Ticket number and decodable QR
 image. It never includes
 Application/answers/snapshot/email/catalog or raw/hash/encrypted Ticket fields.
 The owner selecting a badge field is explicit authorization for that value to appear
@@ -1283,8 +1245,11 @@ eventflow:ticket:v1 protocol. No secret is issued or rotated by printing.
 
 Designer draft previews require owner authority, validate catalog bindings and use
 only safe presentation values; Manager operational printing uses the saved layout. Preview never
-exposes a real admission QR. Without an active attendee, semantic labels are rendered
-without records or fake identities. All text uses escaped React nodes, presentation-only
+exposes a real admission QR. Without an active attendee, semantic labels and the enabled
+ticket-number placeholder `EF-XXXX-XXXX` are rendered without records or fake identities.
+This number placeholder uses the Ticket number format only in the no-attendee preview;
+real attendees retain their actual Ticket number and print never uses this placeholder.
+All text uses escaped React nodes, presentation-only
 control-character normalization, word wrapping and two-line clipping. QR has a reserved
 physical area and quiet zone independent of text length.
 
@@ -1299,7 +1264,7 @@ polling or promise to retract previously delivered HTML/PDF/paper. New documents
 current state. Revoked paper QR cannot create new Attendance; the existing historical
 ALREADY_CHECKED_IN priority is unchanged. Browser/OS scaling is outside application control.
 
-Individual operational printing (24B1) adds only an optional opaque
+Individual operational printing uses an optional opaque
 printTarget.attendeeId to QR CHECKED_IN/ALREADY_CHECKED_IN results, after Event
 authorization and match. A shared server-only individual eligibility helper checks
 permission, Event relation, cancellation and active Registration/Attendee. It does
@@ -1314,10 +1279,10 @@ Event/Attendee IDs. Manual result notifications and refresh remain unchanged.
 Reception attendee records are not expanded; a section-level permission boolean
 only controls action visibility. No badge content crosses these operational DTOs.
 Scanner Reprint is attendance-context language, not evidence of earlier printing.
-24B1 introduces no print history, bulk/team endpoint or new credential lifecycle.
+Individual printing creates no print history and does not change the credential lifecycle.
 
 
-24B2 adds operational Staff and Attendees workspace sections for OWNER/MANAGER;
+Batch printing provides operational Staff and Attendees workspace sections for OWNER/MANAGER;
 Design remains OWNER-only and Reception has no workspace, bulk or team access. The
 selection read model projects only attendee ID/name/kind and, for GUEST only, the
 PRIMARY name from the same Registration's Attendees. This Guest-of context is only
@@ -1348,7 +1313,7 @@ Each bulk/team document uses one RepeatableRead snapshot for actor authorization
 Event/current layout and all required domain reads. Limits are enforced before loading
 historical answers or Ticket crypto, and again on final presentation count. Attendee,
 source Application/answer and active Ticket reads are batched, never an individual
-builder per attendee. Shared 24A normalization/historical resolution and Ticket AAD/hash
+builder per attendee. Shared badge normalization/historical resolution and Ticket AAD/hash
 verification remain authoritative; sequential QR generation occurs after transaction
 completion. Missing/revoked Tickets omit Ticket content. Bulk crypto/QR/render failure
 returns a generic retry state for the whole document. Cancellation or permission loss
@@ -1380,7 +1345,7 @@ Badge/TeamBadge/PrintJob/PrintSelection entity, print history, vendor printer
 or automatic printing is introduced; Ticket/Attendance/protocol semantics are unchanged.
 
 
-## 28. Event Overview / operational dashboard (25)
+## 28. Event Overview / operational dashboard
 
 The server-only Overview loader checks verified session identity, authorizes Event
 access and reads header/context/aggregates in one RepeatableRead snapshot, using
@@ -1439,7 +1404,7 @@ effect disposal and listener/timeout cleanup prevent stale callbacks after chang
 There is no polling or new transport. Browser wall time only requests a fresh server
 read; lifecycle and mutation guards remain server-authoritative.
 
-### Organizer Dashboard (DASH-1)
+### Organizer Dashboard
 
 `/dashboard` is an overview of owned Events, independent of per-Event analytics.
 Its verified-session reader uses one RepeatableRead snapshot and one database clock.
@@ -1465,7 +1430,7 @@ projection and local filters. No per-Event reads or SSE connections are added.
 A shared boundary refresher requests a new server read at the next start/end.
 Other changes are reflected on navigation/reload, without a new realtime guarantee.
 
-## 29. CSV data export (26A)
+## 29. CSV data export
 
 Authenticated GET /api/events/[eventId]/exports/[dataset] accepts applications,
 attendees, attendance or staff. Each request verifies a fresh verified unexpired
@@ -1490,7 +1455,7 @@ REVOKED. PRIMARY answers use Registration.sourceApplication; declared GUEST answ
 use the
 Attendee's linked ApplicationGuest under that same source Application. Scope is
 SOURCE_APPLICATION or GUEST_DECLARATION respectively, with Guest declaration ID for
-joinability. Flexible GUEST values remain empty with NOT_APPLICABLE scope. All guest
+joinability. All guest
 rows retain the same Registration's PRIMARY name. Removed declarations and answers
 remain history; revoked admission is explicitly marked.
 Attendance orders by checkedInAt/id ascending and includes immutable QR/MANUAL facts
@@ -1501,14 +1466,14 @@ ascending with MANAGER/RECEPTION roles. Projections never query Tickets or auth 
 
 Historical column identity is (eventRevisionId, fieldId). Only referenced revisions
 are read; each frozen snapshot is parsed once. Columns order by revision number
-then APPLICANT/GUEST and snapshot question order; headers are
-<Label> [<SUBJECT> v<revision> <TYPE> <eventRevisionId>:<fieldId>],
+then shared snapshot question order; headers are
+<Label> [v<revision> <TYPE> <eventRevisionId>:<fieldId>],
 followed immediately by <header> — state. Duplicate labels and recreated questions
-remain separate. Nonmatching revisions and subjects have NOT_APPLICABLE state.
+remain separate. Nonmatching revisions have NOT_APPLICABLE state.
 CSV marks missing expected answers NOT_PROVIDED. Duplicate or incompatible answers
 for known fields are UNAVAILABLE; optional empty answers are NOT_PROVIDED. Before
 building applicant or declared-guest answer cells, every stored fieldId must belong to
-that subject in the submission's snapshot. An unknown fieldId rejects the entire
+the shared form in the submission's snapshot. An unknown fieldId rejects the entire
 export with a
 generic error, without exposing the identifier or guessing a column. The historical
 detail UI retains its existing missing-answer presentation. Choice labels come
@@ -1537,12 +1502,11 @@ Downloads have deterministic ASCII-safe title/dataset filenames, attachment
 Content-Disposition, text/csv UTF-8, private/no-store/max-age=0, nosniff, no-referrer
 and noindex/nofollow/noarchive. Errors also have privacy headers, but plain-text
 content and no attachment. The menu uses ordinary anchors without Next prefetch.
-CSV content/PII is not logged. Iteration 26A introduced no persistent files,
-export history/jobs, schema changes, migrations or dependencies. Template export
-and Import/Create were outside 26A; they are now implemented in 26B and 26C
-(sections 30 and 31).
+CSV content/PII is not logged. CSV export creates no persistent files or
+export history/jobs. Template export and Import/Create are described in
+sections 30 and 31.
 
-## 30. Portable EventTemplate / export (26B, updated in 29B)
+## 30. Portable EventTemplate / export
 
 This section defines the current unversioned transport contract;
 export uses the filename suffix `-template.json` (section 38).
@@ -1550,22 +1514,22 @@ export uses the filename suffix `-template.json` (section 38).
 The transport-independent strict envelope is {format: "event-flow-template",
 event: {...}}. The explicit event DTO has exactly title, language, description,
 startsAt, endsAt, timezone, visibility, accountRequirement, capacity,
-guestPolicy, maxGuestsPerRegistration, registrationOpensAt, registrationClosesAt,
-registrationForm, staff, badgeLayout, descriptionFormat, location, schedule,
+maxGuestsPerRegistration, registrationOpensAt, registrationClosesAt,
+registrationForm, staff, badgeLayout, location, schedule,
 publicOrganizer and cover. Nullable values are required explicit
 nulls. Dates are original UTC ISO instants with milliseconds, without shifting
 past Events or copying Completed/Cancelled/Archived state.
 
-registrationForm is {fields: [...]}. Each field contains key, subject (APPLICANT/GUEST), type, label,
+registrationForm is {fields: [...]}. Each field contains key, type, label,
 description, required and options; each option contains only label. Array order
-is APPLICANT then GUEST, each in current position order. Field keys are exactly field_1 through field_N in
+is the current shared form position order. Field keys are exactly field_1 through field_N in
 that order. No field/form/option/revision IDs or built-in full name/email fields
 are serialized. Validation reuses current registrationFieldSchema semantics;
 EventTemplate limits are additional portability constraints, not authoring limits.
 
 badgeLayout is null or the constrained current badge format with secondaryField
 and tertiaryField descriptors {fieldKey, type, label}. Bindings map only by exact
-current APPLICANT or GUEST fieldId/type/label. Import remaps either subject through
+current shared fieldId/type/label. Import remaps each field through
 the same portable key to fresh field/option identities; no answers or guest identities
 are included. Missing, historical, deleted/recreated or mismatched
 bindings reject the entire export with a generic request to update Badge Design.
@@ -1609,12 +1573,11 @@ The artifact contains no database identities, organizer/publicId, timestamps of
 creation/modification, publication pointers/contentVersion/revisions, cancellation/
 archive state, Applications/Registrations/Attendees/Guests, Tickets/QR/credentials,
 Attendance, notifications/outbox or runtime/lock/history data. It is private
-configuration because staff emails are present. Iteration 26B introduced no
-schema/dependency changes and covered export only. Import/Create and its local
-review editor are now implemented in 26C (section 31). Duplicate Event reuses this pipeline (section 36).
+configuration because staff emails are present. Import/Create and its local
+review editor are described in section 31. Duplicate Event reuses this pipeline (section 36).
 
 
-## 31. Event template import / atomic create (26C)
+## 31. Event template import / atomic create
 
 The full-page Create editor shares manual/import modes. Upload and Paste use
 one UTF-8 byte-limit -> JSON parse -> format -> strict EventTemplate ->
@@ -1625,7 +1588,6 @@ Portability limits remain 512 KiB,
 100 fields, 100 options/field, 1,000 total options and 100 Staff, including after
 review edits. Errors expose only code/known path/safe message, never raw parser,
 Zod or database errors. No payload/email logging or untrusted deep merge occurs.
-The 26A CSV and 26B export contracts are unchanged.
 
 No Event write or account eligibility query occurs before explicit Create.
 Review state is local and not authority. The server rechecks fresh verified
@@ -1691,13 +1653,13 @@ ephemeral; no URL/cookie/persistent storage or ImportJob is used. No destructive
 import, CSV import, publication import, backup/restore, automatic date shifting,
 background job, schema migration or dependency is introduced.
 
-## 32. Communications persistence and delivery foundation (27A)
+## 32. Communications persistence and delivery foundation
 
 Communication is one immutable logical send belonging to exactly one Event. It
 contains UUID id, kind MANUAL/TRANSACTIONAL, nullable transactional trigger,
 createdAt, nullable actor User FK and frozen name/role, nullable manual audience,
 subject, nullable message, strict versioned contextSnapshot, nonnegative
-recipientCount, Event-scoped unique idempotencyKey and nullable SHA-256
+recipientCount, Event-scoped unique idempotencyKey and required SHA-256
 requestDigest. Manual records require audience, message, actor snapshots and
 requestDigest; transactional records require trigger, and have no audience/message.
 System-origin transactional records use null actor fields. Human-origin writers
@@ -1712,11 +1674,10 @@ actor reconstruction. Retention is the lifetime of the Event, with no cleanup jo
 Content immutability is enforced by server code, like EventRevision; only delivery
 operational fields change. No content update API exists.
 
-EmailOutbox adds nullable communicationId, MANUAL_EVENT_MESSAGE, unique
-(communicationId, recipientEmail), (communicationId, status, id) and
-(type, status, communicationId) indexes. PostgreSQL's ordinary NULL-distinct unique
-semantics preserve all legacy rows, including repeated addresses with null FK.
-Associated addresses must be trimmed/lowercased. No third Delivery table exists.
+EmailOutbox requires communicationId for every type, including MANUAL_EVENT_MESSAGE.
+It retains unique (communicationId, recipientEmail), (communicationId, status, id)
+and (type, status, communicationId) indexes. Recipient addresses must be
+trimmed/lowercased. No third Delivery table exists.
 Communication indexes support Event history, Event/kind/time and actor/kind/time
 admission queries. DB CHECKs enforce content shape/nullability, actor snapshot
 pairing, nonnegative count, bounded subject/message and idempotency key/digest
@@ -1753,13 +1714,12 @@ server domain keys and remain globally unique. There is no skipDuplicates.
 A canonical SHA-256 digest covers Event, trigger, subject, safe context, actor and
 sorted normalized delivery intents. A supplied digest must match; repeated
 Event/idempotencyKey with the same digest returns the original id without enqueue;
-a different digest fails. Legacy/null-digest records cannot be replayed by guessing.
+a different digest fails. All Communication records require a valid digest.
 Caller must propagate any error to abort the enclosing domain transaction. SQL
 failures abort it; notification and writes commit together. No nested independent
-transaction or SMTP is opened. 27A supplied the helper; section 33 describes
-its integration into Event writers in 27B.
-Manual content/audience/recipient association contracts prepare 27C, but no manual
-enqueue API, Server Action or production path creates manual Outbox rows in 27A.
+transaction or SMTP is opened. Section 33 describes integration into Event writers;
+section 34 describes the manual enqueue path and its content, audience and recipient
+association contracts.
 
 Manual admission primitives use a fixed global pg_advisory_xact_lock(27001, 1)
 inside the caller's ReadCommitted transaction. Required lock order:
@@ -1769,9 +1729,9 @@ Do not lock another Event after acquiring admission. All manual admission writer
 (and any future reactivation) must use this protocol. The global lock serializes
 both same-actor cross-Event sends and the global queue budget. Snapshot isolation
 would retain stale pre-lock counts and is rejected. The primitive alone is not a
-reservation; 27C must insert before releasing the same transaction lock, using the
-returned admittedAt as createdAt, and must complete recipient selection/digest/
-replay orchestration. Dispatcher status transitions only maintain/decrease the
+reservation; the manual enqueue path inserts before releasing the same transaction
+lock, using the returned admittedAt as createdAt, with recipient selection, digest
+and replay orchestration in that transaction. Dispatcher status transitions only maintain/decrease the
 outstanding total. No separate RateLimit table or in-process limiter exists.
 
 Limits: <=1,000 unique recipients/send, <=5 manual sends/Event/hour, <=10 manual
@@ -1797,15 +1757,13 @@ communications.read before using them and keep Event scoping; these primitives
 are not public endpoints. No raw payload, SMTP errors, lease metadata, credentials,
 capability URLs or auth/session fields belong to UI DTOs.
 
-The baseline includes the full Communication/Outbox schema. Legacy rows may have
-null communicationId and remain deliverable; history includes associated sends
-without inferring or backfilling legacy history. 27B integrates transactional writers; 27C adds
-manual orchestration; 27D supplies remaining history/details presentation. No
-Communications UI, new background infrastructure or delivery retention is shipped
-by this foundation.
+Every Outbox row belongs to its immutable Communication. Transactional writers, manual
+orchestration and unified History/Details presentation are implemented as described
+in sections 33–35. They reuse the existing Outbox infrastructure without a separate
+delivery retention job.
 
 
-## 33. Transactional Communications integration (27B)
+## 33. Transactional Communications integration
 
 The existing submit-application, review-application and event-lifecycle cancellation
 writers now call enqueueTransactionalCommunication inside their original
@@ -1826,7 +1784,7 @@ Registration and withdrawn/rejected Application contacts are not added.
 
 All new Communication rows have kind TRANSACTIONAL, trigger equal to the delivery
 type, null audience/message and the existing actual subject from the shared
-transactionalEmailSubjects map. History retains this stable English label; I18N-D renders recipient subjects from
+transactionalEmailSubjects map. History retains this stable English label; email localization renders recipient subjects from
 the email dictionary, preserving CTA and payload validation behavior. Context is strict semantic v1:
 schemaVersion=1, kind=TRANSACTIONAL, trigger and optional frozen eventTitle only.
 Submission/approval use current published context; cancellation uses the existing
@@ -1878,15 +1836,13 @@ the unchanged worker after commit. Post-commit failure cannot undo admission,
 review or cancellation. Status/retry/lease/fencing and at-least-once semantics
 remain as in section 18. No manual admission lock is acquired by these writers.
 Existing Event/application invalidations remain unchanged and contain no new
-history content; 27D may complete delivery-status refresh.
+history content; section 35 defines delivery-status refresh.
 
-Cutover applies only to new successful operations. Previously queued rows with null
-communicationId remain deliverable; legacy history is not inferred/backfilled.
-No schema/migration/dependency changes are required. Section 34 implements 27C;
-27D full History/Details UI remains outside this iteration.
+Section 34 describes Manual Send; section 35 describes the implemented unified
+History/Details UI.
 
 
-## 34. Manual Communications Center (27C)
+## 34. Manual Communications Center
 
 `/dashboard/events/[id]/communications` reuses EventHeader/navigation and the
 permission-aware EventWorkspace. Fresh verified sessions gate both Server Actions;
@@ -1978,7 +1934,7 @@ There is no new polling, websocket, background worker, transactional trigger,
 schema migration, dependency or change to existing transactional content/recipients.
 
 
-## 35. Unified History and Delivery Visibility (27D)
+## 35. Unified History and Delivery Visibility
 
 The same History reader serves MANUAL and TRANSACTIONAL records. Request-facing
 History and Details readers obtain a fresh verified session (cookie cache disabled),
@@ -2060,7 +2016,7 @@ Archive/Restore neither changes status nor restarts/cancels mail. There is no ne
 send operation or manual resend/retry-failed/override UI.
 
 
-## 36. Duplicate Event (28)
+## 36. Duplicate Event
 
 The full-page Create route consumes optional duplicateFrom through CreateEventView.
 The owner menu link disables prefetch. Before reading source configuration the
@@ -2102,13 +2058,15 @@ No source configuration or emails enter URLs/cookies/persistent browser storage 
 logs. Direct requests and soft navigation render the same full page
 with the same authorization boundary. There is no new create action, schema, job or draft storage.
 Exact dates, past-date warnings, Staff skips, rollback and confirmed-success submit
-locking retain section 31 semantics, without adding server-side idempotency.
+locking retain section 31 semantics. Final creation uses the shared server-side
+retry receipt described in section 37, including when no cover is selected.
 
-## 37. Immutable Event media and EventSnapshot (29A)
+## 37. Immutable Event media and EventSnapshot
 
 MediaAsset belongs to an OrganizerProfile and is scoped to the existing Event
-which authorized its upload. eventId becomes null on pristine Event deletion;
-the record/files remain tracked for cleanup. No pre-Create uploads exist.
+which authorized its upload, or starts as an organizer-owned temporary creation upload
+under Temporary creation covers and atomic retry receipts below. eventId becomes null on pristine Event deletion;
+the record/files remain tracked for cleanup.
 backend/storageKey locate bytes privately; generated opaque keys contain no original
 filename. IDs, fixed variant metadata and alt are the only media snapshot data.
 There are no storage keys, local paths, original files or binary DB values in public
@@ -2118,14 +2076,14 @@ must preserve bytes/checksums and references, not rewrite historical snapshots.
 
 Event.coverAssetId is the mutable draft FK. EventRevision.coverAssetId is the frozen
 reference with ON DELETE RESTRICT; any draft/revision reference prevents cleanup.
-Cover alt belongs to Event authoring and is copied into the snapshot. EventSnapshot includes
-descriptionFormat, nullable cover/location/publicOrganizer and
-ordered schedule. Description reuses Event.description, defaults to PLAIN_TEXT, and
-old snapshots are never reinterpreted as Markdown. The frozen snapshot validators cap agenda
+Cover alt belongs to Event authoring and is copied into the snapshot. EventSnapshot
+includes a Markdown description, nullable cover/location/publicOrganizer and an
+ordered schedule. Description uses Event.description without a format property.
+The frozen snapshot validators cap agenda
 at 100 chronological entries with UTC millisecond instants inside the Event interval;
 location is PHYSICAL/ONLINE/HYBRID, and organizer display data is explicit public
-content rather than account/profile/Staff projection. These fields have no new editor
-in 29A. New authoring contracts must not redefine historical snapshot parsing.
+content rather than account/profile/Staff projection. Authoring changes must not
+silently redefine the frozen snapshot contract.
 
 Upload uses POST /api/events/[eventId]/cover/uploads with raw image bytes and exact
 image/jpeg, image/png or image/webp Content-Type. The optional X-Event-Cover-Crop
@@ -2138,7 +2096,8 @@ refuse upload and attachment. The server reserves an UPLOADING row before filesy
 work. A per-organizer transaction advisory lock serializes NEW upload admission
 across Events/processes. Admission reads the current pending count and refuses it
 when >=10. Pending means UPLOADING or READY with neither draft nor revision
-references; expired uploads count until explicit cleanup. Detach remains allowed
+references; temporary DELETING rows also count until collected. Expired uploads
+count until cleanup. Detach remains allowed
 under normal guards, including concurrently with admission, and may raise the count
 above ten. This is not an unconditional pendingCount<=10 invariant. Subsequent
 admissions remain blocked while the current count is >=10; cleanup removes expired
@@ -2189,13 +2148,14 @@ and exact Event ownership/reference, including READY staged uploads for that Eve
 GET /e/[publicId]/cover/[assetId]/[variant] requires the current valid published snapshot,
 matching cover descriptor/revision FK, asset Event/owner, READY manifest and checksum.
 It does not authorize drafts or arbitrary historical assets. Current PRIVATE
-publication retains existing direct-link availability, not password protection.
+publication retains direct-link availability unless its current revision enables
+password protection; public media then requires that Event grant.
 Cancellation/archive do not independently hide a still-published cover. Each read
 authorizes one consistent DB snapshot; an already authorized in-flight response can
 finish after an unpublish, and previously downloaded bytes cannot be recalled.
 Only fixed generated variants are served, with correct MIME, nosniff, private/no-store,
 noindex/nofollow/noarchive and no-referrer. Media paths are excluded from Next's image
-optimizer allowlist. New metadata/landing rendering is outside 29A.
+optimizer allowlist. Public landing and metadata are described in section 39.
 
 Local storage validates the complete ancestor chain top-down: no symlinks, every
 ancestor owned by root or the application UID and not group/other writable. The
@@ -2232,7 +2192,8 @@ Rerun the command until neither budget is reached; repeated calls are idempotent
 Successful deletions remove candidates from subsequent runs, including late-upload
 temp/orphan files. Persistent failures require operator intervention and may occupy
 the DB candidate budget until repaired. There are no persistent cursors, new tables,
-workers, cron, polling or automatic cleanup.
+workers or cron for existing Event assets. Automatic temporary-upload
+collection is described below.
 
 SQL CHECKs enforce locator, lifecycle/nullability, manifest container shape,
 timestamps and Event rich-field/alt shape. Full manifest/snapshot validity, asset
@@ -2242,19 +2203,84 @@ EventTemplate below is the current portable contract. Binary inclusion, shared m
 remote media fetch remain unsupported.
 
 
-## 38. Rich authoring and EventTemplate (29B)
+### Temporary creation covers and atomic retry receipts
 
-The description editor authors MARKDOWN in Create/Edit and Import/Duplicate
-Review. Plain text can be entered directly as Markdown; there is no format selector.
-Opening a persisted draft or template preserves source text and initializes the
-editor to MARKDOWN; only an explicit Save/Create persists that format. Historical
-PLAIN_TEXT snapshots retain literal rendering. Both formats remain valid in frozen
-snapshot and EventTemplate transport contracts. No migration, bulk conversion or
-historical revision rewrite is performed.
+MediaAsset.temporaryExpiresAt distinguishes unconsumed creation uploads from both
+Event-scoped uploads and pristine-delete orphans. It equals uploadExpiresAt, with a
+24-hour deadline from reservation, and requires eventId=null by CHECK constraint.
+The same private generated locators, normalization, manifests, resource slots and
+organizer admission advisory lock apply. Temporary IDs are cryptographically random UUIDv4 values; possession
+is never authority. POST /api/event-covers/uploads requires a fresh verified session,
+exact canonical Origin and OrganizerProfile. No placeholder Event is created.
+
+GET /api/event-covers/[assetId]/[variant] checks READY, organizer ownership,
+eventId=null and unexpired temporaryExpiresAt in a consistent database snapshot.
+It serves only the existing fixed variants, checks bytes/checksum and uses the same
+private/no-store, noindex, nosniff and no-referrer headers. DELETE requires the same
+fresh actor and mutation Origin, locks the asset, rejects references/consumed assets
+and marks DELETING. It never deletes files directly. Replacement requests discard
+only after the replacement upload succeeds; lost discard responses remain safe.
+Abandonment and failed preparation rely on expiry rather than browser unload delivery.
+
+Creation adapters validate authoring as before and pass authenticated organizer identity
+and strict {key, assetId, alt} separately from EventTemplate. The key is a client-generated
+UUID, not an authorization credential. A transaction advisory lock serializes the key;
+EventCreationReceipt.key is also a primary key. A domain-separated HMAC-SHA256 fingerprint
+of the validated selection and intent binds retries without storing raw values or a
+password-guessing digest. Same owner/key/fingerprint returns the stored safe result
+before Staff budgets/resolution or creation. Changed intent, another owner or a receipt
+whose Event has been deleted fails closed. Receipts contain Event ID, Staff counts and
+private skipped/duplicate warnings; no files, storage locators or plaintext passwords.
+They survive pristine deletion with eventId=null and are not expired by media cleanup.
+
+For a new request, the transaction locks the temporary asset, rechecks ownership,
+READY state, expiry and absence of Event scope, and reads/checks all four immutable
+variant files through the existing safe storage adapter. This read occurs while the
+asset lock excludes cleanup. The normal create core inserts the new Event and its
+configuration; the transaction sets asset.eventId, clears temporaryExpiresAt and
+unusedSince, assigns Event.coverAssetId/coverAlt and stores the receipt. A selected
+cover is initialization, not an Event edit: no read-only exception is exposed for
+existing Completed Events. Initial contentVersion and publication semantics are unchanged.
+Different request keys competing for one upload serialize on the asset; only one can
+consume it. A retry of the successful key returns the original Event without consuming
+again. Lock waits are capped at three seconds and the transaction at fifteen seconds.
+
+Prepared files are create-only and fsynced before READY; storage also syncs the parent
+directory after linking the final file and removing its temporary name. Creation performs
+no filesystem mutations, copies or moves. Rollback or an uncertain commit never triggers
+file deletion. Cleanup must acquire the same asset lock and recheck all draft/historical
+references, so it cannot remove an attached cover. Missing, corrupt or inaccessible files
+abort creation. Existing trust in the application OS user, private volume, ACLs and backups
+still applies; external/privileged filesystem destruction is not a PostgreSQL transaction.
+
+Automatic startup/15-minute sweeps reuse cleanupMedia with a temporary-only DB filter.
+Expired temporary READY and UPLOADING rows and discarded DELETING rows are eligible;
+existing Event assets keep their explicit maintenance policy and grace periods. The
+existing bounded, constant-memory orphan reconciliation also runs, retaining its 24-hour
+file-age rule for interrupted/late writes. Each process allows one sweep; DB row locks
+make concurrent collectors safe. Sweeps use the existing 100-row/100-orphan budgets,
+sanitized failure logging and process drain hook. A stopped app performs no cleanup;
+startup resumes it. Successful consumption removes the temporary marker and transfers
+the asset to the ordinary draft/revision retention rules without deleting valid media.
+
+Unknown creation outcomes freeze the client form and its exact submitted FormData in
+memory; retry uses the same key and payload, including the transient password when set.
+Confirmed success/failure releases that snapshot. Confirmed field/media errors allow
+correction with the same uncommitted key. Mode changes are blocked during uncertainty;
+leaving/reload follows the existing dirty-navigation protections, with no persistent draft.
+
+
+## 38. Rich authoring and EventTemplate
+
+Create/Edit and Import/Duplicate Review author Markdown as the only description
+format. Ordinary text needs no special formatting. Opening a draft or template
+preserves its source text; only explicit Save/Create persists edits. There is no
+format property in Event, EventSnapshot or EventTemplate. Strict serialized readers
+reject obsolete fields; no conversion or historical revision rewrite occurs.
 
 The shared Event authoring schema extends the existing Create/Edit/Review path.
-It reuses location/publicOrganizer constraints and the schedule entry shape from
-29A without changing the frozen snapshot parser. Nullable JSON authoring
+It reuses location/publicOrganizer constraints and the schedule entry shape
+defined by EventSnapshot without changing the frozen snapshot parser. Nullable JSON authoring
 writes use Prisma.DbNull for SQL NULL. Existing fresh OWNER checks, Event lock,
 version/contentVersion, lifecycle/Ongoing-start guards, atomic Create and realtime
 invalidation remain authoritative. No new persistence model or migration is needed.
@@ -2274,21 +2300,19 @@ mutation guard excludes overlapping Event Save and cover upload/save operations.
 Only successful PUT attachment responses advance the cover mutation token;
 router refresh never silently replaces it. Other form values survive cover saves.
 Failures/conflicts retain the existing reload contract and never delete assets.
-The existing 29A upload, immutable storage, reference and cleanup rules are unchanged.
+The upload, immutable storage, reference and cleanup rules in section 37 apply.
 
 One shared react-markdown renderer handles explicit MARKDOWN in client/OWNER
 Preview. It skips HTML, restricts elements to text formatting/lists/links, excludes
 images/MDX/raw plugins and permits only absolute HTTP(S) URLs without credentials.
-Links use noopener/noreferrer. PLAIN_TEXT remains literal. Preview uses the current
+Links use noopener/noreferrer. Preview uses the current
 workspace snapshot builder and controlled OWNER media routes without the image optimizer.
 Public /e/[publicId] retains its published-revision authority and Staff DTOs are not
-expanded. Public landing/metadata is defined by 29C below. Iterations 29A/B/C/D
-are implemented and accepted; 29D polish preserves these domain contracts.
+expanded. Public landing/metadata is defined in section 39 below.
 
 EventTemplate has the envelope {format: "event-flow-template", event: {...}}
 without a version field. It contains portable Event configuration, language and
-rich fields descriptionFormat,
-nullable location/publicOrganizer,
+a Markdown description, nullable location/publicOrganizer,
 ordered exact schedule and strict cover {status: NONE|OMITTED}. The strict semantic
 constraints/limits, deterministic serialization, explicit nulls, field_N identity,
 normalized Staff and Badge remapping apply. Unknown fields and private/internal
@@ -2300,8 +2324,8 @@ Review/Create use the same transport.
 UTF-8 byte limits apply at text input, validated Create and serialized Export.
 EventTemplate validates the complete rich configuration and agenda interval.
 Export and the existing authorized Duplicate source reader project EventTemplate. Review
-warns about OMITTED; Create always creates without a cover using the existing atomic
-core. Source reload/revocation checks, Staff resolution, fresh question/option IDs,
+warns about OMITTED; Create copies no source cover. A separately selected temporary
+cover can attach through the temporary-cover transaction using the existing atomic core. Source reload/revocation checks, Staff resolution, fresh question/option IDs,
 Badge bindings and rollback behavior are preserved. There is no second editor or
 cloning service, media copy, worker, polling or cloud backend.
 
@@ -2318,10 +2342,11 @@ edited-date markers only on confirmed success. Later writes still derive exact
 instants from the locked database row, never the returned client source. RSC refresh
 does not overwrite a mounted editor's local values or advance its token.
 
-Manual Create uses the unchanged atomic create core, returning the ID for navigation
-to Edit. Import/Duplicate keep atomic creation, Staff budgets, Badge remapping,
+Manual Create uses the atomic create core and creation receipt/cover transaction,
+returning the ID for navigation to Edit. Import/Duplicate keep atomic creation, Staff budgets, Badge remapping,
 frozen Review and confirmed-success locking; success now opens Edit. There is no
-schema, EventTemplate transport, admission, publication or media lifecycle change.
+EventTemplate transport, admission or publication change. Creation receipts and
+temporary media lifecycle are specified in section 37.
 
 Dirty tracking includes Event values/date intent, unsaved cover selection/alt/upload
 and modified Review extras. A committed cover is not an unsaved Event-field change.
@@ -2331,7 +2356,7 @@ protection is not universal. Confirmed session/source revocation still removes
 protected state. Preview uses saved authorized workspace data in a separate tab;
 local edits do not become public without the existing explicit publication action.
 
-## 39. Public landing and metadata (29C)
+## 39. Public landing and metadata
 
 The public page, route-layout guard and generateMetadata share the request-scoped
 getPublishedEvent cache. The reader validates the current EventRevision with the
@@ -2406,20 +2431,19 @@ revision and must restart after a publication change.
 
 ## V0 development policy
 
-Before the first release, breaking changes are allowed and local development data
-is disposable. This includes public demo accounts, events, applications, tickets
-and snapshots during product validation. GUEST-2 uses an incremental migration
-after the unchanged committed baseline. Old snapshots/templates without explicit
-guest configuration are invalid, not rewritten or interpreted by compatibility
-readers. Deployment and any data reset are separate authorized operations.
-EventSnapshot and EventTemplate each have one current, unversioned
-contract, without format version fields, legacy readers, converters or compatibility
-paths. Schema changes normally use incremental migrations. Consolidating applied
-migrations into a baseline and resetting local DB/media require explicit approval.
-Disposable data alone does not authorize a reset. Historical domain revisions remain immutable within the current contract;
+Before the first release, breaking changes are allowed. Public demo accounts,
+Events, applications, Tickets, snapshots and media are disposable. The Product Owner
+approved their complete destruction during the separate controlled clean release in
+README.md. This baseline preparation does not reset any existing database or media.
+
+EventSnapshot and EventTemplate each have one current, unversioned contract, without
+format version fields, legacy readers, converters or compatibility paths. The current
+PostgreSQL 18 baseline contains only approved contracts. Future schema changes use
+incremental migrations; further consolidation and database/media resets require
+explicit approval. Historical revisions remain immutable within the current contract;
 authorization, concurrency controls and idempotency remain mandatory.
 
-## 40. UI locale preference (I18N-A)
+## 40. UI locale preference
 
 `User.uiLocale` is nullable text constrained by PostgreSQL to en/de/pl/uk/ru.
 Null means no explicit account preference, not English. It changes no identity,
@@ -2427,12 +2451,15 @@ verification, ownership, lifecycle, authorization or Event content semantics.
 `lib/ui-preferences.ts` resolves both preferences with one request-cached User
 query after the normal `getSession()` lookup. Locale precedence is account →
 validated event-flow-locale cookie → Accept-Language → English.
+Only en/de/pl/uk are currently selectable and eligible for this resolution.
+Russian dictionaries and the supported locale contract remain intact; ru is
+temporarily excluded from user selection and browser negotiation.
 `lib/i18n/request.ts` supplies the resolved locale and messages to next-intl.
 No process-global locale or auth cookie-cache authority is introduced. Normal
 Better Auth session renewal/expired-session cleanup behavior is accepted;
 preference reads never persist inferred locale or mode values.
 
-`PUT /api/preferences/locale` accepts only a supported JSON string, bounded to
+`PUT /api/preferences/locale` accepts only a currently selectable locale JSON string, bounded to
 64 bytes, requires Origin equal to BETTER_AUTH_URL or an explicitly configured
 BETTER_AUTH_TRUSTED_ORIGINS entry, derives the
 User solely from the session, and updates only uiLocale (plus Prisma updatedAt).
@@ -2442,8 +2469,8 @@ may set this presentation preference without gaining verified-user permissions.
 No caller-supplied User ID is accepted. Repeated selections are idempotent in value;
 concurrent requests use last committed write. Failures return stable identifiers,
 never account details. UI locale does not enter Event snapshots, templates, business
-mutation inputs or revision keys. I18N-D separately freezes recipient language in
-email intent digests. I18N-B captures it only as
+mutation inputs or revision keys. Email localization separately freezes recipient language in
+email intent digests. Event creation captures the UI locale only as
 the initial independently editable Event language when manual Create opens.
 
 The root locale provider uses SSR values only to initialize the document. Selection
@@ -2475,7 +2502,7 @@ full reload. Cookie acceptance is not confirmed by the client.
 Event dates keep explicit IANA timezones; UTC is the deterministic provider default
 for formatting without an explicit timezone. `createBackgroundTranslator` takes
 an explicit preference (invalid/absent → English), never request headers/cookies.
-I18N-D uses this helper with frozen per-recipient locale metadata; domain content
+Email localization uses this helper with frozen per-recipient locale metadata; domain content
 and Communication semantic history remain independent of delivery translation. Server-only translations
 update on server render; immediately switchable labels consume client context.
 
@@ -2489,8 +2516,10 @@ reads uiMode with uiLocale. Neither field is added to auth payloads, Event conte
 Snapshot/Template or email contracts.
 
 `PUT /api/preferences/mode` accepts only a supported JSON string bounded to 64
-bytes. Origin must equal the configured BETTER_AUTH_URL origin. The User comes
-solely from the normal session lookup, including unverified authenticated Users;
+bytes. Origin must match the configured BETTER_AUTH_URL origin or an explicitly
+configured trusted app origin, using the same validated allowlist as the locale
+preference route. The User comes solely from the normal session lookup, including
+unverified authenticated Users;
 only uiMode and Prisma updatedAt are updated. Account persistence must succeed
 before the host-only, HttpOnly, SameSite=Lax, one-year cookie is emitted (Secure
 on HTTPS). Anonymous requests set only the cookie. Both preference PUT success
@@ -2509,7 +2538,7 @@ MUI storageManager is null; the pre-content initializer uses the server-resolved
 mode and matchMedia without reading localStorage. It uses the same data-light /
 data-dark selectors as MUI, which continues listening to OS changes in system mode.
 
-## 42. Event language (I18N-B)
+## 42. Event language
 
 Event.language is a non-null EventLanguage database enum with exactly en, de, pl,
 uk and ru, and no database default. Shared authoring validation requires it;
@@ -2519,6 +2548,9 @@ Import/Duplicate initialize from their frozen EventTemplate source. Later UI loc
 changes cannot reset the language, revision binding, date markers or unsaved values.
 The new validation result is the stable invalidEventLanguage code, translated
 when the field error renders; unrelated existing errors retain their contracts.
+Editor and catalog selectors currently expose only en/de/pl/uk. Russian remains
+supported by Event, EventSnapshot and EventTemplate; selection availability does
+not change persistence or serialization validation.
 
 Language follows the existing Event edit row lock, updatedAt optimistic token,
 contentVersion increment, OWNER authorization and lifecycle guards. It is included
@@ -2534,13 +2566,13 @@ existing column contracts and historical snapshot authority.
 
 The public catalog filters publishedRevision.snapshot.language alongside PUBLIC
 visibility, then validates the complete snapshot before projection. The client receives
-only catalog titles/language, description/format, event and registration times,
+only catalog titles/language, Markdown description, event and registration times,
 timezone, and cover identity/alt/responsive dimensions; forms, agenda, location,
 organizer details and unused media metadata stay on the server. Featured covers
 are keyed by asset identity so an image failure cannot carry over to another cover.
 Selection is
 an explicit optional language URL parameter, independent of request/UI locale.
-Invalid, absent or repeated values select all languages. Filtering precedes featured
+Invalid, unavailable, absent or repeated values select all languages. Filtering precedes featured
 selection and time grouping; ties still use publicId. Client-side title search uses
 trimmed, case-insensitive substring matching against those validated publications
 and runs before featured selection/grouping. Search state survives language-filter
@@ -2549,13 +2581,12 @@ card summaries include workspace language as basic Event context; this exposes n
 additional draft content or mutation permissions. Account registration cards use
 only validated current published language and omit it when unavailable.
 
-The explicitly authorized pre-release migration consolidation replaces local migration
-history with 20261011030000_baseline. It includes EventLanguage, required
-Event.language without a default, UI preferences and all custom CHECK constraints.
-The local reset preserves authentication/organizer rows and does not rewrite revision
-JSON. Future schema changes normally use incremental migrations.
+The baseline includes EventLanguage, required Event.language without a default and
+UI preferences. Later schema changes use incremental migrations; the complete
+migration history is authoritative. Snapshot/Template parsing accepts only the
+current contract and never rewrites historical JSON.
 
-## 43. Email locale resolution (I18N-D)
+## 43. Email locale resolution
 
 Email presentation uses the existing next-intl/use-intl translator, formatter and
 flat email/{en,de,pl,uk,ru}.json dictionaries, with English per-key fallback.
@@ -2563,11 +2594,10 @@ Renderers receive an explicit locale; the Outbox worker reads no request/session
 cookie, sender preference or current Event language. Shared HTML escapes all
 interpolated text and URLs and declares the rendered language.
 
-Every new transactional payload and manual Outbox payload freezes locale inside
-the existing JSON column. No database schema, migration, delivery type or provider
-is added. The same optional locale field is validated on existing payload contracts:
-absence retains English for already queued mail; invalid values fail validation.
-No conversion, format-version branch, backfill or alternate delivery path is added.
+Every transactional and manual Outbox payload requires a frozen locale inside its
+JSON column. Missing or invalid locale fails payload validation at enqueue, delivery
+and integrity checking; rendering never substitutes a locale for an invalid payload.
+Locale selection at enqueue remains independent of this required delivery field.
 Transactional digests include the frozen locale. Manual replay still returns the
 original intent before audience resolution, so preference changes cannot conflict
 with a retry or replace frozen recipients/locales. Leases, fencing, retry limits,
@@ -2586,7 +2616,7 @@ winner's historical language independently of the current-or-last Event content.
 
 Manual audience resolution remains one bounded SQL statement (10,001 sentinel),
 selecting only contact, linked identity/preference and the historical language key.
-Eligibility, missing-email skipping and normalized-address deduplication stay intact.
+Eligibility, invalid-address skipping and normalized-address deduplication stay intact.
 For a shared address, linked recipient account preference wins (including en when
 unset); otherwise choose the earliest Registration.createdAt, then Registration.id,
 then Attendee.id, all ascending. Multiple linked candidates use that same ordering.
@@ -2617,7 +2647,7 @@ origin. No request Host is promoted into the trusted list. Cookies remain host-o
 preference cookies use Secure for an accepted HTTPS Origin. Users sign in separately
 on localhost and a LAN IP. This does not change email rendering or recipient locale.
 
-## Production process and email transport (DEPLOY-2)
+## Production process and email transport
 
 Railway uses one always-on Next.js process, a direct private PostgreSQL 18 connection,
 the existing LOCAL volume, outbox and LISTEN/NOTIFY/SSE. The Prisma pool defaults to
@@ -2646,3 +2676,68 @@ is an operational recovery switch, not cancellation or deletion of queued delive
 Both transports use `Event Flow` as the sender display name for all outgoing mail,
 including verification and Outbox deliveries. SMTP_FROM remains a plain email address;
 the transport adds the display name without changing the sender address or recipients.
+
+
+## Private event password access
+
+`Event.draftPasswordHash` is nullable and may be populated only for PRIVATE draft
+visibility. `EventRevision.passwordHash` and `passwordGrantId` are immutable,
+server-only publication columns; both are null or both populated, and protection
+requires PRIVATE snapshot visibility. They never enter EventSnapshot JSON, public
+DTOs, action results, template exports, logs or client props. EventSnapshot and
+EventTemplate each retain their single current strict contract. Existing revisions
+receive null access columns without rewriting their immutable snapshot content.
+
+Passwords are never stored reversibly. Node crypto scrypt uses N=32768, r=8, p=3,
+a random 16-byte salt and 32-byte output; comparison uses timingSafeEqual. New
+password input is validated at 10–128 UTF-16 code units (matching account policy),
+without trimming or normalization. The browser generates 18 cryptographically random
+bytes encoded as 24 URL-safe characters. Plaintext exists only transiently in the
+password input and the POST/hash operation; an explicit Copy uses the clipboard.
+No saved secret is returned. Draft writes require verified OWNER authorization,
+trusted same-origin POST, existing lifecycle/optimistic guards and Event row locking.
+
+Publication copies the draft hash into a new revision under the existing Event
+lock and changes the publication pointer atomically. If the effective hash is
+unchanged, the prior grant ID is reused; otherwise a fresh UUID is assigned, or
+null for disabled/PUBLIC protection. The last revision supplies comparison when
+republishing an unpublished Event. Reentering the same password preserves the
+existing draft hash. Old revisions remain unchanged, but only the current pointer
+can authorize public reads or submissions. Disabling and later reenabling cannot
+resurrect a grant from an earlier protected publication.
+
+`POST /e/[publicId]/access` accepts a bounded JSON password body (1024 bytes),
+requires an Origin from the configured trusted application origins and same-origin
+Sec-Fetch-Site when present, and returns only generic failure or success. No secret
+is accepted from URL parameters. It validates the publication and cover linkage,
+then verifies under the Event row lock shared with publication. Lock wait and
+transaction time are bounded; errors never serialize cryptographic/database details.
+
+`Event.passwordFailures` and `passwordFailureWindow` implement persistent event-wide
+fixed windows, serialized by that same PostgreSQL lock. Up to 100 failed checks are
+counted in 15 minutes from the first failure. A successful check changes neither
+counter nor window; exhausted windows reject verification before hashing. The next
+failed check after expiry starts a new window. Successful checks after expiry need
+not rewrite the expired window. Publication does not reset counters. Operational
+counter writes preserve updatedAt and contentVersion and emit no workspace changes.
+No client IP or forwarded header is trusted. No per-process limiter or new service
+is introduced. Multiple instances and restarts share the same database authority.
+
+The host-only HttpOnly, SameSite=Strict cookie is named per publicId and scoped to
+`/e/[publicId]`. Secure is mandatory in production and for HTTPS origins; local HTTP
+uses the existing development cookie convention. The signed payload contains only
+publicId, grantId and absolute expiry, authenticated with a domain-separated HMAC
+using BETTER_AUTH_SECRET. Two-hour expiry never slides. Duplicate cookies, malformed
+payloads, invalid signatures, wrong Event/generation and expiry fail closed. Cookie
+path is defense in depth; server scope and current revision are authority. Password
+removal, replacement and PRIVATE→PUBLIC make old grants unusable at publication.
+
+The request-scoped publication reader returns only a locked marker until access is
+verified. Metadata then contains only a generic title and noindex/nofollow, with no
+Event-specific description or social data. Pages, registration, media and submission
+have independent guards; a layout is not a substitute. Public Event responses and
+media are private/no-store and no-referrer. Verification performs a fresh document
+navigation to discard pre-verification router data. Server Actions recheck access
+before returning form validation and again after acquiring the Event lock before
+inserting an Application. Existing historical answer semantics and all independent
+owner/staff/account/application/ticket authorization remain authoritative.

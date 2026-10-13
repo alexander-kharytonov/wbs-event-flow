@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 import { getTranslations } from "next-intl/server";
 import { PublicEventResults } from "@/features/events/components/public-event-results";
-import { eventLanguageSchema } from "@/features/events/event-language";
+import {
+  eventLanguageSchema,
+  selectableEventLanguages,
+} from "@/features/events/event-language";
 import { getPublicEvents } from "@/features/events/server/get-public-events";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -22,7 +25,11 @@ export default async function PublicEventsPage({
   await connection();
   const params = await searchParams;
   const parsedLanguage = eventLanguageSchema.safeParse(params.language);
-  const language = parsedLanguage.success ? parsedLanguage.data : undefined;
+  const language =
+    parsedLanguage.success &&
+    selectableEventLanguages.some((value) => value === parsedLanguage.data)
+      ? parsedLanguage.data
+      : undefined;
   const events = await getPublicEvents(language);
 
   return (

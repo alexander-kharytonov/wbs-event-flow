@@ -1,16 +1,8 @@
 "use server";
 
 import { refresh } from "next/cache";
-import { addGuest, removeGuest } from "@/features/guests/server/manage-guests";
+import { removeGuest } from "@/features/guests/server/manage-guests";
 import { requireVerifiedUser } from "@/lib/session";
-
-export async function addLinkedGuest(registrationId: string, input: unknown) {
-  const user = await requireVerifiedUser();
-  const result = await addGuest({ userId: user.id, registrationId }, input);
-  refresh();
-
-  return result;
-}
 
 export async function removeLinkedGuest(
   registrationId: string,

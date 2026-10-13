@@ -86,8 +86,8 @@ inclusive until its end exclusive. Past events remain in the catalog.
 
 Published PUBLIC and PRIVATE events both have direct `/e/[publicId]` URLs with a
 stable UUIDv7 publicId assigned on first publication. PRIVATE events are
-excluded from discovery and marked noindex/nofollow; they are not password
-protected. Public event content and catalog entries show the published version,
+excluded from discovery and marked noindex/nofollow. Organizers may optionally
+protect PRIVATE events with a password (see Private event password protection below). Public event content and catalog entries show the published version,
 including its visibility, rather than unpublished organizer edits.
 
 ## Registration
@@ -104,9 +104,9 @@ reapplication rule below. A new account requirement applies to old open forms to
 
 Registration is Not open yet, Open, or Closed. It closes at the earlier of the
 configured close time and event end, or at event end if no close time was set.
-It may remain open after the event starts, but never after it ends. New event
-settings require registration opening no later than event start and closing no
-later than event end. When both registration boundaries are set, closing must be
+It may remain open after the event starts, but never after it ends. Event settings
+and frozen publication snapshots require registration opening no later than event
+start and closing no later than event end. When both registration boundaries are set, closing must be
 after opening. Event end must be after event start. Create/Edit and template review
 date fields provide linked calendar min/max bounds; explicit validation explains
 invalid date combinations.
@@ -127,7 +127,7 @@ application's existence or details.
 A verified user can see their linked current application on the public event or
 their account registration-detail page and
 withdraw a pending or approved application before the currently published event
-end. Approval atomically creates a Registration, its PRIMARY Attendee from the submitted identity, and one Ticket per admitted person. For Approval Required, all declared guests are admitted in the same transaction.
+end. Approval atomically creates a Registration, its PRIMARY Attendee from the submitted identity, and one Ticket per admitted person. All declared guests are admitted in the same transaction.
 Withdrawal keeps the old attempt and atomically revokes its Registration and all active Attendees and Tickets, freeing
 all occupied party places if it was approved. Revoked admission remains in history.
 Anonymous applications are not claimed by signing in with a matching email and
@@ -234,7 +234,8 @@ disable submission: client validation runs on submit and explains them without
 native browser validation popups. Invalid fields show inline errors until their
 value is edited; editing one field preserves errors on unrelated fields. Server
 field errors use the same presentation. Errors without a matching field appear
-in an Alert above the submission action.
+in an Alert above the submission action. In the cover editor, file selection and
+media operation errors use shared notifications; field errors remain inline.
 An empty or unmapped server field-error object must not hide the server message.
 Version-conflict feedback and its reload action remain visible while editing.
 
@@ -326,7 +327,7 @@ GUEST has no linked account. QR credentials, anonymous access tokens and
 Ticket history remain immutable. Verified linked attendees see current and historical Tickets on their
 Registration Detail. Applicants who were anonymous at Ticket issue receive a
 separate private bearer link in approval email; no account is required. Anyone
-holding that link can view this party’s Tickets and manage Guests within the Event guest policy.
+holding that link can view this party’s Tickets and manage Guests by removing guests before Event start.
 The Ticket link never grants whole-party withdrawal or claiming. A separate application
 link in the application-received email grants application-scoped viewing and withdrawal.
 Private email links deliver the existing anonymous capability in a URL fragment
@@ -389,82 +390,38 @@ visible without contributing to operational counters. Linked Ticket details refr
 through the existing account stream; anonymous Ticket pages show attendance after reload. Check-in alone does not hide
 the QR; existing revocation/cancellation visibility rules still apply.
 
-## Guest configuration, applications and group admission (GUEST-2 / GUEST-3)
+## Guest registration and group admission
 
-Events have an explicit guest policy: FLEXIBLE (the default for newly created
-Events) or APPROVAL_REQUIRED. Flexible preserves post-approval party management.
-Approval Required means guests must be declared and reviewed with the application;
-post-approval additions and replacements are prohibited. Guest declarations are
-submission history, not admissions or reserved seats.
+Organizers configure only Allow guests and Maximum guests per applicant (0–10;
+zero means disabled). Every participant completes the same Registration Form Builder
+questions, including identical field types, options and required rules. Full name and
+email are required for the primary and each guest. Each participant's answers are
+independent. Guest email is contact data and never grants an account, ownership,
+application access or a private management capability. Guests do not need accounts.
 
-Owners can persist guest configuration through the server configuration services
-and current template/import/duplicate contracts. Guest fields reuse registration
-question types, labels, requiredness and options, with a separate GUEST subject.
-They are available only under Approval Required. Applicant questions remain separate.
-The policy can change only before the first application, including withdrawn
-attempts; switching to Flexible requires explicitly removing guest fields first.
-Later field and limit changes never rewrite submitted declarations or revisions.
+Applicants declare zero to the opened revision's guest limit during initial registration.
+The complete group is saved atomically against that immutable EventRevision. Pending
+applications reserve no places. Owners and Managers review every participant and their
+historical answers before approval. Approval admits the entire group and issues all
+Tickets atomically, only if current published capacity fits everybody. Concurrent
+approval, publication, removal and withdrawal retain the Event lock.
 
-Approval Required collects zero to the opened revision's guest limit before submission.
-Each guest has a required name, optional email and answers to the organizer's GUEST
-questions. Applicant and guest answers stay separate and retain the opened immutable
-revision. Entered values and validation errors survive ordinary rerenders and UI language
-changes. Event-authored questions and option placeholders retain the Event language.
-Submission saves the complete application atomically and reserves no places.
+After approval, guests cannot be added, replaced or restored. The linked party owner or
+independent anonymous PRIMARY Ticket capability can remove guests before persisted
+Event start, without requiring publication or a positive guest limit. Removal revokes
+the guest's Ticket and releases their place, preserving declaration and answer history.
+Adding guests requires withdrawal and a new application with renewed approval. Whole
+party withdrawal revokes active admission, Tickets and application credentials; a new
+attempt never reuses old credentials or automatically copies guests.
 
-Owners and Managers see the entire declared group and historical answers before review.
-Approval validates that historical group and requires current published capacity for
-1 + declared guests. It admits everybody and issues every Ticket together, or changes
-nothing. Reception receives only organizer-selected badge values through authorized
-individual printing; public APIs and SSE receive no guest answers. Group approval may
-occur during an ongoing Event under existing review eligibility rules.
-
-After approval, adding or replacing guests is prohibited. Removal is available only
-before persisted Event start, revokes that guest's Ticket and releases one place.
-Declarations and answers remain in history; removed guests cannot be restored.
-Flexible events retain their existing post-approval Add/Remove flow.
-
-Guest badge bindings and guest-answer CSV exports are integrated in GUEST-4 below.
-The Event editor's Registration section exposes Flexible Guests / Approval Required.
-The selected policy is saved atomically with the other draft fields; new manual
-Events default to Flexible. Import/duplicate review preserves the source policy
-and permits changes only when compatible with its guest fields. The selector is
-locked after any application exists and explains the restriction. Switching back
-to Flexible is disabled while guest questions exist; the server rechecks both rules
-under the Event lock. Disabling guests changes the limit to zero, not the policy.
-Published content still changes only on publication. Manual guest-question editing
-remains outside this UI change.
-
-Publication requires explicit policy, limit and complete applicant/guest field
-sets. Templates require explicit policy and field subject, generate fresh field
-and option identities on import/duplicate, and never copy guest declarations.
-There is one current unversioned contract. Existing demo snapshots/templates
-without these fields are invalid; no compatibility reader or rewrite is provided.
-Disposable demo data does not authorize a reset or production data mutation.
-
-## Guests / +1 (FLEXIBLE)
-
-The PRIMARY manages their Registration party through a verified account owner
-session or their existing anonymous PRIMARY link. A Guest is an admitted person
-and capacity seat, with a required name and optional email contact snapshot.
-Email grants no identity or ownership. Guests have no account association or own
-browser capability; their normal Tickets and Attendance use the existing QR flow.
-
-Organizers configure 0–10 maximum active guests per registration in the Event
-workspace and publish the policy. Zero disables adding guests. EventSnapshot
-always carries the explicit limit. Add requires a current published
-permission and available published capacity. Remove needs neither publication nor
-a positive limit. Both require an active party, a non-cancelled Event, and time
-strictly before the persisted event start; party composition then freezes.
-After the event starts, the Guests section is hidden if no guests were ever
-added to that Registration. Existing guest tickets, including revoked ones,
-remain visible in history.
-Reducing the published guest limit never revokes existing Guests. Already removed
-guests remain history and consume no seats. Whole-party withdrawal keeps its
-existing lifecycle rules and revokes all active people and Tickets; reapplication
-starts with a new PRIMARY only. Adding/removing Guests sends no email. Cancellation
-recipients remain pending applicants and Registration/PRIMARY owners.
-
+There is one shared form and no policy selector, policy lock, separate guest questions
+or policy-specific publication guard. Changed questions/limits affect new publications,
+never existing submissions. Templates carry the shared form and remap field/option IDs.
+Snapshots/templates use one strict current contract, without compatibility readers or
+versioning. The current clean-installation schema contains only the shared form
+and complete guest declaration provenance. Submitted history stays immutable within
+this contract. The approved demo clean release discards existing demo data rather
+than converting it; deployment/reset are separate controlled operations.
 
 ## Event staff
 
@@ -496,7 +453,7 @@ changes refresh open workspaces; revoked users see “Your access to this event 
 changed.” and return to Dashboard. Role changes discard previous-role client state.
 Direct visits to inaccessible Events or sections return neutral not-found responses.
 
-## Badges (24A)
+## Badges
 
 A badge is a derived presentation of one active Attendee, not a new admission,
 credential or stored Badge entity. Printing never changes Attendance and can happen
@@ -514,12 +471,10 @@ opened print documents.
 Owners explicitly select up to two SHORT_TEXT, LONG_TEXT, SINGLE_CHOICE or
 MULTIPLE_CHOICE questions. Multiple-choice values list selected option labels
 separated by a comma and space, in the submitted form's option order.
-PRIMARY values come from the submitted Application revision only when field ID, type
-and label match the selected descriptor. The same two text slots also accept configured
-GUEST questions, clearly labeled separately from applicant questions. Each slot applies
-only to its question's subject; choosing a guest question does not populate PRIMARY
-badges. Declared guest values come only from that Attendee's linked declaration and
-its submitted Application revision. Flexible guests have no declaration answers.
+Each slot references a question from the shared registration form. Values resolve
+for the specific attendee from their submitted Application or linked guest declaration,
+using that immutable revision and exact field ID/type/label. Guests never inherit the
+primary participant's answers.
 The designer can preview Applicant or Guest, using semantic labels when that type has
 no active attendee. CHECKBOX questions are excluded from badge selection. Missing
 values are omitted; incompatible
@@ -527,7 +482,7 @@ values are omitted with owner preview warnings. Guests never inherit PRIMARY ans
 Text is limited to two visible lines per field.
 
 Reception may see the owner-approved individual BadgePresentation, including selected
-applicant or guest custom values and the existing, decodable Ticket QR. This narrow
+attendee custom values and the existing, decodable Ticket QR. This narrow
 exception does not
 expose Applications, answer models, revision snapshots, email, the field catalog or
 raw Ticket crypto fields. Selecting a question for the badge explicitly authorizes its
@@ -542,15 +497,16 @@ otherwise allow it. Missing, revoked or unavailable Tickets leave a visual badge
 without a QR/available Ticket number. There is no new QR protocol or credential.
 
 Designer previews use an active attendee of the selected type, otherwise semantic
-labels without
-demo records. Preview QR areas are placeholders, not admission credentials. A print
+labels and, when enabled, the ticket-number placeholder `EF-XXXX-XXXX`, without demo
+records. The number placeholder appears only in previews without an attendee.
+Preview QR areas are placeholders, not admission credentials. A print
 document is a snapshot at load time and prints only after an explicit Print click.
 Print documents include a thin dashed cutting guide inside each badge edge, without
 changing its physical dimensions or content padding.
 Browser/OS paper and scaling settings remain the operator's responsibility. There is
 no Badge issuance or print history.
 
-Individual operational printing (24B1): successful QR check-in offers Print badge;
+Individual operational printing: successful QR check-in offers Print badge;
 Already checked in offers Reprint badge only when the server supplies a current
 print target. Reprint describes the attendance context, not a recorded previous print.
 The target is only an opaque selector hint; the separate print document rechecks
@@ -564,7 +520,7 @@ printing is a persistent detail action. Reception's attendee data is unchanged;
 approved badge content is loaded only in the authorized print document.
 
 
-Operational batch printing (24B2): OWNER has Design / Staff / Attendees sections;
+Operational batch printing: OWNER has Design / Staff / Attendees sections;
 MANAGER has Staff / Attendees, without Designer/settings/save. RECEPTION remains
 individual-only and has no Badges workspace. Operational lists contain only attendee
 ID/name/kind with Guest-of context, or team name/email/role. The Staff list uses
@@ -595,7 +551,7 @@ No schema migration, persistent Badge, TeamBadge, PrintJob, print history, vendo
 printer integration or automatic printing is introduced.
 
 
-## Event Overview (25)
+## Event Overview
 
 The existing Overview adapts to the persisted Event lifecycle: readiness and
 applications before start, attendance during the Event, and an operational
@@ -630,7 +586,7 @@ boundary, without polling. Absolute boundary checks on timer callbacks and retur
 a visible/active page handle delayed callbacks and device sleep; the server still
 determines lifecycle. Cards open existing sections without implied URL filters.
 
-## CSV data exports (26A)
+## CSV data exports
 
 The Event header Export menu downloads whole-Event datasets, independent of local
 search and filters. Owners export Applications, Attendees, Attendance and Staff;
@@ -644,17 +600,16 @@ separate Guest name/email retain group relationships without treating a declarat
 admission. Applicant identity/status context repeats on guest rows; answers do not.
 Attendees include PRIMARY/GUEST and revoked admission. PRIMARY rows contain source
 Application answers; declared guests contain their own historical answers with
-GUEST_DECLARATION scope and Guest declaration ID. Flexible guests retain empty answers
-with NOT_APPLICABLE scope. Guest rows retain PRIMARY name context. Attendance includes
+GUEST_DECLARATION scope and Guest declaration ID. Guest rows retain PRIMARY name context. Attendance includes
 every recorded arrival, even after
 admission revocation, with QR/Manual and available actor name. Staff includes the
 owner first, then current Managers/Reception. Reviewer and actor names reflect
 current linked accounts; unavailable identities are never replaced by the owner.
 
 Historical answer columns are separated by submitted revision and question, with
-human labels, subject, type, revision number and stable revisionId:fieldId identifiers,
-with adjacent VALUE/NOT_PROVIDED/NOT_APPLICABLE/UNAVAILABLE states. Applicant and guest
-answer columns remain separate; questions belonging to another subject are NOT_APPLICABLE.
+human labels, type, revision number and stable revisionId:fieldId identifiers,
+with adjacent VALUE/NOT_PROVIDED/NOT_APPLICABLE/UNAVAILABLE states. Every participant uses the same answer columns, with values from their own answers.
+Questions from another revision are NOT_APPLICABLE.
 Removed guests remain exportable history, with revoked admission in Attendees.
 Question and choice meanings come from the submitted snapshot, never today's form.
 Invalid historical snapshots reject the whole export.
@@ -666,28 +621,28 @@ reopening files. Exports are complete or fail: at most 10,000 data rows, 500 tot
 columns and 20 MiB serialized output. Empty datasets produce headers only. No
 partial file, persistent export file, export history or background job is created.
 
-## Event template export (26B)
+## Event template export
 
 Owners can download **Export template** from the Event header Export menu.
 The menu groups CSV datasets and JSON configuration separately. Template filenames
 include a sanitized Event title followed by `-template.json`, preserving Unicode.
 EventTemplate is the only supported format and includes the rich
-configuration described in 29B below. A template is portable
+configuration described in Rich Event editor and EventTemplate below. A template is portable
 configuration, not a backup or a public artifact:
 it contains current staff emails. It uses current saved workspace configuration,
 including unpublished Event, Registration Form and Badge Design changes.
 
 The JSON contains title, nullable description, start/end, timezone, visibility,
-account requirement, guest policy, nullable capacity, maximum guests per registration, nullable
+account requirement, nullable capacity, maximum guests per registration, nullable
 registration open/close dates, registration form, staff and nullable badge layout.
 Dates retain their original instants, including past dates. Completed, cancelled
 and archived Events can be exported without copying their lifecycle state.
 
-Custom questions retain their subject (APPLICANT/GUEST), order within that subject, type, label, nullable description,
+Custom questions retain their order, type, label, nullable description,
 required flag and ordered option labels. Full name/email are built-in inputs,
 not custom fields. Questions receive local keys field_1, field_2, etc.; database
 identities are excluded. Badge bindings use those keys only when the saved
-field ID, type and label exactly match a current applicant or guest question. A
+field ID, type and label exactly match a current shared registration question. A
 historical, deleted,
 recreated or changed binding rejects the whole export and asks the owner to
 update Badge Design. Invalid saved layouts also fail; null remains null and
@@ -703,15 +658,15 @@ EventTemplate allows at most 100 questions, 100 options per question, 1,000 opti
 in total, 100 staff and 512 KiB of serialized UTF-8 JSON. Exports are complete or
 fail; these limits do not restrict manual editing. Downloads are private and
 uncached. Import/Create uses the same strict EventTemplate contract.
-Duplicate Event reuses this portable configuration (see iteration 28 below).
+Duplicate Event reuses this portable configuration (see Duplicate event below).
 
 
-## Event template import / create (26C)
+## Event template import / create
 
 Create event defaults to manual entry in the full-page workspace editor. A **Use template**
 switch in the header opens template import.
 Upload a UTF-8 JSON file or paste JSON, then Validate. Both use the same strict
-parser, reject unsupported versions/unknown properties/internal identity fields,
+parser, reject obsolete properties and internal identity fields,
 and enforce the same template limits. Preview performs no writes or account lookup.
 
 Review allows editing Event settings, local questions/options, staff email/role,
@@ -743,17 +698,19 @@ Attendees, Tickets or Attendance are imported. Existing Events are never modifie
 Add Staff and Import share an in-process budget of 100 unique normalized email
 attempts per actor per ten-minute window. An import reserves its entire unique
 email count before any lookup or creation; insufficient budget rejects the whole
-attempt. Repeated operations consume budget again. This is not a distributed
+attempt. New operations consume budget again; replaying a successful creation
+receipt does not repeat lookup or budget consumption. This is not a distributed
 abuse-prevention guarantee. Successful assignment reveals eligibility as with
 existing Add Staff; unavailable reasons and account metadata are never returned.
 
 After successful manual or template creation, the app immediately opens the new
 Event editor. Import shows added Staff count and neutral skipped/duplicate email
-warnings in a notification that remains visible after navigation. Results stay in
-memory and may vanish on reload; no emails are placed in navigation URLs, cookies or persistent
+warnings in a notification that remains visible after navigation. Client notifications stay in
+memory and may vanish on reload; the private server retry receipt retains the result.
+No emails are placed in navigation URLs, cookies or persistent
 browser storage. There is no ImportJob, invitation or destructive import.
 
-## Communications foundation (27A)
+## Communications foundation
 
 Communication stores one immutable logical send for one Event, with kind
 (MANUAL/TRANSACTIONAL), optional transactional trigger, actor name/role snapshot,
@@ -792,18 +749,16 @@ reset times can extend them.
 Manual admission limits are 1,000 unique recipients per communication,
 5 sends per Event/hour, 10 per actor/hour, and 2,000 outstanding recipients per
 Event / 10,000 globally. Outstanding means PENDING or PROCESSING. DB transaction
-locking primitives prepare concurrent enforcement; these limits never apply to
+locks enforce these limits under concurrent submissions; these limits never apply to
 transactional emails, including Event cancellation.
 
-27A adds persistence, contracts, rendering/delivery support, safe history DTOs,
-transactional enqueue and manual admission primitives only. The foundation alone exposes no Manual Send action or Communications UI. 27B integrates new transactional
-Event emails as described below; legacy Outbox rows are not backfilled or inferred
-into history. 27C activates manual Send and minimal History as described below.
-27D supplies unified history and details as described below. No cleanup/retention job or new
-background infrastructure is introduced.
+Communications includes transactional Event emails, manual Send, unified History
+and delivery details, as described below. Every delivery belongs to a Communication
+with a required request digest. Delivery uses the existing Outbox infrastructure; there is
+no Communication cleanup/retention job.
 
 
-## Transactional Communications integration (27B)
+## Transactional Communications integration
 
 Every new APPLICATION_RECEIVED, NEW_APPLICATION, APPLICATION_APPROVED,
 APPLICATION_REJECTED and EVENT_CANCELLED intent belongs to a Communication.
@@ -820,7 +775,7 @@ atomically. An enqueue error rolls back the domain action; a subsequent delivery
 failure does not. Ticket CTA/private anonymous access, dynamic delivery
 eligibility, retries and at-least-once guarantee are
 unchanged. History keeps stable English subject labels from the email dictionary;
-I18N-D localizes delivered subjects and text/HTML per recipient.
+email localization translates delivered subjects and text/HTML per recipient.
 
 History stores only the trigger and safely available frozen Event title, never
 applicant identity/answers, Ticket references, credentials or capability URLs.
@@ -834,12 +789,11 @@ Deterministic Event-scoped keys use Application id plus type for submission,
 Application id plus PENDING-to-decision transition and type for review, and Event
 id plus EVENT_CANCELLED for the irreversible one-time cancellation. Existing Outbox
 deduplication keys are preserved. Same key/digest reuses the intent; conflicting
-content fails. History contains associated sends; null-linked legacy deliveries
-remain deliverable. No Manual Send, History UI, migration, dependency or background
-infrastructure is added by 27B.
+content fails. All deliveries belong to the corresponding historical send. Manual Send and the shared History/Details UI use the same
+Communication records and are described below.
 
 
-## Manual Communications Center (27C)
+## Manual Communications Center
 
 The Event workspace has a Communications section for Owner and Manager, with New
 message and History in separate internal tabs for all Communications in that Event,
@@ -898,12 +852,12 @@ History shows Manual/Transactional, subject, time, audience/trigger, recipient
 count and Pending/Processing/Sent/Failed counts, newest first, 20 per page.
 Sent means email transport accepted, not mailbox delivery or opening. Enqueue
 reuses routing-only Event SSE invalidation; History also has an explicit refresh.
-27D extends this same History with delivery-status invalidation and safe details;
+This same History includes delivery-status invalidation and safe details;
 historical transactional content is never reconstructed. No new transactional trigger, delivery
 worker, polling mechanism or background infrastructure is introduced.
 
 
-## Unified History and Delivery Visibility (27D)
+## Unified History and Delivery Visibility
 
 The existing Communications History unifies Manual and Transactional messages,
 with subject, trigger/audience, creation time, frozen actor name/role, recipient
@@ -958,7 +912,7 @@ live. Archive/Restore preserve history and the queue. There is no manual resend,
 retry-failed, cancel-delivery or delivery override UI; Send eligibility is unchanged.
 
 
-## Duplicate event (28)
+## Duplicate event
 
 Owners can choose **Duplicate event** from the Event actions menu in any lifecycle,
 publication or archive state. It opens the full Create page
@@ -979,29 +933,32 @@ editable. Untouched dates preserve exact instants and nulls; edited dates/timezo
 use the existing DST rules. Past dates are allowed with the existing warning:
 an unpublished copy can already be Completed and read-only.
 
-Nothing is saved or assigned during Review. Explicit Create uses the same atomic
-creation, Staff budget/resolver, Badge remapping and success navigation as Import.
+Review creates no Event; a newly uploaded cover remains temporary until Create.
+Explicit Create uses the same atomic creation, Staff budget/resolver, Badge
+remapping and success navigation as Import.
 The new Event has fresh identity and belongs to the verified creator; publication,
 cancellation/archive state and all operational/history records are excluded.
 The source is never changed. The URL contains only `duplicateFrom=<eventId>`;
 private configuration stays out of URLs and persistent browser storage.
-Editor Cancel/Back ask before discarding changed review values and make no writes. Background refresh keeps the active
-snapshot and edits even if the source later exceeds template limits, has invalid
+Editor Cancel/Back ask before discarding changed review values and create no Event.
+Background refresh keeps the active snapshot and edits even if the source later exceeds template limits, has invalid
 Badge bindings, or cannot temporarily be read. Confirmed loss of verified session
 or source access removes the protected Review. Initial failures never open Review.
 Full page reload opens the Create page and may reload the source, discarding edits.
 No persistent draft is kept.
-Existing submit locking prevents resubmission after confirmed success in that UI;
-there is no server-side exactly-once guarantee after a lost response.
+Submit locking prevents resubmission after confirmed success in that UI. After a
+lost response, retrying the same authenticated request key and payload recovers the
+committed result from its creation receipt without creating another Event. A full
+reload loses the in-memory retry state; a new request key can create another Event.
+The receipt and temporary-cover rules are defined in Cover during Event creation below.
 
-## Event cover foundation (29A)
+## Event cover foundation
 
 Owners with verified accounts can upload cover images for existing editable Events
 through the media API, then explicitly attach, replace or remove the draft cover.
-The 29B editor below uses these APIs; the public landing page is described in 29C.
-Create/Import/Duplicate Review performs no media upload or persistence before Create.
-The Cover tab is disabled until the Event exists. An adjacent information button
-explains that images can be uploaded and cropped after creation, before publishing.
+The rich Event editor uses these APIs; see Public Event landing page and SEO below for public presentation.
+Create/Import/Duplicate Review supports private temporary covers before Create,
+as described in Cover during Event creation below. Template validation alone still performs no writes.
 
 Uploads accept one static JPEG, PNG or WebP, at most 5 MiB and 4096 × 4096 pixels.
 The editor offers a fixed 16:9 crop with drag positioning, zoom and keyboard-accessible
@@ -1026,34 +983,75 @@ Draft/upload previews are owner-only and Event-scoped; public media is available
 only when it is the cover of the current valid published revision.
 
 EventSnapshot is the current unversioned publication and historical format.
-Historical revisions remain immutable;
-PLAIN_TEXT descriptions are never interpreted as Markdown. Location,
-agenda, public organizer and description-format fields use the existing snapshot
-contract; 29B adds their authoring UI and OWNER Preview rendering.
+Historical revisions remain immutable. Descriptions use only Markdown, with no
+format selector or format property. Location, agenda and public organizer data use
+the same current snapshot contract and OWNER Preview rendering.
 
 Import, Export and Duplicate support only EventTemplate, preserving rich
-configuration and explicitly reporting omitted cover images.
+configuration and explicitly reporting omitted source cover images.
 
-Media cleanup is an explicit maintenance command, not a worker: incomplete uploads
+Existing Event media cleanup remains an explicit maintenance command: incomplete uploads
 expire after 24 hours, unused ready assets after seven days, and assets referenced
 by any draft or revision are retained. Historical media remains for the lifetime of
 its revision. Operators must invoke cleanup and maintain storage/backups.
 
 
-## Rich Event editor and EventTemplate (29B)
+## Cover during Event creation
+
+Create, Import Review and Duplicate Review allow selecting, cropping, uploading,
+previewing, replacing and removing a new cover before the Event exists. All tabs
+stay mounted, preserving selection, crop and alt text through navigation and UI
+language changes. The existing 16:9 touch drag and keyboard sliders are reused.
+Upload shows byte progress, then server processing, with errors and retry through
+Upload cropped image. A selected but unprepared crop must be uploaded or cancelled
+before Create. No Event is created by uploading or previewing a cover.
+
+Temporary covers belong to the verified organizer, remain private and expire 24 hours
+after upload reservation. The existing ten-pending-assets admission quota includes
+creation uploads and discarded temporary assets awaiting deletion. Replacing a prepared
+cover keeps the old selection until the new upload succeeds, then requests its discard.
+Remove requests discard before clearing selection. Abandoned forms, lost upload
+responses and failed uploads remain tracked and expire automatically. Failed creation
+preserves the prepared upload until its original expiry; retries never extend expiry.
+A runtime sweep starts with the app and runs every 15 minutes, collecting at most 100
+temporary assets and 100 aged orphan files per pass. Failures retry on later sweeps;
+shutdown drains the active sweep. Cleanup resumes on startup after downtime.
+
+Initial cover attachment is part of atomic Event creation. The Event, registration
+configuration, selected cover consumption and successful retry receipt commit together.
+A failed transaction leaves no Event and preserves the temporary upload. Past Events
+may receive this initial cover even when immediately Completed; all subsequent cover
+changes retain the existing read-only restrictions. Creation never publishes a cover.
+
+Each mounted creation form uses a random request key. Repeating the same authenticated
+request returns the committed result without another Event or another Staff lookup.
+A changed payload or another organizer cannot reuse the key. Concurrent submissions
+serialize on that key; a temporary cover can be consumed once. Receipts retain their
+minimal result and keyed payload fingerprint, including after pristine Event deletion,
+so old requests cannot recreate deleted Events. Raw authoring values and passwords are
+not stored in receipts. Import results retain the original private Staff warnings.
+
+When a request outcome is uncertain, submitted values are frozen in memory and
+**Retry same creation** resends that exact request. Keep the page open until resolved;
+reload or leaving the form loses this in-memory recovery state. Check My Events before
+starting over after leaving an uncertain creation. There is no persistent browser draft.
+Missing, expired or inaccessible prepared media prevents creation and offers removal
+or another upload. Existing private preview/publication rules and image limits remain.
+
+
+## Rich Event editor and EventTemplate
 
 The existing Create/Edit and Import/Duplicate Review forms share rich authoring.
 Descriptions are authored as Markdown, with a 20,000-character limit. Ordinary
-text needs no special formatting. There is no Plain text mode selector. Opening
-a draft or template preserves the source text; saving through the editor uses
-MARKDOWN. The editor combines Write/Preview with
+text needs no special formatting. Opening a draft or template preserves its Markdown
+source text. The editor combines Write/Preview with
 grouped formatting toggles for selected text (bold, italic, heading and list)
 and a separate link insertion action. Toggling an active format removes it.
-Existing stored descriptions are not bulk-converted; previously published
-plain-text snapshots retain their original interpretation. The Markdown preview, Overview and
+The Markdown preview, Overview and
 OWNER Event Preview share a renderer permitting headings, paragraphs, emphasis,
 lists and absolute HTTP(S) links without credentials. Raw HTML, images, MDX and
-iframes are not rendered. Historical plain-text snapshots remain plain text.
+iframes are not rendered. Templates with obsolete description-format fields are
+rejected rather than converted.
 
 Location is None, Physical, Online or Hybrid. None stores null; the selected type
 requires its applicable venue/address and/or online label/URL fields. Agenda has
@@ -1086,17 +1084,18 @@ unpublished or unpublished-changes status and exposes Publish, Republish or
 Publish changes. The existing menu action remains available. Both use the same
 publication action, version checks, conflict feedback and lifecycle guards.
 
-EventTemplate preserves portable settings including description format, location,
+EventTemplate preserves portable settings including Markdown description, location,
 exact agenda and public organizer. Its cover marker is NONE if absent or OMITTED
 if the source has a cover. Images/asset IDs/storage keys are never copied. Export,
-Import Review and Duplicate Review explain omission; the new Event has no cover.
-V1 Import is rejected without conversion. Existing Staff/Badge identity rules,
+Import Review and Duplicate Review explain omission; organizers may select a new
+cover during creation. Source images are never copied.
+Obsolete template properties are rejected without conversion. Existing Staff/Badge identity rules,
 size limits, atomic Create and Duplicate refresh/revocation semantics are preserved.
 
 OWNER Preview displays the draft cover and rich content from the workspace's
 snapshot. Public pages still use published revisions only. Overview remains an
-operational view without expanded Staff access. 29B adds no worker, polling or
-storage backend; the public presentation is extended by 29C below.
+operational view without expanded Staff access. Rich authoring requires no worker, polling or
+additional storage backend; see Public Event landing page and SEO below for public presentation.
 
 ## Event Workspace Editor
 
@@ -1115,9 +1114,8 @@ open that tab; ordinary Create/Edit does not show it. No separate builder is int
 All panels remain mounted in one form, with inactive panels hidden from layout,
 keyboard navigation and assistive technology. Switching never saves, resets errors,
 or discards values. Desktop uses vertical MUI Tabs with icons and labels; mobile
-uses horizontally scrollable tabs. Cover follows Basics and is disabled until the
-event exists; an adjacent information button explains availability instead of an
-in-form alert. Fields and feedback retain shared theme/light/dark behavior.
+uses horizontally scrollable tabs. Cover follows Basics and is available during
+creation and editing. Fields and feedback retain shared theme/light/dark behavior.
 
 A compact sticky action area provides Create event / Save draft,
 Preview saved draft and Cancel / Back actions. Contextual help explains separate
@@ -1133,8 +1131,8 @@ Conflict and unknown-save feedback keeps Reload latest version available.
 
 Successful Edit stays open and adopts the confirmed server version, canonical
 values and exact date/agenda source. Dirty state clears only after confirmed
-success. Create opens the new Event editor, where its cover can be added; past,
-Completed Events retain the existing read-only boundary. No automatic Save occurs.
+success. Create opens the new Event editor with its selected prepared cover attached;
+past, Completed Events retain the existing read-only boundary after creation. No automatic Save occurs.
 Cover selection/upload/attachment remains independent, with its own pending edits
 and save status. Successful cover attachment alone advances its optimistic token
 without saving or clearing other Event edits. Cover and Event Save cannot overlap.
@@ -1153,7 +1151,7 @@ controls and expandable details. New items expand and receive focus; reorder/del
 restore focus to the affected/neighboring item. Rows retain stable UI identities.
 No sorting or time shifting occurs; exact instants and DST rules remain authoritative.
 
-## Public Event landing page and SEO (29C)
+## Public Event landing page and SEO
 
 The direct Event page presents the current published revision in a responsive
 Hero with title, dates/timezone, location summary and registration navigation.
@@ -1174,8 +1172,7 @@ for owned Events through the owner-only media route; assigned staff cards do not
 request private owner media.
 
 Description, location, schedule and public organizer sections appear only when
-present. EventSnapshot uses its explicit description format and the same restricted Markdown
-renderer as the editor. Agenda uses MUI Timeline with a vertical rail, time on the opposite side from
+present. EventSnapshot uses the same restricted Markdown renderer as the editor. Agenda uses MUI Timeline with a vertical rail, time on the opposite side from
 the title, and smaller supporting descriptions below each title. Entries retain their original order and instants, grouped by day
 in the Event timezone. The timezone is stated once above the agenda; individual
 times show hours and minutes without repeated UTC offsets. Exact instants remain
@@ -1252,22 +1249,28 @@ Public social cards reference the current published JPEG social variant. Existin
 private/no-store and noindex media headers remain; external card display/caching
 is best effort. Old cover URLs stop authorizing after replacement/unpublish, and
 previously downloaded images cannot be recalled. No OG generator, discovery or
-private access controls are added. Iterations 29A/B/C/D are implemented and accepted,
-including the final UX and integration polish.
+private access controls are added.
 
 ## V0 development policy
 
-Before the first release, breaking changes are allowed and local development data
-is disposable. EventSnapshot and EventTemplate each have one current, unversioned
-contract, without format version fields, legacy readers, converters or compatibility
-paths. Schema changes normally use incremental migrations. Consolidating applied
-migrations into a baseline and resetting local DB/media require explicit approval.
-Disposable data alone does not authorize a reset. Historical domain revisions remain immutable within the current contract;
-authorization, concurrency controls and idempotency remain mandatory.
+Before the first release, breaking changes are allowed. Event Flow is a public demo;
+the Product Owner approved complete destruction of existing demo data for the
+controlled clean release documented in README.md. The current installation uses
+one PostgreSQL 18 baseline, with no seeds, backfills or retained-data upgrade path.
+Preparing the baseline does not itself reset local/production data or deploy it.
 
-## UI language foundation (I18N-A)
+EventSnapshot and EventTemplate each have one current, unversioned contract, without
+legacy readers, converters or compatibility paths. Historical domain revisions stay
+immutable within that contract; authorization, concurrency controls and idempotency
+remain mandatory. Future schema changes use incremental migrations. Further baseline
+consolidation or database/media resets require explicit approval; disposable data
+alone does not authorize them.
 
-The interface supports English, German, Polish, Ukrainian and Russian. Resolution
+## UI language foundation
+
+The interface currently offers English, German, Polish and Ukrainian. Russian
+translations remain supported but are temporarily unavailable for selection.
+Locale resolution and preference writes accept only the offered languages. Resolution
 is account preference → validated first-party cookie → browser Accept-Language
 (including regional tags and quality weights) → English. A new/existing account
 without an explicit preference continues to use cookie/browser resolution; GET
@@ -1299,12 +1302,11 @@ account; an expired session saves only the anonymous cookie. There is no automat
 retry or replay. Concurrent writes use last-write-wins behavior. A lost response
 can leave persistence uncertain; repeating the selection is safe.
 
-I18N-A introduced shared navigation, account navigation, language/appearance
-controls and essential shell labels. MUI built-in labels and the shared DateTime
-component use the active UI locale; Event timezone and instant semantics stay
-unchanged.
+Shared navigation, account navigation, language/appearance controls, essential
+shell labels, MUI built-in labels and the shared DateTime component use the active
+UI locale; Event timezone and instant semantics stay unchanged.
 
-The current I18N-C implementation extends dictionaries to authentication, profile,
+Dictionaries cover authentication, profile,
 the home page, public discovery and registration, application history/review/withdrawal, guests,
 tickets, staff, communications, scanner and manual check-in controls, registration
 questions, Event authoring validation, cover controls, overview and arrival charts,
@@ -1322,15 +1324,15 @@ name and saved design in the authorized snapshot. Print controls and errors reta
 the operator UI locale. Authored names/answers and admission credentials are unchanged.
 Localized metadata is resolved on the server; it updates on the next server render.
 UI acceptance must still exercise authenticated organizer workflows and populated
-historical/attendance/communication states in all five locales.
+historical/attendance/communication states in all offered UI languages.
 
 Server-only translated output updates on the next server render; immediately
 switchable labels consume client context with SSR initial messages. UI locale is
 not included in Event snapshots/templates, mutation inputs, revision bindings or
-domain idempotency digests; I18N-D separately freezes recipient language in email
+domain idempotency digests; email localization separately freezes recipient language in email
 delivery intents. Exported technical headers, formats and stored timestamps
 remain unchanged. Background translation can receive an explicit locale without
-HTTP context; email localization is implemented separately in I18N-D below.
+HTTP context; see Email localization below.
 
 ## UI appearance preference
 
@@ -1348,7 +1350,7 @@ MUI localStorage is not an authority and old local-only preferences are not impo
 MUI follows OS changes in system mode without persistence requests. The same
 reload-based freshness and request-time session semantics as language apply.
 
-## Event language (I18N-B)
+## Event language
 
 Every Event has one required content language: en, de, pl, uk or ru. This describes
 organizer-authored content; it does not translate content. Public registration
@@ -1362,6 +1364,10 @@ the form opens. Changing UI locale afterward preserves all form values, includin
 Event language. Basics offers explicit language selection in Create, Edit, Import
 Review and Duplicate Review.
 
+Language selectors in the editor and public catalog currently offer en/de/pl/uk.
+Russian remains a supported content language and retains its translations, but is
+temporarily hidden from selection; serialized contracts are unchanged.
+
 Language is a draft field with the existing save/version/lifecycle guards. Publish
 freezes it in EventSnapshot; editing draft language never changes an existing
 publication or historical revision. EventTemplate export/import/duplicate preserve
@@ -1374,16 +1380,16 @@ Unavailable registration cards do not infer language from drafts. The public cat
 has an independent Event language selector, defaulting to All languages. Its URL
 parameter `language` filters published language before choosing the featured event
 and Upcoming/Happening now/Past groups. UI language changes do not alter that filter.
-Unknown or repeated language parameters behave as All languages. Other URL
+Unknown, unavailable or repeated language parameters behave as All languages. Other URL
 parameters are retained. Existing grouping/order is unchanged; this catalog has no
 pagination. Search events filters published titles immediately, using trimmed,
 case-insensitive substring matching as in the organizer dashboard. Search and
 language filters combine before featured selection and grouping; search text
 persists when the language selection changes.
 
-I18N-B adds no automatic translation or multilingual content fields. Email localization is described below.
+Event language provides no automatic translation or multilingual content fields. Email localization is described below.
 
-## Email localization (I18N-D)
+## Email localization
 
 All existing email presentation supports en, de, pl, uk and ru: email verification,
 application receipt, organizer notification, approval/Ticket links (including
@@ -1393,7 +1399,10 @@ Event titles, names, cancellation reasons, manual subjects/messages and all othe
 authored content remain unchanged. No password-reset, Guest-add/remove or
 withdrawal email is introduced.
 
-The server freezes a locale per Outbox recipient when creating the delivery:
+Every Outbox payload requires a frozen locale; missing or invalid locales fail
+validation. Application receipt emails require their Application reference, while
+private application/Ticket links are resolved and checked at delivery time.
+The server selects the locale per recipient when creating the delivery:
 explicitly linked Users (including organizers and staff) use User.uiLocale, or en
 when unset. Anonymous recipients use the Event language in their submitted
 Application revision; admitted attendees use Registration.sourceApplication's
@@ -1412,7 +1421,57 @@ then ID. Among multiple linked records, that same deterministic order applies.
 Authentication uses the resolved UI language at request time (authenticated
 account preference, locale cookie, browser language, then en); without a request
 it uses en. The email-verification expiry and single-use/latest-link rules stay
-unchanged. Event dates use the frozen Event timezone. Already queued deliveries
-without locale retain English; delivery addresses, links, idempotency, retry and
-security behavior are unchanged. Communication history keeps its existing stable
+unchanged. Event dates use the frozen Event timezone. Queued deliveries without
+a valid frozen locale fail payload validation; delivery addresses, links,
+idempotency, retry and security behavior are unchanged. Communication history keeps its existing stable
 English transactional subject label, since grouped sends may have several languages.
+
+
+## Private event password protection
+
+Access in the Event editor offers optional password protection for PRIVATE events.
+Manual Create and Edit support entering a password, generating a secure password,
+show/hide and copy. Passwords use the existing 10–128 character policy. Show/hide
+and copy apply only to the newly entered value before Save; saved passwords cannot
+be recovered. Leave the replacement input blank to keep the saved password. A
+forgotten password requires entering a replacement, Save, then Republish.
+Password values are cleared after a save attempt, including failures; reenter a
+replacement to retry. No password is retained in React state or browser storage.
+
+Save changes only the draft. The currently published password continues to work
+until Publish/Republish. The Access panel identifies saved unpublished access
+changes and offers Republish, which publishes all saved Event changes. Unsaved
+Event or cover changes must be saved or discarded first. Switching the draft to
+PUBLIC clears its password on Save; public access changes only on publication.
+Disabling protection likewise takes effect only on publication.
+
+Published protected pages display a generic password form, without Event title,
+description, form questions, cover, location, agenda or organizer details, until
+verification succeeds. The registration URL and cover URLs enforce the same gate.
+Unpublished/invalid Events remain unavailable. OWNER Preview continues to require
+owner authority and displays the saved draft without a visitor password challenge;
+it neither grants visitor access nor accepts registrations.
+
+Successful verification grants access only to that Event for two hours, with no
+sliding expiration or automatic renewal. Navigation and UI language changes retain
+access. Expiry requires verification again. Password changes or removal invalidate
+previous grants atomically on publication. Publishing without changing the effective
+password configuration preserves valid grants, including republishing after unpublish.
+Unpublish still removes all visitor access while the Event is unpublished.
+
+An Event permits at most 100 failed password attempts in a fixed 15-minute window
+starting at its first failure. Successful attempts do not reset the counter. At the
+limit all verification is temporarily unavailable, including correct passwords;
+already valid grants continue to work. Availability returns after the window ends.
+Errors are generic and do not reveal counters or internal timing. This event-wide
+availability trade-off is accepted for the current public demo.
+
+Password access grants no account, organizer, staff, application, admission or ticket
+privileges. Those independently authorized surfaces retain their current rules.
+Every new submission checks the current password grant as well as existing policy;
+password access does not change historical form binding. Already delivered content
+cannot be recalled from a visitor; revocation rejects subsequent server access.
+
+Templates and duplicates never include passwords, hashes or password grants. Their
+review explains that protection must be configured in the new Event editor before
+publication. They retain the current strict EventTemplate contract.

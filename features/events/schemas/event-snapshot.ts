@@ -52,10 +52,7 @@ const snapshotFieldSchema = z
 export const eventSnapshotSchema = z
   .strictObject({
     language: z.enum(["en", "de", "pl", "uk", "ru"]),
-    guestPolicy: z.enum(["FLEXIBLE", "APPROVAL_REQUIRED"]),
-    guestForm: z.strictObject({ fields: z.array(snapshotFieldSchema) }),
     maxGuestsPerRegistration: z.number().int().min(0).max(10),
-    descriptionFormat: z.enum(["PLAIN_TEXT", "MARKDOWN"]),
     cover: coverDescriptorSchema.nullable(),
     location: locationSchema.nullable(),
     schedule: scheduleSchema,
@@ -97,18 +94,7 @@ export const eventSnapshotSchema = z
         });
       }
     }
-    const fieldIds = [
-      ...event.registrationForm.fields,
-      ...event.guestForm.fields,
-    ].map((field) => field.id);
-
-    if (event.guestPolicy === "FLEXIBLE" && event.guestForm.fields.length > 0) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["guestForm"],
-        message: "Flexible guests cannot have application fields.",
-      });
-    }
+    const fieldIds = event.registrationForm.fields.map((field) => field.id);
 
     if (new Set(fieldIds).size !== fieldIds.length) {
       ctx.addIssue({
@@ -119,6 +105,28 @@ export const eventSnapshotSchema = z
 
     if (event.startsAt >= event.endsAt) {
       ctx.addIssue({ code: "custom", message: "End must be after start." });
+    }
+
+    if (
+      event.registrationOpensAt &&
+      event.registrationOpensAt > event.startsAt
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["registrationOpensAt"],
+        message: "Registration must open no later than the event start.",
+      });
+    }
+
+    if (
+      event.registrationClosesAt &&
+      event.registrationClosesAt > event.endsAt
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["registrationClosesAt"],
+        message: "Registration must not extend beyond the event end.",
+      });
     }
 
     if (

@@ -1,16 +1,35 @@
 import { execFileSync } from "node:child_process";
 import { chown, lstat, mkdir } from "node:fs/promises";
+import path from "node:path";
 
-// Deliberately fixed to the approved Railway mount, never recursive chown/chmod.
+// Provision only the configured directory, never recursive chown/chmod.
 try {
+  const storageRoot = process.env.MEDIA_STORAGE_ROOT;
+
   if (
-    process.env.MEDIA_STORAGE_ROOT !== "/data/media" ||
+    !storageRoot ||
+    !path.isAbsolute(storageRoot) ||
+    path.resolve(storageRoot) !== storageRoot ||
+    storageRoot === path.parse(storageRoot).root ||
     process.getuid() !== 0
   ) {
     throw new Error("Invalid provisioning configuration");
   }
 
-  for (const directory of ["/", "/data"]) {
+  const parents = [];
+  let parent = path.dirname(storageRoot);
+
+  while (true) {
+    parents.unshift(parent);
+
+    if (parent === path.parse(parent).root) {
+      break;
+    }
+
+    parent = path.dirname(parent);
+  }
+
+  for (const directory of parents) {
     const stat = await lstat(directory);
 
     if (
@@ -34,18 +53,18 @@ try {
   let created = false;
 
   try {
-    await mkdir("/data/media", { mode: 0o700 });
+    await mkdir(storageRoot, { mode: 0o700 });
     created = true;
   } catch (error) {
     if (error.code !== "EEXIST") throw error;
   }
 
   if (created) {
-    await chown("/data/media", 1000, 1000);
+    await chown(storageRoot, 1000, 1000);
   }
 
-  const stat = await lstat("/data/media");
-  const acl = execFileSync("getfacl", ["-cp", "/data/media"], {
+  const stat = await lstat(storageRoot);
+  const acl = execFileSync("getfacl", ["-cp", storageRoot], {
     encoding: "utf8",
   });
 

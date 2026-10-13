@@ -9,13 +9,21 @@ export async function publicEventMetadata(
   origin: string,
 ): Promise<Metadata> {
   const t = await getTranslations("events");
+
+  if (published.locked) {
+    return {
+      title: t("accessLockedTitle"),
+      description: null,
+      robots: { index: false, follow: false },
+      openGraph: null,
+      twitter: null,
+    };
+  }
   const { snapshot, cancelledAt, archived } = published;
   const title = `${snapshot.title} | Event Flow`;
   const description =
-    eventDescriptionText(
-      snapshot.description ?? "",
-      snapshot.descriptionFormat,
-    ).slice(0, 160) || t("publicMetadataFallback");
+    eventDescriptionText(snapshot.description ?? "").slice(0, 160) ||
+    t("publicMetadataFallback");
   const url = new URL(`/e/${encodeURIComponent(publicId)}`, origin).href;
   const isPublic = snapshot.visibility === "PUBLIC";
   const cover = snapshot.cover;

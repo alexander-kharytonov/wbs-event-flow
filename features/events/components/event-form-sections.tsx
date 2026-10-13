@@ -26,12 +26,13 @@ import type {
 } from "@/features/events/event-input-schema";
 import {
   eventLanguageNames,
-  eventLanguages,
+  selectableEventLanguages,
 } from "@/features/events/event-language";
 import { formatTimezone } from "@/features/events/format-timezone";
 import type { useFormFeedback } from "@/hooks/use-form-feedback";
 
 type Props = {
+  passwordFields?: ReactNode;
   section: EditorSection;
   revealErrorsKey: number;
   values: EventFormValues;
@@ -39,9 +40,6 @@ type Props = {
   feedback: ReturnType<typeof useFormFeedback<string>>;
   disabled: boolean;
   startLocked: boolean;
-  guestPolicyLocked: boolean;
-  persistedGuestPolicy: EventFormValues["guestPolicy"];
-  hasGuestFields: boolean;
   edit?: { dates: EventDateSource };
   timezones: string[];
   markDateEdited: (name: keyof EventFormValues) => void;
@@ -72,6 +70,7 @@ type Props = {
 };
 
 export function EventFormSections({
+  passwordFields,
   section,
   revealErrorsKey,
   values,
@@ -79,9 +78,6 @@ export function EventFormSections({
   feedback,
   disabled,
   startLocked,
-  guestPolicyLocked,
-  persistedGuestPolicy,
-  hasGuestFields,
   edit,
   timezones,
   markDateEdited,
@@ -127,7 +123,7 @@ export function EventFormSections({
                   : t("contentLanguageHint")
               }
             >
-              {eventLanguages.map((language) => (
+              {selectableEventLanguages.map((language) => (
                 <MenuItem key={language} value={language}>
                   {language.toUpperCase()} — {eventLanguageNames[language]}
                 </MenuItem>
@@ -137,10 +133,8 @@ export function EventFormSections({
               value={values.description}
               disabled={disabled}
               error={feedback.errors.description}
-              formatError={feedback.errors.descriptionFormat}
               onChange={(description) => {
                 feedback.clear("description");
-                feedback.clear("descriptionFormat");
                 setValues((current) => ({ ...current, description }));
               }}
             />
@@ -333,62 +327,12 @@ export function EventFormSections({
                 }
               />
               {values.maxGuestsPerRegistration !== "0" ? (
-                <>
-                  <TextField
-                    {...field("maxGuestsPerRegistration")}
-                    label={t("maxGuests")}
-                    type="number"
-                    slotProps={{ htmlInput: { min: 1, max: 10 } }}
-                  />
-                  <TextField
-                    {...field("guestPolicy")}
-                    select
-                    label={t("guestPolicyLabel")}
-                    disabled={
-                      disabled ||
-                      (guestPolicyLocked &&
-                        values.guestPolicy === persistedGuestPolicy)
-                    }
-                    helperText={
-                      feedback.errors.guestPolicy ||
-                      t(
-                        guestPolicyLocked
-                          ? "guestPolicyLocked"
-                          : "guestPolicyChangeHint",
-                      )
-                    }
-                  >
-                    <MenuItem
-                      value="FLEXIBLE"
-                      disabled={
-                        hasGuestFields ||
-                        (guestPolicyLocked &&
-                          persistedGuestPolicy !== "FLEXIBLE")
-                      }
-                    >
-                      {t("guestPolicyFlexible")}
-                    </MenuItem>
-                    <MenuItem
-                      value="APPROVAL_REQUIRED"
-                      disabled={
-                        guestPolicyLocked &&
-                        persistedGuestPolicy !== "APPROVAL_REQUIRED"
-                      }
-                    >
-                      {t("guestPolicyApprovalRequired")}
-                    </MenuItem>
-                  </TextField>
-                  {hasGuestFields && !guestPolicyLocked && (
-                    <Alert severity="info">{t("guestPolicyFieldsExist")}</Alert>
-                  )}
-                  <Alert severity="info">
-                    {t(
-                      values.guestPolicy === "APPROVAL_REQUIRED"
-                        ? "guestPolicyApprovalHint"
-                        : "guestPolicyFlexibleHint",
-                    )}
-                  </Alert>
-                </>
+                <TextField
+                  {...field("maxGuestsPerRegistration")}
+                  label={t("maxGuests")}
+                  type="number"
+                  slotProps={{ htmlInput: { min: 1, max: 10 } }}
+                />
               ) : (
                 <input
                   type="hidden"
@@ -396,14 +340,6 @@ export function EventFormSections({
                   value="0"
                 />
               )}
-              {guestPolicyLocked &&
-                values.guestPolicy === persistedGuestPolicy && (
-                  <input
-                    type="hidden"
-                    name="guestPolicy"
-                    value={values.guestPolicy}
-                  />
-                )}
             </Stack>
             <Box
               sx={{
@@ -483,6 +419,7 @@ export function EventFormSections({
               <MenuItem value="PRIVATE">{t("private")}</MenuItem>
               <MenuItem value="PUBLIC">{t("public")}</MenuItem>
             </TextField>
+            {passwordFields}
             <TextField
               {...field("accountRequirement")}
               label={t("accountRequirement")}

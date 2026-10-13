@@ -1,5 +1,8 @@
 export const locales = ["en", "de", "pl", "uk", "ru"] as const;
 
+// Keep Russian translations supported while temporarily hiding user selection.
+export const selectableLocales = locales.filter((locale) => locale !== "ru");
+
 export type UiLocale = (typeof locales)[number];
 
 export const defaultLocale: UiLocale = "en";
@@ -18,6 +21,10 @@ export function isUiLocale(value: unknown): value is UiLocale {
   return (
     typeof value === "string" && locales.some((locale) => locale === value)
   );
+}
+
+export function isSelectableLocale(value: unknown): value is UiLocale {
+  return selectableLocales.some((locale) => locale === value);
 }
 
 export function browserLocale(header: string | null): UiLocale {
@@ -46,9 +53,8 @@ export function browserLocale(header: string | null): UiLocale {
     .sort((a, b) => b.weight - a.weight);
 
   return (
-    (preferences.find(({ language }) => isUiLocale(language))?.language as
-      | UiLocale
-      | undefined) ?? defaultLocale
+    (preferences.find(({ language }) => isSelectableLocale(language))
+      ?.language as UiLocale | undefined) ?? defaultLocale
   );
 }
 
@@ -57,11 +63,11 @@ export function resolveLocale(
   cookie: unknown,
   browser: string | null,
 ): UiLocale {
-  if (isUiLocale(account)) {
+  if (isSelectableLocale(account)) {
     return account;
   }
 
-  if (isUiLocale(cookie)) {
+  if (isSelectableLocale(cookie)) {
     return cookie;
   }
 

@@ -2,9 +2,6 @@ import "server-only";
 import { createTranslator } from "use-intl/core";
 import { z } from "zod";
 import {
-  type BadgeField,
-  type BadgeFieldContext,
-  badgeFieldSchema,
   badgeLayoutSchema,
   readBadgeLayout,
   sameBadgeField,
@@ -17,20 +14,17 @@ import {
   badgeText,
 } from "@/features/badges/badge-presentation";
 import { badgeLabels } from "@/features/badges/components/badge";
+import { fieldCatalog } from "@/features/badges/server/field-catalog";
 import { resolveBadgeField } from "@/features/badges/server/historical-field";
 import { canPrintIndividualBadge } from "@/features/badges/server/individual-print-eligibility";
-import { writeBadgeLayout } from "@/features/badges/server/write-badge-layout";
-import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 import {
   authorizeEventActor,
   hasEventPermission,
 } from "@/features/events/server/event-access";
-import { lockEventForUpdate } from "@/features/events/server/lock-event-for-update";
 import {
   ticketDisplaySelect,
   ticketQrDataUrl,
 } from "@/features/tickets/server/ticket-display";
-import type { Prisma } from "@/generated/prisma/client";
 import { loadMessages } from "@/lib/i18n/messages";
 import { prisma } from "@/lib/prisma";
 
@@ -39,114 +33,6 @@ const selectorSchema = z.strictObject({
   attendeeId: z.uuid().optional(),
   previewKind: z.enum(["PRIMARY", "GUEST"]).optional(),
 });
-const saveSchema = z.strictObject({
-  eventId: z.uuid(),
-  layout: badgeLayoutSchema,
-});
-
-async function fieldCatalog(tx: Prisma.TransactionClient, eventId: string) {
-  const fields: (BadgeField & BadgeFieldContext)[] = [];
-  const add = (candidate: unknown, context: BadgeFieldContext) => {
-    const parsed = badgeFieldSchema.safeParse(candidate);
-
-    if (
-      parsed.success &&
-      !fields.some((field) => sameBadgeField(field, parsed.data))
-    ) {
-      fields.push({ ...parsed.data, ...context });
-    }
-  };
-  const draft = await tx.registrationField.findMany({
-    where: { form: { eventId } },
-    orderBy: [{ subject: "asc" }, { position: "asc" }],
-    select: {
-      id: true,
-      subject: true,
-      position: true,
-      type: true,
-      label: true,
-    },
-  });
-
-  for (const field of draft) {
-    add(
-      { fieldId: field.id, type: field.type, label: field.label },
-      {
-        subject: field.subject,
-        context: "badgeCurrentQuestion",
-        contextValues: { number: field.position + 1 },
-      },
-    );
-  }
-
-  // Preserve approved bindings even when an unpublished draft question is deleted.
-  const saved = await tx.event.findUniqueOrThrow({
-    where: { id: eventId },
-    select: { badgeLayout: true },
-  });
-  const savedLayout = readBadgeLayout(saved.badgeLayout);
-
-  const revisions = await tx.eventRevision.findMany({
-    where: { eventId },
-    orderBy: { number: "desc" },
-    select: {
-      number: true,
-      snapshot: true,
-      applications: {
-        where: { registrations: { some: { revokedAt: null } } },
-        select: { id: true },
-        take: 1,
-      },
-    },
-  });
-
-  for (const revision of revisions) {
-    const parsed = eventSnapshotSchema.safeParse(revision.snapshot);
-
-    if (parsed.success) {
-      for (const subject of ["APPLICANT", "GUEST"] as const) {
-        const form =
-          subject === "GUEST"
-            ? parsed.data.guestForm
-            : parsed.data.registrationForm;
-
-        for (const [position, field] of form.fields.entries()) {
-          add(
-            { fieldId: field.id, type: field.type, label: field.label },
-            {
-              subject,
-              context: "badgePublishedQuestion",
-              contextValues: {
-                number: position + 1,
-                revision: revision.number,
-              },
-            },
-          );
-        }
-      }
-    }
-  }
-
-  if (savedLayout.success) {
-    const { secondaryField, tertiaryField } = savedLayout.data;
-
-    if (secondaryField) {
-      add(secondaryField, { context: "badgeSavedSecondary" });
-    }
-
-    if (tertiaryField) {
-      add(tertiaryField, { context: "badgeSavedTertiary" });
-    }
-  }
-
-  return {
-    fields,
-    activeSnapshots: revisions
-      .filter((revision) => revision.applications.length > 0)
-      .map(({ snapshot }) => snapshot),
-  };
-}
-
 // Authenticated actor identity comes from the server session adapter, never client input.
 // A draft layout is accepted only by the owner-authorized preview path.
 export async function buildBadgePresentation(
@@ -274,18 +160,17 @@ export async function buildBadgePresentation(
       const issues: BadgeIssue[] = [];
 
       if (!person) {
+        presentation.ticketNumber = layout.showTicketNumber
+          ? "EF-XXXX-XXXX"
+          : null;
+
         for (const slot of ["secondary", "tertiary"] as const) {
           const binding =
             slot === "secondary" ? layout.secondaryField : layout.tertiaryField;
-          const subject =
-            selector.data.previewKind === "GUEST" ? "GUEST" : "APPLICANT";
 
           if (
             binding &&
-            catalog?.fields.some(
-              (field) =>
-                sameBadgeField(field, binding) && field.subject === subject,
-            )
+            catalog?.fields.some((field) => sameBadgeField(field, binding))
           ) {
             presentation[slot] = badgeText(binding.label);
           }
@@ -362,7 +247,6 @@ export async function buildBadgePresentation(
             person.kind === "PRIMARY"
               ? application.answers
               : (application.guests[0]?.answers ?? []),
-            person.kind,
           );
 
           if (resolved.status === "VALUE") {
@@ -419,15 +303,7 @@ export async function buildBadgePresentation(
           }
 
           for (const snapshot of catalog.activeSnapshots) {
-            const result = resolveBadgeField(
-              binding,
-              snapshot,
-              [],
-              catalog.fields.find((field) => sameBadgeField(field, binding))
-                ?.subject === "GUEST"
-                ? "GUEST"
-                : "PRIMARY",
-            );
+            const result = resolveBadgeField(binding, snapshot, []);
 
             if (
               result.status === "INCOMPATIBLE" ||
@@ -465,55 +341,4 @@ export async function buildBadgePresentation(
   );
 }
 
-export async function saveBadgeLayout(
-  actor: { userId: string },
-  input: unknown,
-) {
-  const parsed = saveSchema.safeParse(input);
-
-  if (!parsed.success) {
-    return {
-      success: false,
-      message: "badgeCheckSettings",
-    };
-  }
-
-  return prisma.$transaction(async (tx) => {
-    const event = await lockEventForUpdate(tx, { id: parsed.data.eventId });
-    const access =
-      event &&
-      (await authorizeEventActor(
-        tx,
-        event.id,
-        actor.userId,
-        "badges.configure",
-      ));
-
-    if (!event || !access) {
-      return { success: false, message: "badgeEventUnavailable" };
-    }
-
-    const catalog = await fieldCatalog(tx, event.id);
-
-    if (!validBadgeBindings(parsed.data.layout, catalog.fields)) {
-      return {
-        success: false,
-        message:
-          "A selected question is unavailable. Reload the badge designer.",
-      };
-    }
-
-    await writeBadgeLayout(
-      tx,
-      event.id,
-      parsed.data.layout,
-      catalog.fields,
-      event.updatedAt,
-    );
-
-    return {
-      success: true,
-      message: "badgeLayoutSaved",
-    };
-  });
-}
+export { saveBadgeLayout } from "@/features/badges/server/save-badge-layout";

@@ -114,7 +114,6 @@ const eventInputFields = z.object({
   language: eventLanguageSchema,
   title: z.string().trim().min(1, "inputEventName").max(200, "inputMax200"),
   description: z.string().trim().max(20000, "inputMax20000"),
-  descriptionFormat: z.enum(["PLAIN_TEXT", "MARKDOWN"]),
   location: locationSchema.nullable(),
   publicOrganizer: publicOrganizerSchema.nullable(),
   schedule: z
@@ -138,7 +137,6 @@ const eventInputFields = z.object({
   accountRequirement: z.enum(["OPTIONAL", "REQUIRED"], {
     error: "inputAccountRequirement",
   }),
-  guestPolicy: z.enum(["FLEXIBLE", "APPROVAL_REQUIRED"]),
   maxGuestsPerRegistration: z
     .string()
     .regex(/^\d+$/)
@@ -383,8 +381,11 @@ export function parseEventWithPreservedDates(
 export type EventFormValues = z.input<typeof eventInputSchema>;
 
 export type EventFormState = {
+  creationUncertain?: boolean;
   createdId?: string;
   saved?: {
+    passwordProtected: boolean;
+    accessPublication: { contentVersion: number; pending: boolean };
     version: string;
     values: EventFormValues;
     dates: import("@/features/events/event-form-values").EventDateSource;
@@ -446,10 +447,6 @@ export function eventInputIssueMessage(issue: z.core.$ZodIssue): string {
 
   if (issue.path[0] === "language") {
     return "invalidEventLanguage";
-  }
-
-  if (issue.path[0] === "guestPolicy") {
-    return "inputGuestPolicy";
   }
 
   if (issue.path[0] === "maxGuestsPerRegistration") {

@@ -31,11 +31,10 @@ export async function getEventOverview(eventId: string) {
 
       const event = header.context;
       const lifecycle = eventLifecycle(event, now);
-      const { description, descriptionFormat } =
-        await tx.event.findUniqueOrThrow({
-          where: { id: eventId },
-          select: { description: true, descriptionFormat: true },
-        });
+      const { description } = await tx.event.findUniqueOrThrow({
+        where: { id: eventId },
+        select: { description: true },
+      });
       const active = header.attendeeCount;
       const activeWhere = {
         revokedAt: null,
@@ -46,7 +45,6 @@ export async function getEventOverview(eventId: string) {
         now,
         lifecycle,
         description,
-        descriptionFormat,
         active,
       };
 

@@ -25,7 +25,6 @@ export function eventFormValues(event: Event): EventFormValues {
   }
 
   return {
-    descriptionFormat: event.descriptionFormat,
     location:
       event.location === null ? null : locationSchema.parse(event.location),
     publicOrganizer:
@@ -44,7 +43,6 @@ export function eventFormValues(event: Event): EventFormValues {
     timezone: event.timezone,
     visibility: event.visibility,
     accountRequirement: event.accountRequirement,
-    guestPolicy: event.guestPolicy,
     maxGuestsPerRegistration: event.maxGuestsPerRegistration.toString(),
     capacity: event.capacity?.toString() ?? "",
     registrationOpensAt: localTime(event.registrationOpensAt),
@@ -112,4 +110,47 @@ export function parseEventEdit(
     timezone: source.timezone,
     schedule: source.schedule ?? [],
   });
+}
+
+export function eventDateLimits(
+  values: EventFormValues,
+  dateSource: EventDateSource | undefined,
+  editedDates: EventDateField[],
+  startLocked: boolean,
+) {
+  const validExactSchedule = dateSource
+    ? parseEventEdit(
+        { ...values, location: null, publicOrganizer: null, schedule: [] },
+        dateSource,
+        editedDates,
+        startLocked,
+      ).success
+    : false;
+
+  // Wall-clock hints must not exclude preserved absolute intervals at a DST fold.
+  return function dateLimit(
+    field: EventDateField,
+    direction: "min" | "max",
+    boundaries: EventDateField[],
+  ) {
+    const candidates = boundaries
+      .map((boundary) => values[boundary])
+      .filter(Boolean)
+      .sort();
+    const limit = direction === "min" ? candidates.at(-1) : candidates[0];
+
+    if (!limit) {
+      return undefined;
+    }
+
+    if (
+      validExactSchedule &&
+      values[field] &&
+      (direction === "min" ? values[field] < limit : values[field] > limit)
+    ) {
+      return undefined;
+    }
+
+    return limit;
+  };
 }

@@ -7,6 +7,7 @@ import {
 } from "@/features/events/schemas/event-rich-content";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 import { authorizeEventActor } from "@/features/events/server/event-access";
+import { hasEventPasswordAccess } from "@/features/events/server/event-password-session";
 import { MediaError } from "@/features/events/server/media-image";
 import { auth } from "@/lib/auth";
 import { getServerEnv } from "@/lib/env";
@@ -64,6 +65,7 @@ export function requireMediaId(id: string) {
 export async function serveEventMedia(
   request: Request,
   context: {
+    temporary?: boolean;
     eventId?: string;
     publicId?: string;
     assetId: string;
@@ -78,10 +80,30 @@ export async function serveEventMedia(
     throw new MediaError(404, "mediaUnavailable");
   }
 
-  const userId = context.eventId ? await mediaActor(request) : null;
-  requireMediaId(context.eventId ?? context.publicId ?? "");
+  const userId =
+    context.eventId || context.temporary ? await mediaActor(request) : null;
+
+  if (!context.temporary) {
+    requireMediaId(context.eventId ?? context.publicId ?? "");
+  }
   const asset = await prisma.$transaction(
     async (tx) => {
+      if (context.temporary) {
+        const [clock] = await tx.$queryRaw<
+          { now: Date }[]
+        >`SELECT clock_timestamp() AS now`;
+
+        return tx.mediaAsset.findFirst({
+          where: {
+            id: assetId,
+            eventId: null,
+            state: "READY",
+            organizer: { userId: userId ?? "" },
+            temporaryExpiresAt: { gt: clock.now },
+          },
+        });
+      }
+
       if (context.eventId) {
         const actor = await authorizeEventActor(
           tx,
@@ -112,11 +134,24 @@ export async function serveEventMedia(
           id: true,
           organizerId: true,
           publishedRevision: {
-            select: { coverAssetId: true, snapshot: true, coverAsset: true },
+            select: {
+              coverAssetId: true,
+              snapshot: true,
+              coverAsset: true,
+              passwordHash: true,
+              passwordGrantId: true,
+            },
           },
         },
       });
       const revision = event?.publishedRevision;
+
+      if (
+        !revision ||
+        !(await hasEventPasswordAccess(context.publicId ?? "", revision))
+      ) {
+        throw new MediaError(404, "mediaUnavailable");
+      }
       const snapshot = eventSnapshotSchema.safeParse(revision?.snapshot);
       const publishedAsset = revision?.coverAsset;
 

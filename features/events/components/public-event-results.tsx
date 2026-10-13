@@ -204,10 +204,7 @@ export function PublicEventResults({
                       maxWidth: 640,
                     }}
                   >
-                    <EventDescription
-                      text={featured.snapshot.description}
-                      format={featured.snapshot.descriptionFormat}
-                    />
+                    <EventDescription text={featured.snapshot.description} />
                   </Box>
                 )}
               </Stack>

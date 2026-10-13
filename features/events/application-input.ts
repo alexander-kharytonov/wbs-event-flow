@@ -156,31 +156,20 @@ export function applicationIssue(issue: z.core.$ZodIssue): ApplicationIssue {
 export function applicationGuestsSchema(
   snapshot: Pick<
     EventSnapshot,
-    "guestPolicy" | "maxGuestsPerRegistration" | "guestForm"
+    "maxGuestsPerRegistration" | "registrationForm"
   >,
 ) {
   return z
     .array(
       z.strictObject({
         name: applicationInputSchema.shape.fullName,
-        email: z.preprocess(
-          (value) =>
-            typeof value === "string" && !value.trim() ? null : value,
-          applicationInputSchema.shape.email
-            .nullable()
-            .optional()
-            .transform((value) => value ?? null),
-        ),
+        email: applicationInputSchema.shape.email,
         answers: applicationAnswersSchema({
-          registrationForm: snapshot.guestForm,
+          registrationForm: snapshot.registrationForm,
         }),
       }),
     )
-    .max(
-      snapshot.guestPolicy === "APPROVAL_REQUIRED"
-        ? snapshot.maxGuestsPerRegistration
-        : 0,
-    );
+    .max(snapshot.maxGuestsPerRegistration);
 }
 
 export function guestIssue(issue: z.core.$ZodIssue): ApplicationIssue {

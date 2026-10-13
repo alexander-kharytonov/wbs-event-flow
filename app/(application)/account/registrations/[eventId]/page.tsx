@@ -24,10 +24,7 @@ import { SubmittedGuests } from "@/features/events/components/submitted-guests";
 import { WithdrawApplicationButton } from "@/features/events/components/withdraw-application-button";
 import { getMyRegistration } from "@/features/events/server/get-my-registration";
 import { PartyGuests } from "@/features/guests/components/party-guests";
-import {
-  addLinkedGuest,
-  removeLinkedGuest,
-} from "@/features/guests/guest-actions";
+import { removeLinkedGuest } from "@/features/guests/guest-actions";
 import { TicketCard } from "@/features/tickets/components/ticket-card";
 import { requireVerifiedUser } from "@/lib/session";
 
@@ -266,7 +263,6 @@ export default async function RegistrationDetailPage({
       {current.admission && (
         <PartyGuests
           party={current.admission.guests}
-          addAction={addLinkedGuest.bind(null, current.admission.id)}
           removeAction={removeLinkedGuest.bind(null, current.admission.id)}
         />
       )}
@@ -345,10 +341,6 @@ export default async function RegistrationDetailPage({
                     <Box sx={{ mt: 3 }}>
                       <PartyGuests
                         party={attempt.admission.guests}
-                        addAction={addLinkedGuest.bind(
-                          null,
-                          attempt.admission.id,
-                        )}
                         removeAction={removeLinkedGuest.bind(
                           null,
                           attempt.admission.id,

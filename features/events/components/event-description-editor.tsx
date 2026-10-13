@@ -6,7 +6,6 @@ import FormatListBulleted from "@mui/icons-material/FormatListBulleted";
 import Link from "@mui/icons-material/Link";
 import Title from "@mui/icons-material/Title";
 import {
-  Alert,
   Box,
   IconButton,
   Stack,
@@ -59,13 +58,11 @@ export function EventDescriptionEditor({
   value,
   disabled,
   error,
-  formatError,
   onChange,
 }: {
   value: string;
   disabled: boolean;
   error?: string;
-  formatError?: string;
   onChange: (value: string) => void;
 }) {
   const t = useTranslations("events");
@@ -262,15 +259,9 @@ export function EventDescriptionEditor({
   return (
     <Stack spacing={1} useFlexGap>
       <input type="hidden" name="description" value={value} />
-      <input type="hidden" name="descriptionFormat" value="MARKDOWN" />
       <Typography id={`${id}-label`} component="h3" variant="subtitle1">
         {t("markdownDescription")}
       </Typography>
-      {formatError && (
-        <Alert severity="error" tabIndex={-1} data-editor-error>
-          {formatError}
-        </Alert>
-      )}
       <TextField
         inputRef={input}
         value={value}
@@ -331,7 +322,7 @@ export function EventDescriptionEditor({
                     }}
                   >
                     {value.trim() ? (
-                      <EventDescription text={value} format="MARKDOWN" />
+                      <EventDescription text={value} />
                     ) : (
                       <Typography color="text.secondary">
                         {t("markdownPreviewHint")}

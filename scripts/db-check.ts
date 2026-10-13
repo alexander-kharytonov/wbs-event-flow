@@ -1,3 +1,8 @@
+import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
+import { readdir, readFile } from "node:fs/promises";
+import { resolve } from "node:path";
+import { promisify } from "node:util";
 import { loadEnvConfig } from "@next/env";
 import {
   communicationContextSchema,
@@ -9,12 +14,145 @@ import {
 } from "@/features/events/application-input";
 import { mediaManifestSchema } from "@/features/events/schemas/event-rich-content";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
+import type { Prisma } from "@/generated/prisma/client";
+import {
+  emailPayloadSchemas,
+  manualEmailPayload,
+} from "@/lib/email-outbox/payload";
+
+async function checkMigrationHistory(tx: Prisma.TransactionClient) {
+  const directories = await readdir("prisma/migrations", {
+    withFileTypes: true,
+  });
+  const expected = new Map(
+    await Promise.all(
+      directories
+        .filter((entry) => entry.isDirectory())
+        .map(async (entry) => {
+          const sql = await readFile(
+            `prisma/migrations/${entry.name}/migration.sql`,
+          );
+
+          return [
+            entry.name,
+            createHash("sha256").update(sql).digest("hex"),
+          ] as const;
+        }),
+    ),
+  );
+  const [{ exists }] = await tx.$queryRaw<{ exists: boolean }[]>`
+    SELECT to_regclass('"_prisma_migrations"') IS NOT NULL AS exists
+  `;
+
+  if (!exists) {
+    return [{ invariant: "migration_history_missing", invalid_count: 1 }];
+  }
+
+  const applied = await tx.$queryRaw<
+    { migration_name: string; checksum: string; finished: boolean }[]
+  >`
+    SELECT migration_name, checksum, finished_at IS NOT NULL AS finished
+    FROM "_prisma_migrations" WHERE rolled_back_at IS NULL
+  `;
+  const completed = new Set(
+    applied.filter((row) => row.finished).map((row) => row.migration_name),
+  );
+
+  return [
+    {
+      invariant: "migration_pending",
+      invalid_count: [...expected.keys()].filter((name) => !completed.has(name))
+        .length,
+    },
+    {
+      invariant: "migration_failed",
+      invalid_count: applied.filter((row) => !row.finished).length,
+    },
+    {
+      invariant: "migration_unexpected",
+      invalid_count: applied.filter((row) => !expected.has(row.migration_name))
+        .length,
+    },
+    {
+      invariant: "migration_checksum_mismatch",
+      invalid_count: applied.filter(
+        (row) =>
+          expected.has(row.migration_name) &&
+          expected.get(row.migration_name) !== row.checksum,
+      ).length,
+    },
+    {
+      invariant: "migration_duplicate",
+      invalid_count:
+        applied.length - new Set(applied.map((row) => row.migration_name)).size,
+    },
+  ].filter((violation) => violation.invalid_count > 0);
+}
+
+async function checkSchemaAlignment() {
+  try {
+    // Comparing a live datasource to a datamodel only introspects the database.
+    // No shadow database, migration application or schema/data writes are requested.
+    // Capture all CLI output: even failures must not expose connection details.
+    await promisify(execFile)(
+      process.execPath,
+      [
+        resolve("node_modules/prisma/build/index.js"),
+        "migrate",
+        "diff",
+        "--from-config-datasource",
+        "--to-schema",
+        "prisma/schema.prisma",
+        "--exit-code",
+      ],
+      { timeout: 60_000, maxBuffer: 1024 * 1024 },
+    );
+
+    return null;
+  } catch (error) {
+    return error instanceof Error && "code" in error && error.code === 2
+      ? "schema_alignment_drift"
+      : "schema_alignment_unavailable";
+  }
+}
 
 async function main() {
   loadEnvConfig(process.cwd(), true);
   const { prisma } = await import("@/lib/prisma");
 
   try {
+    const migrationFailures = await prisma.$transaction(
+      async (tx) => {
+        await tx.$executeRaw`SET TRANSACTION READ ONLY`;
+
+        return checkMigrationHistory(tx);
+      },
+      { isolationLevel: "RepeatableRead", timeout: 10_000 },
+    );
+
+    if (migrationFailures.length > 0) {
+      for (const failure of migrationFailures) {
+        console.error(
+          `Database preflight failed: ${failure.invariant}; count=${failure.invalid_count}`,
+        );
+      }
+      process.exitCode = 1;
+
+      return;
+    }
+
+    const schemaFailure = await checkSchemaAlignment();
+
+    if (schemaFailure) {
+      console.error(`Database preflight failed: ${schemaFailure}; count=1`);
+      process.exitCode = 1;
+
+      return;
+    }
+
+    console.log(
+      "Database migration history and Prisma schema alignment passed.",
+    );
     const result = await prisma.$transaction(
       async (tx) => {
         await tx.$executeRaw`SET TRANSACTION READ ONLY`;
@@ -30,6 +168,7 @@ async function main() {
           UNION ALL SELECT 'Event', count(*) FROM "Event"
           UNION ALL SELECT 'EventRevision', count(*) FROM "EventRevision"
           UNION ALL SELECT 'MediaAsset', count(*) FROM "MediaAsset"
+          UNION ALL SELECT 'EventCreationReceipt', count(*) FROM "EventCreationReceipt"
           UNION ALL SELECT 'EventStaff', count(*) FROM "EventStaff"
           UNION ALL SELECT 'RegistrationForm', count(*) FROM "RegistrationForm"
           UNION ALL SELECT 'RegistrationField', count(*) FROM "RegistrationField"
@@ -71,9 +210,20 @@ async function main() {
             GROUP BY r."eventId"
           ), delivery_counts AS (
             SELECT "communicationId", count(*) AS total
-            FROM "EmailOutbox" WHERE "communicationId" IS NOT NULL
+            FROM "EmailOutbox"
             GROUP BY "communicationId"
           ), checks AS (
+            SELECT 'event_password_access' AS invariant, count(*) AS invalid_count
+            FROM "Event" e
+            WHERE (e."draftPasswordHash" IS NOT NULL AND (e.visibility <> 'PRIVATE' OR e."draftPasswordHash" !~ '^scrypt:[a-f0-9]{32}:[a-f0-9]{64}$'))
+              OR e."passwordFailures" NOT BETWEEN 0 AND 100
+              OR (e."passwordFailures" > 0 AND e."passwordFailureWindow" IS NULL)
+            UNION ALL
+            SELECT 'revision_password_access', count(*)
+            FROM "EventRevision" r
+            WHERE (r."passwordHash" IS NULL) <> (r."passwordGrantId" IS NULL)
+              OR (r."passwordHash" IS NOT NULL AND (r."snapshot"->>'visibility' IS DISTINCT FROM 'PRIVATE' OR r."passwordHash" !~ '^scrypt:[a-f0-9]{32}:[a-f0-9]{64}$'))
+            UNION ALL
             SELECT 'application_lifecycle_timestamps' AS invariant,
               count(*) AS invalid_count
             FROM "Application" a
@@ -169,11 +319,6 @@ async function main() {
             WHERE e."publishedRevisionId" IS NOT NULL
               AND (v.id IS NULL OR e."publicId" IS NULL OR e."publishedAt" IS NULL)
             UNION ALL
-            SELECT 'guest_field_policy', count(*)
-            FROM "RegistrationField" f JOIN "RegistrationForm" r ON r.id = f."formId"
-            JOIN "Event" e ON e.id = r."eventId"
-            WHERE f.subject = 'GUEST' AND e."guestPolicy" <> 'APPROVAL_REQUIRED'
-            UNION ALL
             SELECT 'guest_declaration_positions', count(*) FROM (
               SELECT "applicationId" FROM "ApplicationGuest" GROUP BY "applicationId"
               HAVING min(position) <> 0 OR max(position) <> count(*) - 1
@@ -192,22 +337,13 @@ async function main() {
             LEFT JOIN "Attendee" a ON a."applicationGuestId" = g.id
             WHERE a.id IS NULL OR a."registrationId" <> r.id OR a."createdAt" <> r."createdAt"
             UNION ALL
-            SELECT 'guest_admission_policy', count(*)
-            FROM "Attendee" a JOIN "Registration" r ON r.id = a."registrationId"
-            JOIN "Application" p ON p.id = r."sourceApplicationId"
-            JOIN "EventRevision" v ON v.id = p."eventRevisionId"
-            WHERE a.kind = 'GUEST' AND (
-              (v.snapshot->>'guestPolicy' = 'APPROVAL_REQUIRED' AND a."applicationGuestId" IS NULL)
-              OR (v.snapshot->>'guestPolicy' = 'FLEXIBLE' AND a."applicationGuestId" IS NOT NULL))
+            SELECT 'guest_admission_provenance', count(*) FROM "Attendee"
+            WHERE (kind = 'GUEST' AND ("applicationGuestId" IS NULL OR "applicationGuestApplicationId" IS NULL))
+              OR (kind = 'PRIMARY' AND ("applicationGuestId" IS NOT NULL OR "applicationGuestApplicationId" IS NOT NULL))
             UNION ALL
             SELECT 'application_access_revocation', count(*) FROM "Application"
             WHERE ("anonymousAccessHash" IS NULL) <> ("anonymousAccessEncrypted" IS NULL)
               OR (status = 'WITHDRAWN' AND "anonymousAccessHash" IS NOT NULL)
-            UNION ALL
-            SELECT 'guest_policy_binding', count(*)
-            FROM "Application" a JOIN "Event" e ON e.id = a."eventId"
-            JOIN "EventRevision" v ON v.id = a."eventRevisionId"
-            WHERE v.snapshot->>'guestPolicy' IS DISTINCT FROM e."guestPolicy"::text
             UNION ALL
             SELECT 'communication_delivery_count', count(*)
             FROM "Communication" c
@@ -217,31 +353,36 @@ async function main() {
             SELECT 'communication_delivery_type', count(*)
             FROM "EmailOutbox" o
             LEFT JOIN "Communication" c ON c.id = o."communicationId"
-            WHERE (o.type = 'MANUAL_EVENT_MESSAGE' AND o."communicationId" IS NULL)
-              OR (o."communicationId" IS NOT NULL AND (
-                c.id IS NULL
+            WHERE c.id IS NULL
                 OR (c.kind = 'MANUAL' AND o.type <> 'MANUAL_EVENT_MESSAGE')
                 OR (c.kind = 'TRANSACTIONAL' AND o.type::text IS DISTINCT FROM c.trigger::text)
-              ))
+            UNION ALL
+            SELECT 'communication_request_digest', count(*) FROM "Communication"
+            WHERE "requestDigest" !~ '^[a-f0-9]{64}$'
           )
           SELECT invariant, invalid_count FROM checks
           WHERE invalid_count > 0 ORDER BY invariant
         `;
 
         // Reuse the runtime email contract, including ECMAScript trim semantics.
-        // Exclude legacy deliveries and keep recipient data in bounded pages only.
+        // Keep recipient data and frozen payloads in bounded pages only.
         let afterOutboxId: string | undefined;
         let invalidRecipients = BigInt(0);
+        let invalidPayloads = BigInt(0);
 
         while (true) {
           const rows = await tx.emailOutbox.findMany({
             where: {
-              communicationId: { not: null },
               ...(afterOutboxId ? { id: { gt: afterOutboxId } } : {}),
             },
             orderBy: { id: "asc" },
             take: 200,
-            select: { id: true, recipientEmail: true },
+            select: {
+              id: true,
+              recipientEmail: true,
+              type: true,
+              payload: true,
+            },
           });
 
           if (rows.length === 0) {
@@ -256,6 +397,15 @@ async function main() {
             ) {
               invalidRecipients++;
             }
+
+            const schema =
+              row.type === "MANUAL_EVENT_MESSAGE"
+                ? manualEmailPayload
+                : emailPayloadSchemas[row.type];
+
+            if (!schema.safeParse(row.payload).success) {
+              invalidPayloads++;
+            }
           }
 
           afterOutboxId = rows[rows.length - 1].id;
@@ -265,6 +415,13 @@ async function main() {
           violations.push({
             invariant: "communication_recipient_normalization",
             invalid_count: invalidRecipients,
+          });
+        }
+
+        if (invalidPayloads > BigInt(0)) {
+          violations.push({
+            invariant: "email_outbox_payload_contract",
+            invalid_count: invalidPayloads,
           });
         }
 
@@ -327,6 +484,18 @@ async function main() {
           FROM "EventRevision" r JOIN "Event" e ON e.id = r."eventId" JOIN "MediaAsset" m ON m.id = r."coverAssetId"
           WHERE m.state <> 'READY' OR m."organizerId" <> e."organizerId" OR m."eventId" IS DISTINCT FROM e.id
           UNION ALL
+          SELECT 'temporary_media_reference', count(*) FROM "MediaAsset" m
+          WHERE m."temporaryExpiresAt" IS NOT NULL AND (
+            m."eventId" IS NOT NULL OR m."temporaryExpiresAt" <> m."uploadExpiresAt"
+            OR EXISTS (SELECT 1 FROM "Event" e WHERE e."coverAssetId" = m.id)
+            OR EXISTS (SELECT 1 FROM "EventRevision" r WHERE r."coverAssetId" = m.id)
+          )
+          UNION ALL
+          SELECT 'creation_receipt', count(*) FROM "EventCreationReceipt" c
+          LEFT JOIN "Event" e ON e.id = c."eventId"
+          WHERE (c."eventId" IS NOT NULL AND (e."organizerId" <> c."organizerId" OR c.result->>'eventId' IS DISTINCT FROM c."eventId"::text))
+            OR c.fingerprint !~ '^[a-f0-9]{64}$'
+          UNION ALL
           SELECT 'untracked_ready_media_retention', count(*) FROM "MediaAsset" m
           WHERE m.state = 'READY' AND m."unusedSince" IS NULL
           AND NOT EXISTS (SELECT 1 FROM "Event" e WHERE e."coverAssetId" = m.id)
@@ -364,18 +533,16 @@ async function main() {
             if (
               !applicationInputSchema.shape.fullName.safeParse(guest.name)
                 .success ||
-              (guest.email !== null &&
-                !applicationInputSchema.shape.email.safeParse(guest.email)
-                  .success) ||
+              !applicationInputSchema.shape.email.safeParse(guest.email)
+                .success ||
               !snapshot.success ||
-              snapshot.data.guestPolicy !== "APPROVAL_REQUIRED" ||
               guest.position >= snapshot.data.maxGuestsPerRegistration
             ) {
               invalidGuests++;
               continue;
             }
 
-            const fields = snapshot.data.guestForm.fields;
+            const fields = snapshot.data.registrationForm.fields;
             const values: Record<string, string[]> = {};
             let valid = guest.answers.length === fields.length;
 
@@ -417,7 +584,7 @@ async function main() {
             if (
               !valid ||
               !applicationAnswersSchema({
-                registrationForm: snapshot.data.guestForm,
+                registrationForm: snapshot.data.registrationForm,
               }).safeParse(values).success
             ) {
               invalidGuests++;
@@ -433,7 +600,7 @@ async function main() {
           });
         }
 
-        let invalidMedia = BigInt(0);
+        let invalidManifests = BigInt(0);
 
         while (true) {
           const assets = await tx.mediaAsset.findMany({
@@ -450,7 +617,7 @@ async function main() {
             break;
           }
 
-          invalidMedia += BigInt(
+          invalidManifests += BigInt(
             assets.filter(
               (asset) => !mediaManifestSchema.safeParse(asset.manifest).success,
             ).length,
@@ -459,6 +626,8 @@ async function main() {
         }
 
         let revisionCursor: string | undefined;
+        let invalidSnapshots = BigInt(0);
+        let invalidCoverReferences = BigInt(0);
 
         while (true) {
           const revisions = await tx.eventRevision.findMany({
@@ -481,32 +650,49 @@ async function main() {
 
           for (const revision of revisions) {
             const snapshot = eventSnapshotSchema.safeParse(revision.snapshot);
+
+            if (!snapshot.success) {
+              invalidSnapshots++;
+
+              continue;
+            }
+
             const manifest = mediaManifestSchema.safeParse(
               revision.coverAsset?.manifest,
             );
 
             if (
-              !snapshot.success ||
               (snapshot.data.cover?.assetId ?? null) !==
                 revision.coverAssetId ||
               (snapshot.data.cover &&
-                (!manifest.success ||
-                  JSON.stringify(snapshot.data.cover.variants) !==
-                    JSON.stringify(manifest.data)))
+                (!revision.coverAsset ||
+                  (manifest.success &&
+                    JSON.stringify(snapshot.data.cover.variants) !==
+                      JSON.stringify(manifest.data))))
             ) {
-              invalidMedia++;
+              invalidCoverReferences++;
             }
           }
 
           revisionCursor = revisions[revisions.length - 1].id;
         }
 
-        if (invalidMedia > BigInt(0)) {
-          violations.push({
-            invariant: "media_serialized_contract",
-            invalid_count: invalidMedia,
-          });
-        }
+        violations.push(
+          ...[
+            {
+              invariant: "event_snapshot_contract",
+              invalid_count: invalidSnapshots,
+            },
+            {
+              invariant: "media_manifest_contract",
+              invalid_count: invalidManifests,
+            },
+            {
+              invariant: "revision_cover_reference",
+              invalid_count: invalidCoverReferences,
+            },
+          ].filter((violation) => violation.invalid_count > BigInt(0)),
+        );
 
         return { connection, counts, violations };
       },

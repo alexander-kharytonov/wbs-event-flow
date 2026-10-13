@@ -17,9 +17,7 @@ export type EditorSection = (typeof editorSections)[number]["id"];
 export function errorSection(field: string): EditorSection | undefined {
   const root = field.split(".")[0];
 
-  if (
-    ["title", "language", "description", "descriptionFormat"].includes(root)
-  ) {
+  if (["title", "language", "description"].includes(root)) {
     return "basics";
   }
 
@@ -43,7 +41,7 @@ export function errorSection(field: string): EditorSection | undefined {
     return "organizer";
   }
 
-  if (["visibility", "accountRequirement"].includes(root)) {
+  if (["visibility", "accountRequirement", "eventPassword"].includes(root)) {
     return "access";
   }
 
@@ -51,7 +49,6 @@ export function errorSection(field: string): EditorSection | undefined {
     [
       "capacity",
       "maxGuestsPerRegistration",
-      "guestPolicy",
       "registrationOpensAt",
       "registrationClosesAt",
     ].includes(root)

@@ -179,7 +179,7 @@ export type OrganizerAttendee = {
   name: string;
   kind: "PRIMARY" | "GUEST";
   registrationId: string;
-  email?: string | null;
+  email?: string;
   createdAt?: Date;
   revokedAt?: Date | null;
   registration: { revokedAt?: Date | null; attendees: { name: string }[] };

@@ -1,4 +1,5 @@
 import "server-only";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { eventLifecycle } from "@/features/events/event-lifecycle";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
@@ -121,8 +122,9 @@ export async function publishOwnedEvent(
         const latest = await tx.eventRevision.findFirst({
           where: { eventId },
           orderBy: { number: "desc" },
-          select: { number: true },
+          select: { number: true, passwordHash: true, passwordGrantId: true },
         });
+        const previousAccess = event.publishedRevision ?? latest;
         const now = owned.decisionNow;
         const revision = await tx.eventRevision.create({
           data: {
@@ -131,6 +133,12 @@ export async function publishOwnedEvent(
             contentVersion,
             coverAssetId: event.coverAssetId,
             snapshot: snapshot.data,
+            passwordHash: event.draftPasswordHash,
+            passwordGrantId: event.draftPasswordHash
+              ? previousAccess?.passwordHash === event.draftPasswordHash
+                ? (previousAccess?.passwordGrantId ?? randomUUID())
+                : randomUUID()
+              : null,
             publishedAt: now,
           },
         });

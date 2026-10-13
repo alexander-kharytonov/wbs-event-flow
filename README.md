@@ -41,11 +41,13 @@ Ticket envelopes cannot be recovered without this key. Keep `.env` untracked.
 
 ### Fresh database
 
-For a new, empty PostgreSQL 18 database, apply the baseline:
+For a new, empty PostgreSQL 18 database, apply the single current baseline
+`prisma/migrations/20261015000000_baseline/migration.sql`:
 
 ```bash
 pnpm infra:up
 pnpm exec prisma migrate deploy
+pnpm exec prisma migrate status
 pnpm db:generate
 pnpm db:check
 pnpm dev
@@ -70,22 +72,19 @@ settings. `lib/prisma.ts` is the shared server-only client. DATABASE_URL expands
 from the POSTGRES variables in `.env.example`; use a URL-safe local password or
 percent-encode credentials when constructing a URL.
 
-The migration history starts with `20261011030000_baseline`, replacing the
-pre-deployment local migration history. It creates the current schema, including
-media, and preserves all 25 custom SQL CHECK constraints alongside Prisma-managed
-keys and indexes. Future schema changes use incremental migrations; do not edit
-an applied baseline. Prisma drift alone does not verify custom CHECK constraints.
+The baseline creates the current schema directly, including 36 custom CHECK
+constraints, 40 foreign keys and 87 indexes (five partial unique indexes).
+PostgreSQL 18 supplies `uuidv7()`; no additional extension is needed. Prisma drift
+checks do not compare custom CHECK definitions; review the SQL/catalog as well.
+Future schema changes use incremental migrations; do not edit an applied baseline.
 
-A disposable local database with the removed history requires an explicitly
-authorized reset, including its migration ledger. Immediately before resetting,
-verify the effective DATABASE_URL is `127.0.0.1:5432/event_flow_dev`, schema `public`,
-with no unexpected connection parameters; confirm PostgreSQL 18, SQL
-`current_database()`, and the loopback-only Docker Compose port binding. Stop
-application writers and the Outbox dispatcher and reject unexpected connections.
-Reset only that verified database, then use `prisma migrate deploy`; do not use
-`migrate resolve` to bypass applying SQL or delete unrelated databases/volumes.
-This is not an in-place upgrade path for persistent production/staging data.
-There is no seed or demo data.
+An existing database with the removed development ledger cannot install this
+baseline through `migrate deploy` alone. Do not mark it applied with `migrate resolve`,
+delete only the ledger, or use `db push` to conceal the mismatch. Local development
+can use a separately provisioned empty database and paired media directory, leaving
+the existing database untouched. A reset is a separate authorized operation. The
+approved demo production cutover follows the controlled clean-release procedure
+below; it is not a retained-data upgrade. There is no seed or demo data.
 
 ## Development services
 
@@ -117,18 +116,37 @@ These are the scripts currently defined in package.json:
 | `pnpm infra:down` | Stop/remove service containers; preserve database volume |
 | `pnpm infra:status` | Show Compose service status |
 | `pnpm db:migrate` | Run local `prisma migrate dev` |
+| `pnpm db:reset` | Delete development database data and reapply current migrations, with Prisma confirmation |
 | `pnpm db:generate` | Generate Prisma Client |
 | `pnpm db:studio` | Open Prisma Studio |
-| `pnpm db:check` | Check current domain integrity in a read-only RepeatableRead snapshot; report entity counts and violations without private data |
+| `pnpm db:check` | Check migration/schema alignment, then current domain integrity in a read-only RepeatableRead snapshot; report aggregate violations without private data |
 | `pnpm media:cleanup` | Explicitly collect expired/unreferenced media and reconcile generated orphan files; writes to DB and the configured media directory |
 
-`db:check` covers Application/Registration correspondence, PRIMARY cardinality and
-identity, party activity, Ticket lifecycle, QR/MANUAL Attendance, current publication
-references, and Communication/Outbox counts, types, normalized associated addresses
-and strict versioned contexts. JSON contexts are read in bounded keyset pages.
-It also checks media ownership/references, manifests and snapshot cover descriptors.
-Legacy null-linked Outbox remains supported; snapshot/template readers accept only
-the current EventSnapshot/EventTemplate contracts.
+Before `pnpm db:reset`, stop the application and confirm DATABASE_URL targets the
+intended local development database. After a successful reset, run `pnpm db:generate`,
+`pnpm exec prisma migrate status` and `pnpm db:check` before restarting the application.
+The reset does not delete media files or populate seed data. For a fully clean start, clear
+the paired local MEDIA_STORAGE_ROOT contents while the application remains stopped,
+preserving the directory and its permissions.
+
+`db:check` first checks the migration ledger against repository migration names and
+checksums, rejecting missing history, pending, failed, unexpected, duplicate or
+altered migrations. It then runs read-only Prisma datasource-to-schema comparison;
+drift or an unavailable comparison stops the command before domain queries. This
+preflight needs the installed Prisma CLI and checks Prisma-managed schema objects,
+not custom SQL CHECK definitions. It never applies migrations or uses a shadow DB.
+
+After preflight, `db:check` covers Application/Registration correspondence, PRIMARY
+cardinality and identity, party activity, Ticket lifecycle, QR/MANUAL Attendance, current publication
+references, and Communication/Outbox counts, types, normalized addresses, required
+digests, strict contexts and every frozen delivery payload. JSON contexts are read in bounded keyset pages.
+It also checks media ownership/references. Invalid EventSnapshot contracts, invalid
+READY media manifests and revision cover-reference/variant mismatches have separate
+aggregate categories. Cover comparisons require a valid snapshot; variant comparison
+also requires a valid manifest, so malformed JSON is not mislabeled as a mismatch.
+Every Outbox row requires a Communication and a valid frozen locale; application
+receipt payloads require their Application ID. Snapshot/template readers accept only
+the current Markdown-only EventSnapshot/EventTemplate contracts.
 An empty database passes with an explicit zero-data-coverage message. Failures
 exit nonzero; the command never repairs rows, decrypts credentials or sends mail.
 
@@ -168,14 +186,10 @@ is exposed in client props; never commit the secret. Leaving both empty preserve
 email/password authentication and hides Google buttons on the auth screens.
 Configuring only one fails environment validation.
 
-Apply `20261011180000_account_provider_identity_unique` with
-`pnpm exec prisma migrate deploy`, then regenerate the client with `pnpm db:generate`.
-It adds PostgreSQL uniqueness for Account `(providerId, accountId)` without
-rewriting the baseline or changing rows. Check for duplicate pairs first; if any
-exist, stop for explicit data-remediation approval. Do not delete or merge them
-automatically. PostgreSQL rejects conflicting concurrent OAuth inserts. With
-Better Auth 1.7.6, the losing manual-link callback returns HTTP 500 on this
-unique conflict; retrying the connection resolves the existing provider identity.
+The current baseline enforces Account `(providerId, accountId)` uniqueness.
+PostgreSQL rejects conflicting concurrent OAuth inserts. With Better Auth 1.7.6,
+the losing manual-link callback returns HTTP 500 on this unique conflict; retrying
+the connection resolves the existing provider identity.
 
 Configure the exact authorized redirect URI in Google Cloud Console:
 `<BETTER_AUTH_URL>/api/auth/callback/google` (for local development,
@@ -204,21 +218,18 @@ establish a real Google consent/callback result.
 - [DOMAIN.md](DOMAIN.md): domain model, invariants, and enforcement boundaries.
 - [AGENTS.md](AGENTS.md): project conventions and instructions for coding agents.
 
-## Historical credentials
+## Credential retention
 
 A missing historical Ticket is a corruption/investigation case, never a reason to
 generate a replacement credential. Preserve the Ticket encryption key while its
-data is retained; protect database and encryption-key backups separately when
-retaining data. The disposable development baseline reset does not require backups.
-Anonymous Ticket links now use browser fragments and a protected POST exchange,
-followed by a path-scoped two-hour HttpOnly session. Legacy path-based bearer links
-are removed; redirects cannot prevent ingress logs recording the first request.
-Inspect retained environments before cutover. The local DEPLOY-2 preflight found
-zero Tickets, anonymous approval deliveries and Mailpit messages. Do not assume
-this proves another environment has no old links. Never log exchange bodies,
-cookies, fragments or private email content; disable provider click/open tracking.
+data is retained; protect database and encryption-key backups separately.
+Anonymous Ticket and Application links use browser fragments and a protected POST
+exchange, followed by path-scoped two-hour HttpOnly sessions. Never log exchange
+bodies, cookies, capability fragments or private email content; disable provider
+click/open tracking. Old demo links and sessions cease to work
+after the approved clean release because their backing records no longer exist.
 
-## Private Event media (29A)
+## Private Event media
 
 Media operations require MEDIA_STORAGE_ROOT: an existing absolute persistent
 directory owned by the application OS user, mode 0700, outside Git checkouts,
@@ -243,7 +254,7 @@ this directory as static web content. Provision the root during local/deployment
 setup; upload handlers never create or substitute the root themselves.
 
 The existing Event editor uses the POST/PUT/GET contracts documented in DOMAIN.md.
-The public landing page and SEO are implemented in 29C, with final UX polish in 29D.
+Public landing page and SEO behavior are described in PRODUCT.md and DOMAIN.md.
 POST accepts raw JPEG/PNG/WebP bytes, not multipart or remote URLs. The server checks
 Origin against BETTER_AUTH_URL and verifies OWNER scope. Input limits are 5 MiB,
 4096 × 4096, one frame and two process-local operations. A new upload is refused
@@ -266,8 +277,10 @@ strictly time-bounded; this is an accepted v1 limitation. `deleted` counts rows 
 collector actually deleted; `orphans` counts files actually unlinked. Rerun while a
 budget flag is true; a flag signals budget exhaustion, not guaranteed remaining work.
 Failed DELETING rows retry; persistent failures must be repaired by the operator.
-There is no scheduled cleanup, worker or polling; monitor disk usage and invoke the
-command regularly. Never point two unrelated databases at the same media root.
+Existing Event assets require this explicit maintenance. Temporary creation covers
+and aged orphan files also have a runtime startup/15-minute sweep with the same
+candidate/deletion budgets. Monitor disk usage and invoke maintenance regularly.
+Never point two unrelated databases at the same media root.
 
 Back up the database and all referenced immutable variants together. A database-only
 restore cannot recover cover files. Keep local storage on a persistent volume across
@@ -283,16 +296,17 @@ Template Export, Import and Duplicate use EventTemplate, preserving rich configu
 and explicitly omitting cover images. Both contracts are unversioned and strictly
 validate the current shape, without compatibility readers or converters.
 
-## Rich Event authoring and EventTemplate (29B)
+## Rich Event authoring and EventTemplate
 
-Create, Edit, Import Review and Duplicate Review share a full-page, seven-tab
+Create, Edit, Import Review and Duplicate Review share a full-page, eight-tab
 workspace editor (plus Additional settings for Import/Duplicate Review) and the atomic create path. Edit saves stay open; successful Create
 opens the new editor. Preview opens the saved draft in a separate tab. Cover saves
 remain independent, and app navigation asks before discarding unsaved changes. Descriptions use Markdown (including ordinary text), with optional
 physical/online/hybrid location, up to 100 ordered agenda entries and explicitly
 authored public organizer information. Markdown uses one restricted react-markdown
 renderer for client preview and OWNER Event Preview: no HTML, images or MDX; only
-absolute HTTP(S) links without credentials. Historical plain-text snapshots retain literal rendering.
+absolute HTTP(S) links without credentials. Markdown is the only description format
+in workspace, publication, templates and metadata; obsolete template fields are rejected.
 
 Untouched agenda instants retain seconds/milliseconds, including ambiguous local
 hours imported as exact UTC instants. Title edits/reordering preserve those instants;
@@ -304,20 +318,29 @@ For existing Events, select a file, Upload, inspect the normalized preview and
 Save cover. Cover and Event saves exclude each other. Only a successful cover
 response advances the form token, preserving other unsaved edits. Replaced or
 abandoned uploads remain tracked for the existing explicit cleanup lifecycle.
-Create/Import/Duplicate cannot upload until the new Event exists.
+Create/Import/Duplicate can prepare a new private temporary cover before the Event
+exists. Uploads belong to the verified organizer and expire after 24 hours. Atomic
+creation attaches the prepared cover and saves a request-key retry receipt together.
 
 Export downloads `-template.json`. EventTemplate includes rich configuration and an explicit
 cover status NONE/OMITTED; no asset identity, storage locator or bytes are included.
 The Export menu and Import/Duplicate Review explain omission. Import rejects
-unknown fields. Every new Event starts without a cover.
+unknown fields. Source covers are never copied; a new Event has a cover only when
+a newly prepared cover is explicitly included during creation.
 
 OWNER Preview reads the draft workspace through EventSnapshot. Public pages still
 read only the published revision; publish/republish is required to expose changes.
-Overview and Staff projections remain operational. The media foundation (29A),
-rich authoring (29B), public landing/SEO (29C), and UX/integration polish (29D)
-are implemented and accepted.
+Overview and Staff projections remain operational.
 
 ## Engineering verification
+
+EventForm owns editable values, date intent, version and confirmed-save navigation.
+Feature-local hooks isolate creation retry snapshots, transient password state and
+cover operations. RegistrationApplicationForm owns the frozen revision and one
+participant answer store; participant sections are controlled views. AttendeesList
+owns filtering, selection and check-in feedback; rows and detail receive fresh data.
+Badge and CSV entry points retain authorization and transaction ownership, passing
+the same transaction to the field catalog, layout persistence and dataset builders.
 
 `scripts/` contains the read-only `db:check` and explicit `media:cleanup`
 maintenance commands.
@@ -335,6 +358,9 @@ Apply the baseline using `pnpm exec prisma migrate deploy`, generate the client
 with `pnpm db:generate`, and restart the server after schema/client changes.
 
 - Request configuration: `lib/i18n/request.ts` (account → cookie → browser → en).
+- Available UI, Event editor and catalog choices: en/de/pl/uk. Russian translations
+  and serialized language support remain maintained, but ru is temporarily hidden
+  from selectors and excluded from UI locale resolution and preference writes.
 - Dictionaries: `lib/i18n/messages/{shell,locale,validation,auth,events,landing,email}/{en,de,pl,uk,ru}.json`.
   English is merged per key before rendering. Add new features to the loader.
 - Server: `await getTranslations("shell")`; Client: `useTranslations("shell")`.
@@ -348,7 +374,7 @@ with `pnpm db:generate`, and restart the server after schema/client changes.
 - Dates: `useFormatter` / `getFormatter`, always supplying Event timezone for
   Event instants. Never reinterpret stored dates when changing UI language.
 - Background work: `createBackgroundTranslator(explicitPreference)` works without
-  a request. Email rendering uses it with each delivery’s frozen recipient locale (I18N-D).
+  a request. Email rendering uses it with each delivery’s frozen recipient locale.
 
 Optional native build scripts introduced transitively by next-intl (`@swc/core`
 and `@parcel/watcher`) are disabled; the application uses neither optional feature.
@@ -371,7 +397,7 @@ Writes target only the request's authenticated User; stale tabs can save to the
 currently signed-in account. Normal Better Auth session behavior is retained.
 See PRODUCT.md and DOMAIN.md for the accepted V0 consistency limitations.
 
-## Event language (I18N-B)
+## Event language
 
 The current baseline includes required Event.language (en/de/pl/uk/ru) without a
 database default. Manual Create captures the organizer's active UI locale once;
@@ -380,11 +406,6 @@ and Event language are independent.
 
 EventSnapshot and EventTemplate require language and have no format version fields.
 Missing/unsupported language and unknown fields are rejected without conversion.
-The explicitly authorized pre-release consolidation replaces the local migration
-ledger with `20261011030000_baseline`, preserving authentication/organizer rows.
-It does not require deleting Docker volumes, Mailpit or the media directory.
-Existing installations with removed migration history need an explicitly approved
-local reset; do not apply this consolidation to retained production data.
 
 `/e?language=de` filters by published Event language independently of UI locale.
 Omitting language selects all; unsupported/repeated values also select all.
@@ -393,7 +414,7 @@ Template export/import/duplicate retain the Event language and exact dates.
 The catalog also provides immediate, case-insensitive published-title search,
 combined with the language filter in the same field sizing/grid as the organizer dashboard.
 
-## Railway Hobby deployment (DEPLOY-2)
+## Railway Hobby deployment
 
 Prepared for one always-on service with PostgreSQL 18 and a persistent volume;
 no Redis, worker, cron or replacement queue. This repository does not deploy itself.
@@ -423,21 +444,25 @@ Required runtime variables (all server-side; never NEXT_PUBLIC):
 | RESEND_API_KEY | Sending API key restricted to the verified sender domain |
 | SMTP_FROM | Plain verified sender email; both transports add the display name `Event Flow` |
 | EMAIL_OUTBOX_ENABLED | `true`; `false` during recovery/reconciliation |
-| MEDIA_STORAGE_ROOT | `/data/media` |
+| MEDIA_STORAGE_ROOT | Absolute media directory on the persistent volume; image default: `/data/media` |
 | GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET | Both configured for Google login, or both empty |
 | RAILWAY_RUN_UID | `0` for the provisioning entry point; it immediately drops the server to UID/GID 1000 |
 | PORT | Supplied by Railway; server binds `0.0.0.0` |
 | NODE_ENV | `production` (image default) |
 
 Use PostgreSQL 18 explicitly (`uuidv7()` is required). Keep its service private,
-in the same environment/region. Never reset retained data or rewrite migration
-history. Review migrations and backup before applying `pnpm db:deploy`; migration
-failure must prevent rollout. Existing schema constraints and contracts remain.
+in the same environment/region. Fresh installations apply the current baseline;
+existing demo installations require the controlled clean release below. Future
+releases use reviewed incremental migrations. Migration failure must prevent rollout.
 Build uses nonsecret placeholder environment values only; real secrets are runtime
 variables. `.dockerignore` excludes local environment, Git and generated artifacts.
 
-The startup initializer accepts only `/data/media`; checks parent ownership/modes
-and extended ACLs, creates a missing 0700 directory and gives it to UID 1000.
+The startup initializer uses `MEDIA_STORAGE_ROOT` (the image defaults to `/data/media`).
+The path must be absolute and normalized, and all parent directories must already
+exist. It checks the complete parent chain for root ownership, safe modes and
+absence of symlinks or extended ACLs, then creates a missing 0700 media directory
+and gives it to UID 1000. Configure the persistent volume mount to contain this
+directory; setting the environment variable does not attach a volume.
 Existing directories must already meet ownership/mode requirements. It refuses
 symlinks or unsafe existing permissions rather than repairing them recursively.
 The original media adapter still checks the complete path and files. On imported
@@ -466,6 +491,123 @@ an artificial capability and inspect Railway edge logs without exporting secrets
 Do not open real legacy bearer paths on Railway. Keep tracing/body/header logging
 and analytics disabled on private/auth flows. A fragment exchange requires JS;
 invalid/expired sessions instruct users to reopen their private email link.
+
+### SECURITY-1 release decision and deferred technical debt
+
+On 2026-10-13, the Product Owner accepted SECURITY-1 Part A and explicitly
+deferred Part B for the current small public demo on Resend Free. Submission abuse
+protection and additional email quota management are **deferred technical debt,
+not blockers for this clean release**. The previously proposed limits are not
+approved production policy and must not be implemented as part of this release.
+
+The accepted risks include automated anonymous or authenticated submissions,
+application/database growth, organizer notification flooding, and exhaustion of
+the shared authentication/transactional email allowance. Existing quota cooldowns
+are process-local; quota-related delivery failures can consume Outbox attempts
+and eventually leave terminal FAILED messages. This decision accepts those risks;
+it does not assert that abuse protection exists or that delivery is guaranteed
+during quota exhaustion.
+
+Keep existing authentication, authorization, credentials, uniqueness constraints,
+transaction/concurrency controls, neutral duplicate responses and Email Outbox
+admission, delivery and retry behavior unchanged. No CAPTCHA, new limiter, email
+budget mechanism or provider/settings change is included. Revisit Part B through
+a separate Product Owner decision if demo usage, abuse or sending requirements
+warrant it; the current release does not depend on that work.
+
+Clean-release preparation continues with the operator runbook below. Include the
+accepted Part A changes and this decision in the reviewed release artifact before
+pinning its final commit/image. The Part B deferral does not authorize a reset,
+merge, push or deployment, or replace target verification and post-deployment
+acceptance. Production operations remain a separate release step.
+
+### Controlled clean release of the disposable demo
+
+This is an operator runbook for the explicitly approved destruction of **all demo
+accounts, Events, applications, Tickets, communications and media**. It prepares a
+separate release operation; this branch performs no production reset, configuration
+change or deployment. Do not run these steps against a retained or shared database.
+
+1. **Prepare and verify targets.** Pin the reviewed release commit/image. Record
+   Railway project/environment, application and PostgreSQL service IDs, database
+   name, database/schema owners, application role, schema grants, volume ID, mount
+   path and resolved `MEDIA_STORAGE_ROOT`. Verify PostgreSQL 18, the actual migration
+   ledger and all non-system schemas/objects. This product uses only `public`; stop
+   if unrelated objects, extensions or consumers are present. Ensure working admin
+   access to PostgreSQL and offline access to the exact media directory before the
+   outage. Record a recovery choice: a paired DB/media backup and matching old image
+   if recovery is required, or explicit acceptance that the demo cannot be restored.
+2. **Stop all writers before deploying.** Pause automatic/queued rollouts and any
+   manual maintenance jobs. Remove/stop every application deployment and replica,
+   including preview/old deployments sharing this DB or volume. Do not rely on
+   overlap=0, a new deployment's healthcheck, or `EMAIL_OUTBOX_ENABLED=false` alone:
+   HTTP/auth writers and the media sweeper must also stop. Allow the configured 75s
+   drain (the application has a 60s shutdown bound). Verify the processes are gone
+   and DB pools/listeners disconnected. Keep PostgreSQL running. Inspect
+   `pg_stat_activity` for the exact database; terminate only identified leftover
+   application sessions and verify they do not reconnect. Keep one admin session.
+3. **Replace the application schema and ledger.** Recheck database identity in that
+   admin session. With `psql` error-stop enabled and `schema_owner` / `app_role` set
+   to the recorded, verified roles, execute the following only after step 2:
+
+   ```sql
+   SELECT current_database(), current_user, current_setting('server_version');
+   BEGIN;
+   DROP SCHEMA public CASCADE;
+   CREATE SCHEMA public AUTHORIZATION :"schema_owner";
+   GRANT USAGE, CREATE ON SCHEMA public TO :"app_role";
+   COMMIT;
+   ```
+
+   Restore any separately recorded required schema grants. This removes existing
+   application tables, enum types, indexes, constraints and `_prisma_migrations`
+   together. Verify there are no application objects or old ledger left. Do not
+   delete Railway's PostgreSQL volume, change database credentials, or reset other
+   databases. Stop on any error; do not start an app against a partial reset.
+4. **Clear the paired disposable media.** With all app processes still stopped,
+   use the verified Railway volume file browser/CLI or a maintenance-only mounted
+   container to remove every entry inside the confirmed media root, including
+   hidden/temp files. Preserve the volume and mount itself and unrelated directories.
+   For the default `/data` mount, `/data/media` is the `media` directory inside that
+   volume. Verify the directory is empty, application-owned UID/GID 1000, mode 0700,
+   with no symlinks, unsafe parent permissions or extended ACLs. If offline access
+   needs a maintenance container, prepare it with no app server, migration hook,
+   dispatcher or cleanup worker; never restart the old app merely to access files.
+   Establish this access method during step 1. Railway's pre-deploy container has
+   **no mounted volume** and cannot perform this step.
+5. **Apply and verify the baseline while writers remain stopped.** From the reviewed
+   artifact with Node 24, dependencies and the verified DB environment, run
+   `pnpm db:deploy`, `pnpm exec prisma migrate status`,
+   `pnpm exec prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code`,
+   `pnpm db:generate`, and `pnpm db:check`. Expect one successful baseline ledger row,
+   no drift and zero application rows. Compare custom CHECK definitions and catalog
+   totals with DOMAIN.md and the baseline SQL; drift alone is insufficient. Close
+   the maintenance DB connections and stop any media maintenance container.
+6. **Start only the updated application.** Verify the runtime variable table above,
+   canonical HTTPS origin, PostgreSQL target, stable auth/Ticket keys, mail sender,
+   OAuth callback, persistent volume and its permissions. Initially keep
+   `EMAIL_OUTBOX_ENABLED=false` and public access restricted for acceptance. Deploy
+   the pinned image with the normal image CMD and existing `pnpm db:deploy` pre-deploy
+   hook; it now finds the baseline applied and is a no-op. Never launch an old image
+   against this baseline or permit an automatic old deployment to restart.
+7. **Accept and reopen.** Require successful startup/media validation and HTTP 200
+   from `/api/health`, then migration status and `db:check`. With isolated acceptance
+   identities, verify sign-in/verification/OAuth, private-password access, shared
+   guest registration and atomic approval/capacity, Ticket/Application fragment
+   exchange and revocation, role privacy/check-in, cover upload/publication and a
+   volume-preserving restart, and SSE reconnect. Enable the outbox only after the
+   database/media pair is confirmed; verify real mail, retry visibility and graceful
+   shutdown without credential logging. Reopen public traffic and resume automatic
+   rollouts only after acceptance. Health alone proves neither schema integrity nor
+   these product flows. On failure keep writers stopped; repair the release or
+   restore the complete recorded DB/media/image/key set. An image rollback alone
+   cannot undo the destructive cutover.
+
+Railway references: [deployment teardown](https://docs.railway.com/deployments/deployment-teardown),
+[pre-deploy isolation](https://docs.railway.com/deployments/pre-deploy-command),
+[volume file access](https://docs.railway.com/cli/volume). Verify available offline
+volume controls and maintenance access in the target environment before scheduling
+the release; they were not exercised by local baseline verification.
 
 Enable backups for both PostgreSQL and the media volume, retain a portable copy
 outside the project, and preserve auth/Ticket keys securely and separately. Define

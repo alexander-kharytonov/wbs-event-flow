@@ -381,7 +381,6 @@ export async function buildBulkBadgeDocument(
                 : (application.guests.find(
                     (guest) => guest.id === person.applicationGuestId,
                   )?.answers ?? []),
-              person.kind,
             );
 
             if (resolved.status === "VALUE") {
