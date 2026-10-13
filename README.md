@@ -329,6 +329,14 @@ are implemented and accepted.
 
 ## Engineering verification
 
+EventForm owns editable values, date intent, version and confirmed-save navigation.
+Feature-local hooks isolate creation retry snapshots, transient password state and
+cover operations. RegistrationApplicationForm owns the frozen revision and one
+participant answer store; participant sections are controlled views. AttendeesList
+owns filtering, selection and check-in feedback; rows and detail receive fresh data.
+Badge and CSV entry points retain authorization and transaction ownership, passing
+the same transaction to the field catalog, layout persistence and dataset builders.
+
 `scripts/` contains the read-only `db:check` and explicit `media:cleanup`
 maintenance commands.
 Use lint, TypeScript, build, Prisma validation/migration drift and `db:check` as

@@ -1,7 +1,6 @@
 "use client";
 
 import ArrowForward from "@mui/icons-material/ArrowForward";
-import PeopleOutlined from "@mui/icons-material/PeopleOutlined";
 import SendOutlined from "@mui/icons-material/SendOutlined";
 import {
   Alert,
@@ -10,7 +9,6 @@ import {
   Button,
   Paper,
   Stack,
-  TextField,
   Typography,
 } from "@mui/material";
 import { useRouter } from "next/navigation";
@@ -24,20 +22,19 @@ import {
   useState,
 } from "react";
 import { BackLink } from "@/components/ui/back-link";
-import { EmptyState } from "@/components/ui/empty-state";
-import {
-  type ApplicationFormState,
-  type ApplicationIssue,
-  applicationAnswersSchema,
-  applicationGuestsSchema,
-  applicationInputSchema,
-  applicationIssue,
-  guestIssue,
-  guestIssueKey,
+import { validateApplicationFields } from "@/features/events/application-form-validation";
+import type {
+  ApplicationFormState,
+  ApplicationIssue,
 } from "@/features/events/application-input";
-import { ApplicationQuestions } from "@/features/events/components/application-questions";
+import {
+  ApplicantDetails,
+  ApplicantQuestions,
+  ApplicationGuests,
+} from "@/features/events/components/application-participants";
 import type { EventSnapshot } from "@/features/events/schemas/event-snapshot";
 import { submitApplication } from "@/features/events/submit-application-action";
+import { useApplicationGuests } from "@/features/events/use-application-guests";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 
 export function RegistrationApplicationForm({
@@ -93,30 +90,8 @@ export function RegistrationApplicationForm({
   const focusFirstError = () => setFocusRequest((current) => current + 1);
   // Keep entered values on errors; discard them only after server success.
   const [values, setValues] = useState<Record<string, string[]>>(initialValues);
-  const [guestKeys, setGuestKeys] = useState<number[]>([]);
-  const nextGuestKey = useRef(0);
-  const guestValues = () =>
-    guestKeys.map((key) => ({
-      name: values[`guest:${key}:name`]?.[0] ?? "",
-      email: values[`guest:${key}:email`]?.[0] ?? "",
-      answers: Object.fromEntries(
-        fields.map((field) => [
-          field.id,
-          values[`guest:${key}:answers:${field.id}`] ?? [],
-        ]),
-      ),
-    }));
-  const mapGuestErrors = (errors: Record<string, ApplicationIssue>) =>
-    Object.fromEntries(
-      Object.entries(errors).map(([key, value]) => {
-        const match = /^guest:(\d+):(.*)$/.exec(key);
-
-        return [
-          match ? `guest:${guestKeys[Number(match[1])]}:${match[2]}` : key,
-          value,
-        ];
-      }),
-    );
+  const { guestKeys, guestValues, mapGuestErrors, addGuest, removeGuest } =
+    useApplicationGuests(values, fields, feedback.errors, feedback.setErrors);
   const [state, action, pending] = useActionState(
     async (previous: ApplicationFormState, formData: FormData) => {
       if (preview || mustRestart || !publicId || !eventRevisionId) {
@@ -202,61 +177,17 @@ export function RegistrationApplicationForm({
   }, [focusRequest, pending]);
 
   function validateFields() {
-    const errors: Record<string, ApplicationIssue> = {};
-
-    if (preview) {
-      return errors;
-    }
-    const input = applicationInputSchema.safeParse({
+    return validateApplicationFields({
+      preview,
       publicId,
       eventRevisionId,
-      guests: guestValues(),
-      fullName: values.fullName?.[0] ?? applicant?.name ?? "",
-      email: applicant?.email ?? values.email?.[0] ?? "",
-      answers: Object.fromEntries(
-        fields.map((field) => [field.id, values[`answer:${field.id}`] ?? []]),
-      ),
-    });
-
-    if (!input.success) {
-      for (const issue of input.error.issues) {
-        errors[String(issue.path[0])] ??= applicationIssue(issue);
-      }
-    }
-    const answers = applicationAnswersSchema({
-      registrationForm: { fields },
-    }).safeParse(
-      Object.fromEntries(
-        fields.map((field) => [field.id, values[`answer:${field.id}`] ?? []]),
-      ),
-    );
-
-    if (!answers.success) {
-      for (const issue of answers.error.issues) {
-        errors[`answer:${String(issue.path[0])}`] ??= applicationIssue(issue);
-      }
-    }
-
-    const guests = applicationGuestsSchema({
-      registrationForm: { fields },
+      fields,
       maxGuestsPerRegistration,
-    }).safeParse(guestValues());
-
-    if (!guests.success) {
-      Object.assign(
-        errors,
-        mapGuestErrors(
-          Object.fromEntries(
-            guests.error.issues.map((issue) => [
-              guestIssueKey(issue),
-              guestIssue(issue),
-            ]),
-          ),
-        ),
-      );
-    }
-
-    return errors;
+      values,
+      applicant,
+      guests: guestValues(),
+      mapGuestErrors,
+    });
   }
 
   function checkRequiredFields() {
@@ -329,71 +260,14 @@ export function RegistrationApplicationForm({
         }}
       >
         {eventContext}
-        <Paper
-          variant="outlined"
-          component="section"
-          aria-labelledby="applicant-details-title"
-          sx={{ p: { xs: 2.5, sm: 4 } }}
-        >
-          <Stack spacing={3}>
-            <Box>
-              <Typography
-                id="applicant-details-title"
-                variant="h6"
-                component="h2"
-              >
-                {t("yourDetails")}
-              </Typography>
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                sx={{ mt: 0.75 }}
-              >
-                {t("requiredFieldsHint")}
-              </Typography>
-            </Box>
-            <Stack spacing={3}>
-              <TextField
-                disabled={pending}
-                name="fullName"
-                label={t("fullName")}
-                autoComplete="name"
-                required
-                fullWidth
-                value={values.fullName?.[0] ?? applicant?.name ?? ""}
-                onChange={(event) => update("fullName", [event.target.value])}
-                error={!!feedback.errors.fullName}
-                helperText={feedback.field("fullName").helperText}
-                slotProps={{
-                  input: { readOnly: preview },
-                  htmlInput: { maxLength: 200 },
-                }}
-              />
-              <TextField
-                disabled={pending}
-                name="email"
-                label={t("email")}
-                type="email"
-                autoComplete="email"
-                required
-                fullWidth
-                value={applicant?.email ?? values.email?.[0] ?? ""}
-                onChange={(event) => update("email", [event.target.value])}
-                error={!!feedback.errors.email}
-                helperText={
-                  (feedback.errors.email
-                    ? t(
-                        feedback.errors.email.code,
-                        feedback.errors.email.values,
-                      )
-                    : undefined) ??
-                  (applicant ? t("verifiedEmailHint") : undefined)
-                }
-                slotProps={{ input: { readOnly: preview || !!applicant } }}
-              />
-            </Stack>
-          </Stack>
-        </Paper>
+        <ApplicantDetails
+          applicant={applicant}
+          values={values}
+          feedback={feedback}
+          update={update}
+          pending={pending}
+          preview={preview}
+        />
       </Box>
       {formChanged && (
         <Alert
@@ -422,154 +296,33 @@ export function RegistrationApplicationForm({
           {t("restartClearsAnswers")}
         </Alert>
       )}
-      {fields.length > 0 && (
-        <Box
-          component="section"
-          aria-labelledby="application-questions-title"
-          sx={{ px: { xs: 0.5, sm: 4 } }}
-        >
-          <Stack spacing={3.5}>
-            <Box>
-              <Typography
-                id="application-questions-title"
-                variant="h5"
-                component="h2"
-              >
-                {t("registrationQuestions")}
-              </Typography>
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                sx={{ mt: 0.75 }}
-              >
-                {t("organizerQuestionsCount", { count: fields.length })}
-              </Typography>
-            </Box>
-            <Stack
-              spacing={{ xs: 3, sm: 3.5 }}
-              sx={{
-                "& .MuiFormControl-root": { minWidth: 0 },
-                "& .MuiFormControlLabel-label": {
-                  overflowWrap: "anywhere",
-                },
-                "& .MuiFormHelperText-root": { overflowWrap: "anywhere" },
-              }}
-            >
-              <ApplicationQuestions
-                fields={fields}
-                values={values}
-                errors={feedback.errors}
-                update={update}
-                pending={pending}
-                preview={preview}
-                selectPlaceholders={selectPlaceholders}
-              />
-            </Stack>
-          </Stack>
-        </Box>
-      )}
+      <ApplicantQuestions
+        fields={fields}
+        values={values}
+        feedback={feedback}
+        update={update}
+        pending={pending}
+        preview={preview}
+        selectPlaceholders={selectPlaceholders}
+      />
       <input
         type="hidden"
         name="guests"
         value={JSON.stringify(guestValues())}
       />
-      {maxGuestsPerRegistration > 0 && (
-        <Stack component="section" spacing={3}>
-          <Typography variant="h5" component="h2">
-            {t("declaredGuests")}
-          </Typography>
-          <Alert severity="info">
-            {t("declareGuestsHint", {
-              count: maxGuestsPerRegistration,
-            })}
-          </Alert>
-          {guestKeys.length === 0 && (
-            <EmptyState
-              icon={<PeopleOutlined />}
-              title={t("noGuests")}
-              description={t("noDeclaredGuestsHint")}
-            />
-          )}
-          {guestKeys.map((key, index) => (
-            <Paper variant="outlined" key={key} sx={{ p: { xs: 2, sm: 3 } }}>
-              <Stack spacing={3}>
-                <Stack
-                  direction="row"
-                  sx={{ alignItems: "center", justifyContent: "space-between" }}
-                >
-                  <Typography variant="h6" component="h3">
-                    {t("declaredGuestNumber", { count: index + 1 })}
-                  </Typography>
-                  <Button
-                    disabled={pending || preview}
-                    color="error"
-                    onClick={() => {
-                      setGuestKeys((current) =>
-                        current.filter((value) => value !== key),
-                      );
-                      feedback.setErrors(
-                        Object.fromEntries(
-                          Object.entries(feedback.errors).filter(
-                            ([name]) => !name.startsWith(`guest:${key}:`),
-                          ),
-                        ),
-                      );
-                    }}
-                  >
-                    {t("removeGuest")}
-                  </Button>
-                </Stack>
-                <TextField
-                  required
-                  label={t("fullName")}
-                  value={values[`guest:${key}:name`]?.[0] ?? ""}
-                  disabled={pending || preview}
-                  onChange={(event) =>
-                    update(`guest:${key}:name`, [event.target.value])
-                  }
-                  {...feedback.field(`guest:${key}:name`)}
-                  slotProps={{ htmlInput: { maxLength: 200 } }}
-                />
-                <TextField
-                  required
-                  label={t("email")}
-                  type="email"
-                  value={values[`guest:${key}:email`]?.[0] ?? ""}
-                  disabled={pending || preview}
-                  onChange={(event) =>
-                    update(`guest:${key}:email`, [event.target.value])
-                  }
-                  {...feedback.field(`guest:${key}:email`)}
-                />
-                <ApplicationQuestions
-                  fields={fields}
-                  values={values}
-                  errors={feedback.errors}
-                  update={update}
-                  pending={pending}
-                  preview={preview}
-                  prefix={`guest:${key}:answers:`}
-                  formNames={false}
-                  selectPlaceholders={selectPlaceholders}
-                />
-              </Stack>
-            </Paper>
-          ))}
-          {guestKeys.length < maxGuestsPerRegistration && (
-            <Button
-              variant="outlined"
-              disabled={pending || preview}
-              sx={{ alignSelf: "flex-start" }}
-              onClick={() => {
-                const key = nextGuestKey.current++;
-                setGuestKeys((current) => [...current, key]);
-              }}
-            >
-              {t("addGuest")}
-            </Button>
-          )}
-        </Stack>
-      )}
+      <ApplicationGuests
+        fields={fields}
+        values={values}
+        feedback={feedback}
+        update={update}
+        pending={pending}
+        preview={preview}
+        selectPlaceholders={selectPlaceholders}
+        maxGuestsPerRegistration={maxGuestsPerRegistration}
+        guestKeys={guestKeys}
+        onAdd={addGuest}
+        onRemove={removeGuest}
+      />
       {!preview && (
         <Paper
           variant="outlined"

@@ -2,43 +2,30 @@
 
 import BlockOutlined from "@mui/icons-material/BlockOutlined";
 import CheckCircleOutlined from "@mui/icons-material/CheckCircleOutlined";
-import Close from "@mui/icons-material/Close";
 import HowToRegOutlined from "@mui/icons-material/HowToRegOutlined";
 import PeopleOutlined from "@mui/icons-material/PeopleOutlined";
-import PrintOutlined from "@mui/icons-material/PrintOutlined";
 import RadioButtonUncheckedOutlined from "@mui/icons-material/RadioButtonUncheckedOutlined";
 import SearchOutlined from "@mui/icons-material/SearchOutlined";
 import {
-  Avatar,
   Box,
-  Button,
-  Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  IconButton,
   InputAdornment,
   List,
   ListItem,
-  ListItemAvatar,
-  ListItemButton,
-  ListItemText,
   MenuItem,
   Paper,
   Stack,
   TextField,
-  Typography,
 } from "@mui/material";
 import { useRouter } from "next/navigation";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { checkInManuallyAction } from "@/features/attendance/check-in-manually-action";
 import type { ManualCheckInResult } from "@/features/attendance/check-in-result";
 import { CheckInFeedback } from "@/features/attendance/components/check-in-feedback";
+import { AttendeeDetailDialog } from "@/features/events/components/attendee-detail-dialog";
+import { AttendeeRow } from "@/features/events/components/attendee-row";
 import { EventText } from "@/features/events/components/event-text";
-import { formatEventTime } from "@/features/events/format-event-time";
 import type { OrganizerAttendee } from "@/features/events/server/organizer-attendees";
 import { useNotifications } from "@/hooks/use-notifications";
 
@@ -62,7 +49,6 @@ export function AttendeesList({
   lifecycle: "Upcoming" | "Ongoing" | "Completed" | "Cancelled";
 }) {
   const t = useTranslations("events");
-  const locale = useLocale();
   const router = useRouter();
   const notifications = useNotifications();
   const [search, setSearch] = useState("");
@@ -119,6 +105,11 @@ export function AttendeesList({
     !selected.attendance &&
     lifecycle === "Ongoing" &&
     !success;
+  function openDetail(id: string) {
+    setResult(null);
+    setSelectedId(id);
+  }
+
   function closeDetail() {
     if (pending) {
       return;
@@ -167,140 +158,6 @@ export function AttendeesList({
         });
       }
     });
-  }
-
-  function renderAttendee(person: OrganizerAttendee, contextOnly = false) {
-    const nameParts = person.name.trim().split(/\s+/u).filter(Boolean);
-    const initials = [
-      nameParts[0],
-      ...(nameParts.length > 1 ? [nameParts[nameParts.length - 1]] : []),
-    ]
-      .map((part) => Array.from(part ?? "")[0] ?? "")
-      .join("")
-      .toUpperCase();
-    let colorHash = 0;
-
-    for (const character of initials) {
-      colorHash = (colorHash * 31 + (character.codePointAt(0) ?? 0)) % 360;
-    }
-
-    return (
-      <ListItemButton
-        onClick={() => {
-          setResult(null);
-          setSelectedId(person.id);
-        }}
-        aria-label={t("attendeeOpen", { name: person.name })}
-        aria-haspopup="dialog"
-        alignItems="flex-start"
-        sx={{
-          px: { xs: 2, sm: 3 },
-          py: 2,
-          ...(contextOnly ? { bgcolor: "action.hover" } : {}),
-          gap: { xs: 1.5, sm: 2 },
-          minWidth: 0,
-        }}
-      >
-        <ListItemAvatar sx={{ minWidth: 0, mt: 0.5 }}>
-          <Avatar
-            sx={{
-              bgcolor: `hsl(${colorHash}, 55%, 32%)`,
-              color: "#fff",
-              fontWeight: 600,
-              fontSize: 14,
-            }}
-          >
-            {initials}
-          </Avatar>
-        </ListItemAvatar>
-        <Box
-          sx={{
-            flex: 1,
-            minWidth: 0,
-            display: "flex",
-            flexDirection: { xs: "column", md: "row" },
-            gap: 2,
-            alignItems: { md: "center" },
-          }}
-        >
-          <ListItemText
-            sx={{ m: 0, minWidth: 0, overflowWrap: "anywhere" }}
-            primary={person.name}
-            secondary={
-              <>
-                {person.email && (
-                  <Typography
-                    component="span"
-                    variant="body2"
-                    sx={{
-                      display: "block",
-                      color: "text.primary",
-                      mt: 0.25,
-                    }}
-                  >
-                    {person.email}
-                  </Typography>
-                )}
-                <Typography
-                  component="span"
-                  variant="caption"
-                  sx={{ display: "block", mt: 0.5 }}
-                >
-                  {person.kind === "GUEST" ? t("guest") : t("primaryAttendee")}
-                  {person.ticket ? ` · ${person.ticket.number}` : ""}
-                  {contextOnly ? ` · ${t("attendeeContext")}` : ""}
-                </Typography>
-              </>
-            }
-            slotProps={{
-              primary: {
-                component: "div",
-                sx: { fontWeight: 600 },
-              },
-              secondary: { component: "div" },
-            }}
-          />
-          <Stack
-            direction="row"
-            useFlexGap
-            spacing={1.5}
-            sx={{
-              alignItems: "center",
-              flexWrap: "wrap",
-              flexShrink: 0,
-              maxWidth: "100%",
-            }}
-          >
-            <Chip
-              size="small"
-              variant="outlined"
-              label={isActive(person) ? t("active") : t("attendeeRevoked")}
-              color={isActive(person) ? "success" : "default"}
-              icon={
-                isActive(person) ? <CheckCircleOutlined /> : <BlockOutlined />
-              }
-              sx={{ borderRadius: 1, fontWeight: 600 }}
-            />
-            <Chip
-              size="small"
-              variant="outlined"
-              label={
-                person.attendance ? t("checkedIn") : t("attendeeNotChecked")
-              }
-              color={person.attendance ? "success" : "default"}
-              icon={
-                person.attendance ? (
-                  <HowToRegOutlined />
-                ) : (
-                  <RadioButtonUncheckedOutlined />
-                )
-              }
-              sx={{ borderRadius: 1, fontWeight: 600 }}
-            />
-          </Stack>
-        </Box>
-      </ListItemButton>
-    );
   }
 
   return (
@@ -453,7 +310,12 @@ export function AttendeesList({
                 divider={index < visibleGroups.length - 1}
                 sx={{ display: "block" }}
               >
-                {renderAttendee(primary, contextOnly)}
+                <AttendeeRow
+                  person={primary}
+                  active={isActive(primary)}
+                  contextOnly={contextOnly}
+                  onSelect={openDetail}
+                />
                 {guests.length > 0 && (
                   <List
                     disablePadding
@@ -471,7 +333,11 @@ export function AttendeesList({
                   >
                     {guests.map((guest) => (
                       <ListItem key={guest.id} disablePadding>
-                        {renderAttendee(guest)}
+                        <AttendeeRow
+                          person={guest}
+                          active={isActive(guest)}
+                          onSelect={openDetail}
+                        />
                       </ListItem>
                     ))}
                   </List>
@@ -481,297 +347,19 @@ export function AttendeesList({
           </List>
         </Paper>
       )}
-      <Dialog
-        open={Boolean(selected)}
-        onClose={closeDetail}
-        fullWidth
-        maxWidth="md"
-        aria-labelledby="attendee-detail-title"
-        slotProps={{
-          paper: {
-            sx: {
-              m: { xs: 1, sm: 4 },
-              width: { xs: "calc(100% - 16px)", sm: "calc(100% - 64px)" },
-              maxHeight: { xs: "calc(100% - 16px)", sm: "calc(100% - 64px)" },
-            },
-          },
-        }}
-      >
-        {selected && (
-          <>
-            <DialogTitle id="attendee-detail-title" sx={{ pr: 7 }}>
-              {t("attendeeDetail")}
-              <IconButton
-                aria-label={t("attendeeClose")}
-                onClick={closeDetail}
-                disabled={pending}
-                sx={{ position: "absolute", right: 12, top: 12 }}
-              >
-                <Close />
-              </IconButton>
-            </DialogTitle>
-            <DialogContent dividers>
-              <Stack spacing={3} sx={{ overflowWrap: "anywhere" }}>
-                <Stack spacing={2.5}>
-                  <Stack
-                    direction={{ xs: "column", sm: "row" }}
-                    spacing={1.5}
-                    sx={{
-                      justifyContent: "space-between",
-                      alignItems: { xs: "flex-start", sm: "center" },
-                    }}
-                  >
-                    <Box sx={{ minWidth: 0 }}>
-                      <Typography variant="h5" component="h3">
-                        {selected.name}
-                      </Typography>
-                      {full && (
-                        <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-                          {selected.email}
-                        </Typography>
-                      )}
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ mt: 0.5 }}
-                      >
-                        {selected.kind === "GUEST"
-                          ? `Guest of ${selected.registration.attendees[0]?.name ?? t("unavailable")}`
-                          : t("primaryAttendee")}
-                      </Typography>
-                    </Box>
-                    <Stack
-                      direction="row"
-                      spacing={1}
-                      useFlexGap
-                      sx={{
-                        flexWrap: "wrap",
-                        alignItems: "center",
-                        justifyContent: { xs: "flex-start", sm: "flex-end" },
-                      }}
-                    >
-                      <Chip
-                        size="small"
-                        variant="outlined"
-                        label={
-                          isActive(selected)
-                            ? t("attendeeAdmissionActive")
-                            : t("attendeeAdmissionRevoked")
-                        }
-                        color={isActive(selected) ? "success" : "default"}
-                        icon={
-                          isActive(selected) ? (
-                            <CheckCircleOutlined />
-                          ) : (
-                            <BlockOutlined />
-                          )
-                        }
-                        sx={{ borderRadius: 1, fontWeight: 600 }}
-                      />
-                      <Chip
-                        size="small"
-                        variant="outlined"
-                        label={
-                          selected.attendance
-                            ? t("checkedIn")
-                            : t("attendeeNotChecked")
-                        }
-                        color={selected.attendance ? "success" : "default"}
-                        icon={
-                          selected.attendance ? (
-                            <HowToRegOutlined />
-                          ) : (
-                            <RadioButtonUncheckedOutlined />
-                          )
-                        }
-                        sx={{ borderRadius: 1, fontWeight: 600 }}
-                      />
-                    </Stack>
-                  </Stack>
-                  <Box sx={{ bgcolor: "background.default", p: 2 }}>
-                    <Box
-                      component="dl"
-                      sx={{
-                        m: 0,
-                        display: "grid",
-                        gridTemplateColumns: {
-                          xs: "1fr",
-                          sm: "repeat(2, minmax(0, 1fr))",
-                        },
-                        gap: 2,
-                        "& dt": {
-                          typography: "caption",
-                          color: "text.secondary",
-                          mb: 0.5,
-                        },
-                        "& dd": { m: 0, typography: "body2" },
-                      }}
-                    >
-                      {selected.createdAt && (
-                        <Box>
-                          <Typography component="dt">
-                            {t("attendeeAdmissionGranted")}
-                          </Typography>
-                          <Typography component="dd">
-                            {selected.createdAt &&
-                              formatEventTime(
-                                selected.createdAt,
-                                timezone,
-                                locale,
-                              )}
-                          </Typography>
-                        </Box>
-                      )}
-                      {(selected.revokedAt ||
-                        selected.registration.revokedAt) && (
-                        <Box>
-                          <Typography component="dt">
-                            {t("attendeeAdmissionRevoked")}
-                          </Typography>
-                          <Typography component="dd">
-                            {formatEventTime(
-                              (selected.revokedAt ??
-                                selected.registration.revokedAt) as Date,
-                              timezone,
-                              locale,
-                            )}
-                          </Typography>
-                        </Box>
-                      )}
-                      <Box>
-                        <Typography component="dt">
-                          {t("attendeeTicketStatus")}
-                        </Typography>
-                        <Typography component="dd">
-                          {selected.ticket
-                            ? selected.ticket.revokedAt
-                              ? t("attendeeRevoked")
-                              : t("active")
-                            : t("unavailable")}
-                        </Typography>
-                      </Box>
-                      {selected.ticket && (
-                        <Box sx={{ gridColumn: "1 / -1" }}>
-                          <Typography component="dt">
-                            {t("ticketNumber")}
-                          </Typography>
-                          <Typography
-                            component="dd"
-                            sx={{ fontFamily: "monospace" }}
-                          >
-                            {selected.ticket.number}
-                          </Typography>
-                        </Box>
-                      )}
-                    </Box>
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      sx={{ display: "block", mt: 1.5 }}
-                    >
-                      {t("allTimesIn", { timezone })}
-                    </Typography>
-                  </Box>
-                </Stack>
-                <Stack spacing={1.5}>
-                  <Typography variant="h6" component="h3">
-                    {t("attendeeAttendance")}
-                  </Typography>
-                  {selected.attendance ? (
-                    <Box
-                      component="dl"
-                      sx={{
-                        m: 0,
-                        display: "grid",
-                        gridTemplateColumns: {
-                          xs: "1fr",
-                          sm: "repeat(2, minmax(0, 1fr))",
-                        },
-                        gap: 2,
-                        "& dt": {
-                          typography: "caption",
-                          color: "text.secondary",
-                          mb: 0.5,
-                        },
-                        "& dd": { m: 0, typography: "body2" },
-                      }}
-                    >
-                      <Box sx={{ gridColumn: "1 / -1" }}>
-                        <Typography component="dt">
-                          {t("attendeeCheckedAt")}
-                        </Typography>
-                        <Typography component="dd">
-                          {formatEventTime(
-                            selected.attendance.checkedInAt,
-                            timezone,
-                            locale,
-                          )}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography component="dt">
-                          {t("attendeeMethod")}
-                        </Typography>
-                        <Typography component="dd">
-                          {selected.attendance.method === "QR"
-                            ? t("attendeeQr")
-                            : t("attendeeManual")}
-                        </Typography>
-                      </Box>
-                      {full && (
-                        <Box>
-                          <Typography component="dt">
-                            {t("attendeeCheckedBy")}
-                          </Typography>
-                          <Typography component="dd">
-                            {selected.attendance.checkedInByUser?.name ||
-                              t("unavailable")}
-                          </Typography>
-                        </Box>
-                      )}
-                    </Box>
-                  ) : (
-                    <Typography variant="body2" color="text.secondary">
-                      {lifecycle === "Upcoming"
-                        ? t("attendeeOpensHint")
-                        : lifecycle === "Cancelled"
-                          ? t("attendeeCancelled")
-                          : lifecycle === "Completed"
-                            ? t("attendeeClosed")
-                            : t("attendeeNotCheckedHint")}
-                    </Typography>
-                  )}
-                </Stack>
-              </Stack>
-            </DialogContent>
-            {(canCheckIn || canPrintBadges) && (
-              <DialogActions>
-                {canPrintBadges && (
-                  <Button
-                    variant="outlined"
-                    startIcon={<PrintOutlined />}
-                    href={`/print/events/${eventId}/badges/${selected.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    disabled={pending}
-                  >
-                    {t("badgePrint")}
-                  </Button>
-                )}
-                {canCheckIn && (
-                  <Button
-                    variant="contained"
-                    loading={pending}
-                    onClick={checkIn}
-                  >
-                    {t("attendeeManualCheckIn")}
-                  </Button>
-                )}
-              </DialogActions>
-            )}
-          </>
-        )}
-      </Dialog>
+      <AttendeeDetailDialog
+        selected={selected}
+        active={Boolean(selected && isActive(selected))}
+        eventId={eventId}
+        timezone={timezone}
+        lifecycle={lifecycle}
+        full={full}
+        canPrintBadges={canPrintBadges}
+        canCheckIn={Boolean(canCheckIn)}
+        pending={pending}
+        closeDetail={closeDetail}
+        checkIn={checkIn}
+      />
     </Stack>
   );
 }
