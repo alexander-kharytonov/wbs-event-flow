@@ -2108,8 +2108,9 @@ locking retain section 31 semantics, without adding server-side idempotency.
 ## 37. Immutable Event media and EventSnapshot (29A)
 
 MediaAsset belongs to an OrganizerProfile and is scoped to the existing Event
-which authorized its upload. eventId becomes null on pristine Event deletion;
-the record/files remain tracked for cleanup. No pre-Create uploads exist.
+which authorized its upload, or starts as an organizer-owned temporary creation upload
+under MEDIA-1 below. eventId becomes null on pristine Event deletion;
+the record/files remain tracked for cleanup.
 backend/storageKey locate bytes privately; generated opaque keys contain no original
 filename. IDs, fixed variant metadata and alt are the only media snapshot data.
 There are no storage keys, local paths, original files or binary DB values in public
@@ -2139,7 +2140,8 @@ refuse upload and attachment. The server reserves an UPLOADING row before filesy
 work. A per-organizer transaction advisory lock serializes NEW upload admission
 across Events/processes. Admission reads the current pending count and refuses it
 when >=10. Pending means UPLOADING or READY with neither draft nor revision
-references; expired uploads count until explicit cleanup. Detach remains allowed
+references; temporary DELETING rows also count until collected. Expired uploads
+count until cleanup. Detach remains allowed
 under normal guards, including concurrently with admission, and may raise the count
 above ten. This is not an unconditional pendingCount<=10 invariant. Subsequent
 admissions remain blocked while the current count is >=10; cleanup removes expired
@@ -2234,7 +2236,8 @@ Rerun the command until neither budget is reached; repeated calls are idempotent
 Successful deletions remove candidates from subsequent runs, including late-upload
 temp/orphan files. Persistent failures require operator intervention and may occupy
 the DB candidate budget until repaired. There are no persistent cursors, new tables,
-workers, cron, polling or automatic cleanup.
+workers or cron for existing Event assets. MEDIA-1 adds automatic temporary-upload
+collection below.
 
 SQL CHECKs enforce locator, lifecycle/nullability, manifest container shape,
 timestamps and Event rich-field/alt shape. Full manifest/snapshot validity, asset
@@ -2242,6 +2245,73 @@ ownership/scope, state transitions and immutability are server-enforced, like ex
 EventRevision invariants. db:check checks media references and serialized contracts.
 EventTemplate below is the current portable contract. Binary inclusion, shared media cloning and
 remote media fetch remain unsupported.
+
+
+### Temporary creation covers and atomic retry receipts (MEDIA-1)
+
+MediaAsset.temporaryExpiresAt distinguishes unconsumed creation uploads from both
+Event-scoped uploads and pristine-delete orphans. It equals uploadExpiresAt, with a
+24-hour deadline from reservation, and requires eventId=null by CHECK constraint.
+The same private generated locators, normalization, manifests, resource slots and
+organizer admission advisory lock apply. Temporary IDs are cryptographically random UUIDv4 values; possession
+is never authority. POST /api/event-covers/uploads requires a fresh verified session,
+exact canonical Origin and OrganizerProfile. No placeholder Event is created.
+
+GET /api/event-covers/[assetId]/[variant] checks READY, organizer ownership,
+eventId=null and unexpired temporaryExpiresAt in a consistent database snapshot.
+It serves only the existing fixed variants, checks bytes/checksum and uses the same
+private/no-store, noindex, nosniff and no-referrer headers. DELETE requires the same
+fresh actor and mutation Origin, locks the asset, rejects references/consumed assets
+and marks DELETING. It never deletes files directly. Replacement requests discard
+only after the replacement upload succeeds; lost discard responses remain safe.
+Abandonment and failed preparation rely on expiry rather than browser unload delivery.
+
+Creation adapters validate authoring as before and pass authenticated organizer identity
+and strict {key, assetId, alt} separately from EventTemplate. The key is a client-generated
+UUID, not an authorization credential. A transaction advisory lock serializes the key;
+EventCreationReceipt.key is also a primary key. A domain-separated HMAC-SHA256 fingerprint
+of the validated selection and intent binds retries without storing raw values or a
+password-guessing digest. Same owner/key/fingerprint returns the stored safe result
+before Staff budgets/resolution or creation. Changed intent, another owner or a receipt
+whose Event has been deleted fails closed. Receipts contain Event ID, Staff counts and
+private skipped/duplicate warnings; no files, storage locators or plaintext passwords.
+They survive pristine deletion with eventId=null and are not expired by media cleanup.
+
+For a new request, the transaction locks the temporary asset, rechecks ownership,
+READY state, expiry and absence of Event scope, and reads/checks all four immutable
+variant files through the existing safe storage adapter. This read occurs while the
+asset lock excludes cleanup. The normal create core inserts the new Event and its
+configuration; the transaction sets asset.eventId, clears temporaryExpiresAt and
+unusedSince, assigns Event.coverAssetId/coverAlt and stores the receipt. A selected
+cover is initialization, not an Event edit: no read-only exception is exposed for
+existing Completed Events. Initial contentVersion and publication semantics are unchanged.
+Different request keys competing for one upload serialize on the asset; only one can
+consume it. A retry of the successful key returns the original Event without consuming
+again. Lock waits are capped at three seconds and the transaction at fifteen seconds.
+
+Prepared files are create-only and fsynced before READY; storage also syncs the parent
+directory after linking the final file and removing its temporary name. Creation performs
+no filesystem mutations, copies or moves. Rollback or an uncertain commit never triggers
+file deletion. Cleanup must acquire the same asset lock and recheck all draft/historical
+references, so it cannot remove an attached cover. Missing, corrupt or inaccessible files
+abort creation. Existing trust in the application OS user, private volume, ACLs and backups
+still applies; external/privileged filesystem destruction is not a PostgreSQL transaction.
+
+Automatic startup/15-minute sweeps reuse cleanupMedia with a temporary-only DB filter.
+Expired temporary READY and UPLOADING rows and discarded DELETING rows are eligible;
+existing Event assets keep their explicit maintenance policy and grace periods. The
+existing bounded, constant-memory orphan reconciliation also runs, retaining its 24-hour
+file-age rule for interrupted/late writes. Each process allows one sweep; DB row locks
+make concurrent collectors safe. Sweeps use the existing 100-row/100-orphan budgets,
+sanitized failure logging and process drain hook. A stopped app performs no cleanup;
+startup resumes it. Successful consumption removes the temporary marker and transfers
+the asset to the ordinary draft/revision retention rules without deleting valid media.
+
+Unknown creation outcomes freeze the client form and its exact submitted FormData in
+memory; retry uses the same key and payload, including the transient password when set.
+Confirmed success/failure releases that snapshot. Confirmed field/media errors allow
+correction with the same uncommitted key. Mode changes are blocked during uncertainty;
+leaving/reload follows the existing dirty-navigation protections, with no persistent draft.
 
 
 ## 38. Rich authoring and EventTemplate (29B)
@@ -2302,8 +2372,8 @@ Review/Create use the same transport.
 UTF-8 byte limits apply at text input, validated Create and serialized Export.
 EventTemplate validates the complete rich configuration and agenda interval.
 Export and the existing authorized Duplicate source reader project EventTemplate. Review
-warns about OMITTED; Create always creates without a cover using the existing atomic
-core. Source reload/revocation checks, Staff resolution, fresh question/option IDs,
+warns about OMITTED; Create copies no source cover. A separately selected temporary
+cover can attach through MEDIA-1 using the existing atomic core. Source reload/revocation checks, Staff resolution, fresh question/option IDs,
 Badge bindings and rollback behavior are preserved. There is no second editor or
 cloning service, media copy, worker, polling or cloud backend.
 
@@ -2320,10 +2390,11 @@ edited-date markers only on confirmed success. Later writes still derive exact
 instants from the locked database row, never the returned client source. RSC refresh
 does not overwrite a mounted editor's local values or advance its token.
 
-Manual Create uses the unchanged atomic create core, returning the ID for navigation
-to Edit. Import/Duplicate keep atomic creation, Staff budgets, Badge remapping,
+Manual Create uses the atomic create core and MEDIA-1 receipt/cover transaction,
+returning the ID for navigation to Edit. Import/Duplicate keep atomic creation, Staff budgets, Badge remapping,
 frozen Review and confirmed-success locking; success now opens Edit. There is no
-schema, EventTemplate transport, admission, publication or media lifecycle change.
+EventTemplate transport, admission or publication change. MEDIA-1 extends creation
+persistence and temporary media lifecycle as specified below.
 
 Dirty tracking includes Event values/date intent, unsaved cover selection/alt/upload
 and modified Review extras. A committed cover is not an unsaved Event-field change.

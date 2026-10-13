@@ -4,12 +4,13 @@ import {
   validateTemplateCreate,
 } from "@/features/events/import/template-input";
 import { createEventCore } from "@/features/events/server/create-event-core";
+import { createEventWithCover } from "@/features/events/server/create-event-with-cover";
+import { MediaError } from "@/features/events/server/media-image";
 import {
   reserveStaffResolution,
   resolveStaff,
 } from "@/features/events/server/staff-resolution";
 import { normalizeStaff } from "@/features/events/staff-input";
-import { prisma } from "@/lib/prisma";
 
 export type TemplateCreateResult =
   | {
@@ -19,7 +20,7 @@ export type TemplateCreateResult =
       skippedEmails: string[];
       duplicateWarnings: string[];
     }
-  | { success: false; issues: TemplateIssue[] };
+  | { success: false; issues: TemplateIssue[]; creationUncertain?: boolean };
 
 // Actor and organizer are supplied exclusively by the authenticated server adapter.
 // Accepts object input without a JSON round-trip for future projector consumers.
@@ -27,6 +28,7 @@ export async function createTemplateEvent(
   actorUserId: string,
   organizerId: string,
   input: unknown,
+  creation: unknown,
 ): Promise<TemplateCreateResult> {
   const parsed = validateTemplateCreate(input);
 
@@ -37,33 +39,26 @@ export async function createTemplateEvent(
   const event = parsed.template.event;
   const staff = normalizeStaff(event.staff);
 
-  if (
-    !reserveStaffResolution(
-      actorUserId,
-      staff.members.map((member) => member.email),
-    )
-  ) {
-    return {
-      success: false,
-      issues: [
-        {
-          code: "staff_budget",
-          path: "event.staff",
-          message: "staffBudget",
-        },
-      ],
-    };
-  }
-
   try {
-    const { resolved, skippedEmails } = await resolveStaff(
-      prisma,
-      actorUserId,
-      staff.members,
-    );
-    const eventId = await prisma.$transaction(
-      (tx) =>
-        createEventCore(
+    const result = await createEventWithCover(
+      organizerId,
+      creation,
+      { kind: "template", event },
+      async (tx) => {
+        if (
+          !reserveStaffResolution(
+            actorUserId,
+            staff.members.map((member) => member.email),
+          )
+        ) {
+          throw new MediaError(429, "staffBudget");
+        }
+        const { resolved, skippedEmails } = await resolveStaff(
+          tx,
+          actorUserId,
+          staff.members,
+        );
+        const eventId = await createEventCore(
           tx,
           organizerId,
           {
@@ -92,25 +87,36 @@ export async function createTemplateEvent(
           event.registrationForm.fields,
           event.badgeLayout,
           resolved,
-        ),
-      { timeout: 15000 },
+        );
+
+        return {
+          eventId,
+          addedCount: resolved.length,
+          skippedEmails,
+          duplicateWarnings: staff.duplicates,
+        };
+      },
     );
 
-    return {
-      success: true,
-      eventId,
-      addedCount: resolved.length,
-      skippedEmails,
-      duplicateWarnings: staff.duplicates,
-    };
-  } catch {
+    return { success: true, ...result };
+  } catch (error) {
     return {
       success: false,
+      creationUncertain: !(error instanceof MediaError),
       issues: [
         {
-          code: "create_failed",
-          path: "template",
-          message: "templateCreateFailed",
+          code:
+            error instanceof MediaError && error.code === "staffBudget"
+              ? "staff_budget"
+              : "create_failed",
+          path:
+            error instanceof MediaError && error.code === "staffBudget"
+              ? "event.staff"
+              : "template",
+          message:
+            error instanceof MediaError
+              ? error.code
+              : "templateCreationUnconfirmed",
         },
       ],
     };

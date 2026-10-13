@@ -30,6 +30,7 @@ async function main() {
           UNION ALL SELECT 'Event', count(*) FROM "Event"
           UNION ALL SELECT 'EventRevision', count(*) FROM "EventRevision"
           UNION ALL SELECT 'MediaAsset', count(*) FROM "MediaAsset"
+          UNION ALL SELECT 'EventCreationReceipt', count(*) FROM "EventCreationReceipt"
           UNION ALL SELECT 'EventStaff', count(*) FROM "EventStaff"
           UNION ALL SELECT 'RegistrationForm', count(*) FROM "RegistrationForm"
           UNION ALL SELECT 'RegistrationField', count(*) FROM "RegistrationField"
@@ -337,6 +338,18 @@ async function main() {
           SELECT 'revision_media_reference', count(*)
           FROM "EventRevision" r JOIN "Event" e ON e.id = r."eventId" JOIN "MediaAsset" m ON m.id = r."coverAssetId"
           WHERE m.state <> 'READY' OR m."organizerId" <> e."organizerId" OR m."eventId" IS DISTINCT FROM e.id
+          UNION ALL
+          SELECT 'temporary_media_reference', count(*) FROM "MediaAsset" m
+          WHERE m."temporaryExpiresAt" IS NOT NULL AND (
+            m."eventId" IS NOT NULL OR m."temporaryExpiresAt" <> m."uploadExpiresAt"
+            OR EXISTS (SELECT 1 FROM "Event" e WHERE e."coverAssetId" = m.id)
+            OR EXISTS (SELECT 1 FROM "EventRevision" r WHERE r."coverAssetId" = m.id)
+          )
+          UNION ALL
+          SELECT 'creation_receipt', count(*) FROM "EventCreationReceipt" c
+          LEFT JOIN "Event" e ON e.id = c."eventId"
+          WHERE (c."eventId" IS NOT NULL AND (e."organizerId" <> c."organizerId" OR c.result->>'eventId' IS DISTINCT FROM c."eventId"::text))
+            OR c.fingerprint !~ '^[a-f0-9]{64}$'
           UNION ALL
           SELECT 'untracked_ready_media_retention', count(*) FROM "MediaAsset" m
           WHERE m.state = 'READY' AND m."unusedSince" IS NULL

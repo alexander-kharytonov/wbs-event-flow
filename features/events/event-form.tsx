@@ -1,6 +1,6 @@
 "use client";
 
-import { Alert, Box, Stack } from "@mui/material";
+import { Alert, Box, Button, Stack } from "@mui/material";
 import { unstable_rethrow, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import {
@@ -146,6 +146,12 @@ export function EventForm({
     editorFingerprint(initial, []),
   );
   const [coverDirty, setCoverDirty] = useState(false);
+  const [coverUnprepared, setCoverUnprepared] = useState(false);
+  const [creationUncertain, setCreationUncertain] = useState(false);
+  const [preparedCoverId, setPreparedCoverId] = useState<string | null>(null);
+  const [submittedCoverId, setSubmittedCoverId] = useState<string | null>(null);
+  const creationKey = useRef<string | null>(null);
+  const submittedCreation = useRef<FormData | null>(null);
   const [coverConflict, setCoverConflict] = useState(false);
   const [focusRequest, setFocusRequest] = useState(0);
   const [validationAttempted, setValidationAttempted] = useState(false);
@@ -158,12 +164,26 @@ export function EventForm({
     async (previous: EventFormState, formData: FormData) => {
       let next: EventFormState;
 
+      if (!edit) {
+        creationKey.current ??= crypto.randomUUID();
+        formData.set("creationKey", creationKey.current);
+        submittedCreation.current ??= formData;
+        setSubmittedCoverId(
+          String(submittedCreation.current.get("temporaryCoverId") || "") ||
+            null,
+        );
+      }
+
       try {
-        next = await serverAction(previous, formData);
+        next = await serverAction(
+          previous,
+          edit ? formData : (submittedCreation.current ?? formData),
+        );
       } catch (error) {
         unstable_rethrow(error);
         next = {
           message: "inputSaveUnconfirmed",
+          creationUncertain: !edit,
         };
       } finally {
         mutationBusy.current = false;
@@ -171,6 +191,12 @@ export function EventForm({
         if (passwordInput.current) passwordInput.current.value = "";
         setPasswordFilled(false);
         setPasswordDirty(false);
+      }
+
+      if (!edit) {
+        setCreationUncertain(Boolean(next.creationUncertain));
+
+        if (!next.creationUncertain) submittedCreation.current = null;
       }
 
       if (next.createdId) {
@@ -205,6 +231,10 @@ export function EventForm({
       feedback.setErrors(errors);
       feedback.setMessage(next.message);
 
+      if (next.message === "creationCoverUnavailable") {
+        setSection("cover");
+      }
+
       if (Object.keys(errors).length || next.message || next.conflict) {
         revealErrors(errors);
       }
@@ -213,10 +243,15 @@ export function EventForm({
     },
     {},
   );
-  useEditorDirty("event-form", dirty || coverDirty || pending || coverBusy);
+  useEditorDirty(
+    "event-form",
+    dirty || coverDirty || pending || coverBusy || creationUncertain,
+  );
   useEffect(() => {
-    onBusyChange?.(pending || coverBusy || Boolean(state.createdId));
-  }, [onBusyChange, pending, coverBusy, state.createdId]);
+    onBusyChange?.(
+      pending || coverBusy || Boolean(state.createdId) || creationUncertain,
+    );
+  }, [onBusyChange, pending, coverBusy, state.createdId, creationUncertain]);
 
   useEffect(() => {
     if (!pending && state.saved && focusSavedSection.current) {
@@ -431,14 +466,21 @@ export function EventForm({
     }
   }
 
+  const staleCoverError =
+    state.message === "creationCoverUnavailable" &&
+    preparedCoverId !== submittedCoverId;
   const cover = (
     <>
-      {edit && initialCover && openedVersion && (
+      {(!edit || (initialCover && openedVersion)) && (
         <EventCoverEditor
-          eventId={edit.id}
-          initial={initialCover}
-          version={openedVersion}
-          disabled={pending || disabled || Boolean(state.conflict)}
+          eventId={edit?.id}
+          initial={initialCover ?? { assetId: null, alt: null }}
+          version={openedVersion ?? ""}
+          disabled={
+            pending || disabled || creationUncertain || Boolean(state.conflict)
+          }
+          onUnpreparedChange={setCoverUnprepared}
+          onPreparedChange={setPreparedCoverId}
           onDirtyChange={setCoverDirty}
           onConflictChange={setCoverConflict}
           begin={() => {
@@ -467,12 +509,19 @@ export function EventForm({
       action={action}
       noValidate
       onSubmit={(event) => {
+        if (creationUncertain && !pending && !mutationBusy.current) {
+          mutationBusy.current = true;
+
+          return;
+        }
+
         if (
           pending ||
           disabled ||
           (Boolean(edit) && !dirty) ||
           state.conflict ||
           coverConflict ||
+          (!edit && coverUnprepared) ||
           mutationBusy.current
         ) {
           event.preventDefault();
@@ -536,165 +585,221 @@ export function EventForm({
         borderRadius: 1,
       }}
     >
-      {!importedDates && (
-        <input
-          type="hidden"
-          name="passwordProtection"
-          value={
-            values.visibility === "PRIVATE" && passwordEnabled
-              ? "true"
-              : "false"
-          }
-        />
-      )}
-      {!passwordEnabled && (
-        <input type="hidden" name="eventPassword" value="" />
-      )}
-      {edit && (
-        <>
-          <input type="hidden" name="eventId" value={edit.id} />
-          <input type="hidden" name="version" value={openedVersion} />
-          {editedDates.map((field) => (
-            <input key={field} type="hidden" name="editedDate" value={field} />
-          ))}
-        </>
-      )}
       <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: {
-            xs: "minmax(0, 1fr)",
-            md: "240px minmax(0, 1fr)",
-          },
-        }}
+        component="fieldset"
+        disabled={creationUncertain || Boolean(state.createdId)}
+        sx={{ border: 0, p: 0, m: 0, minWidth: 0 }}
       >
+        {!importedDates && (
+          <input
+            type="hidden"
+            name="passwordProtection"
+            value={
+              values.visibility === "PRIVATE" && passwordEnabled
+                ? "true"
+                : "false"
+            }
+          />
+        )}
+        {!passwordEnabled && (
+          <input type="hidden" name="eventPassword" value="" />
+        )}
+        {edit && (
+          <>
+            <input type="hidden" name="eventId" value={edit.id} />
+            <input type="hidden" name="version" value={openedVersion} />
+            {editedDates.map((field) => (
+              <input
+                key={field}
+                type="hidden"
+                name="editedDate"
+                value={field}
+              />
+            ))}
+          </>
+        )}
         <Box
           sx={{
-            minWidth: 0,
-            borderStyle: "solid",
-            borderWidth: 0,
-            borderRightWidth: { md: 1 },
-            borderBottomWidth: { xs: 1, md: 0 },
-            borderColor: "divider",
+            display: "grid",
+            gridTemplateColumns: {
+              xs: "minmax(0, 1fr)",
+              md: "240px minmax(0, 1fr)",
+            },
           }}
         >
-          <EditorNavigation
-            section={section}
-            coverEnabled={Boolean(edit)}
-            hasAdditionalSettings={Boolean(children)}
-            onChange={setSection}
-            errors={feedback.errors}
-          />
-        </Box>
-        <Box sx={{ p: { xs: 2, sm: 4 }, minWidth: 0 }}>
-          <EventFormSections
-            passwordFields={
-              <Stack spacing={2}>
-                {accessPublication?.pending && edit && (
-                  <EventAccessPublication
-                    key={accessPublication.contentVersion}
-                    eventId={edit.id}
-                    contentVersion={accessPublication.contentVersion}
-                    disabled={
-                      dirty ||
-                      coverDirty ||
-                      pending ||
-                      coverBusy ||
-                      Boolean(state.conflict)
-                    }
-                  />
-                )}
-                {values.visibility === "PRIVATE" &&
-                  (importedDates ? (
-                    <Alert severity="info">{t("accessTemplateHint")}</Alert>
-                  ) : (
-                    <EventPasswordFields
-                      enabled={passwordEnabled}
-                      saved={passwordSaved}
-                      filled={passwordFilled}
-                      input={passwordInput}
-                      disabled={pending || coverBusy}
-                      error={
-                        feedback.errors.eventPassword
-                          ? translateError(feedback.errors.eventPassword)
-                          : undefined
-                      }
-                      onToggle={(enabled) => {
-                        setPasswordEnabled(enabled);
-                        setPasswordFilled(false);
-                        setPasswordDirty(false);
-                        feedback.clear("eventPassword");
-
-                        if (passwordInput.current)
-                          passwordInput.current.value = "";
-                      }}
-                      onInput={() => {
-                        setPasswordFilled(
-                          Boolean(passwordInput.current?.value),
-                        );
-                        setPasswordDirty(Boolean(passwordInput.current?.value));
-                        feedback.clear("eventPassword");
-                      }}
-                    />
-                  ))}
-              </Stack>
-            }
-            section={section}
-            revealErrorsKey={focusRequest}
-            values={values}
-            setValues={setValues}
-            feedback={{
-              ...feedback,
-              errors: Object.fromEntries(
-                Object.entries(feedback.errors).map(([field, code]) => [
-                  field,
-                  translateError(code),
-                ]),
-              ),
+          <Box
+            sx={{
+              minWidth: 0,
+              borderStyle: "solid",
+              borderWidth: 0,
+              borderRightWidth: { md: 1 },
+              borderBottomWidth: { xs: 1, md: 0 },
+              borderColor: "divider",
             }}
-            disabled={pending || coverBusy}
-            startLocked={startLocked}
-            guestPolicyLocked={guestPolicyLocked}
-            persistedGuestPolicy={
-              initialValues?.guestPolicy ?? initial.guestPolicy
-            }
-            hasGuestFields={hasGuestFields}
-            edit={edit && dateSource ? { dates: dateSource } : undefined}
-            timezones={timezones}
-            markDateEdited={markDateEdited}
-            dateLimit={dateLimit}
-            field={field}
-            cover={cover}
-            scheduleNotice={scheduleNotice}
           >
-            {children}
-          </EventFormSections>
+            <EditorNavigation
+              section={section}
+              coverEnabled
+              hasAdditionalSettings={Boolean(children)}
+              onChange={setSection}
+              errors={feedback.errors}
+            />
+          </Box>
+          <Box sx={{ p: { xs: 2, sm: 4 }, minWidth: 0 }}>
+            <EventFormSections
+              passwordFields={
+                <Stack spacing={2}>
+                  {accessPublication?.pending && edit && (
+                    <EventAccessPublication
+                      key={accessPublication.contentVersion}
+                      eventId={edit.id}
+                      contentVersion={accessPublication.contentVersion}
+                      disabled={
+                        dirty ||
+                        coverDirty ||
+                        pending ||
+                        coverBusy ||
+                        Boolean(state.conflict)
+                      }
+                    />
+                  )}
+                  {values.visibility === "PRIVATE" &&
+                    (importedDates ? (
+                      <Alert severity="info">{t("accessTemplateHint")}</Alert>
+                    ) : (
+                      <EventPasswordFields
+                        enabled={passwordEnabled}
+                        saved={passwordSaved}
+                        filled={passwordFilled}
+                        input={passwordInput}
+                        disabled={pending || coverBusy}
+                        error={
+                          feedback.errors.eventPassword
+                            ? translateError(feedback.errors.eventPassword)
+                            : undefined
+                        }
+                        onToggle={(enabled) => {
+                          setPasswordEnabled(enabled);
+                          setPasswordFilled(false);
+                          setPasswordDirty(false);
+                          feedback.clear("eventPassword");
+
+                          if (passwordInput.current)
+                            passwordInput.current.value = "";
+                        }}
+                        onInput={() => {
+                          setPasswordFilled(
+                            Boolean(passwordInput.current?.value),
+                          );
+                          setPasswordDirty(
+                            Boolean(passwordInput.current?.value),
+                          );
+                          feedback.clear("eventPassword");
+                        }}
+                      />
+                    ))}
+                </Stack>
+              }
+              section={section}
+              revealErrorsKey={focusRequest}
+              values={values}
+              setValues={setValues}
+              feedback={{
+                ...feedback,
+                errors: Object.fromEntries(
+                  Object.entries(feedback.errors).map(([field, code]) => [
+                    field,
+                    translateError(code),
+                  ]),
+                ),
+              }}
+              disabled={pending || coverBusy}
+              startLocked={startLocked}
+              guestPolicyLocked={guestPolicyLocked}
+              persistedGuestPolicy={
+                initialValues?.guestPolicy ?? initial.guestPolicy
+              }
+              hasGuestFields={hasGuestFields}
+              edit={edit && dateSource ? { dates: dateSource } : undefined}
+              timezones={timezones}
+              markDateEdited={markDateEdited}
+              dateLimit={dateLimit}
+              field={field}
+              cover={cover}
+              scheduleNotice={scheduleNotice}
+            >
+              {children}
+            </EventFormSections>
+          </Box>
         </Box>
       </Box>
-      <EventEditorActions
-        eventId={edit?.id}
-        createdId={state.createdId}
-        message={feedback.message}
-        serverMessage={
-          state.message ? translateError(state.message) : undefined
-        }
-        unmappedError={
-          unmappedError ? translateError(unmappedError) : undefined
-        }
-        errors={feedback.errors}
-        conflict={Boolean(state.conflict)}
-        coverConflict={coverConflict}
-        saved={Boolean(state.saved)}
-        pending={pending}
-        coverBusy={coverBusy}
-        dirty={dirty}
-        coverDirty={coverDirty}
-        validationAttempted={validationAttempted}
-        requiredMissing={requiredMissing}
-        disabled={disabled}
-        onShowErrors={() => revealErrors(feedback.errors)}
-        onCheckRequired={checkRequiredFields}
-      />
+      {creationUncertain && (
+        <Alert
+          severity="warning"
+          sx={{ m: 2 }}
+          tabIndex={-1}
+          data-editor-feedback
+        >
+          <Stack spacing={2}>
+            <span>{t("creationUncertain")}</span>
+            <Stack
+              direction="row"
+              spacing={1}
+              useFlexGap
+              sx={{ flexWrap: "wrap" }}
+            >
+              <Button
+                type="submit"
+                variant="outlined"
+                disabled={pending}
+                color="inherit"
+              >
+                {pending ? t("creating") : t("creationRetry")}
+              </Button>
+              <Button
+                href="/dashboard/events"
+                disabled={pending}
+                color="inherit"
+              >
+                {t("cancel")}
+              </Button>
+            </Stack>
+          </Stack>
+        </Alert>
+      )}
+      {!edit && coverUnprepared && (
+        <Alert severity="info" sx={{ m: 2 }}>
+          {t("creationPrepareFirst")}
+        </Alert>
+      )}
+      {!creationUncertain && (
+        <EventEditorActions
+          eventId={edit?.id}
+          createdId={state.createdId}
+          message={staleCoverError ? undefined : feedback.message}
+          serverMessage={
+            state.message && !staleCoverError
+              ? translateError(state.message)
+              : undefined
+          }
+          unmappedError={
+            unmappedError ? translateError(unmappedError) : undefined
+          }
+          errors={feedback.errors}
+          conflict={Boolean(state.conflict)}
+          coverConflict={coverConflict}
+          saved={Boolean(state.saved)}
+          pending={pending}
+          coverBusy={coverBusy}
+          dirty={dirty}
+          coverDirty={Boolean(edit) && coverDirty}
+          validationAttempted={validationAttempted}
+          requiredMissing={requiredMissing}
+          disabled={disabled || creationUncertain || (!edit && coverUnprepared)}
+          onShowErrors={() => revealErrors(feedback.errors)}
+          onCheckRequired={checkRequiredFields}
+        />
+      )}
     </Stack>
   );
 }

@@ -743,14 +743,16 @@ Attendees, Tickets or Attendance are imported. Existing Events are never modifie
 Add Staff and Import share an in-process budget of 100 unique normalized email
 attempts per actor per ten-minute window. An import reserves its entire unique
 email count before any lookup or creation; insufficient budget rejects the whole
-attempt. Repeated operations consume budget again. This is not a distributed
+attempt. New operations consume budget again; replaying a successful creation
+receipt does not repeat lookup or budget consumption. This is not a distributed
 abuse-prevention guarantee. Successful assignment reveals eligibility as with
 existing Add Staff; unavailable reasons and account metadata are never returned.
 
 After successful manual or template creation, the app immediately opens the new
 Event editor. Import shows added Staff count and neutral skipped/duplicate email
-warnings in a notification that remains visible after navigation. Results stay in
-memory and may vanish on reload; no emails are placed in navigation URLs, cookies or persistent
+warnings in a notification that remains visible after navigation. Client notifications stay in
+memory and may vanish on reload; the private server retry receipt retains the result.
+No emails are placed in navigation URLs, cookies or persistent
 browser storage. There is no ImportJob, invitation or destructive import.
 
 ## Communications foundation (27A)
@@ -999,9 +1001,8 @@ there is no server-side exactly-once guarantee after a lost response.
 Owners with verified accounts can upload cover images for existing editable Events
 through the media API, then explicitly attach, replace or remove the draft cover.
 The 29B editor below uses these APIs; the public landing page is described in 29C.
-Create/Import/Duplicate Review performs no media upload or persistence before Create.
-The Cover tab is disabled until the Event exists. An adjacent information button
-explains that images can be uploaded and cropped after creation, before publishing.
+Create/Import/Duplicate Review supports private temporary covers before Create,
+as described in MEDIA-1 below. Template validation alone still performs no writes.
 
 Uploads accept one static JPEG, PNG or WebP, at most 5 MiB and 4096 × 4096 pixels.
 The editor offers a fixed 16:9 crop with drag positioning, zoom and keyboard-accessible
@@ -1032,12 +1033,55 @@ agenda, public organizer and description-format fields use the existing snapshot
 contract; 29B adds their authoring UI and OWNER Preview rendering.
 
 Import, Export and Duplicate support only EventTemplate, preserving rich
-configuration and explicitly reporting omitted cover images.
+configuration and explicitly reporting omitted source cover images.
 
-Media cleanup is an explicit maintenance command, not a worker: incomplete uploads
+Existing Event media cleanup remains an explicit maintenance command: incomplete uploads
 expire after 24 hours, unused ready assets after seven days, and assets referenced
 by any draft or revision are retained. Historical media remains for the lifetime of
 its revision. Operators must invoke cleanup and maintain storage/backups.
+
+
+## Cover during Event creation (MEDIA-1)
+
+Create, Import Review and Duplicate Review allow selecting, cropping, uploading,
+previewing, replacing and removing a new cover before the Event exists. All tabs
+stay mounted, preserving selection, crop and alt text through navigation and UI
+language changes. The existing 16:9 touch drag and keyboard sliders are reused.
+Upload shows byte progress, then server processing, with errors and retry through
+Upload cropped image. A selected but unprepared crop must be uploaded or cancelled
+before Create. No Event is created by uploading or previewing a cover.
+
+Temporary covers belong to the verified organizer, remain private and expire 24 hours
+after upload reservation. The existing ten-pending-assets admission quota includes
+creation uploads and discarded temporary assets awaiting deletion. Replacing a prepared
+cover keeps the old selection until the new upload succeeds, then requests its discard.
+Remove requests discard before clearing selection. Abandoned forms, lost upload
+responses and failed uploads remain tracked and expire automatically. Failed creation
+preserves the prepared upload until its original expiry; retries never extend expiry.
+A runtime sweep starts with the app and runs every 15 minutes, collecting at most 100
+temporary assets and 100 aged orphan files per pass. Failures retry on later sweeps;
+shutdown drains the active sweep. Cleanup resumes on startup after downtime.
+
+Initial cover attachment is part of atomic Event creation. The Event, registration
+configuration, selected cover consumption and successful retry receipt commit together.
+A failed transaction leaves no Event and preserves the temporary upload. Past Events
+may receive this initial cover even when immediately Completed; all subsequent cover
+changes retain the existing read-only restrictions. Creation never publishes a cover.
+
+Each mounted creation form uses a random request key. Repeating the same authenticated
+request returns the committed result without another Event or another Staff lookup.
+A changed payload or another organizer cannot reuse the key. Concurrent submissions
+serialize on that key; a temporary cover can be consumed once. Receipts retain their
+minimal result and keyed payload fingerprint, including after pristine Event deletion,
+so old requests cannot recreate deleted Events. Raw authoring values and passwords are
+not stored in receipts. Import results retain the original private Staff warnings.
+
+When a request outcome is uncertain, submitted values are frozen in memory and
+**Retry same creation** resends that exact request. Keep the page open until resolved;
+reload or leaving the form loses this in-memory recovery state. Check My Events before
+starting over after leaving an uncertain creation. There is no persistent browser draft.
+Missing, expired or inaccessible prepared media prevents creation and offers removal
+or another upload. Existing private preview/publication rules and image limits remain.
 
 
 ## Rich Event editor and EventTemplate (29B)
@@ -1089,7 +1133,8 @@ publication action, version checks, conflict feedback and lifecycle guards.
 EventTemplate preserves portable settings including description format, location,
 exact agenda and public organizer. Its cover marker is NONE if absent or OMITTED
 if the source has a cover. Images/asset IDs/storage keys are never copied. Export,
-Import Review and Duplicate Review explain omission; the new Event has no cover.
+Import Review and Duplicate Review explain omission; organizers may select a new
+cover during creation. Source images are never copied.
 V1 Import is rejected without conversion. Existing Staff/Badge identity rules,
 size limits, atomic Create and Duplicate refresh/revocation semantics are preserved.
 
@@ -1115,9 +1160,8 @@ open that tab; ordinary Create/Edit does not show it. No separate builder is int
 All panels remain mounted in one form, with inactive panels hidden from layout,
 keyboard navigation and assistive technology. Switching never saves, resets errors,
 or discards values. Desktop uses vertical MUI Tabs with icons and labels; mobile
-uses horizontally scrollable tabs. Cover follows Basics and is disabled until the
-event exists; an adjacent information button explains availability instead of an
-in-form alert. Fields and feedback retain shared theme/light/dark behavior.
+uses horizontally scrollable tabs. Cover follows Basics and is available during
+creation and editing. Fields and feedback retain shared theme/light/dark behavior.
 
 A compact sticky action area provides Create event / Save draft,
 Preview saved draft and Cancel / Back actions. Contextual help explains separate
@@ -1133,8 +1177,8 @@ Conflict and unknown-save feedback keeps Reload latest version available.
 
 Successful Edit stays open and adopts the confirmed server version, canonical
 values and exact date/agenda source. Dirty state clears only after confirmed
-success. Create opens the new Event editor, where its cover can be added; past,
-Completed Events retain the existing read-only boundary. No automatic Save occurs.
+success. Create opens the new Event editor with its selected prepared cover attached;
+past, Completed Events retain the existing read-only boundary after creation. No automatic Save occurs.
 Cover selection/upload/attachment remains independent, with its own pending edits
 and save status. Successful cover attachment alone advances its optimistic token
 without saving or clearing other Event edits. Cover and Event Save cannot overlap.

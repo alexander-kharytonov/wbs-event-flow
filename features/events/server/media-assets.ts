@@ -1,5 +1,5 @@
 import "server-only";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { z } from "zod";
 import {
   coverCropSchema,
@@ -70,7 +70,7 @@ async function lockEditableEvent(
 
 export async function uploadEventCover(
   userId: string,
-  eventId: string,
+  eventId: string | null,
   request: Request,
 ) {
   const contentType = request.headers.get("content-type") ?? "";
@@ -97,15 +97,29 @@ export async function uploadEventCover(
   return withImageSlot(async () => {
     const asset = await prisma.$transaction(
       async (tx) => {
-        const event = await lockEditableEvent(tx, userId, eventId);
+        const event = eventId
+          ? await lockEditableEvent(tx, userId, eventId)
+          : null;
+        const organizer = await tx.organizerProfile.findUnique({
+          where: { userId },
+          select: { id: true },
+        });
+
+        if (!organizer || (event && event.organizerId !== organizer.id)) {
+          throw new MediaError(404, "mediaUnavailable");
+        }
+        const [clock] = await tx.$queryRaw<
+          { now: Date }[]
+        >`SELECT clock_timestamp() AS now`;
         // Serialize new-upload admission across Events/processes. Detach may
         // increase this count above ten; it is not a global count invariant.
-        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`event-media:${event.organizerId}`}, 0))`;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`event-media:${organizer.id}`}, 0))`;
         const pending = await tx.mediaAsset.count({
           where: {
-            organizerId: event.organizerId,
+            organizerId: organizer.id,
             OR: [
               { state: "UPLOADING" },
+              { state: "DELETING", temporaryExpiresAt: { not: null } },
               {
                 state: "READY",
                 draftEvents: { none: {} },
@@ -121,13 +135,15 @@ export async function uploadEventCover(
 
         return tx.mediaAsset.create({
           data: {
-            organizerId: event.organizerId,
+            ...(eventId ? {} : { id: randomUUID() }),
+            organizerId: organizer.id,
             eventId,
+            temporaryExpiresAt: eventId
+              ? null
+              : new Date(clock.now.getTime() + uploadLifetimeMs),
             storageKey: randomBytes(16).toString("hex"),
-            createdAt: event.decisionNow,
-            uploadExpiresAt: new Date(
-              event.decisionNow.getTime() + uploadLifetimeMs,
-            ),
+            createdAt: clock.now,
+            uploadExpiresAt: new Date(clock.now.getTime() + uploadLifetimeMs),
           },
         });
       },
@@ -158,14 +174,23 @@ export async function uploadEventCover(
 
     await prisma.$transaction(
       async (tx) => {
-        const event = await lockEditableEvent(tx, userId, eventId);
+        const event = eventId
+          ? await lockEditableEvent(tx, userId, eventId)
+          : null;
+        const organizer = await tx.organizerProfile.findUnique({
+          where: { userId },
+          select: { id: true },
+        });
         const current = await lockMediaAsset(tx, asset.id);
+        const [clock] = await tx.$queryRaw<
+          { now: Date }[]
+        >`SELECT clock_timestamp() AS now`;
 
         if (
           current?.state !== "UPLOADING" ||
-          current.eventId !== event.id ||
-          current.organizerId !== event.organizerId ||
-          current.uploadExpiresAt <= event.decisionNow
+          current.eventId !== (event?.id ?? null) ||
+          current.organizerId !== organizer?.id ||
+          current.uploadExpiresAt <= clock.now
         ) {
           throw new MediaError(409, "mediaUploadUnavailable");
         }
@@ -175,8 +200,8 @@ export async function uploadEventCover(
           data: {
             state: "READY",
             manifest: image.manifest,
-            readyAt: event.decisionNow,
-            unusedSince: event.decisionNow,
+            readyAt: clock.now,
+            unusedSince: clock.now,
           },
         });
       },
@@ -323,4 +348,31 @@ export async function releaseDeletedEventMedia(
       data: { unusedSince: now },
     });
   }
+}
+
+export async function discardTemporaryCover(userId: string, assetId: string) {
+  await prisma.$transaction(async (tx) => {
+    const asset = await lockMediaAsset(tx, assetId);
+    const organizer = await tx.organizerProfile.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (
+      !asset ||
+      asset.organizerId !== organizer?.id ||
+      asset.eventId !== null ||
+      !asset.temporaryExpiresAt ||
+      (await mediaIsReferenced(tx, asset.id))
+    ) {
+      throw new MediaError(404, "mediaUnavailable");
+    }
+    const [clock] = await tx.$queryRaw<
+      { now: Date }[]
+    >`SELECT clock_timestamp() AS now`;
+    await tx.mediaAsset.update({
+      where: { id: asset.id },
+      data: { state: "DELETING", deletingAt: asset.deletingAt ?? clock.now },
+    });
+  });
 }

@@ -383,6 +383,7 @@ export function parseEventWithPreservedDates(
 export type EventFormValues = z.input<typeof eventInputSchema>;
 
 export type EventFormState = {
+  creationUncertain?: boolean;
   createdId?: string;
   saved?: {
     passwordProtected: boolean;

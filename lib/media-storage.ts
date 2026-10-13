@@ -175,6 +175,17 @@ const localStorage: MediaStorage = {
     } finally {
       await handle.close();
       await unlink(temporary);
+      // Persist the create-only directory entry before an upload becomes READY.
+      const directory = await open(
+        root,
+        constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW,
+      );
+
+      try {
+        await directory.sync();
+      } finally {
+        await directory.close();
+      }
     }
   },
   async read(key, variant) {

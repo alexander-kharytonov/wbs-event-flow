@@ -984,7 +984,7 @@
   "badgeTrySearch": "Spróbuj innego wyszukiwania.",
   "badgeAttendee": "Uczestnik",
   "accessChanged": "Twój dostęp do tego wydarzenia zmienił się.",
-  "templateCoverExcluded": "Okładka źródłowa nie jest dołączona. Prześlij nową po utworzeniu wydarzenia.",
+  "templateCoverExcluded": "Okładka źródłowa nie jest dołączona. Możesz wybrać nową w zakładce Okładka.",
   "duplicateUnavailable": "Nie można zduplikować wydarzenia. Sprawdź dostęp, zgodność konfiguracji z limitami szablonu i dopasowanie projektu identyfikatora do bieżącego formularza.",
   "editorReadOnlyHint": "Wydarzenie jest tylko do odczytu. Informacje i historia pozostają dostępne.",
   "coverUnavailable": "Okładka niedostępna",
@@ -1093,5 +1093,13 @@
   "accessPending": "Zapisane zmiany dostępu nie są jeszcze aktywne. Nadal obowiązuje opublikowany dostęp. Ponowna publikacja aktywuje wszystkie zapisane zmiany wydarzenia.",
   "accessSaveFirst": "Zapisz lub odrzuć niezapisane zmiany przed ponowną publikacją.",
   "accessTemplateHint": "Hasła nie są zawarte w szablonach ani duplikatach. Skonfiguruj ochronę w edytorze wydarzenia po jego utworzeniu.",
-  "accessPasswordInvalid": "Wpisz hasło zawierające 10–128 znaków."
+  "accessPasswordInvalid": "Wpisz hasło zawierające 10–128 znaków.",
+  "creationCoverHint": "Wybierz i wykadruj obraz, a następnie go prześlij. Przygotowane okładki pozostają prywatne przez 24 godziny i są dołączane podczas tworzenia wydarzenia. JPEG, PNG lub WebP, do 5 MiB i 4096 × 4096 pikseli.",
+  "creationUploadProgress": "Przesyłanie: {percent}%",
+  "creationCoverReady": "Okładka gotowa. Zostanie dołączona podczas tworzenia wydarzenia. Tymczasowe pliki wygasają po 24 godzinach.",
+  "creationRetry": "Ponów to samo tworzenie",
+  "creationUncertain": "Nie udało się potwierdzić utworzenia. Przesłane wartości są zablokowane. Ponów to samo żądanie, aby odzyskać wynik bez tworzenia duplikatu. Pozostaw tę stronę otwartą do wyjaśnienia.",
+  "creationPrepareFirst": "Prześlij wybrany kadr lub anuluj wybór przed utworzeniem wydarzenia.",
+  "creationInvalid": "Tego żądania utworzenia nie można użyć ponownie. Sprawdź Moje wydarzenia przed rozpoczęciem nowego tworzenia.",
+  "creationCoverUnavailable": "Przygotowana okładka jest niedostępna lub wygasła. Usuń ją lub prześlij ponownie przed utworzeniem wydarzenia."
 }
