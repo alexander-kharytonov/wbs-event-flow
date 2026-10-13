@@ -303,7 +303,6 @@ export function EventActions({
                   setAction(null);
                   notifications.show(<EventText id="eventUpdated" />, {
                     severity: "success",
-                    autoHideDuration: 4000,
                   });
 
                   if (result.deleted) {

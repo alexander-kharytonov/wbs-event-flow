@@ -58,7 +58,6 @@ export function PartyGuestsControls({
           setRemoveId(null);
           notifications.show(<EventText id={messages[next.code]} />, {
             severity: "success",
-            autoHideDuration: 5000,
           });
 
           return;

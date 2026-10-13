@@ -7,7 +7,6 @@ export type NotificationOptions = {
   actionText?: ReactNode;
   onAction?: () => void;
   severity?: "success" | "info" | "warning" | "error";
-  autoHideDuration?: number | null;
 };
 
 type Notifications = {

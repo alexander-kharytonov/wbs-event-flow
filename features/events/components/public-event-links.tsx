@@ -33,7 +33,6 @@ export function PublicEventLinks({ publicId }: { publicId: string }) {
             notifications.show(<EventText id="publicLinkCopied" />, {
               severity: "success",
               key: "copy-event-link",
-              autoHideDuration: 3000,
             });
           } catch {
             notifications.show(<EventText id="publicLinkCopyFailed" />, {

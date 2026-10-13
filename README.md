@@ -37,7 +37,8 @@ The auth secret must contain at least 32 characters. Also populate the required
 `TICKET_CREDENTIAL_ENCRYPTION_KEY` with 32 random bytes encoded base64url (command
 in `.env.example`). Generate it once, preserve it across restarts/deployments and
 back it up securely outside the database. Do not reuse the auth secret. Existing
-Ticket envelopes cannot be recovered without this key. Keep `.env` untracked.
+Ticket, Application access and saved Event password envelopes cannot be recovered
+without this key. Event passwords use a purpose-specific derived key. Keep `.env` untracked.
 
 ### Fresh database
 
@@ -439,7 +440,7 @@ Required runtime variables (all server-side; never NEXT_PUBLIC):
 | BETTER_AUTH_URL | `https://<service>.up.railway.app`, exact origin without trailing slash |
 | BETTER_AUTH_TRUSTED_ORIGINS | Empty unless additional exact origins are intentionally supported |
 | BETTER_AUTH_SECRET | Stable random secret, at least 32 characters |
-| TICKET_CREDENTIAL_ENCRYPTION_KEY | Stable canonical base64url 32-byte key; preserve with retained Tickets |
+| TICKET_CREDENTIAL_ENCRYPTION_KEY | Stable canonical base64url 32-byte key; preserve with retained Tickets, Application access and saved Event passwords |
 | EMAIL_TRANSPORT | `resend` |
 | RESEND_API_KEY | Sending API key restricted to the verified sender domain |
 | SMTP_FROM | Plain verified sender email; both transports add the display name `Event Flow` |

@@ -127,6 +127,7 @@ model Event {
   timezone             String
   visibility           EventVisibility         @default(PRIVATE)
   draftPasswordHash    String?
+  draftPasswordEncrypted String?
   passwordFailures     Int @default(0)
   passwordFailureWindow DateTime? @db.Timestamptz(3)
   accountRequirement   EventAccountRequirement @default(OPTIONAL)

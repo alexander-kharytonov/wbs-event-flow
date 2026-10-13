@@ -97,7 +97,6 @@ export function RegistrationFormBuilder({
           />,
           {
             severity: "success",
-            autoHideDuration: 4000,
             key: `registration-form:${eventId}`,
           },
         );

@@ -216,6 +216,7 @@ async function main() {
             SELECT 'event_password_access' AS invariant, count(*) AS invalid_count
             FROM "Event" e
             WHERE (e."draftPasswordHash" IS NOT NULL AND (e.visibility <> 'PRIVATE' OR e."draftPasswordHash" !~ '^scrypt:[a-f0-9]{32}:[a-f0-9]{64}$'))
+              OR (e."draftPasswordEncrypted" IS NOT NULL AND e."draftPasswordHash" IS NULL)
               OR e."passwordFailures" NOT BETWEEN 0 AND 100
               OR (e."passwordFailures" > 0 AND e."passwordFailureWindow" IS NULL)
             UNION ALL

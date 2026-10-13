@@ -44,7 +44,7 @@ export async function verifyEventPassword(password: string, hash: string) {
   );
 }
 
-// No secret enters EventFormValues, action results, or the serialized snapshot.
+// The value is server-only input for encryption, never a form action result.
 export async function draftEventPassword(
   formData: FormData,
   visibility: string,
@@ -74,9 +74,9 @@ export async function draftEventPassword(
   // Preserve the live generation when a draft replacement is reverted before publication.
   for (const candidate of new Set([current, published])) {
     if (candidate && (await verifyEventPassword(parsed.data, candidate))) {
-      return { hash: candidate };
+      return { hash: candidate, value: parsed.data };
     }
   }
 
-  return { hash: await hashEventPassword(parsed.data) };
+  return { hash: await hashEventPassword(parsed.data), value: parsed.data };
 }

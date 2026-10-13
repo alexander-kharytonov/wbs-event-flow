@@ -15,7 +15,6 @@ import {
   useEditorNavigation,
 } from "@/components/ui/editor-navigation-guard";
 import { EditorNavigation } from "@/features/events/components/editor-navigation";
-import { EventAccessPublication } from "@/features/events/components/event-access-publication";
 import {
   type EditableCover,
   EventCoverEditor,
@@ -69,7 +68,6 @@ const emptyValues: Omit<EventFormValues, "language"> = {
 
 export function EventForm({
   initialPasswordProtected = false,
-  initialAccessPublication,
   initialValues,
   serverAction,
   edit,
@@ -85,7 +83,6 @@ export function EventForm({
   onBusyChange,
 }: {
   initialPasswordProtected?: boolean;
-  initialAccessPublication?: { contentVersion: number; pending: boolean };
   onBusyChange?: (busy: boolean) => void;
   extraDirty?: boolean;
   initialCover?: EditableCover;
@@ -111,9 +108,6 @@ export function EventForm({
     passwordFilled,
     passwordDirty,
   } = password;
-  const [accessPublication, setAccessPublication] = useState(
-    initialAccessPublication,
-  );
   const locale = useLocale();
   const t = useTranslations("events");
   const validation = useTranslations("validation");
@@ -189,7 +183,6 @@ export function EventForm({
 
       if (next.saved) {
         password.adoptSaved(next.saved.passwordProtected);
-        setAccessPublication(next.saved.accessPublication);
         // Rebase every source index after reorder/delete, preserving UI row identity.
         const savedValues = rebaseSavedValues(next.saved.values, values);
         setValues(savedValues);
@@ -597,20 +590,6 @@ export function EventForm({
             <EventFormSections
               passwordFields={
                 <Stack spacing={2}>
-                  {accessPublication?.pending && edit && (
-                    <EventAccessPublication
-                      key={accessPublication.contentVersion}
-                      eventId={edit.id}
-                      contentVersion={accessPublication.contentVersion}
-                      disabled={
-                        dirty ||
-                        coverDirty ||
-                        pending ||
-                        coverBusy ||
-                        Boolean(state.conflict)
-                      }
-                    />
-                  )}
                   {values.visibility === "PRIVATE" &&
                     (importedDates ? (
                       <Alert severity="info">{t("accessTemplateHint")}</Alert>
@@ -618,6 +597,11 @@ export function EventForm({
                       <EventPasswordFields
                         enabled={passwordEnabled}
                         saved={passwordSaved}
+                        savedEvent={
+                          edit && openedVersion && section === "access"
+                            ? { id: edit.id, version: openedVersion }
+                            : undefined
+                        }
                         filled={passwordFilled}
                         input={passwordInput}
                         disabled={pending || coverBusy}

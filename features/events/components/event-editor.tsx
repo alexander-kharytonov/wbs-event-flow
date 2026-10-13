@@ -109,9 +109,6 @@ export async function EditEventView({ eventId: id }: { eventId: string }) {
 
   const event = await prisma.event.findFirst({
     where: { id, organizerId: organizer.id },
-    include: {
-      publishedRevision: { select: { passwordHash: true, snapshot: true } },
-    },
   });
 
   if (!event) {
@@ -147,19 +144,6 @@ export async function EditEventView({ eventId: id }: { eventId: string }) {
             startLocked={eventLifecycle(event, new Date()) === "Ongoing"}
             initialValues={eventFormValues(event)}
             initialPasswordProtected={Boolean(event.draftPasswordHash)}
-            initialAccessPublication={{
-              contentVersion: event.contentVersion,
-              pending: Boolean(
-                event.publishedRevision &&
-                  (event.publishedRevision.passwordHash !==
-                    event.draftPasswordHash ||
-                    (
-                      event.publishedRevision.snapshot as {
-                        visibility?: string;
-                      }
-                    ).visibility !== event.visibility),
-              ),
-            }}
             serverAction={updateEvent}
             edit={{
               id: event.id,
