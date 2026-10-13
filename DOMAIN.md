@@ -2058,7 +2058,8 @@ No source configuration or emails enter URLs/cookies/persistent browser storage 
 logs. Direct requests and soft navigation render the same full page
 with the same authorization boundary. There is no new create action, schema, job or draft storage.
 Exact dates, past-date warnings, Staff skips, rollback and confirmed-success submit
-locking retain section 31 semantics, without adding server-side idempotency.
+locking retain section 31 semantics. Final creation uses the shared server-side
+retry receipt described in section 37, including when no cover is selected.
 
 ## 37. Immutable Event media and EventSnapshot
 

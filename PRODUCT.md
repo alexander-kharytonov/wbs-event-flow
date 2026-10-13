@@ -1421,9 +1421,9 @@ then ID. Among multiple linked records, that same deterministic order applies.
 Authentication uses the resolved UI language at request time (authenticated
 account preference, locale cookie, browser language, then en); without a request
 it uses en. The email-verification expiry and single-use/latest-link rules stay
-unchanged. Event dates use the frozen Event timezone. Already queued deliveries
-without locale retain English; delivery addresses, links, idempotency, retry and
-security behavior are unchanged. Communication history keeps its existing stable
+unchanged. Event dates use the frozen Event timezone. Queued deliveries without
+a valid frozen locale fail payload validation; delivery addresses, links,
+idempotency, retry and security behavior are unchanged. Communication history keeps its existing stable
 English transactional subject label, since grouped sends may have several languages.
 
 
