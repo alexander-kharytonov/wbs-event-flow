@@ -125,6 +125,9 @@ model Event {
   endsAt               DateTime                @db.Timestamptz(3)
   timezone             String
   visibility           EventVisibility         @default(PRIVATE)
+  draftPasswordHash    String?
+  passwordFailures     Int @default(0)
+  passwordFailureWindow DateTime? @db.Timestamptz(3)
   accountRequirement   EventAccountRequirement @default(OPTIONAL)
   guestPolicy          GuestPolicy @default(FLEXIBLE)
   maxGuestsPerRegistration Int @default(0)
@@ -257,6 +260,8 @@ model EventRevision {
   currentForEvent Event?        @relation("CurrentPublishedRevision")
   number          Int
   contentVersion  Int
+  passwordHash    String?
+  passwordGrantId String? @db.Uuid
   snapshot        Json
   coverAssetId    String? @db.Uuid
   coverAsset      MediaAsset? @relation("RevisionCover", fields: [coverAssetId], references: [id], onDelete: Restrict)

@@ -170,8 +170,9 @@ unavailable state; they never fall back to mutable form/content.
 ## 5. Visibility
 
 PUBLIC is reachable by direct URL and discoverable in `/e`. PRIVATE is reachable
-by direct URL, excluded from `/e`, and marked noindex/nofollow. PRIVATE is not
-password protection or an access-control boundary.
+by direct URL, excluded from `/e`, and marked noindex/nofollow. PRIVATE alone is
+not an access-control boundary; optional published password protection is specified
+in ACCESS-1 below.
 
 Catalog eligibility uses current snapshot.visibility and requires a publicId and
 valid published revision. Upcoming means startsAt > now; Happening now means
@@ -2189,7 +2190,8 @@ and exact Event ownership/reference, including READY staged uploads for that Eve
 GET /e/[publicId]/cover/[assetId]/[variant] requires the current valid published snapshot,
 matching cover descriptor/revision FK, asset Event/owner, READY manifest and checksum.
 It does not authorize drafts or arbitrary historical assets. Current PRIVATE
-publication retains existing direct-link availability, not password protection.
+publication retains direct-link availability unless its current revision enables
+ACCESS-1 password protection; public media then requires that Event grant.
 Cancellation/archive do not independently hide a still-published cover. Each read
 authorizes one consistent DB snapshot; an already authorized in-flight response can
 finish after an unpublish, and previously downloaded bytes cannot be recalled.
@@ -2646,3 +2648,68 @@ is an operational recovery switch, not cancellation or deletion of queued delive
 Both transports use `Event Flow` as the sender display name for all outgoing mail,
 including verification and Outbox deliveries. SMTP_FROM remains a plain email address;
 the transport adds the display name without changing the sender address or recipients.
+
+
+## Private event password access (ACCESS-1)
+
+`Event.draftPasswordHash` is nullable and may be populated only for PRIVATE draft
+visibility. `EventRevision.passwordHash` and `passwordGrantId` are immutable,
+server-only publication columns; both are null or both populated, and protection
+requires PRIVATE snapshot visibility. They never enter EventSnapshot JSON, public
+DTOs, action results, template exports, logs or client props. EventSnapshot and
+EventTemplate each retain their single current strict contract. Existing revisions
+receive null access columns without rewriting their immutable snapshot content.
+
+Passwords are never stored reversibly. Node crypto scrypt uses N=32768, r=8, p=3,
+a random 16-byte salt and 32-byte output; comparison uses timingSafeEqual. New
+password input is validated at 10–128 UTF-16 code units (matching account policy),
+without trimming or normalization. The browser generates 18 cryptographically random
+bytes encoded as 24 URL-safe characters. Plaintext exists only transiently in the
+password input and the POST/hash operation; an explicit Copy uses the clipboard.
+No saved secret is returned. Draft writes require verified OWNER authorization,
+trusted same-origin POST, existing lifecycle/optimistic guards and Event row locking.
+
+Publication copies the draft hash into a new revision under the existing Event
+lock and changes the publication pointer atomically. If the effective hash is
+unchanged, the prior grant ID is reused; otherwise a fresh UUID is assigned, or
+null for disabled/PUBLIC protection. The last revision supplies comparison when
+republishing an unpublished Event. Reentering the same password preserves the
+existing draft hash. Old revisions remain unchanged, but only the current pointer
+can authorize public reads or submissions. Disabling and later reenabling cannot
+resurrect a grant from an earlier protected publication.
+
+`POST /e/[publicId]/access` accepts a bounded JSON password body (1024 bytes),
+requires an Origin from the configured trusted application origins and same-origin
+Sec-Fetch-Site when present, and returns only generic failure or success. No secret
+is accepted from URL parameters. It validates the publication and cover linkage,
+then verifies under the Event row lock shared with publication. Lock wait and
+transaction time are bounded; errors never serialize cryptographic/database details.
+
+`Event.passwordFailures` and `passwordFailureWindow` implement persistent event-wide
+fixed windows, serialized by that same PostgreSQL lock. Up to 100 failed checks are
+counted in 15 minutes from the first failure. A successful check changes neither
+counter nor window; exhausted windows reject verification before hashing. The next
+failed check after expiry starts a new window. Successful checks after expiry need
+not rewrite the expired window. Publication does not reset counters. Operational
+counter writes preserve updatedAt and contentVersion and emit no workspace changes.
+No client IP or forwarded header is trusted. No per-process limiter or new service
+is introduced. Multiple instances and restarts share the same database authority.
+
+The host-only HttpOnly, SameSite=Strict cookie is named per publicId and scoped to
+`/e/[publicId]`. Secure is mandatory in production and for HTTPS origins; local HTTP
+uses the existing development cookie convention. The signed payload contains only
+publicId, grantId and absolute expiry, authenticated with a domain-separated HMAC
+using BETTER_AUTH_SECRET. Two-hour expiry never slides. Duplicate cookies, malformed
+payloads, invalid signatures, wrong Event/generation and expiry fail closed. Cookie
+path is defense in depth; server scope and current revision are authority. Password
+removal, replacement and PRIVATE→PUBLIC make old grants unusable at publication.
+
+The request-scoped publication reader returns only a locked marker until access is
+verified. Metadata then contains only a generic title and noindex/nofollow, with no
+Event-specific description or social data. Pages, registration, media and submission
+have independent guards; a layout is not a substitute. Public Event responses and
+media are private/no-store and no-referrer. Verification performs a fresh document
+navigation to discard pre-verification router data. Server Actions recheck access
+before returning form validation and again after acquiring the Event lock before
+inserting an Application. Existing historical answer semantics and all independent
+owner/staff/account/application/ticket authorization remain authoritative.

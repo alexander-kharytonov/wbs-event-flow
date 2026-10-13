@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { z } from "zod";
 import {
   eventDateSource,
@@ -17,6 +18,8 @@ import {
   eventLifecycle,
   workspaceReadOnly,
 } from "@/features/events/event-lifecycle";
+import { draftEventPassword } from "@/features/events/server/event-password";
+import { isEventPasswordOrigin } from "@/features/events/server/event-password-session";
 import { guestPolicyChangeError } from "@/features/events/server/guest-policy";
 import { lockEventForUpdate } from "@/features/events/server/lock-event-for-update";
 import { requireOrganizer } from "@/features/organizer/server/require-organizer";
@@ -29,6 +32,10 @@ export async function updateEvent(
   formData: FormData,
 ): Promise<EventFormState> {
   const organizer = await requireOrganizer();
+
+  if (!isEventPasswordOrigin(await headers())) {
+    return { message: "inputSaveFailed" };
+  }
   const id = formData.get("eventId");
   const version = formData.get("version");
 
@@ -134,10 +141,27 @@ export async function updateEvent(
           };
         }
 
+        const publishedAccess = event.publishedRevisionId
+          ? await tx.eventRevision.findUnique({
+              where: { id: event.publishedRevisionId },
+              select: { passwordHash: true },
+            })
+          : null;
+        const password = await draftEventPassword(
+          formData,
+          parsed.data.visibility,
+          event.draftPasswordHash,
+          publishedAccess?.passwordHash ?? null,
+        );
+
+        if (password.error) {
+          return { errors: { eventPassword: [password.error] } };
+        }
         const result = await tx.event.updateMany({
           where: { id, organizerId: organizer.id, updatedAt },
           data: {
             ...parsed.data,
+            draftPasswordHash: password.hash,
             location: parsed.data.location ?? Prisma.DbNull,
             publicOrganizer: parsed.data.publicOrganizer ?? Prisma.DbNull,
             contentVersion: { increment: 1 },
@@ -156,10 +180,32 @@ export async function updateEvent(
 
         await notifyEventChanged(tx, id);
 
-        const saved = await tx.event.findUniqueOrThrow({ where: { id } });
+        const saved = await tx.event.findUniqueOrThrow({
+          where: { id },
+          include: {
+            publishedRevision: {
+              select: { passwordHash: true, snapshot: true },
+            },
+          },
+        });
+        const publishedVisibility = (
+          saved.publishedRevision?.snapshot as
+            | { visibility?: string }
+            | undefined
+        )?.visibility;
 
         return {
           saved: {
+            passwordProtected: Boolean(saved.draftPasswordHash),
+            accessPublication: {
+              contentVersion: saved.contentVersion,
+              pending: Boolean(
+                saved.publishedRevision &&
+                  (saved.publishedRevision.passwordHash !==
+                    saved.draftPasswordHash ||
+                    publishedVisibility !== saved.visibility),
+              ),
+            },
             version: Buffer.from(saved.updatedAt.toISOString()).toString(
               "base64url",
             ),

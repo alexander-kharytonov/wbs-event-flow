@@ -11,11 +11,22 @@ const nextConfig: NextConfig = {
   logging: {
     serverFunctions: false,
     incomingRequests: {
-      ignore: [/\/api\/auth\//, /\/(?:ticket|application)(?:\/|%2f)/i],
+      ignore: [
+        /\/e\/[^/]+\/access/i,
+        /\/api\/auth\//,
+        /\/(?:ticket|application)(?:\/|%2f)/i,
+      ],
     },
   },
   async headers() {
     return [
+      {
+        source: "/e/:publicId/:path*",
+        headers: [
+          { key: "Cache-Control", value: "private, no-store, max-age=0" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+        ],
+      },
       {
         source: "/print/:path*",
         headers: [

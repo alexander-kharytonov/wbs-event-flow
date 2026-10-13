@@ -1,6 +1,6 @@
 "use client";
 
-import { Box, Stack } from "@mui/material";
+import { Alert, Box, Stack } from "@mui/material";
 import { unstable_rethrow, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import {
@@ -15,12 +15,14 @@ import {
   useEditorNavigation,
 } from "@/components/ui/editor-navigation-guard";
 import { EditorNavigation } from "@/features/events/components/editor-navigation";
+import { EventAccessPublication } from "@/features/events/components/event-access-publication";
 import {
   type EditableCover,
   EventCoverEditor,
 } from "@/features/events/components/event-cover-editor";
 import { EventEditorActions } from "@/features/events/components/event-editor-actions";
 import { EventFormSections } from "@/features/events/components/event-form-sections";
+import { EventPasswordFields } from "@/features/events/components/event-password-fields";
 import { richRequiredMissing } from "@/features/events/components/event-rich-fields";
 import {
   type EditorSection,
@@ -42,6 +44,7 @@ import {
   eventIssuePath,
 } from "@/features/events/event-input-schema";
 import { eventLanguageSchema } from "@/features/events/event-language";
+import { eventPasswordSchema } from "@/features/events/event-password-input";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 
 const emptyValues: Omit<EventFormValues, "language"> = {
@@ -64,6 +67,8 @@ const emptyValues: Omit<EventFormValues, "language"> = {
 };
 
 export function EventForm({
+  initialPasswordProtected = false,
+  initialAccessPublication,
   initialValues,
   guestPolicyLocked = false,
   hasGuestFields = false,
@@ -80,6 +85,8 @@ export function EventForm({
   extraDirty = false,
   onBusyChange,
 }: {
+  initialPasswordProtected?: boolean;
+  initialAccessPublication?: { contentVersion: number; pending: boolean };
   guestPolicyLocked?: boolean;
   hasGuestFields?: boolean;
   onBusyChange?: (busy: boolean) => void;
@@ -99,6 +106,16 @@ export function EventForm({
   ) => Promise<EventFormState>;
   edit?: { id: string; version: string; dates: EventDateSource };
 }) {
+  const passwordInput = useRef<HTMLInputElement>(null);
+  const [passwordEnabled, setPasswordEnabled] = useState(
+    initialPasswordProtected,
+  );
+  const [passwordSaved, setPasswordSaved] = useState(initialPasswordProtected);
+  const [passwordFilled, setPasswordFilled] = useState(false);
+  const [passwordDirty, setPasswordDirty] = useState(false);
+  const [accessPublication, setAccessPublication] = useState(
+    initialAccessPublication,
+  );
   const locale = useLocale();
   const t = useTranslations("events");
   const validation = useTranslations("validation");
@@ -133,7 +150,10 @@ export function EventForm({
   const [focusRequest, setFocusRequest] = useState(0);
   const [validationAttempted, setValidationAttempted] = useState(false);
   const dirty =
-    editorFingerprint(values, editedDates) !== savedFingerprint || extraDirty;
+    editorFingerprint(values, editedDates) !== savedFingerprint ||
+    extraDirty ||
+    passwordDirty ||
+    passwordEnabled !== passwordSaved;
   const [state, action, pending] = useActionState(
     async (previous: EventFormState, formData: FormData) => {
       let next: EventFormState;
@@ -147,6 +167,10 @@ export function EventForm({
         };
       } finally {
         mutationBusy.current = false;
+
+        if (passwordInput.current) passwordInput.current.value = "";
+        setPasswordFilled(false);
+        setPasswordDirty(false);
       }
 
       if (next.createdId) {
@@ -158,6 +182,9 @@ export function EventForm({
       }
 
       if (next.saved) {
+        setPasswordSaved(next.saved.passwordProtected);
+        setPasswordEnabled(next.saved.passwordProtected);
+        setAccessPublication(next.saved.accessPublication);
         // Rebase every source index after reorder/delete, preserving UI row identity.
         const savedValues = rebaseSavedValues(next.saved.values, values);
         setValues(savedValues);
@@ -329,6 +356,12 @@ export function EventForm({
         event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
       ) => {
         feedback.clear(name);
+
+        if (name === "visibility") {
+          if (passwordInput.current) passwordInput.current.value = "";
+          setPasswordFilled(false);
+          setPasswordDirty(false);
+        }
         markDateEdited(name);
         setValues((current) => ({ ...current, [name]: event.target.value }));
       },
@@ -339,7 +372,7 @@ export function EventForm({
   }
 
   const unmappedError = Object.entries(feedback.errors).find(([name]) => {
-    if (Object.hasOwn(values, name)) {
+    if (Object.hasOwn(values, name) || name === "eventPassword") {
       return false;
     }
 
@@ -355,9 +388,27 @@ export function EventForm({
     !values.startsAt ||
     !values.endsAt ||
     !values.timezone.trim() ||
-    !values.maxGuestsPerRegistration.trim();
+    !values.maxGuestsPerRegistration.trim() ||
+    (values.visibility === "PRIVATE" &&
+      passwordEnabled &&
+      !passwordSaved &&
+      !passwordFilled);
 
   function checkRequiredFields() {
+    if (
+      values.visibility === "PRIVATE" &&
+      passwordEnabled &&
+      !passwordSaved &&
+      !passwordFilled
+    ) {
+      feedback.setErrors({
+        ...feedback.errors,
+        eventPassword: "accessPasswordInvalid",
+      });
+      revealErrors({ eventPassword: "accessPasswordInvalid" });
+
+      return;
+    }
     const parsed = dateSource
       ? parseEventEdit(values, dateSource, editedDates, startLocked)
       : eventInputSchema.safeParse(values);
@@ -431,6 +482,20 @@ export function EventForm({
 
         feedback.reset();
 
+        if (
+          !importedDates &&
+          values.visibility === "PRIVATE" &&
+          passwordEnabled &&
+          (!passwordSaved || passwordFilled) &&
+          !eventPasswordSchema.safeParse(passwordInput.current?.value).success
+        ) {
+          event.preventDefault();
+          feedback.setErrors({ eventPassword: "accessPasswordInvalid" });
+          revealErrors({ eventPassword: "accessPasswordInvalid" });
+
+          return;
+        }
+
         // Import review validates its preserved absolute instants in its local action.
         if (importedDates) {
           mutationBusy.current = true;
@@ -471,6 +536,20 @@ export function EventForm({
         borderRadius: 1,
       }}
     >
+      {!importedDates && (
+        <input
+          type="hidden"
+          name="passwordProtection"
+          value={
+            values.visibility === "PRIVATE" && passwordEnabled
+              ? "true"
+              : "false"
+          }
+        />
+      )}
+      {!passwordEnabled && (
+        <input type="hidden" name="eventPassword" value="" />
+      )}
       {edit && (
         <>
           <input type="hidden" name="eventId" value={edit.id} />
@@ -509,6 +588,57 @@ export function EventForm({
         </Box>
         <Box sx={{ p: { xs: 2, sm: 4 }, minWidth: 0 }}>
           <EventFormSections
+            passwordFields={
+              <Stack spacing={2}>
+                {accessPublication?.pending && edit && (
+                  <EventAccessPublication
+                    key={accessPublication.contentVersion}
+                    eventId={edit.id}
+                    contentVersion={accessPublication.contentVersion}
+                    disabled={
+                      dirty ||
+                      coverDirty ||
+                      pending ||
+                      coverBusy ||
+                      Boolean(state.conflict)
+                    }
+                  />
+                )}
+                {values.visibility === "PRIVATE" &&
+                  (importedDates ? (
+                    <Alert severity="info">{t("accessTemplateHint")}</Alert>
+                  ) : (
+                    <EventPasswordFields
+                      enabled={passwordEnabled}
+                      saved={passwordSaved}
+                      filled={passwordFilled}
+                      input={passwordInput}
+                      disabled={pending || coverBusy}
+                      error={
+                        feedback.errors.eventPassword
+                          ? translateError(feedback.errors.eventPassword)
+                          : undefined
+                      }
+                      onToggle={(enabled) => {
+                        setPasswordEnabled(enabled);
+                        setPasswordFilled(false);
+                        setPasswordDirty(false);
+                        feedback.clear("eventPassword");
+
+                        if (passwordInput.current)
+                          passwordInput.current.value = "";
+                      }}
+                      onInput={() => {
+                        setPasswordFilled(
+                          Boolean(passwordInput.current?.value),
+                        );
+                        setPasswordDirty(Boolean(passwordInput.current?.value));
+                        feedback.clear("eventPassword");
+                      }}
+                    />
+                  ))}
+              </Stack>
+            }
             section={section}
             revealErrorsKey={focusRequest}
             values={values}

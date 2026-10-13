@@ -14,6 +14,8 @@ import { applicationsFrozen } from "@/features/events/event-lifecycle";
 import { registrationAvailability } from "@/features/events/registration-availability";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 import { createApplicationAccess } from "@/features/events/server/application-access";
+import { hasEventPasswordAccess } from "@/features/events/server/event-password-session";
+import { getPublishedEvent } from "@/features/events/server/get-published-event";
 import { lockEventForUpdate } from "@/features/events/server/lock-event-for-update";
 import { Prisma } from "@/generated/prisma/client";
 import { emailEventSnapshot } from "@/lib/email-outbox/enqueue";
@@ -89,6 +91,11 @@ export async function submitEventApplication(
   const { publicId, eventRevisionId } = parsed.data;
 
   try {
+    const published = await getPublishedEvent(publicId);
+
+    if (!published || published.locked) {
+      return { message: { code: "formUnavailable" } };
+    }
     // Revisions are created only by publication. Do not require this revision
     // to still be current: an already opened form keeps its historical meaning.
     const revision = await prisma.eventRevision.findFirst({
@@ -192,9 +199,26 @@ export async function submitEventApplication(
                   user: { select: { email: true, uiLocale: true } },
                 },
               },
-              publishedRevision: { select: { id: true, snapshot: true } },
+              publishedRevision: {
+                select: {
+                  id: true,
+                  snapshot: true,
+                  passwordHash: true,
+                  passwordGrantId: true,
+                },
+              },
             },
           });
+
+          if (
+            !currentEvent?.publishedRevision ||
+            !(await hasEventPasswordAccess(
+              publicId,
+              currentEvent.publishedRevision,
+            ))
+          ) {
+            return { message: { code: "formUnavailable" } };
+          }
           const unavailable = admissionError(
             currentEvent?.publishedRevision?.snapshot,
             user !== null,

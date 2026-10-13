@@ -74,6 +74,17 @@ async function main() {
             FROM "EmailOutbox" WHERE "communicationId" IS NOT NULL
             GROUP BY "communicationId"
           ), checks AS (
+            SELECT 'event_password_access' AS invariant, count(*) AS invalid_count
+            FROM "Event" e
+            WHERE (e."draftPasswordHash" IS NOT NULL AND (e.visibility <> 'PRIVATE' OR e."draftPasswordHash" !~ '^scrypt:[a-f0-9]{32}:[a-f0-9]{64}$'))
+              OR e."passwordFailures" NOT BETWEEN 0 AND 100
+              OR (e."passwordFailures" > 0 AND e."passwordFailureWindow" IS NULL)
+            UNION ALL
+            SELECT 'revision_password_access', count(*)
+            FROM "EventRevision" r
+            WHERE (r."passwordHash" IS NULL) <> (r."passwordGrantId" IS NULL)
+              OR (r."passwordHash" IS NOT NULL AND (r."snapshot"->>'visibility' IS DISTINCT FROM 'PRIVATE' OR r."passwordHash" !~ '^scrypt:[a-f0-9]{32}:[a-f0-9]{64}$'))
+            UNION ALL
             SELECT 'application_lifecycle_timestamps' AS invariant,
               count(*) AS invalid_count
             FROM "Application" a

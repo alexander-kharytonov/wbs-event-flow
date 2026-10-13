@@ -32,6 +32,7 @@ import { formatTimezone } from "@/features/events/format-timezone";
 import type { useFormFeedback } from "@/hooks/use-form-feedback";
 
 type Props = {
+  passwordFields?: ReactNode;
   section: EditorSection;
   revealErrorsKey: number;
   values: EventFormValues;
@@ -72,6 +73,7 @@ type Props = {
 };
 
 export function EventFormSections({
+  passwordFields,
   section,
   revealErrorsKey,
   values,
@@ -396,14 +398,15 @@ export function EventFormSections({
                   value="0"
                 />
               )}
-              {guestPolicyLocked &&
-                values.guestPolicy === persistedGuestPolicy && (
-                  <input
-                    type="hidden"
-                    name="guestPolicy"
-                    value={values.guestPolicy}
-                  />
-                )}
+              {(values.maxGuestsPerRegistration === "0" ||
+                (guestPolicyLocked &&
+                  values.guestPolicy === persistedGuestPolicy)) && (
+                <input
+                  type="hidden"
+                  name="guestPolicy"
+                  value={values.guestPolicy}
+                />
+              )}
             </Stack>
             <Box
               sx={{
@@ -483,6 +486,7 @@ export function EventFormSections({
               <MenuItem value="PRIVATE">{t("private")}</MenuItem>
               <MenuItem value="PUBLIC">{t("public")}</MenuItem>
             </TextField>
+            {passwordFields}
             <TextField
               {...field("accountRequirement")}
               label={t("accountRequirement")}

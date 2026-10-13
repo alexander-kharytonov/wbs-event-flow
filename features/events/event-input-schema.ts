@@ -385,6 +385,8 @@ export type EventFormValues = z.input<typeof eventInputSchema>;
 export type EventFormState = {
   createdId?: string;
   saved?: {
+    passwordProtected: boolean;
+    accessPublication: { contentVersion: number; pending: boolean };
     version: string;
     values: EventFormValues;
     dates: import("@/features/events/event-form-values").EventDateSource;
