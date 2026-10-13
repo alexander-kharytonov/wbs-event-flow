@@ -1,3 +1,8 @@
+import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
+import { readdir, readFile } from "node:fs/promises";
+import { resolve } from "node:path";
+import { promisify } from "node:util";
 import { loadEnvConfig } from "@next/env";
 import {
   communicationContextSchema,
@@ -9,12 +14,141 @@ import {
 } from "@/features/events/application-input";
 import { mediaManifestSchema } from "@/features/events/schemas/event-rich-content";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
+import type { Prisma } from "@/generated/prisma/client";
+
+async function checkMigrationHistory(tx: Prisma.TransactionClient) {
+  const directories = await readdir("prisma/migrations", {
+    withFileTypes: true,
+  });
+  const expected = new Map(
+    await Promise.all(
+      directories
+        .filter((entry) => entry.isDirectory())
+        .map(async (entry) => {
+          const sql = await readFile(
+            `prisma/migrations/${entry.name}/migration.sql`,
+          );
+
+          return [
+            entry.name,
+            createHash("sha256").update(sql).digest("hex"),
+          ] as const;
+        }),
+    ),
+  );
+  const [{ exists }] = await tx.$queryRaw<{ exists: boolean }[]>`
+    SELECT to_regclass('"_prisma_migrations"') IS NOT NULL AS exists
+  `;
+
+  if (!exists) {
+    return [{ invariant: "migration_history_missing", invalid_count: 1 }];
+  }
+
+  const applied = await tx.$queryRaw<
+    { migration_name: string; checksum: string; finished: boolean }[]
+  >`
+    SELECT migration_name, checksum, finished_at IS NOT NULL AS finished
+    FROM "_prisma_migrations" WHERE rolled_back_at IS NULL
+  `;
+  const completed = new Set(
+    applied.filter((row) => row.finished).map((row) => row.migration_name),
+  );
+
+  return [
+    {
+      invariant: "migration_pending",
+      invalid_count: [...expected.keys()].filter((name) => !completed.has(name))
+        .length,
+    },
+    {
+      invariant: "migration_failed",
+      invalid_count: applied.filter((row) => !row.finished).length,
+    },
+    {
+      invariant: "migration_unexpected",
+      invalid_count: applied.filter((row) => !expected.has(row.migration_name))
+        .length,
+    },
+    {
+      invariant: "migration_checksum_mismatch",
+      invalid_count: applied.filter(
+        (row) =>
+          expected.has(row.migration_name) &&
+          expected.get(row.migration_name) !== row.checksum,
+      ).length,
+    },
+    {
+      invariant: "migration_duplicate",
+      invalid_count:
+        applied.length - new Set(applied.map((row) => row.migration_name)).size,
+    },
+  ].filter((violation) => violation.invalid_count > 0);
+}
+
+async function checkSchemaAlignment() {
+  try {
+    // Comparing a live datasource to a datamodel only introspects the database.
+    // No shadow database, migration application or schema/data writes are requested.
+    // Capture all CLI output: even failures must not expose connection details.
+    await promisify(execFile)(
+      process.execPath,
+      [
+        resolve("node_modules/prisma/build/index.js"),
+        "migrate",
+        "diff",
+        "--from-config-datasource",
+        "--to-schema",
+        "prisma/schema.prisma",
+        "--exit-code",
+      ],
+      { timeout: 60_000, maxBuffer: 1024 * 1024 },
+    );
+
+    return null;
+  } catch (error) {
+    return error instanceof Error && "code" in error && error.code === 2
+      ? "schema_alignment_drift"
+      : "schema_alignment_unavailable";
+  }
+}
 
 async function main() {
   loadEnvConfig(process.cwd(), true);
   const { prisma } = await import("@/lib/prisma");
 
   try {
+    const migrationFailures = await prisma.$transaction(
+      async (tx) => {
+        await tx.$executeRaw`SET TRANSACTION READ ONLY`;
+
+        return checkMigrationHistory(tx);
+      },
+      { isolationLevel: "RepeatableRead", timeout: 10_000 },
+    );
+
+    if (migrationFailures.length > 0) {
+      for (const failure of migrationFailures) {
+        console.error(
+          `Database preflight failed: ${failure.invariant}; count=${failure.invalid_count}`,
+        );
+      }
+      process.exitCode = 1;
+
+      return;
+    }
+
+    const schemaFailure = await checkSchemaAlignment();
+
+    if (schemaFailure) {
+      console.error(`Database preflight failed: ${schemaFailure}; count=1`);
+      process.exitCode = 1;
+
+      return;
+    }
+
+    console.log(
+      "Database migration history and Prisma schema alignment passed.",
+    );
     const result = await prisma.$transaction(
       async (tx) => {
         await tx.$executeRaw`SET TRANSACTION READ ONLY`;
@@ -440,7 +574,7 @@ async function main() {
           });
         }
 
-        let invalidMedia = BigInt(0);
+        let invalidManifests = BigInt(0);
 
         while (true) {
           const assets = await tx.mediaAsset.findMany({
@@ -457,7 +591,7 @@ async function main() {
             break;
           }
 
-          invalidMedia += BigInt(
+          invalidManifests += BigInt(
             assets.filter(
               (asset) => !mediaManifestSchema.safeParse(asset.manifest).success,
             ).length,
@@ -466,6 +600,8 @@ async function main() {
         }
 
         let revisionCursor: string | undefined;
+        let invalidSnapshots = BigInt(0);
+        let invalidCoverReferences = BigInt(0);
 
         while (true) {
           const revisions = await tx.eventRevision.findMany({
@@ -488,32 +624,49 @@ async function main() {
 
           for (const revision of revisions) {
             const snapshot = eventSnapshotSchema.safeParse(revision.snapshot);
+
+            if (!snapshot.success) {
+              invalidSnapshots++;
+
+              continue;
+            }
+
             const manifest = mediaManifestSchema.safeParse(
               revision.coverAsset?.manifest,
             );
 
             if (
-              !snapshot.success ||
               (snapshot.data.cover?.assetId ?? null) !==
                 revision.coverAssetId ||
               (snapshot.data.cover &&
-                (!manifest.success ||
-                  JSON.stringify(snapshot.data.cover.variants) !==
-                    JSON.stringify(manifest.data)))
+                (!revision.coverAsset ||
+                  (manifest.success &&
+                    JSON.stringify(snapshot.data.cover.variants) !==
+                      JSON.stringify(manifest.data))))
             ) {
-              invalidMedia++;
+              invalidCoverReferences++;
             }
           }
 
           revisionCursor = revisions[revisions.length - 1].id;
         }
 
-        if (invalidMedia > BigInt(0)) {
-          violations.push({
-            invariant: "media_serialized_contract",
-            invalid_count: invalidMedia,
-          });
-        }
+        violations.push(
+          ...[
+            {
+              invariant: "event_snapshot_contract",
+              invalid_count: invalidSnapshots,
+            },
+            {
+              invariant: "media_manifest_contract",
+              invalid_count: invalidManifests,
+            },
+            {
+              invariant: "revision_cover_reference",
+              invalid_count: invalidCoverReferences,
+            },
+          ].filter((violation) => violation.invalid_count > BigInt(0)),
+        );
 
         return { connection, counts, violations };
       },

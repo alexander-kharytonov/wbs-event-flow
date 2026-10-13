@@ -112,11 +112,3 @@ export type ManualContent = z.infer<typeof manualContentSchema>;
 export type CommunicationContext = z.infer<typeof communicationContextSchema>;
 export type ActorSnapshot = z.infer<typeof actorSnapshotSchema>;
 export type DeliveryAssociation = z.infer<typeof deliveryAssociationSchema>;
-
-export function normalizeRecipientEmails(emails: readonly string[]) {
-  return [
-    ...new Set(
-      emails.map((email) => z.email().parse(email.trim().toLowerCase())),
-    ),
-  ].sort();
-}

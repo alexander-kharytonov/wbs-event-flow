@@ -600,21 +600,33 @@ Sources: [creation](features/communications/server/enqueue.ts),
   approved count while preserving approvals.
 - Public UI can briefly be stale; authoritative mutations recheck conditions.
 
-These are current boundaries, not a roadmap. The single PostgreSQL 18 migration
-`20261011030000_baseline` creates the current schema, including all 25 custom CHECK
-constraints. It replaces disposable local development history without data
-transformation or seeding. Replacing applied history is not a deployment strategy
-for persistent production data. Fresh databases use `prisma migrate deploy`.
+These are current boundaries, not a roadmap. The PostgreSQL 18 migration history
+starts with `20261011030000_baseline` and continues with incremental migrations.
+The complete history creates the current schema and custom SQL CHECK constraints.
+Applied migrations stay unchanged. Replacing applied history is not a deployment
+strategy for persistent production data. Fresh databases use `prisma migrate deploy`.
 
-`db:check` uses one read-only RepeatableRead snapshot. It reports counts for all
-21 application tables and aggregate violations for Application/Registration
+`db:check` first compares the migration ledger with repository migration names and
+SHA-256 checksums in a read-only transaction. Missing history, pending, failed,
+unexpected, duplicate or altered migrations stop the command. A separate read-only
+Prisma datasource-to-schema comparison then rejects drift or an unavailable
+comparison. It needs the installed Prisma CLI, uses no shadow database and applies
+no migrations. This checks Prisma-managed objects, not custom SQL CHECK definitions.
+Run against a stable schema; these sequential preflight checks and the data snapshot
+are not one atomic schema-change barrier.
+
+After preflight, one read-only RepeatableRead snapshot reports counts for all
+application tables and aggregate violations for Application/Registration
 correspondence, PRIMARY identity/cardinality, party activity, Ticket lifecycle,
 QR/MANUAL Attendance, publication references and Communication/Outbox consistency.
-Every revision is checked against the strict snapshot contract and its cover
-reference, including revisions without media. Strict Communication context
-validation uses bounded keyset pages and the existing
-versioned contract. Empty databases pass with explicit zero data coverage. No
-repair, credential decryption, raw payload/identity logging or email occurs.
+Every revision is checked against the strict EventSnapshot contract, including
+revisions without media. Invalid snapshots, invalid READY media manifests and
+revision cover-reference/variant mismatches are separate categories. A malformed
+snapshot skips its cover comparison; malformed manifests are reported as manifest
+failures, without a derivative variant mismatch. Ownership/state/reference SQL
+checks remain independent. JSON validation uses bounded keyset pages and current
+runtime contracts. Empty aligned databases pass with explicit zero data coverage.
+No repair, credential decryption, raw payload/identity logging or email occurs.
 
 
 ## 20. Event lifecycle
@@ -1686,10 +1698,9 @@ Event/idempotencyKey with the same digest returns the original id without enqueu
 a different digest fails. Legacy/null-digest records cannot be replayed by guessing.
 Caller must propagate any error to abort the enclosing domain transaction. SQL
 failures abort it; notification and writes commit together. No nested independent
-transaction or SMTP is opened. 27A supplied the helper; section 33 describes
-its integration into Event writers in 27B.
-Manual content/audience/recipient association contracts prepare 27C, but no manual
-enqueue API, Server Action or production path creates manual Outbox rows in 27A.
+transaction or SMTP is opened. Section 33 describes integration into Event writers;
+section 34 describes the manual enqueue path and its content, audience and recipient
+association contracts.
 
 Manual admission primitives use a fixed global pg_advisory_xact_lock(27001, 1)
 inside the caller's ReadCommitted transaction. Required lock order:
@@ -1699,9 +1710,9 @@ Do not lock another Event after acquiring admission. All manual admission writer
 (and any future reactivation) must use this protocol. The global lock serializes
 both same-actor cross-Event sends and the global queue budget. Snapshot isolation
 would retain stale pre-lock counts and is rejected. The primitive alone is not a
-reservation; 27C must insert before releasing the same transaction lock, using the
-returned admittedAt as createdAt, and must complete recipient selection/digest/
-replay orchestration. Dispatcher status transitions only maintain/decrease the
+reservation; the manual enqueue path inserts before releasing the same transaction
+lock, using the returned admittedAt as createdAt, with recipient selection, digest
+and replay orchestration in that transaction. Dispatcher status transitions only maintain/decrease the
 outstanding total. No separate RateLimit table or in-process limiter exists.
 
 Limits: <=1,000 unique recipients/send, <=5 manual sends/Event/hour, <=10 manual
@@ -1729,10 +1740,10 @@ capability URLs or auth/session fields belong to UI DTOs.
 
 The baseline includes the full Communication/Outbox schema. Legacy rows may have
 null communicationId and remain deliverable; history includes associated sends
-without inferring or backfilling legacy history. 27B integrates transactional writers; 27C adds
-manual orchestration; 27D supplies remaining history/details presentation. No
-Communications UI, new background infrastructure or delivery retention is shipped
-by this foundation.
+without inferring or backfilling legacy history. Transactional writers, manual
+orchestration and unified History/Details presentation are implemented as described
+in sections 33–35. They reuse the existing Outbox infrastructure without a separate
+delivery retention job.
 
 
 ## 33. Transactional Communications integration (27B)
@@ -1808,12 +1819,12 @@ the unchanged worker after commit. Post-commit failure cannot undo admission,
 review or cancellation. Status/retry/lease/fencing and at-least-once semantics
 remain as in section 18. No manual admission lock is acquired by these writers.
 Existing Event/application invalidations remain unchanged and contain no new
-history content; 27D may complete delivery-status refresh.
+history content; section 35 defines delivery-status refresh.
 
 Cutover applies only to new successful operations. Previously queued rows with null
 communicationId remain deliverable; legacy history is not inferred/backfilled.
-No schema/migration/dependency changes are required. Section 34 implements 27C;
-27D full History/Details UI remains outside this iteration.
+Section 34 describes Manual Send; section 35 describes the implemented unified
+History/Details UI.
 
 
 ## 34. Manual Communications Center (27C)
@@ -2491,8 +2502,10 @@ reads uiMode with uiLocale. Neither field is added to auth payloads, Event conte
 Snapshot/Template or email contracts.
 
 `PUT /api/preferences/mode` accepts only a supported JSON string bounded to 64
-bytes. Origin must equal the configured BETTER_AUTH_URL origin. The User comes
-solely from the normal session lookup, including unverified authenticated Users;
+bytes. Origin must match the configured BETTER_AUTH_URL origin or an explicitly
+configured trusted app origin, using the same validated allowlist as the locale
+preference route. The User comes solely from the normal session lookup, including
+unverified authenticated Users;
 only uiMode and Prisma updatedAt are updated. Account persistence must succeed
 before the host-only, HttpOnly, SameSite=Lax, one-year cookie is emitted (Secure
 on HTTPS). Anonymous requests set only the cookie. Both preference PUT success
@@ -2551,11 +2564,10 @@ card summaries include workspace language as basic Event context; this exposes n
 additional draft content or mutation permissions. Account registration cards use
 only validated current published language and omit it when unavailable.
 
-The explicitly authorized pre-release migration consolidation replaces local migration
-history with 20261011030000_baseline. It includes EventLanguage, required
-Event.language without a default, UI preferences and all custom CHECK constraints.
-The local reset preserves authentication/organizer rows and does not rewrite revision
-JSON. Future schema changes normally use incremental migrations.
+The baseline includes EventLanguage, required Event.language without a default and
+UI preferences. Later schema changes use incremental migrations; the complete
+migration history is authoritative. Snapshot/Template parsing accepts only the
+current contract and never rewrites historical JSON.
 
 ## 43. Email locale resolution (I18N-D)
 

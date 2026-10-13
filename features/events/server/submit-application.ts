@@ -229,10 +229,6 @@ export async function submitEventApplication(
             return unavailable;
           }
 
-          if (!currentEvent) {
-            return { message: { code: "formUnavailable" } };
-          }
-
           if (session && session.user.id === currentEvent?.organizer.userId) {
             return { message: { code: "cannotApplyOwn" } };
           }
@@ -258,17 +254,6 @@ export async function submitEventApplication(
             };
           }
 
-          const finalAdmissionError = admissionError(
-            currentEvent?.publishedRevision?.snapshot,
-            user !== null,
-            locked.decisionNow,
-          );
-
-          if (finalAdmissionError) {
-            return finalAdmissionError;
-          }
-
-          // Recheck current admission policy immediately before the atomic write.
           const [{ id: applicationId }] = await tx.$queryRaw<
             { id: string }[]
           >`SELECT uuidv7() AS id`;
