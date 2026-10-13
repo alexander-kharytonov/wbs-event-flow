@@ -767,11 +767,6 @@ export function EventForm({
           </Stack>
         </Alert>
       )}
-      {!edit && coverUnprepared && (
-        <Alert severity="info" sx={{ m: 2 }}>
-          {t("creationPrepareFirst")}
-        </Alert>
-      )}
       {!creationUncertain && (
         <EventEditorActions
           eventId={edit?.id}

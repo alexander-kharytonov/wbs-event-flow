@@ -2,10 +2,12 @@
 
 import AddPhotoAlternateOutlined from "@mui/icons-material/AddPhotoAlternateOutlined";
 import CloudUploadOutlined from "@mui/icons-material/CloudUploadOutlined";
+import ImageOutlined from "@mui/icons-material/ImageOutlined";
 import {
   Alert,
   Box,
   Button,
+  Chip,
   LinearProgress,
   Skeleton,
   Stack,
@@ -89,6 +91,13 @@ export function EventCoverEditor({
     [source],
   );
 
+  function showError(code: keyof Messages["events"]) {
+    notifications.show(<EventText id={code} />, {
+      severity: "error",
+      key: `cover-error:${eventId ?? "new"}:${code}`,
+    });
+  }
+
   async function selectFile(next: File | undefined) {
     if (!next || disabled || pending) {
       return;
@@ -100,7 +109,7 @@ export function EventCoverEditor({
       !["image/jpeg", "image/png", "image/webp"].includes(next.type) ||
       next.size > 5 * 1024 * 1024
     ) {
-      feedback.setMessage("coverChooseValid");
+      showError("coverChooseValid");
 
       return;
     }
@@ -124,7 +133,7 @@ export function EventCoverEditor({
       }
 
       if (width > 4096 || height > 4096 || width < 16 || height < 9) {
-        feedback.setMessage("coverDimensions");
+        showError("coverDimensions");
 
         return;
       }
@@ -134,7 +143,7 @@ export function EventCoverEditor({
       setCrop(initialCoverCrop);
     } catch {
       if (current === selection.current) {
-        feedback.setMessage("coverOpenFailed");
+        showError("coverOpenFailed");
       }
     } finally {
       if (current === selection.current) {
@@ -183,7 +192,7 @@ export function EventCoverEditor({
         });
 
         if (!response.ok && response.status !== 404) {
-          feedback.setMessage("coverSaveFailed");
+          showError("coverSaveFailed");
 
           return;
         }
@@ -193,7 +202,7 @@ export function EventCoverEditor({
       setFile(undefined);
       setSource(null);
     } catch {
-      feedback.setMessage("coverConfirmFailed");
+      showError("coverConfirmFailed");
     } finally {
       setPending(null);
       end();
@@ -252,7 +261,7 @@ export function EventCoverEditor({
         if (eventId && response.status === 409) {
           setConflict(true);
         }
-        feedback.setMessage(
+        showError(
           typeof result.code === "string" &&
             t.has(result.code as keyof Messages["events"])
             ? (result.code as keyof Messages["events"])
@@ -295,7 +304,7 @@ export function EventCoverEditor({
       }
     } catch {
       if (!controller.signal.aborted) {
-        feedback.setMessage("coverConfirmFailed");
+        showError("coverConfirmFailed");
       }
     } finally {
       setPending(null);
@@ -452,18 +461,6 @@ export function EventCoverEditor({
           spacing={1}
           sx={{ alignItems: { sm: "center" } }}
         >
-          {source && (
-            <Button
-              type="button"
-              disabled={busy}
-              onClick={() => {
-                setFile(undefined);
-                setSource(null);
-              }}
-            >
-              {t("coverCancelSelection")}
-            </Button>
-          )}
           {eventId && assetId !== cover.assetId && !source && (
             <Button
               type="button"
@@ -478,13 +475,14 @@ export function EventCoverEditor({
             </Button>
           )}
           {file && (
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ overflowWrap: "anywhere", minWidth: 0 }}
-            >
-              {file.name}
-            </Typography>
+            <Chip
+              icon={<ImageOutlined />}
+              label={file.name}
+              title={file.name}
+              size="small"
+              variant="outlined"
+              sx={{ maxWidth: "100%", minWidth: 0, alignSelf: "flex-start" }}
+            />
           )}
         </Stack>
       )}
@@ -506,7 +504,6 @@ export function EventCoverEditor({
           slotProps={{ htmlInput: { maxLength: 500 } }}
         />
       )}
-      {feedback.message && <Alert severity="error">{feedback.message}</Alert>}
       {conflict && (
         <Alert severity="error">
           {t("coverChanged")}{" "}
@@ -531,7 +528,7 @@ export function EventCoverEditor({
           useFlexGap
           sx={{ alignItems: { xs: "stretch", sm: "center" } }}
         >
-          {(eventId ? cover.assetId : assetId || source) && (
+          {(source || assetId || cover.assetId) && (
             <Button
               type="button"
               color="error"

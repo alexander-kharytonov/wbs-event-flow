@@ -230,8 +230,12 @@ const theme = createTheme({
     },
     MuiLinearProgress: {
       styleOverrides: {
-        root: { backgroundColor: "var(--mui-palette-action-selected)" },
+        root: {
+          backgroundColor: "var(--mui-palette-action-selected)",
+          borderRadius: 999,
+        },
         bar: ({ theme, ownerState }) => ({
+          borderRadius: "inherit",
           ...theme.applyStyles("dark", {
             ...(ownerState.color === "primary" && {
               backgroundColor: "var(--mui-palette-secondary-main)",

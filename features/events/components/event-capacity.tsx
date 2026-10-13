@@ -49,7 +49,7 @@ export function EventCapacity({
           value={(occupied / capacity) * 100}
           aria-label={t("filledPlaces")}
           aria-valuetext={t("filledPlacesValue", { occupied, capacity })}
-          sx={{ height: 10, borderRadius: 0.5 }}
+          sx={{ height: 10 }}
         />
       )}
       <Typography variant="caption" color="text.secondary">

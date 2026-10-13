@@ -423,7 +423,7 @@ Required runtime variables (all server-side; never NEXT_PUBLIC):
 | RESEND_API_KEY | Sending API key restricted to the verified sender domain |
 | SMTP_FROM | Plain verified sender email; both transports add the display name `Event Flow` |
 | EMAIL_OUTBOX_ENABLED | `true`; `false` during recovery/reconciliation |
-| MEDIA_STORAGE_ROOT | `/data/media` |
+| MEDIA_STORAGE_ROOT | Absolute media directory on the persistent volume; image default: `/data/media` |
 | GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET | Both configured for Google login, or both empty |
 | RAILWAY_RUN_UID | `0` for the provisioning entry point; it immediately drops the server to UID/GID 1000 |
 | PORT | Supplied by Railway; server binds `0.0.0.0` |
@@ -436,8 +436,12 @@ failure must prevent rollout. Existing schema constraints and contracts remain.
 Build uses nonsecret placeholder environment values only; real secrets are runtime
 variables. `.dockerignore` excludes local environment, Git and generated artifacts.
 
-The startup initializer accepts only `/data/media`; checks parent ownership/modes
-and extended ACLs, creates a missing 0700 directory and gives it to UID 1000.
+The startup initializer uses `MEDIA_STORAGE_ROOT` (the image defaults to `/data/media`).
+The path must be absolute and normalized, and all parent directories must already
+exist. It checks the complete parent chain for root ownership, safe modes and
+absence of symlinks or extended ACLs, then creates a missing 0700 media directory
+and gives it to UID 1000. Configure the persistent volume mount to contain this
+directory; setting the environment variable does not attach a volume.
 Existing directories must already meet ownership/mode requirements. It refuses
 symlinks or unsafe existing permissions rather than repairing them recursively.
 The original media adapter still checks the complete path and files. On imported

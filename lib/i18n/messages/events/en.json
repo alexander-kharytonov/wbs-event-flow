@@ -469,7 +469,6 @@
   "coverPreview": "Cover preview",
   "coverEmpty": "Give your event a cover",
   "coverEmptyHint": "Add a photo or illustration to introduce your event. You’ll choose exactly what appears in the frame.",
-  "coverCancelSelection": "Cancel selection",
   "coverDiscard": "Discard upload",
   "coverAlt": "Alternative text (optional)",
   "coverAltHint": "Describe the image for screen readers. Leave blank if it is purely decorative.",
@@ -1099,7 +1098,6 @@
   "creationCoverReady": "Cover ready. It will be attached when you create the event. Temporary uploads expire after 24 hours.",
   "creationRetry": "Retry same creation",
   "creationUncertain": "Creation could not be confirmed. Your submitted values are locked. Retry the same request to recover the result without creating a duplicate. Keep this page open until resolved.",
-  "creationPrepareFirst": "Upload your selected crop or cancel the selection before creating the event.",
   "creationInvalid": "This creation request cannot be reused. Check My Events before starting a new creation.",
   "creationCoverUnavailable": "The prepared cover is unavailable or expired. Remove it or upload it again before creating the event."
 }

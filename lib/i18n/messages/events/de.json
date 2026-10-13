@@ -469,7 +469,6 @@
   "coverPreview": "Covervorschau",
   "coverEmpty": "Gib deiner Veranstaltung ein Cover",
   "coverEmptyHint": "Füge ein Foto oder eine Illustration hinzu, um deine Veranstaltung vorzustellen. Du wählst genau, was im Ausschnitt erscheint.",
-  "coverCancelSelection": "Auswahl abbrechen",
   "coverDiscard": "Upload verwerfen",
   "coverAlt": "Alternativtext (optional)",
   "coverAltHint": "Beschreibe das Bild für Screenreader. Lass das Feld leer, wenn es rein dekorativ ist.",
@@ -1099,7 +1098,6 @@
   "creationCoverReady": "Coverbild bereit. Es wird beim Erstellen der Veranstaltung angehängt. Temporäre Uploads laufen nach 24 Stunden ab.",
   "creationRetry": "Erstellung erneut versuchen",
   "creationUncertain": "Die Erstellung konnte nicht bestätigt werden. Deine übermittelten Werte sind gesperrt. Wiederhole dieselbe Anfrage, um das Ergebnis ohne Duplikat abzurufen. Lass diese Seite bis zur Klärung geöffnet.",
-  "creationPrepareFirst": "Lade den gewählten Ausschnitt hoch oder verwirf die Auswahl, bevor du die Veranstaltung erstellst.",
   "creationInvalid": "Diese Erstellungsanfrage kann nicht erneut verwendet werden. Prüfe Meine Veranstaltungen, bevor du eine neue Erstellung beginnst.",
   "creationCoverUnavailable": "Das vorbereitete Coverbild ist nicht verfügbar oder abgelaufen. Entferne es oder lade es erneut hoch, bevor du die Veranstaltung erstellst."
 }
