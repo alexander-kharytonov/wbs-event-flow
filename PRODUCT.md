@@ -749,15 +749,13 @@ reset times can extend them.
 Manual admission limits are 1,000 unique recipients per communication,
 5 sends per Event/hour, 10 per actor/hour, and 2,000 outstanding recipients per
 Event / 10,000 globally. Outstanding means PENDING or PROCESSING. DB transaction
-locking primitives prepare concurrent enforcement; these limits never apply to
+locks enforce these limits under concurrent submissions; these limits never apply to
 transactional emails, including Event cancellation.
 
-27A adds persistence, contracts, rendering/delivery support, safe history DTOs,
-transactional enqueue and manual admission primitives only. The foundation alone exposes no Manual Send action or Communications UI. 27B integrates new transactional
-Event emails as described below; legacy Outbox rows are not backfilled or inferred
-into history. 27C activates manual Send and minimal History as described below.
-27D supplies unified history and details as described below. No cleanup/retention job or new
-background infrastructure is introduced.
+Communications includes transactional Event emails, manual Send, unified History
+and delivery details, as described below. Legacy Outbox rows are not backfilled or
+inferred into history. Delivery uses the existing Outbox infrastructure; there is
+no Communication cleanup/retention job.
 
 
 ## Transactional Communications integration (27B)
@@ -792,8 +790,8 @@ Application id plus PENDING-to-decision transition and type for review, and Even
 id plus EVENT_CANCELLED for the irreversible one-time cancellation. Existing Outbox
 deduplication keys are preserved. Same key/digest reuses the intent; conflicting
 content fails. History contains associated sends; null-linked legacy deliveries
-remain deliverable. No Manual Send, History UI, migration, dependency or background
-infrastructure is added by 27B.
+remain deliverable. Manual Send and the shared History/Details UI use the same
+Communication records and are described below.
 
 
 ## Manual Communications Center (27C)
@@ -936,20 +934,24 @@ editable. Untouched dates preserve exact instants and nulls; edited dates/timezo
 use the existing DST rules. Past dates are allowed with the existing warning:
 an unpublished copy can already be Completed and read-only.
 
-Nothing is saved or assigned during Review. Explicit Create uses the same atomic
-creation, Staff budget/resolver, Badge remapping and success navigation as Import.
+Review creates no Event; a newly uploaded cover remains temporary until Create.
+Explicit Create uses the same atomic creation, Staff budget/resolver, Badge
+remapping and success navigation as Import.
 The new Event has fresh identity and belongs to the verified creator; publication,
 cancellation/archive state and all operational/history records are excluded.
 The source is never changed. The URL contains only `duplicateFrom=<eventId>`;
 private configuration stays out of URLs and persistent browser storage.
-Editor Cancel/Back ask before discarding changed review values and make no writes. Background refresh keeps the active
-snapshot and edits even if the source later exceeds template limits, has invalid
+Editor Cancel/Back ask before discarding changed review values and create no Event.
+Background refresh keeps the active snapshot and edits even if the source later exceeds template limits, has invalid
 Badge bindings, or cannot temporarily be read. Confirmed loss of verified session
 or source access removes the protected Review. Initial failures never open Review.
 Full page reload opens the Create page and may reload the source, discarding edits.
 No persistent draft is kept.
-Existing submit locking prevents resubmission after confirmed success in that UI;
-there is no server-side exactly-once guarantee after a lost response.
+Submit locking prevents resubmission after confirmed success in that UI. After a
+lost response, retrying the same authenticated request key and payload recovers the
+committed result from its creation receipt without creating another Event. A full
+reload loses the in-memory retry state; a new request key can create another Event.
+The receipt and temporary-cover rules are defined in MEDIA-1 below.
 
 ## Event cover foundation (29A)
 

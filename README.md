@@ -70,22 +70,15 @@ settings. `lib/prisma.ts` is the shared server-only client. DATABASE_URL expands
 from the POSTGRES variables in `.env.example`; use a URL-safe local password or
 percent-encode credentials when constructing a URL.
 
-The migration history starts with `20261011030000_baseline`, replacing the
-pre-deployment local migration history. It creates the current schema, including
-media, and preserves all 25 custom SQL CHECK constraints alongside Prisma-managed
-keys and indexes. Future schema changes use incremental migrations; do not edit
-an applied baseline. Prisma drift alone does not verify custom CHECK constraints.
+The PostgreSQL 18 migration history starts with `20261011030000_baseline` and
+continues with incremental migrations for the current schema. Apply the complete
+history with `prisma migrate deploy`; do not edit applied migrations. Custom SQL
+CHECK constraints complement Prisma-managed keys and indexes; Prisma schema drift
+alone does not verify those CHECK constraints.
 
-A disposable local database with the removed history requires an explicitly
-authorized reset, including its migration ledger. Immediately before resetting,
-verify the effective DATABASE_URL is `127.0.0.1:5432/event_flow_dev`, schema `public`,
-with no unexpected connection parameters; confirm PostgreSQL 18, SQL
-`current_database()`, and the loopback-only Docker Compose port binding. Stop
-application writers and the Outbox dispatcher and reject unexpected connections.
-Reset only that verified database, then use `prisma migrate deploy`; do not use
-`migrate resolve` to bypass applying SQL or delete unrelated databases/volumes.
-This is not an in-place upgrade path for persistent production/staging data.
-There is no seed or demo data.
+Consolidating applied migrations or resetting disposable local DB/media requires
+separate explicit approval. Neither is an upgrade strategy for persistent
+production/staging data. There is no seed or demo data.
 
 ## Development services
 
@@ -119,14 +112,24 @@ These are the scripts currently defined in package.json:
 | `pnpm db:migrate` | Run local `prisma migrate dev` |
 | `pnpm db:generate` | Generate Prisma Client |
 | `pnpm db:studio` | Open Prisma Studio |
-| `pnpm db:check` | Check current domain integrity in a read-only RepeatableRead snapshot; report entity counts and violations without private data |
+| `pnpm db:check` | Check migration/schema alignment, then current domain integrity in a read-only RepeatableRead snapshot; report aggregate violations without private data |
 | `pnpm media:cleanup` | Explicitly collect expired/unreferenced media and reconcile generated orphan files; writes to DB and the configured media directory |
 
-`db:check` covers Application/Registration correspondence, PRIMARY cardinality and
-identity, party activity, Ticket lifecycle, QR/MANUAL Attendance, current publication
+`db:check` first checks the migration ledger against repository migration names and
+checksums, rejecting missing history, pending, failed, unexpected, duplicate or
+altered migrations. It then runs read-only Prisma datasource-to-schema comparison;
+drift or an unavailable comparison stops the command before domain queries. This
+preflight needs the installed Prisma CLI and checks Prisma-managed schema objects,
+not custom SQL CHECK definitions. It never applies migrations or uses a shadow DB.
+
+After preflight, `db:check` covers Application/Registration correspondence, PRIMARY
+cardinality and identity, party activity, Ticket lifecycle, QR/MANUAL Attendance, current publication
 references, and Communication/Outbox counts, types, normalized associated addresses
 and strict versioned contexts. JSON contexts are read in bounded keyset pages.
-It also checks media ownership/references, manifests and snapshot cover descriptors.
+It also checks media ownership/references. Invalid EventSnapshot contracts, invalid
+READY media manifests and revision cover-reference/variant mismatches have separate
+aggregate categories. Cover comparisons require a valid snapshot; variant comparison
+also requires a valid manifest, so malformed JSON is not mislabeled as a mismatch.
 Legacy null-linked Outbox remains supported; snapshot/template readers accept only
 the current EventSnapshot/EventTemplate contracts.
 An empty database passes with an explicit zero-data-coverage message. Failures
@@ -266,8 +269,10 @@ strictly time-bounded; this is an accepted v1 limitation. `deleted` counts rows 
 collector actually deleted; `orphans` counts files actually unlinked. Rerun while a
 budget flag is true; a flag signals budget exhaustion, not guaranteed remaining work.
 Failed DELETING rows retry; persistent failures must be repaired by the operator.
-There is no scheduled cleanup, worker or polling; monitor disk usage and invoke the
-command regularly. Never point two unrelated databases at the same media root.
+Existing Event assets require this explicit maintenance. Temporary creation covers
+and aged orphan files also have a runtime startup/15-minute sweep with the same
+candidate/deletion budgets. Monitor disk usage and invoke maintenance regularly.
+Never point two unrelated databases at the same media root.
 
 Back up the database and all referenced immutable variants together. A database-only
 restore cannot recover cover files. Keep local storage on a persistent volume across
@@ -285,7 +290,7 @@ validate the current shape, without compatibility readers or converters.
 
 ## Rich Event authoring and EventTemplate (29B)
 
-Create, Edit, Import Review and Duplicate Review share a full-page, seven-tab
+Create, Edit, Import Review and Duplicate Review share a full-page, eight-tab
 workspace editor (plus Additional settings for Import/Duplicate Review) and the atomic create path. Edit saves stay open; successful Create
 opens the new editor. Preview opens the saved draft in a separate tab. Cover saves
 remain independent, and app navigation asks before discarding unsaved changes. Descriptions use Markdown (including ordinary text), with optional
@@ -304,12 +309,15 @@ For existing Events, select a file, Upload, inspect the normalized preview and
 Save cover. Cover and Event saves exclude each other. Only a successful cover
 response advances the form token, preserving other unsaved edits. Replaced or
 abandoned uploads remain tracked for the existing explicit cleanup lifecycle.
-Create/Import/Duplicate cannot upload until the new Event exists.
+Create/Import/Duplicate can prepare a new private temporary cover before the Event
+exists. Uploads belong to the verified organizer and expire after 24 hours. Atomic
+creation attaches the prepared cover and saves a request-key retry receipt together.
 
 Export downloads `-template.json`. EventTemplate includes rich configuration and an explicit
 cover status NONE/OMITTED; no asset identity, storage locator or bytes are included.
 The Export menu and Import/Duplicate Review explain omission. Import rejects
-unknown fields. Every new Event starts without a cover.
+unknown fields. Source covers are never copied; a new Event has a cover only when
+a newly prepared cover is explicitly included during creation.
 
 OWNER Preview reads the draft workspace through EventSnapshot. Public pages still
 read only the published revision; publish/republish is required to expose changes.
