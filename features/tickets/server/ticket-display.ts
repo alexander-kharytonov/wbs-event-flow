@@ -65,7 +65,7 @@ export async function presentTicket(
   ticket: TicketDisplay,
   admission: {
     name: string;
-    email: string | null;
+    email: string;
     revokedAt: Date | null;
     attendance: { checkedInAt: Date } | null;
   },

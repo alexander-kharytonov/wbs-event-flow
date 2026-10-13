@@ -10,7 +10,7 @@ import type { UiLocale } from "@/lib/i18n/locale";
 export const manualAudienceScanLimit = 10_000;
 
 type Recipient = {
-  email: string | null;
+  email: string;
   userId: string | null;
   uiLocale: string | null;
   language: string | null;
@@ -76,7 +76,7 @@ export async function resolveManualAudience(
   let unavailableCount = 0;
 
   for (const row of rows) {
-    const email = row.email?.trim().toLowerCase();
+    const email = row.email.trim().toLowerCase();
 
     if (!email || !z.email().safeParse(email).success) {
       unavailableCount += 1;

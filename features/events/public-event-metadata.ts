@@ -22,10 +22,8 @@ export async function publicEventMetadata(
   const { snapshot, cancelledAt, archived } = published;
   const title = `${snapshot.title} | Event Flow`;
   const description =
-    eventDescriptionText(
-      snapshot.description ?? "",
-      snapshot.descriptionFormat,
-    ).slice(0, 160) || t("publicMetadataFallback");
+    eventDescriptionText(snapshot.description ?? "").slice(0, 160) ||
+    t("publicMetadataFallback");
   const url = new URL(`/e/${encodeURIComponent(publicId)}`, origin).href;
   const isPublic = snapshot.visibility === "PUBLIC";
   const cover = snapshot.cover;

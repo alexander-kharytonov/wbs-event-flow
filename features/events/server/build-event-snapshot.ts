@@ -46,7 +46,6 @@ export function buildEventSnapshot(event: EventWorkspace) {
     asset.state === "READY";
 
   return eventPublicationSnapshotSchema.safeParse({
-    descriptionFormat: event.descriptionFormat,
     cover: event.coverAssetId
       ? validAsset
         ? { assetId: asset.id, alt: event.coverAlt, variants: asset.manifest }

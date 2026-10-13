@@ -527,7 +527,7 @@ export function AttendeesList({
                       </Typography>
                       {full && (
                         <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-                          {selected.email ?? t("attendeeNoEmail")}
+                          {selected.email}
                         </Typography>
                       )}
                       <Typography

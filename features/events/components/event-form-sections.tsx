@@ -133,10 +133,8 @@ export function EventFormSections({
               value={values.description}
               disabled={disabled}
               error={feedback.errors.description}
-              formatError={feedback.errors.descriptionFormat}
               onChange={(description) => {
                 feedback.clear("description");
-                feedback.clear("descriptionFormat");
                 setValues((current) => ({ ...current, description }));
               }}
             />

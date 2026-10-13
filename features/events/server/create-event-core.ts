@@ -31,7 +31,6 @@ export async function createEventCore(
       title: configuration.title,
       language: configuration.language,
       description: configuration.description,
-      descriptionFormat: configuration.descriptionFormat,
       location: configuration.location ?? Prisma.DbNull,
       schedule: configuration.schedule,
       publicOrganizer: configuration.publicOrganizer ?? Prisma.DbNull,

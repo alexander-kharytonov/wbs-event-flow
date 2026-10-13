@@ -107,7 +107,6 @@ export const eventTemplateSchema = z
   .strictObject({
     format: z.literal("event-flow-template"),
     event: z.strictObject({
-      descriptionFormat: z.enum(["PLAIN_TEXT", "MARKDOWN"]),
       location: locationSchema.nullable(),
       schedule: scheduleSchema,
       publicOrganizer: publicOrganizerSchema.nullable(),

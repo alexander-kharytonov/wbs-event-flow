@@ -46,7 +46,6 @@ export async function readEventTemplate(userId: string, eventId: string) {
           title: true,
           language: true,
           description: true,
-          descriptionFormat: true,
           coverAssetId: true,
           coverAlt: true,
           location: true,

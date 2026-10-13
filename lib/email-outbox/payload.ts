@@ -2,8 +2,8 @@ import { z } from "zod";
 import { locales } from "@/lib/i18n/locale";
 import english from "@/lib/i18n/messages/email/en.json";
 
-// Absent on already queued deliveries; new writers always freeze a locale.
-const locale = z.enum(locales).optional();
+// Every delivery freezes its recipient locale at enqueue.
+const locale = z.enum(locales);
 
 export const manualEmailPayload = z.strictObject({ locale });
 
@@ -32,7 +32,7 @@ export const applicationReceivedPayload = z.strictObject({
   applicantName: z.string().min(1),
   event,
   linkedApplicant: z.boolean(),
-  applicationId: z.uuid().optional(),
+  applicationId: z.uuid(),
 });
 
 export const newApplicationPayload = z.strictObject({
@@ -43,7 +43,7 @@ export const newApplicationPayload = z.strictObject({
   eventId: z.uuid(),
 });
 
-// The approval writer always creates the ticket-backed V2 payload.
+// The approval writer always creates the current ticket-backed payload.
 export const applicationApprovedPayload = z.strictObject({
   locale,
   schemaVersion: z.literal(2),

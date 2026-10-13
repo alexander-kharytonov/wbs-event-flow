@@ -15,6 +15,10 @@ import {
 import { mediaManifestSchema } from "@/features/events/schemas/event-rich-content";
 import { eventSnapshotSchema } from "@/features/events/schemas/event-snapshot";
 import type { Prisma } from "@/generated/prisma/client";
+import {
+  emailPayloadSchemas,
+  manualEmailPayload,
+} from "@/lib/email-outbox/payload";
 
 async function checkMigrationHistory(tx: Prisma.TransactionClient) {
   const directories = await readdir("prisma/migrations", {
@@ -206,7 +210,7 @@ async function main() {
             GROUP BY r."eventId"
           ), delivery_counts AS (
             SELECT "communicationId", count(*) AS total
-            FROM "EmailOutbox" WHERE "communicationId" IS NOT NULL
+            FROM "EmailOutbox"
             GROUP BY "communicationId"
           ), checks AS (
             SELECT 'event_password_access' AS invariant, count(*) AS invalid_count
@@ -334,7 +338,8 @@ async function main() {
             WHERE a.id IS NULL OR a."registrationId" <> r.id OR a."createdAt" <> r."createdAt"
             UNION ALL
             SELECT 'guest_admission_provenance', count(*) FROM "Attendee"
-            WHERE kind = 'GUEST' AND "applicationGuestId" IS NULL
+            WHERE (kind = 'GUEST' AND ("applicationGuestId" IS NULL OR "applicationGuestApplicationId" IS NULL))
+              OR (kind = 'PRIMARY' AND ("applicationGuestId" IS NOT NULL OR "applicationGuestApplicationId" IS NOT NULL))
             UNION ALL
             SELECT 'application_access_revocation', count(*) FROM "Application"
             WHERE ("anonymousAccessHash" IS NULL) <> ("anonymousAccessEncrypted" IS NULL)
@@ -348,31 +353,36 @@ async function main() {
             SELECT 'communication_delivery_type', count(*)
             FROM "EmailOutbox" o
             LEFT JOIN "Communication" c ON c.id = o."communicationId"
-            WHERE (o.type = 'MANUAL_EVENT_MESSAGE' AND o."communicationId" IS NULL)
-              OR (o."communicationId" IS NOT NULL AND (
-                c.id IS NULL
+            WHERE c.id IS NULL
                 OR (c.kind = 'MANUAL' AND o.type <> 'MANUAL_EVENT_MESSAGE')
                 OR (c.kind = 'TRANSACTIONAL' AND o.type::text IS DISTINCT FROM c.trigger::text)
-              ))
+            UNION ALL
+            SELECT 'communication_request_digest', count(*) FROM "Communication"
+            WHERE "requestDigest" !~ '^[a-f0-9]{64}$'
           )
           SELECT invariant, invalid_count FROM checks
           WHERE invalid_count > 0 ORDER BY invariant
         `;
 
         // Reuse the runtime email contract, including ECMAScript trim semantics.
-        // Exclude legacy deliveries and keep recipient data in bounded pages only.
+        // Keep recipient data and frozen payloads in bounded pages only.
         let afterOutboxId: string | undefined;
         let invalidRecipients = BigInt(0);
+        let invalidPayloads = BigInt(0);
 
         while (true) {
           const rows = await tx.emailOutbox.findMany({
             where: {
-              communicationId: { not: null },
               ...(afterOutboxId ? { id: { gt: afterOutboxId } } : {}),
             },
             orderBy: { id: "asc" },
             take: 200,
-            select: { id: true, recipientEmail: true },
+            select: {
+              id: true,
+              recipientEmail: true,
+              type: true,
+              payload: true,
+            },
           });
 
           if (rows.length === 0) {
@@ -387,6 +397,15 @@ async function main() {
             ) {
               invalidRecipients++;
             }
+
+            const schema =
+              row.type === "MANUAL_EVENT_MESSAGE"
+                ? manualEmailPayload
+                : emailPayloadSchemas[row.type];
+
+            if (!schema.safeParse(row.payload).success) {
+              invalidPayloads++;
+            }
           }
 
           afterOutboxId = rows[rows.length - 1].id;
@@ -396,6 +415,13 @@ async function main() {
           violations.push({
             invariant: "communication_recipient_normalization",
             invalid_count: invalidRecipients,
+          });
+        }
+
+        if (invalidPayloads > BigInt(0)) {
+          violations.push({
+            invariant: "email_outbox_payload_contract",
+            invalid_count: invalidPayloads,
           });
         }
 

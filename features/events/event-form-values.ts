@@ -25,7 +25,6 @@ export function eventFormValues(event: Event): EventFormValues {
   }
 
   return {
-    descriptionFormat: event.descriptionFormat,
     location:
       event.location === null ? null : locationSchema.parse(event.location),
     publicOrganizer:

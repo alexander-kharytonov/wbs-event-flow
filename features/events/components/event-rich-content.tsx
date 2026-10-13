@@ -56,10 +56,7 @@ export function EventRichContent({ snapshot }: { snapshot: EventSnapshot }) {
           <Typography id="event-description-title" variant="h5" component="h2">
             {t("aboutEvent")}
           </Typography>
-          <EventDescription
-            text={snapshot.description}
-            format={snapshot.descriptionFormat}
-          />
+          <EventDescription text={snapshot.description} />
         </Stack>
       )}
       {schedule.length > 0 && (

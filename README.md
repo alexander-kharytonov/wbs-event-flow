@@ -41,7 +41,7 @@ Ticket envelopes cannot be recovered without this key. Keep `.env` untracked.
 
 ### Fresh database
 
-For a new, empty PostgreSQL 18 database, apply the baseline:
+For a new, empty PostgreSQL 18 database, apply the complete migration history:
 
 ```bash
 pnpm infra:up
@@ -124,14 +124,15 @@ not custom SQL CHECK definitions. It never applies migrations or uses a shadow D
 
 After preflight, `db:check` covers Application/Registration correspondence, PRIMARY
 cardinality and identity, party activity, Ticket lifecycle, QR/MANUAL Attendance, current publication
-references, and Communication/Outbox counts, types, normalized associated addresses
-and strict versioned contexts. JSON contexts are read in bounded keyset pages.
+references, and Communication/Outbox counts, types, normalized addresses, required
+digests, strict contexts and every frozen delivery payload. JSON contexts are read in bounded keyset pages.
 It also checks media ownership/references. Invalid EventSnapshot contracts, invalid
 READY media manifests and revision cover-reference/variant mismatches have separate
 aggregate categories. Cover comparisons require a valid snapshot; variant comparison
 also requires a valid manifest, so malformed JSON is not mislabeled as a mismatch.
-Legacy null-linked Outbox remains supported; snapshot/template readers accept only
-the current EventSnapshot/EventTemplate contracts.
+Every Outbox row requires a Communication and a valid frozen locale; application
+receipt payloads require their Application ID. Snapshot/template readers accept only
+the current Markdown-only EventSnapshot/EventTemplate contracts.
 An empty database passes with an explicit zero-data-coverage message. Failures
 exit nonzero; the command never repairs rows, decrypts credentials or sends mail.
 
@@ -297,7 +298,8 @@ remain independent, and app navigation asks before discarding unsaved changes. D
 physical/online/hybrid location, up to 100 ordered agenda entries and explicitly
 authored public organizer information. Markdown uses one restricted react-markdown
 renderer for client preview and OWNER Event Preview: no HTML, images or MDX; only
-absolute HTTP(S) links without credentials. Historical plain-text snapshots retain literal rendering.
+absolute HTTP(S) links without credentials. Markdown is the only description format
+in workspace, publication, templates and metadata; obsolete template fields are rejected.
 
 Untouched agenda instants retain seconds/milliseconds, including ambiguous local
 hours imported as exact UTC instants. Title edits/reordering preserve those instants;
