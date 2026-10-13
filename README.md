@@ -41,11 +41,13 @@ Ticket envelopes cannot be recovered without this key. Keep `.env` untracked.
 
 ### Fresh database
 
-For a new, empty PostgreSQL 18 database, apply the complete migration history:
+For a new, empty PostgreSQL 18 database, apply the single current baseline
+`prisma/migrations/20261015000000_baseline/migration.sql`:
 
 ```bash
 pnpm infra:up
 pnpm exec prisma migrate deploy
+pnpm exec prisma migrate status
 pnpm db:generate
 pnpm db:check
 pnpm dev
@@ -70,15 +72,19 @@ settings. `lib/prisma.ts` is the shared server-only client. DATABASE_URL expands
 from the POSTGRES variables in `.env.example`; use a URL-safe local password or
 percent-encode credentials when constructing a URL.
 
-The PostgreSQL 18 migration history starts with `20261011030000_baseline` and
-continues with incremental migrations for the current schema. Apply the complete
-history with `prisma migrate deploy`; do not edit applied migrations. Custom SQL
-CHECK constraints complement Prisma-managed keys and indexes; Prisma schema drift
-alone does not verify those CHECK constraints.
+The baseline creates the current schema directly, including 36 custom CHECK
+constraints, 40 foreign keys and 87 indexes (five partial unique indexes).
+PostgreSQL 18 supplies `uuidv7()`; no additional extension is needed. Prisma drift
+checks do not compare custom CHECK definitions; review the SQL/catalog as well.
+Future schema changes use incremental migrations; do not edit an applied baseline.
 
-Consolidating applied migrations or resetting disposable local DB/media requires
-separate explicit approval. Neither is an upgrade strategy for persistent
-production/staging data. There is no seed or demo data.
+An existing database with the removed development ledger cannot install this
+baseline through `migrate deploy` alone. Do not mark it applied with `migrate resolve`,
+delete only the ledger, or use `db push` to conceal the mismatch. Local development
+can use a separately provisioned empty database and paired media directory, leaving
+the existing database untouched. A reset is a separate authorized operation. The
+approved demo production cutover follows the controlled clean-release procedure
+below; it is not a retained-data upgrade. There is no seed or demo data.
 
 ## Development services
 
@@ -172,14 +178,10 @@ is exposed in client props; never commit the secret. Leaving both empty preserve
 email/password authentication and hides Google buttons on the auth screens.
 Configuring only one fails environment validation.
 
-Apply `20261011180000_account_provider_identity_unique` with
-`pnpm exec prisma migrate deploy`, then regenerate the client with `pnpm db:generate`.
-It adds PostgreSQL uniqueness for Account `(providerId, accountId)` without
-rewriting the baseline or changing rows. Check for duplicate pairs first; if any
-exist, stop for explicit data-remediation approval. Do not delete or merge them
-automatically. PostgreSQL rejects conflicting concurrent OAuth inserts. With
-Better Auth 1.7.6, the losing manual-link callback returns HTTP 500 on this
-unique conflict; retrying the connection resolves the existing provider identity.
+The current baseline enforces Account `(providerId, accountId)` uniqueness.
+PostgreSQL rejects conflicting concurrent OAuth inserts. With Better Auth 1.7.6,
+the losing manual-link callback returns HTTP 500 on this unique conflict; retrying
+the connection resolves the existing provider identity.
 
 Configure the exact authorized redirect URI in Google Cloud Console:
 `<BETTER_AUTH_URL>/api/auth/callback/google` (for local development,
@@ -208,19 +210,16 @@ establish a real Google consent/callback result.
 - [DOMAIN.md](DOMAIN.md): domain model, invariants, and enforcement boundaries.
 - [AGENTS.md](AGENTS.md): project conventions and instructions for coding agents.
 
-## Historical credentials
+## Credential retention
 
 A missing historical Ticket is a corruption/investigation case, never a reason to
 generate a replacement credential. Preserve the Ticket encryption key while its
-data is retained; protect database and encryption-key backups separately when
-retaining data. The disposable development baseline reset does not require backups.
-Anonymous Ticket links now use browser fragments and a protected POST exchange,
-followed by a path-scoped two-hour HttpOnly session. Legacy path-based bearer links
-are removed; redirects cannot prevent ingress logs recording the first request.
-Inspect retained environments before cutover. The local DEPLOY-2 preflight found
-zero Tickets, anonymous approval deliveries and Mailpit messages. Do not assume
-this proves another environment has no old links. Never log exchange bodies,
-cookies, fragments or private email content; disable provider click/open tracking.
+data is retained; protect database and encryption-key backups separately.
+Anonymous Ticket and Application links use browser fragments and a protected POST
+exchange, followed by path-scoped two-hour HttpOnly sessions. Never log exchange
+bodies, cookies, capability fragments or private email content; disable provider
+click/open tracking. Old demo links and sessions cease to work
+after the approved clean release because their backing records no longer exist.
 
 ## Private Event media (29A)
 
@@ -398,11 +397,6 @@ and Event language are independent.
 
 EventSnapshot and EventTemplate require language and have no format version fields.
 Missing/unsupported language and unknown fields are rejected without conversion.
-The explicitly authorized pre-release consolidation replaces the local migration
-ledger with `20261011030000_baseline`, preserving authentication/organizer rows.
-It does not require deleting Docker volumes, Mailpit or the media directory.
-Existing installations with removed migration history need an explicitly approved
-local reset; do not apply this consolidation to retained production data.
 
 `/e?language=de` filters by published Event language independently of UI locale.
 Omitting language selects all; unsupported/repeated values also select all.
@@ -448,9 +442,9 @@ Required runtime variables (all server-side; never NEXT_PUBLIC):
 | NODE_ENV | `production` (image default) |
 
 Use PostgreSQL 18 explicitly (`uuidv7()` is required). Keep its service private,
-in the same environment/region. Never reset retained data or rewrite migration
-history. Review migrations and backup before applying `pnpm db:deploy`; migration
-failure must prevent rollout. Existing schema constraints and contracts remain.
+in the same environment/region. Fresh installations apply the current baseline;
+existing demo installations require the controlled clean release below. Future
+releases use reviewed incremental migrations. Migration failure must prevent rollout.
 Build uses nonsecret placeholder environment values only; real secrets are runtime
 variables. `.dockerignore` excludes local environment, Git and generated artifacts.
 
@@ -488,6 +482,94 @@ an artificial capability and inspect Railway edge logs without exporting secrets
 Do not open real legacy bearer paths on Railway. Keep tracing/body/header logging
 and analytics disabled on private/auth flows. A fragment exchange requires JS;
 invalid/expired sessions instruct users to reopen their private email link.
+
+### Controlled clean release of the disposable demo
+
+This is an operator runbook for the explicitly approved destruction of **all demo
+accounts, Events, applications, Tickets, communications and media**. It prepares a
+separate release operation; this branch performs no production reset, configuration
+change or deployment. Do not run these steps against a retained or shared database.
+
+1. **Prepare and verify targets.** Pin the reviewed release commit/image. Record
+   Railway project/environment, application and PostgreSQL service IDs, database
+   name, database/schema owners, application role, schema grants, volume ID, mount
+   path and resolved `MEDIA_STORAGE_ROOT`. Verify PostgreSQL 18, the actual migration
+   ledger and all non-system schemas/objects. This product uses only `public`; stop
+   if unrelated objects, extensions or consumers are present. Ensure working admin
+   access to PostgreSQL and offline access to the exact media directory before the
+   outage. Record a recovery choice: a paired DB/media backup and matching old image
+   if recovery is required, or explicit acceptance that the demo cannot be restored.
+2. **Stop all writers before deploying.** Pause automatic/queued rollouts and any
+   manual maintenance jobs. Remove/stop every application deployment and replica,
+   including preview/old deployments sharing this DB or volume. Do not rely on
+   overlap=0, a new deployment's healthcheck, or `EMAIL_OUTBOX_ENABLED=false` alone:
+   HTTP/auth writers and the media sweeper must also stop. Allow the configured 75s
+   drain (the application has a 60s shutdown bound). Verify the processes are gone
+   and DB pools/listeners disconnected. Keep PostgreSQL running. Inspect
+   `pg_stat_activity` for the exact database; terminate only identified leftover
+   application sessions and verify they do not reconnect. Keep one admin session.
+3. **Replace the application schema and ledger.** Recheck database identity in that
+   admin session. With `psql` error-stop enabled and `schema_owner` / `app_role` set
+   to the recorded, verified roles, execute the following only after step 2:
+
+   ```sql
+   SELECT current_database(), current_user, current_setting('server_version');
+   BEGIN;
+   DROP SCHEMA public CASCADE;
+   CREATE SCHEMA public AUTHORIZATION :"schema_owner";
+   GRANT USAGE, CREATE ON SCHEMA public TO :"app_role";
+   COMMIT;
+   ```
+
+   Restore any separately recorded required schema grants. This removes existing
+   application tables, enum types, indexes, constraints and `_prisma_migrations`
+   together. Verify there are no application objects or old ledger left. Do not
+   delete Railway's PostgreSQL volume, change database credentials, or reset other
+   databases. Stop on any error; do not start an app against a partial reset.
+4. **Clear the paired disposable media.** With all app processes still stopped,
+   use the verified Railway volume file browser/CLI or a maintenance-only mounted
+   container to remove every entry inside the confirmed media root, including
+   hidden/temp files. Preserve the volume and mount itself and unrelated directories.
+   For the default `/data` mount, `/data/media` is the `media` directory inside that
+   volume. Verify the directory is empty, application-owned UID/GID 1000, mode 0700,
+   with no symlinks, unsafe parent permissions or extended ACLs. If offline access
+   needs a maintenance container, prepare it with no app server, migration hook,
+   dispatcher or cleanup worker; never restart the old app merely to access files.
+   Establish this access method during step 1. Railway's pre-deploy container has
+   **no mounted volume** and cannot perform this step.
+5. **Apply and verify the baseline while writers remain stopped.** From the reviewed
+   artifact with Node 24, dependencies and the verified DB environment, run
+   `pnpm db:deploy`, `pnpm exec prisma migrate status`,
+   `pnpm exec prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code`,
+   `pnpm db:generate`, and `pnpm db:check`. Expect one successful baseline ledger row,
+   no drift and zero application rows. Compare custom CHECK definitions and catalog
+   totals with DOMAIN.md and the baseline SQL; drift alone is insufficient. Close
+   the maintenance DB connections and stop any media maintenance container.
+6. **Start only the updated application.** Verify the runtime variable table above,
+   canonical HTTPS origin, PostgreSQL target, stable auth/Ticket keys, mail sender,
+   OAuth callback, persistent volume and its permissions. Initially keep
+   `EMAIL_OUTBOX_ENABLED=false` and public access restricted for acceptance. Deploy
+   the pinned image with the normal image CMD and existing `pnpm db:deploy` pre-deploy
+   hook; it now finds the baseline applied and is a no-op. Never launch an old image
+   against this baseline or permit an automatic old deployment to restart.
+7. **Accept and reopen.** Require successful startup/media validation and HTTP 200
+   from `/api/health`, then migration status and `db:check`. With isolated acceptance
+   identities, verify sign-in/verification/OAuth, private-password access, shared
+   guest registration and atomic approval/capacity, Ticket/Application fragment
+   exchange and revocation, role privacy/check-in, cover upload/publication and a
+   volume-preserving restart, and SSE reconnect. Enable the outbox only after the
+   database/media pair is confirmed; verify real mail, retry visibility and graceful
+   shutdown without credential logging. Reopen public traffic and resume automatic
+   rollouts only after acceptance. Health alone proves neither schema integrity nor
+   these product flows. On failure keep writers stopped; repair the release or
+   restore the complete recorded DB/media/image/key set. An image rollback alone
+   cannot undo the destructive cutover.
+
+Railway references: [deployment teardown](https://docs.railway.com/deployments/deployment-teardown),
+[pre-deploy isolation](https://docs.railway.com/deployments/pre-deploy-command),
+[volume file access](https://docs.railway.com/cli/volume). Verify available offline
+volume controls and maintenance access in the target environment before scheduling
+the release; they were not exercised by local baseline verification.
 
 Enable backups for both PostgreSQL and the media volume, retain a portable copy
 outside the project, and preserve auth/Ticket keys securely and separately. Define

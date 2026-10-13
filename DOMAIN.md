@@ -15,8 +15,7 @@ PostgreSQL enforces unique `(providerId, accountId)` through
 `account_providerId_accountId_key`. This is the final authority for concurrent
 OAuth callbacks, including attempts in different sessions. A conflicting insert
 is rejected; it never creates a second provider identity. No application locks or
-custom OAuth synchronization are used. The incremental migration adds only this
-index; existing duplicates must be reviewed explicitly before any data changes.
+custom OAuth synchronization are used. The current baseline includes this index.
 Better Auth 1.7.6 surfaces a losing manual-link insert as HTTP 500; retrying the
 native link resolves the existing account. The uniqueness guarantee does not
 require both racing requests to report success.
@@ -447,6 +446,29 @@ PostgreSQL enforces the following independently of UI/server guards:
 | Unique publication identity/version | Event publicId and publishedRevisionId; EventRevision `(eventId, number)` |
 | Unique form/order slots | RegistrationForm.eventId; field `(formId, position)`; option `(fieldId, position)` |
 
+The current baseline contains 25 application tables, 15 enums, 40 foreign keys,
+87 indexes (including 25 primary-key indexes and five partial unique indexes), and
+36 custom CHECK constraints. There are no application-defined database functions,
+triggers, sequences or row-security policies. PostgreSQL 18's native `uuidv7()` and
+default `plpgsql` installation suffice; no additional extension is required.
+
+Custom CHECKs cover application credential pairing/revocation, guest declaration
+shape and answer value exclusivity, complete PRIMARY/GUEST provenance, guest account
+exclusion, admission/Ticket revocation timestamps, QR versus manual attendance,
+communication actor/content/context/digest/recipient metadata, normalized delivery
+addresses, cancellation reasons, guest limits, cover/rich-content shape, private
+password state, creation receipts, media lifecycle/manifest/timestamps and user
+preferences. Exact names and expressions are in the baseline SQL. All composite
+foreign keys, unique keys, delete/update actions and partial-index predicates are
+preserved. The email-type enum retains its installed PostgreSQL ordering.
+
+The five partial unique indexes enforce active application email/user attempts,
+active registration email/user admission, and one PRIMARY attendee per Registration.
+Participant emails, Communication.requestDigest and EmailOutbox.communicationId are
+required. Guest provenance participates in both declaration/Application and
+Registration/source-Application composite foreign keys. Obsolete guest-policy,
+field-subject and description-format enums/columns are absent.
+
 Foreign-key actions:
 
 | Referencing -> referenced relation | ON DELETE | ON UPDATE |
@@ -602,11 +624,13 @@ Sources: [creation](features/communications/server/enqueue.ts),
   approved count while preserving approvals.
 - Public UI can briefly be stale; authoritative mutations recheck conditions.
 
-These are current boundaries, not a roadmap. The PostgreSQL 18 migration history
-starts with `20261011030000_baseline` and continues with incremental migrations.
-The complete history creates the current schema and custom SQL CHECK constraints.
-Applied migrations stay unchanged. Replacing applied history is not a deployment
-strategy for persistent production data. Fresh databases use `prisma migrate deploy`.
+These are current boundaries, not a roadmap. The single PostgreSQL 18 migration
+`20261015000000_baseline` creates the current schema directly. Fresh databases use
+`prisma migrate deploy`; future changes use incremental migrations without editing
+an applied baseline. Existing demo installations must use README.md's controlled
+clean release, which removes the old application schema and migration ledger together
+while writers are stopped. `migrate deploy` alone cannot replace the old history;
+marking the baseline applied is not a substitute for creating its objects.
 
 `db:check` first compares the migration ledger with repository migration names and
 SHA-256 checksums in a read-only transaction. Missing history, pending, failed,
@@ -1044,13 +1068,11 @@ with the Application, guest declarations, answers and transactional communicatio
 The AES-256-GCM envelope uses the existing encryption key with distinct authenticated
 context `eventflow:application:v1:<applicationId>:access`; it cannot be swapped between
 attempts or with Ticket envelopes. Linked submissions have no application capability.
-Deletion of a linked User never creates one. Incremental migration
-20261012180000_application_access adds the columns, pair CHECK and withdrawn-access
-CHECK without changing previous migrations or backfilling credentials.
+Deletion of a linked User never creates one. The current baseline includes the
+nullable credential pair, unique lookup hash and withdrawn-access CHECK.
 
-APPLICATION_RECEIVED payload carries only an optional applicationId reference, never
-bearer material. Existing queued deliveries without a reference retain their ordinary
-CTA. At delivery, an eligible stored application capability produces
+APPLICATION_RECEIVED payload requires an applicationId reference and delivery locale,
+never bearer material. At delivery, an eligible stored application capability produces
 `/application#<capability>`. Withdrawal clears its hash/envelope, so later rendering
 cannot offer that link. Delivery already in progress may still contain a revoked link;
 the server rejects it. Submission and duplicate responses remain `{success:true}` with
@@ -2413,17 +2435,16 @@ revision and must restart after a publication change.
 
 ## V0 development policy
 
-Before the first release, breaking changes are allowed and local development data
-is disposable. This includes public demo accounts, events, applications, tickets
-and snapshots during product validation. GUEST-2 uses an incremental migration
-after the unchanged committed baseline. Old snapshots/templates without explicit
-guest configuration are invalid, not rewritten or interpreted by compatibility
-readers. Deployment and any data reset are separate authorized operations.
-EventSnapshot and EventTemplate each have one current, unversioned
-contract, without format version fields, legacy readers, converters or compatibility
-paths. Schema changes normally use incremental migrations. Consolidating applied
-migrations into a baseline and resetting local DB/media require explicit approval.
-Disposable data alone does not authorize a reset. Historical domain revisions remain immutable within the current contract;
+Before the first release, breaking changes are allowed. Public demo accounts,
+Events, applications, Tickets, snapshots and media are disposable. The Product Owner
+approved their complete destruction during the separate controlled clean release in
+README.md. This baseline preparation does not reset any existing database or media.
+
+EventSnapshot and EventTemplate each have one current, unversioned contract, without
+format version fields, legacy readers, converters or compatibility paths. The current
+PostgreSQL 18 baseline contains only approved contracts. Future schema changes use
+incremental migrations; further consolidation and database/media resets require
+explicit approval. Historical revisions remain immutable within the current contract;
 authorization, concurrency controls and idempotency remain mandatory.
 
 ## 40. UI locale preference (I18N-A)

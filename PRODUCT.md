@@ -418,10 +418,10 @@ There is one shared form and no policy selector, policy lock, separate guest que
 or policy-specific publication guard. Changed questions/limits affect new publications,
 never existing submissions. Templates carry the shared form and remap field/option IDs.
 Snapshots/templates use one strict current contract, without compatibility readers or
-versioning. Old demo artifacts are invalid rather than converted or rewritten. The
-incremental migration removes obsolete guest-only workspace fields and policy columns;
-committed migrations and submitted history stay unchanged. Deployment/reset remain
-separate operations requiring authorization.
+versioning. The current clean-installation schema contains only the shared form
+and complete guest declaration provenance. Submitted history stays immutable within
+this contract. The approved demo clean release discards existing demo data rather
+than converting it; deployment/reset are separate controlled operations.
 
 ## Event staff
 
@@ -1254,13 +1254,18 @@ including the final UX and integration polish.
 
 ## V0 development policy
 
-Before the first release, breaking changes are allowed and local development data
-is disposable. EventSnapshot and EventTemplate each have one current, unversioned
-contract, without format version fields, legacy readers, converters or compatibility
-paths. Schema changes normally use incremental migrations. Consolidating applied
-migrations into a baseline and resetting local DB/media require explicit approval.
-Disposable data alone does not authorize a reset. Historical domain revisions remain immutable within the current contract;
-authorization, concurrency controls and idempotency remain mandatory.
+Before the first release, breaking changes are allowed. Event Flow is a public demo;
+the Product Owner approved complete destruction of existing demo data for the
+controlled clean release documented in README.md. The current installation uses
+one PostgreSQL 18 baseline, with no seeds, backfills or retained-data upgrade path.
+Preparing the baseline does not itself reset local/production data or deploy it.
+
+EventSnapshot and EventTemplate each have one current, unversioned contract, without
+legacy readers, converters or compatibility paths. Historical domain revisions stay
+immutable within that contract; authorization, concurrency controls and idempotency
+remain mandatory. Future schema changes use incremental migrations. Further baseline
+consolidation or database/media resets require explicit approval; disposable data
+alone does not authorize them.
 
 ## UI language foundation (I18N-A)
 
