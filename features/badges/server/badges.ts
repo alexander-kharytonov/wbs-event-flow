@@ -267,6 +267,10 @@ export async function buildBadgePresentation(
       const issues: BadgeIssue[] = [];
 
       if (!person) {
+        presentation.ticketNumber = layout.showTicketNumber
+          ? "EF-XXXX-XXXX"
+          : null;
+
         for (const slot of ["secondary", "tertiary"] as const) {
           const binding =
             slot === "secondary" ? layout.secondaryField : layout.tertiaryField;

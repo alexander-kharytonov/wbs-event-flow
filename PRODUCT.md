@@ -497,8 +497,9 @@ otherwise allow it. Missing, revoked or unavailable Tickets leave a visual badge
 without a QR/available Ticket number. There is no new QR protocol or credential.
 
 Designer previews use an active attendee of the selected type, otherwise semantic
-labels without
-demo records. Preview QR areas are placeholders, not admission credentials. A print
+labels and, when enabled, the ticket-number placeholder `EF-XXXX-XXXX`, without demo
+records. The number placeholder appears only in previews without an attendee.
+Preview QR areas are placeholders, not admission credentials. A print
 document is a snapshot at load time and prints only after an explicit Print click.
 Print documents include a thin dashed cutting guide inside each badge edge, without
 changing its physical dimensions or content padding.

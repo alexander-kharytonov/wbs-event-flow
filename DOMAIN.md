@@ -1210,8 +1210,11 @@ eventflow:ticket:v1 protocol. No secret is issued or rotated by printing.
 
 Designer draft previews require owner authority, validate catalog bindings and use
 only safe presentation values; Manager operational printing uses the saved layout. Preview never
-exposes a real admission QR. Without an active attendee, semantic labels are rendered
-without records or fake identities. All text uses escaped React nodes, presentation-only
+exposes a real admission QR. Without an active attendee, semantic labels and the enabled
+ticket-number placeholder `EF-XXXX-XXXX` are rendered without records or fake identities.
+This number placeholder uses the Ticket number format only in the no-attendee preview;
+real attendees retain their actual Ticket number and print never uses this placeholder.
+All text uses escaped React nodes, presentation-only
 control-character normalization, word wrapping and two-line clipping. QR has a reserved
 physical area and quiet zone independent of text length.
 
