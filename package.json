@@ -14,6 +14,7 @@
     "db:generate": "prisma generate",
     "db:deploy": "prisma migrate deploy",
     "db:migrate": "prisma migrate dev",
+    "db:reset": "prisma migrate reset",
     "db:studio": "prisma studio",
     "db:check": "node --conditions=react-server --import tsx scripts/db-check.ts",
     "media:cleanup": "node --conditions=react-server --import tsx scripts/media-cleanup.ts"

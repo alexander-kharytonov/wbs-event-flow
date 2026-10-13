@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getTrustedAppOrigins } from "@/lib/env";
-import { isUiLocale, localeCookie } from "@/lib/i18n/locale";
+import { isSelectableLocale, localeCookie } from "@/lib/i18n/locale";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 
@@ -41,7 +41,7 @@ export async function PUT(request: Request) {
     return NextResponse.json({ code: "invalidLocale" }, { status: 400 });
   }
 
-  if (!isUiLocale(value)) {
+  if (!isSelectableLocale(value)) {
     return NextResponse.json({ code: "invalidLocale" }, { status: 400 });
   }
 

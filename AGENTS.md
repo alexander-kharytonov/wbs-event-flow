@@ -82,4 +82,4 @@ reads, reset a form, or change its revision/token binding.
 Keep validation results as stable codes plus interpolation values and field paths;
 translate during rendering, preserving unrelated field errors. Never use a global
 Zod locale/error-map mutation in a multi-user server. Existing domain errors are
-converted feature by feature in later phases, not rewritten in I18N-A.
+converted feature by feature in later phases.

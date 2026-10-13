@@ -45,7 +45,7 @@ export function assertManualAdmissionCapacity(input: {
   }
 }
 
-// 27C primitive, NOT a reservation outside this transaction. Required protocol:
+// Admission check, not a reservation outside this transaction. Required protocol:
 // ReadCommitted -> Event FOR UPDATE -> this global advisory lock -> fresh counts
 // -> atomic Communication + all Outbox rows -> COMMIT. No later Event lock.
 // Every future manual writer must use this lock, including any retry reactivation.
