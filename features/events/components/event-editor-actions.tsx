@@ -2,14 +2,7 @@
 
 import InfoOutlined from "@mui/icons-material/InfoOutlined";
 import OpenInNew from "@mui/icons-material/OpenInNew";
-import {
-  Alert,
-  Box,
-  Button,
-  IconButton,
-  Tooltip,
-  Typography,
-} from "@mui/material";
+import { Alert, Box, Button, IconButton, Tooltip } from "@mui/material";
 import { useTranslations } from "next-intl";
 
 type Props = {
@@ -120,13 +113,13 @@ export function EventEditorActions({
           sx={{ gridArea: "status", minWidth: 0 }}
         >
           {pending || createdId ? (
-            <Typography variant="body2" color="text.secondary">
+            <Alert severity="info" role="status">
               {createdId
                 ? t("openingEditor")
                 : eventId
                   ? t("savingDraft")
                   : t("creatingEvent")}
-            </Typography>
+            </Alert>
           ) : validationAttempted && Object.keys(errors).length > 0 ? (
             <Button
               variant="outlined"
@@ -150,22 +143,18 @@ export function EventEditorActions({
             coverConflict ||
             (serverMessage && !saved) ||
             !eventId ? (
-            <Typography variant="body2" color="text.secondary">
+            <Alert severity="info" role="status">
               {conflict || coverConflict
                 ? t("reloadRequired")
                 : serverMessage && !saved
                   ? t("saveFailedEditsKept")
                   : t("readyToCreate")}
-            </Typography>
+            </Alert>
           ) : null}
           {coverDirty && (
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ display: "block", mt: 0.5 }}
-            >
+            <Alert severity="info" role="status" sx={{ mt: 0.5 }}>
               {t("coverUnsaved")}
-            </Typography>
+            </Alert>
           )}
         </Box>
         <Button

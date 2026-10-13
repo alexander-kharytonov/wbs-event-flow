@@ -234,7 +234,8 @@ disable submission: client validation runs on submit and explains them without
 native browser validation popups. Invalid fields show inline errors until their
 value is edited; editing one field preserves errors on unrelated fields. Server
 field errors use the same presentation. Errors without a matching field appear
-in an Alert above the submission action.
+in an Alert above the submission action. In the cover editor, file selection and
+media operation errors use shared notifications; field errors remain inline.
 An empty or unmapped server field-error object must not hide the server message.
 Version-conflict feedback and its reload action remain visible while editing.
 

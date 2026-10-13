@@ -99,7 +99,6 @@ export function CoverCropper({
           position: "relative",
           overflow: "hidden",
           bgcolor: "action.disabledBackground",
-          borderRadius: 1,
           touchAction: "none",
           cursor: disabled ? "default" : "grab",
           "&:active": { cursor: disabled ? "default" : "grabbing" },

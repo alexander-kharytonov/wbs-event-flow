@@ -469,7 +469,6 @@
   "coverPreview": "Podgląd okładki",
   "coverEmpty": "Dodaj okładkę wydarzenia",
   "coverEmptyHint": "Dodaj zdjęcie lub ilustrację przedstawiającą wydarzenie. Wybierzesz dokładnie, co znajdzie się w kadrze.",
-  "coverCancelSelection": "Anuluj wybór",
   "coverDiscard": "Odrzuć przesłany obraz",
   "coverAlt": "Tekst alternatywny (opcjonalnie)",
   "coverAltHint": "Opisz obraz dla czytników ekranu. Pozostaw puste, jeśli jest wyłącznie dekoracyjny.",
@@ -1099,7 +1098,6 @@
   "creationCoverReady": "Okładka gotowa. Zostanie dołączona podczas tworzenia wydarzenia. Tymczasowe pliki wygasają po 24 godzinach.",
   "creationRetry": "Ponów to samo tworzenie",
   "creationUncertain": "Nie udało się potwierdzić utworzenia. Przesłane wartości są zablokowane. Ponów to samo żądanie, aby odzyskać wynik bez tworzenia duplikatu. Pozostaw tę stronę otwartą do wyjaśnienia.",
-  "creationPrepareFirst": "Prześlij wybrany kadr lub anuluj wybór przed utworzeniem wydarzenia.",
   "creationInvalid": "Tego żądania utworzenia nie można użyć ponownie. Sprawdź Moje wydarzenia przed rozpoczęciem nowego tworzenia.",
   "creationCoverUnavailable": "Przygotowana okładka jest niedostępna lub wygasła. Usuń ją lub prześlij ponownie przed utworzeniem wydarzenia."
 }

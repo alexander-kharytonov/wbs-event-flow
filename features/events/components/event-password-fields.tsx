@@ -12,10 +12,11 @@ import {
   Stack,
   Switch,
   TextField,
-  Typography,
 } from "@mui/material";
 import { useTranslations } from "next-intl";
 import { type RefObject, useState } from "react";
+import { EventText } from "@/features/events/components/event-text";
+import { useNotifications } from "@/hooks/use-notifications";
 
 export function EventPasswordFields({
   enabled,
@@ -38,9 +39,8 @@ export function EventPasswordFields({
 }) {
   const t = useTranslations("events");
   const [visible, setVisible] = useState(false);
-  const [copyResult, setCopyResult] = useState<
-    "accessCopied" | "accessCopyFailed" | null
-  >(null);
+  const notifications = useNotifications();
+  const [focused, setFocused] = useState(false);
 
   return (
     <Stack spacing={2}>
@@ -51,7 +51,6 @@ export function EventPasswordFields({
             disabled={disabled}
             onChange={(_, checked) => {
               setVisible(false);
-              setCopyResult(null);
               onToggle(checked);
             }}
           />
@@ -73,11 +72,12 @@ export function EventPasswordFields({
               error ?? t(saved ? "accessSavedHint" : "accessPasswordHint")
             }
             onChange={() => {
-              setCopyResult(null);
               onInput();
             }}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
             slotProps={{
-              inputLabel: { shrink: true },
+              inputLabel: { shrink: focused || filled },
               input: {
                 endAdornment: (
                   <InputAdornment position="end">
@@ -106,7 +106,6 @@ export function EventPasswordFields({
                   input.current.value = btoa(String.fromCharCode(...bytes))
                     .replaceAll("+", "-")
                     .replaceAll("/", "_");
-                setCopyResult(null);
                 onInput();
               }}
             >
@@ -121,25 +120,23 @@ export function EventPasswordFields({
                   await navigator.clipboard.writeText(
                     input.current?.value ?? "",
                   );
-                  setCopyResult("accessCopied");
+                  notifications.show(<EventText id="accessCopied" />, {
+                    severity: "success",
+                    key: "copy-event-password",
+                    autoHideDuration: 3000,
+                  });
                 } catch {
-                  setCopyResult("accessCopyFailed");
+                  notifications.show(<EventText id="accessCopyFailed" />, {
+                    severity: "error",
+                    key: "copy-event-password",
+                  });
                 }
               }}
             >
               {t("accessCopy")}
             </Button>
           </Stack>
-          {copyResult && (
-            <Alert
-              severity={copyResult === "accessCopied" ? "success" : "warning"}
-            >
-              {t(copyResult)}
-            </Alert>
-          )}
-          <Typography variant="body2" color="text.secondary">
-            {t("accessSavePublishHint")}
-          </Typography>
+          <Alert severity="info">{t("accessSavePublishHint")}</Alert>
         </>
       )}
     </Stack>

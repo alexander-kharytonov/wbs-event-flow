@@ -3,7 +3,14 @@
 import ArrowForward from "@mui/icons-material/ArrowForward";
 import EventOutlined from "@mui/icons-material/EventOutlined";
 import TaskAlt from "@mui/icons-material/TaskAlt";
-import { Box, Button, Link, Paper, Stack, Typography } from "@mui/material";
+import {
+  Box,
+  Button,
+  CardActionArea,
+  Paper,
+  Stack,
+  Typography,
+} from "@mui/material";
 import { useFormatter, useTranslations } from "next-intl";
 import { DateTime } from "@/components/ui/date-time";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -170,39 +177,46 @@ export function OrganizerDashboard({ data }: { data: OrganizerDashboardData }) {
                     component="li"
                     key={event.id}
                     variant="outlined"
-                    sx={{ p: { xs: 2, sm: 3 } }}
+                    sx={{ overflow: "hidden" }}
                   >
-                    <Stack spacing={1.5} sx={{ alignItems: "flex-start" }}>
-                      <Stack
-                        direction="row"
-                        sx={{
-                          gap: 2,
-                          flexWrap: "wrap",
-                          justifyContent: "space-between",
-                          width: "100%",
-                          alignItems: "center",
-                        }}
-                      >
-                        <Link
-                          href={`/dashboard/events/${event.id}`}
-                          variant="h6"
-                          sx={{ overflowWrap: "anywhere", minWidth: 0 }}
+                    <CardActionArea
+                      href={`/dashboard/events/${event.id}`}
+                      aria-labelledby={`upcoming-event-${event.id}`}
+                      sx={{ p: { xs: 2, sm: 3 }, borderRadius: "inherit" }}
+                    >
+                      <Stack spacing={1.5} sx={{ alignItems: "flex-start" }}>
+                        <Stack
+                          direction="row"
+                          sx={{
+                            gap: 2,
+                            flexWrap: "wrap",
+                            justifyContent: "space-between",
+                            width: "100%",
+                            alignItems: "center",
+                          }}
                         >
-                          {event.title}
-                        </Link>
-                        <PublicationStatus state={publicationState(event)} />
+                          <Typography
+                            id={`upcoming-event-${event.id}`}
+                            component="h3"
+                            variant="h6"
+                            sx={{ overflowWrap: "anywhere", minWidth: 0 }}
+                          >
+                            {event.title}
+                          </Typography>
+                          <PublicationStatus state={publicationState(event)} />
+                        </Stack>
+                        <DateTime
+                          date={event.startsAt}
+                          endDate={event.endsAt}
+                          timezone={event.timezone}
+                        />
+                        {event.pending > 0 && (
+                          <Typography variant="body2" color="text.secondary">
+                            {t("pendingReviewCount", { count: event.pending })}
+                          </Typography>
+                        )}
                       </Stack>
-                      <DateTime
-                        date={event.startsAt}
-                        endDate={event.endsAt}
-                        timezone={event.timezone}
-                      />
-                      {event.pending > 0 && (
-                        <Typography variant="body2" color="text.secondary">
-                          {t("pendingReviewCount", { count: event.pending })}
-                        </Typography>
-                      )}
-                    </Stack>
+                    </CardActionArea>
                   </Paper>
                 ))}
               </Stack>
