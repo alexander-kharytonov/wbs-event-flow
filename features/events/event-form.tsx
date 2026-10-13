@@ -32,6 +32,7 @@ import {
 } from "@/features/events/editor-state";
 import {
   type EventDateSource,
+  eventDateLimits,
   parseEventEdit,
 } from "@/features/events/event-form-values";
 import {
@@ -45,6 +46,8 @@ import {
 } from "@/features/events/event-input-schema";
 import { eventLanguageSchema } from "@/features/events/event-language";
 import { eventPasswordSchema } from "@/features/events/event-password-input";
+import { useEventCreationRetry } from "@/features/events/use-event-creation-retry";
+import { useEventPasswordDraft } from "@/features/events/use-event-password-draft";
 import { useFormFeedback } from "@/hooks/use-form-feedback";
 
 const emptyValues: Omit<EventFormValues, "language"> = {
@@ -100,13 +103,14 @@ export function EventForm({
   ) => Promise<EventFormState>;
   edit?: { id: string; version: string; dates: EventDateSource };
 }) {
-  const passwordInput = useRef<HTMLInputElement>(null);
-  const [passwordEnabled, setPasswordEnabled] = useState(
-    initialPasswordProtected,
-  );
-  const [passwordSaved, setPasswordSaved] = useState(initialPasswordProtected);
-  const [passwordFilled, setPasswordFilled] = useState(false);
-  const [passwordDirty, setPasswordDirty] = useState(false);
+  const password = useEventPasswordDraft(initialPasswordProtected);
+  const {
+    passwordInput,
+    passwordEnabled,
+    passwordSaved,
+    passwordFilled,
+    passwordDirty,
+  } = password;
   const [accessPublication, setAccessPublication] = useState(
     initialAccessPublication,
   );
@@ -140,11 +144,9 @@ export function EventForm({
   );
   const [coverDirty, setCoverDirty] = useState(false);
   const [coverUnprepared, setCoverUnprepared] = useState(false);
-  const [creationUncertain, setCreationUncertain] = useState(false);
+  const creation = useEventCreationRetry();
+  const { creationUncertain, submittedCoverId } = creation;
   const [preparedCoverId, setPreparedCoverId] = useState<string | null>(null);
-  const [submittedCoverId, setSubmittedCoverId] = useState<string | null>(null);
-  const creationKey = useRef<string | null>(null);
-  const submittedCreation = useRef<FormData | null>(null);
   const [coverConflict, setCoverConflict] = useState(false);
   const [focusRequest, setFocusRequest] = useState(0);
   const [validationAttempted, setValidationAttempted] = useState(false);
@@ -157,21 +159,10 @@ export function EventForm({
     async (previous: EventFormState, formData: FormData) => {
       let next: EventFormState;
 
-      if (!edit) {
-        creationKey.current ??= crypto.randomUUID();
-        formData.set("creationKey", creationKey.current);
-        submittedCreation.current ??= formData;
-        setSubmittedCoverId(
-          String(submittedCreation.current.get("temporaryCoverId") || "") ||
-            null,
-        );
-      }
+      const submission = edit ? formData : creation.prepare(formData);
 
       try {
-        next = await serverAction(
-          previous,
-          edit ? formData : (submittedCreation.current ?? formData),
-        );
+        next = await serverAction(previous, submission);
       } catch (error) {
         unstable_rethrow(error);
         next = {
@@ -181,15 +172,11 @@ export function EventForm({
       } finally {
         mutationBusy.current = false;
 
-        if (passwordInput.current) passwordInput.current.value = "";
-        setPasswordFilled(false);
-        setPasswordDirty(false);
+        password.clearDraft();
       }
 
       if (!edit) {
-        setCreationUncertain(Boolean(next.creationUncertain));
-
-        if (!next.creationUncertain) submittedCreation.current = null;
+        creation.settle(next);
       }
 
       if (next.createdId) {
@@ -201,8 +188,7 @@ export function EventForm({
       }
 
       if (next.saved) {
-        setPasswordSaved(next.saved.passwordProtected);
-        setPasswordEnabled(next.saved.passwordProtected);
+        password.adoptSaved(next.saved.passwordProtected);
         setAccessPublication(next.saved.accessPublication);
         // Rebase every source index after reorder/delete, preserving UI row identity.
         const savedValues = rebaseSavedValues(next.saved.values, values);
@@ -294,41 +280,12 @@ export function EventForm({
 
     return () => cancelAnimationFrame(frame);
   }, [focusRequest, pending, section]);
-  const validExactSchedule = dateSource
-    ? parseEventEdit(
-        { ...values, location: null, publicOrganizer: null, schedule: [] },
-        dateSource,
-        editedDates,
-        startLocked,
-      ).success
-    : false;
-
-  // Wall-clock hints must not exclude preserved absolute intervals at a DST fold.
-  function dateLimit(
-    field: EventDateField,
-    direction: "min" | "max",
-    boundaries: EventDateField[],
-  ) {
-    const candidates = boundaries
-      .map((boundary) => values[boundary])
-      .filter(Boolean)
-      .sort();
-    const limit = direction === "min" ? candidates.at(-1) : candidates[0];
-
-    if (!limit) {
-      return undefined;
-    }
-
-    if (
-      validExactSchedule &&
-      values[field] &&
-      (direction === "min" ? values[field] < limit : values[field] > limit)
-    ) {
-      return undefined;
-    }
-
-    return limit;
-  }
+  const dateLimit = eventDateLimits(
+    values,
+    dateSource,
+    editedDates,
+    startLocked,
+  );
   const [openedVersion, setOpenedVersion] = useState(edit?.version);
   const initialSession = useRef({
     values: initial,
@@ -386,9 +343,7 @@ export function EventForm({
         feedback.clear(name);
 
         if (name === "visibility") {
-          if (passwordInput.current) passwordInput.current.value = "";
-          setPasswordFilled(false);
-          setPasswordDirty(false);
+          password.clearDraft();
         }
         markDateEdited(name);
         setValues((current) => ({ ...current, [name]: event.target.value }));
@@ -672,21 +627,11 @@ export function EventForm({
                             : undefined
                         }
                         onToggle={(enabled) => {
-                          setPasswordEnabled(enabled);
-                          setPasswordFilled(false);
-                          setPasswordDirty(false);
+                          password.toggle(enabled);
                           feedback.clear("eventPassword");
-
-                          if (passwordInput.current)
-                            passwordInput.current.value = "";
                         }}
                         onInput={() => {
-                          setPasswordFilled(
-                            Boolean(passwordInput.current?.value),
-                          );
-                          setPasswordDirty(
-                            Boolean(passwordInput.current?.value),
-                          );
+                          password.inputChanged();
                           feedback.clear("eventPassword");
                         }}
                       />
