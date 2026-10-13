@@ -867,7 +867,7 @@
   "templateStaffEmail": "Электронный адрес сотрудника {number, number}",
   "templateRemoveStaff": "Удалить сотрудника {number, number}",
   "templateQuestion": "Вопрос {number, number}",
-  "templateCreated": "Событие создано. Добавлено сотрудников: {count, number}.",
+  "templateCreated": "{count, plural, =0 {Событие создано.} other {Событие создано. Добавлено сотрудников: {count, number}.}}",
   "templateSkipped": "Эти назначения команды не добавлены: {emails}",
   "templateDuplicates": "Повторные записи объединены: {emails}",
   "badgeDesign": "Дизайн бейджа",

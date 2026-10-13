@@ -867,7 +867,7 @@
   "templateStaffEmail": "Електронна адреса працівника {number, number}",
   "templateRemoveStaff": "Видалити працівника {number, number}",
   "templateQuestion": "Запитання {number, number}",
-  "templateCreated": "Подію створено. Додано працівників: {count, number}.",
+  "templateCreated": "{count, plural, =0 {Подію створено.} other {Подію створено. Додано працівників: {count, number}.}}",
   "templateSkipped": "Ці призначення команди не додано: {emails}",
   "templateDuplicates": "Повторні записи об’єднано: {emails}",
   "badgeDesign": "Дизайн бейджа",

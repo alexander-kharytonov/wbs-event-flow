@@ -238,6 +238,8 @@ in an Alert above the submission action. In the cover editor, file selection and
 media operation errors use shared notifications; field errors remain inline.
 An empty or unmapped server field-error object must not hide the server message.
 Version-conflict feedback and its reload action remain visible while editing.
+All shared notifications use a common five-second auto-hide duration, with no
+per-call overrides. They can also be closed manually.
 
 Existing authorization, lifecycle and workflow guards still apply. Independent
 actions, such as updating the recipient estimate, require only their own inputs;
@@ -704,8 +706,9 @@ abuse-prevention guarantee. Successful assignment reveals eligibility as with
 existing Add Staff; unavailable reasons and account metadata are never returned.
 
 After successful manual or template creation, the app immediately opens the new
-Event editor. Import shows added Staff count and neutral skipped/duplicate email
-warnings in a notification that remains visible after navigation. Client notifications stay in
+Event editor. Import and Duplicate show the added Staff count only when it is
+greater than zero, alongside any neutral skipped/duplicate email warnings. The
+notification survives navigation and uses the shared auto-hide duration. Client notifications stay in
 memory and may vanish on reload; the private server retry receipt retains the result.
 No emails are placed in navigation URLs, cookies or persistent
 browser storage. There is no ImportJob, invitation or destructive import.

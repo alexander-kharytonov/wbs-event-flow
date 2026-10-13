@@ -147,7 +147,6 @@ export function BadgeWorkspace({
           <EventText id={result.message as keyof Messages["events"]} />,
           {
             severity: "success",
-            autoHideDuration: 4000,
             key: `badge-layout:${eventId}`,
           },
         );

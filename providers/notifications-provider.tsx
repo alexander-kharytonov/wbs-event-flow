@@ -74,7 +74,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
           <Snackbar
             key={active.key}
             open
-            autoHideDuration={active.options.autoHideDuration ?? null}
+            autoHideDuration={3000}
             anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
             onClose={(_, reason) => {
               if (reason !== "clickaway") {

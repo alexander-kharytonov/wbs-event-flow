@@ -274,7 +274,6 @@ export function useEventCover({
           <EventText id={remove ? "coverRemoved" : "coverSaved"} />,
           {
             severity: "success",
-            autoHideDuration: 5000,
             key: `cover:${eventId}`,
           },
         );

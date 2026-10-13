@@ -123,7 +123,6 @@ export function EventPasswordFields({
                   notifications.show(<EventText id="accessCopied" />, {
                     severity: "success",
                     key: "copy-event-password",
-                    autoHideDuration: 3000,
                   });
                 } catch {
                   notifications.show(<EventText id="accessCopyFailed" />, {

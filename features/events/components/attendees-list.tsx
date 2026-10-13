@@ -141,7 +141,6 @@ export function AttendeesList({
                 : response.code === "FAILED"
                   ? "error"
                   : "info",
-            autoHideDuration: 4000,
             key: `check-in:${attendeeId}`,
           },
         );

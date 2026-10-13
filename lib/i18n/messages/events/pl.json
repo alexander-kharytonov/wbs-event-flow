@@ -867,7 +867,7 @@
   "templateStaffEmail": "E-mail członka zespołu {number, number}",
   "templateRemoveStaff": "Usuń członka zespołu {number, number}",
   "templateQuestion": "Pytanie {number, number}",
-  "templateCreated": "Wydarzenie utworzone. Dodani członkowie zespołu: {count, number}.",
+  "templateCreated": "{count, plural, =0 {Wydarzenie utworzone.} other {Wydarzenie utworzone. Dodani członkowie zespołu: {count, number}.}}",
   "templateSkipped": "Nie dodano tych przypisań zespołu: {emails}",
   "templateDuplicates": "Połączono powtarzające się wpisy: {emails}",
   "badgeDesign": "Projekt identyfikatora",

@@ -25,7 +25,6 @@ export function useEventPublication(eventId: string, contentVersion: number) {
             createElement(EventText, { id: "publishedSuccess" }),
             {
               severity: "success",
-              autoHideDuration: 4000,
               key: `publish:${eventId}`,
             },
           );

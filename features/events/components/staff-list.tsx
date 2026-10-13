@@ -128,7 +128,6 @@ export function StaffList({
           />,
           {
             severity: "success",
-            autoHideDuration: 4000,
             key: `staff:${eventId}`,
           },
         );

@@ -867,7 +867,7 @@
   "templateStaffEmail": "Team-E-Mail {number, number}",
   "templateRemoveStaff": "Teammitglied {number, number} entfernen",
   "templateQuestion": "Frage {number, number}",
-  "templateCreated": "Veranstaltung erstellt. Teammitglieder hinzugefügt: {count, number}.",
+  "templateCreated": "{count, plural, =0 {Veranstaltung erstellt.} other {Veranstaltung erstellt. Teammitglieder hinzugefügt: {count, number}.}}",
   "templateSkipped": "Diese Teamzuweisungen wurden nicht hinzugefügt: {emails}",
   "templateDuplicates": "Doppelte Einträge wurden zusammengeführt: {emails}",
   "badgeDesign": "Namensschild-Design",
