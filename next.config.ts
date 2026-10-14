@@ -21,6 +21,14 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        source: "/:path(forgot-password|reset-password)",
+        headers: [
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "Cache-Control", value: "private, no-store, max-age=0" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
+        ],
+      },
+      {
         source: "/e/:publicId/:path*",
         headers: [
           { key: "Cache-Control", value: "private, no-store, max-age=0" },

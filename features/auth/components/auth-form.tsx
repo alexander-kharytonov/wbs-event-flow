@@ -314,6 +314,11 @@ export function AuthForm({
               required
               fullWidth
             />
+            {!registering && (
+              <Link href="/forgot-password" sx={{ alignSelf: "flex-end" }}>
+                {t("forgotPassword")}
+              </Link>
+            )}
             {feedback.message && (
               <Alert severity="error">{feedback.message}</Alert>
             )}

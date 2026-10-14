@@ -221,6 +221,32 @@ leads to the verification screen; requesting another email is an explicit action
 with a 60-second resend cooldown that also starts after successful registration.
 Sign out is available in the shared account menu.
 
+### Password recovery
+
+Sign In links to `/forgot-password`. A valid email submission always receives the
+same neutral confirmation, whether the account exists, is unverified, or uses
+Google only. Google-only users continue with Google; recovery never adds a password.
+Eligible email/password accounts receive a localized recovery email from
+`Event Flow <notifications@eventflow.today>` through the existing SMTP/Resend transport.
+Mailpit remains the local SMTP destination. Delivery starts immediately after the
+neutral response; delivery failures do not disclose account existence. Check spam
+and request another link after a minute if the email does not arrive.
+
+The link opens `/reset-password` with a private URL fragment. The form removes that
+fragment from history and keeps the token only while mounted; after reloading,
+reopen the email link. Better Auth checks the token on submission. Links expire
+in 30 minutes and can succeed only once, including concurrent submissions.
+Invalid, expired and used links explain how to request a replacement.
+New password and confirmation are required, with the existing 10–128 character
+policy. Success signs out existing sessions and asks the user to sign in explicitly;
+it does not authenticate them or change email verification status.
+
+Recovery uses the shared form, notification, theme and language patterns. UI language
+choices remain en/de/pl/uk; Russian translations are maintained internally. Switching
+language preserves values, errors and the opened token. Server request limits apply
+regardless of account existence: one email request and five reset submissions per
+60-second Better Auth client-IP bucket.
+
 ## Form feedback and shared UI
 
 Text fields and selects use the shared theme's outlined appearance, including
@@ -266,8 +292,7 @@ Event workspace editing, publication, unpublish, archive and restore also invali
 open Event workspaces. Catalog and personal attendee streams do not receive these
 workspace-only signals.
 
-The product does not provide email changes or password reset, anonymous
-application claiming.
+The product does not provide email changes or anonymous application claiming.
 These boundaries describe current scope, not a delivery roadmap.
 
 ## Event lifecycle
@@ -1394,13 +1419,12 @@ Event language provides no automatic translation or multilingual content fields.
 
 ## Email localization
 
-All existing email presentation supports en, de, pl, uk and ru: email verification,
+All existing email presentation supports en, de, pl, uk and ru: email verification, password recovery,
 application receipt, organizer notification, approval/Ticket links (including
 revoked/cancelled/unavailable-account states), rejection, Event cancellation and
 manual Communications. Subjects, HTML, plain text and action labels are localized.
 Event titles, names, cancellation reasons, manual subjects/messages and all other
-authored content remain unchanged. No password-reset, Guest-add/remove or
-withdrawal email is introduced.
+authored content remain unchanged. No Guest-add/remove or withdrawal email is introduced.
 
 Every Outbox payload requires a frozen locale; missing or invalid locales fail
 validation. Application receipt emails require their Application reference, while
