@@ -176,9 +176,7 @@ export function ForgotPasswordForm() {
                   : t("sendResetLink")}
             </Button>
           </Stack>
-          <Typography variant="body2" color="text.secondary">
-            {t("resetGoogleHint")}
-          </Typography>
+          <Alert severity="info">{t("resetGoogleHint")}</Alert>
         </Stack>
       </Paper>
     </Stack>

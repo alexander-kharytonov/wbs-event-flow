@@ -341,9 +341,7 @@ export function AuthForm({
                   : t("signIn")}
             </Button>
             {registering && (
-              <Typography variant="body2" color="text.secondary">
-                {t("verificationRequired")}
-              </Typography>
+              <Alert severity="info">{t("verificationRequired")}</Alert>
             )}
           </Stack>
           {googleEnabled && <Divider>{t("orGoogle")}</Divider>}
