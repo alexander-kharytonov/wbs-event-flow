@@ -231,6 +231,10 @@ Eligible email/password accounts receive a localized recovery email from
 Mailpit remains the local SMTP destination. Delivery starts immediately after the
 neutral response; delivery failures do not disclose account existence. Check spam
 and request another link after a minute if the email does not arrive.
+The form stays available after confirmation, with the same 60-second resend
+countdown as email verification. The countdown survives reloading the current tab
+and language changes; changing the email does not bypass it. Rate-limit responses
+also start the countdown. Confirmation remains neutral for every account type.
 
 The link opens `/reset-password` with a private URL fragment. The form removes that
 fragment from history and keeps the token only while mounted; after reloading,

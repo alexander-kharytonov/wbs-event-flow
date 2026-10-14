@@ -91,6 +91,9 @@ request-password-reset and five reset-password requests per client-IP bucket in
 60 seconds. It uses the existing process-memory store, resets on restart, and relies
 on the deployment's trusted forwarding of client IPs; it is not a distributed or
 per-account abuse quota. Native origin and cookie security remain enabled elsewhere.
+The recovery UI mirrors the verification form's 60-second resend cooldown after
+success or a rate-limit response, persisting only its deadline in session storage.
+This is advisory UX; native server throttling remains authoritative.
 
 Reset mail uses a canonical `/reset-password#<token>` link. Recovery validates a
 strict email/optional fixed `/reset-password` request body before account lookup;
