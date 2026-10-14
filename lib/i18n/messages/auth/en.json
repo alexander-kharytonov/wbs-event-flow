@@ -79,5 +79,19 @@
   "editProfile": "Edit profile",
   "participation": "Your participation",
   "participationDescription": "View your applications, check their status and find your event details.",
-  "personalDetails": "Personal details"
+  "personalDetails": "Personal details",
+  "forgotPassword": "Forgot password?",
+  "forgotPasswordTitle": "Forgot your password?",
+  "forgotPasswordDescription": "Enter your email to request a password reset link.",
+  "sendResetLink": "Send reset link",
+  "resetRequested": "If this address belongs to an account with a password, a reset link will arrive shortly. Check your inbox and spam folder. You can request another link after a minute.",
+  "resetGoogleHint": "If you registered with Google only, continue signing in with Google.",
+  "resetPasswordTitle": "Reset password",
+  "resetPasswordDescription": "Choose a new password for your Event Flow account.",
+  "newPassword": "New password",
+  "confirmPassword": "Confirm new password",
+  "passwordMismatch": "Passwords do not match.",
+  "invalidResetLink": "This reset link is invalid, expired, or already used. Reopen your email link or request a new one.",
+  "resetSuccess": "Your password has been reset and your existing sessions have been signed out. Sign in with your new password.",
+  "resetThrottled": "Too many attempts. Please wait a minute and try again."
 }

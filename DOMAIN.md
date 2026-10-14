@@ -66,6 +66,60 @@ The one-hour expiry and contextual return destination remain unchanged.
 Source: [verification delivery and consumption](lib/email-verification.ts),
 [Better Auth hooks](lib/auth.ts).
 
+Password recovery uses Better Auth's native `requestPasswordReset`,
+`sendResetPassword` callback and `resetPassword` endpoint. It creates no custom
+reset token or authentication system. Native cryptographic 24-character tokens
+expire after 1800 seconds; Better Auth hashes only `reset-password:` identifiers
+in Verification and atomically consumes them with expiry validation. Other
+verification namespaces and the existing email-verification contract are unchanged.
+Each link is single-use; requesting another link does not extend old links.
+
+Recovery is restricted to existing credential Accounts with a nonempty password.
+Absent and OAuth-only identities receive the same native neutral response without
+issuing a token or sending email. Reset rechecks credential eligibility; an Account
+create hook also rejects native reset attempts to create a credential Account.
+Google linking, last-login-method rules and email verification status are unchanged.
+The native 10–128 password policy remains authoritative. Successful reset deletes
+all existing User sessions through `revokeSessionsOnPasswordReset`; no session is
+created. With this installed Better Auth version, token consumption, password update
+and session deletion are separate operations. A failure after token consumption
+requires a new link; success is returned only after session deletion completes.
+
+HTTP recovery requests require an exact configured application Origin, including
+requests without cookies. Native throttling is enabled in all environments: one
+request-password-reset and five reset-password requests per client-IP bucket in
+60 seconds. It uses the existing process-memory store, resets on restart, and relies
+on the deployment's trusted forwarding of client IPs; it is not a distributed or
+per-account abuse quota. Native origin and cookie security remain enabled elsewhere.
+The recovery UI mirrors the verification form's 60-second resend cooldown after
+success or a rate-limit response, persisting only its deadline in session storage.
+This is advisory UX; native server throttling remains authoritative.
+
+Reset mail uses a canonical `/reset-password#<token>` link. Recovery validates a
+strict email/optional fixed `/reset-password` request body before account lookup;
+unknown fields, query parameters and other redirect destinations are rejected
+identically for every identity. The browser immediately replaces the URL with `/reset-password`
+and retains the token in memory only. Submission sends it in a POST JSON body to
+Better Auth. Native path/query-token reset entry points are rejected. Recovery pages
+use no-referrer, no-store and noindex headers; no analytics, logs or ordinary API
+responses receive reset tokens or password credentials. The native token checker
+runs on submission and returns a clear invalid/expired/used-link state.
+
+Recovery mail is sent from `Event Flow <notifications@eventflow.today>` using the
+existing shared localized template and SMTP/Resend transports. Request UI locale is
+resolved with the same policy as verification. Next.js `after` starts delivery after
+the neutral response so provider latency/failure does not disclose account existence.
+The callback schedules one delivery for the one native token; it never reissues a
+token. A sanitized fixed failure message is logged, without recipient or error data.
+There is no automatic auth-mail retry. The Event Email Outbox requires Communication
+and Event context and is deliberately not used for short-lived authentication mail.
+A process failure before delivery may require another request. SMTP/Resend settings,
+provider pacing, local Mailpit and Event outbox retry behavior remain unchanged.
+
+Sources: [Better Auth configuration](lib/auth.ts),
+[recovery email](lib/password-reset.ts),
+[reset form](features/auth/components/reset-password-form.tsx).
+
 `User` is the single Event Flow identity. `OrganizerProfile` is an optional,
 one-per-User organizer capability. There is no GuestProfile,
 AttendeeProfile, User.role, or isOrganizer domain field/entity.

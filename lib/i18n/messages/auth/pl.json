@@ -79,5 +79,19 @@
   "editProfile": "Edytuj profil",
   "participation": "Udział w wydarzeniach",
   "participationDescription": "Przeglądaj swoje zgłoszenia, sprawdzaj ich status i znajduj informacje o wydarzeniach.",
-  "personalDetails": "Dane osobowe"
+  "personalDetails": "Dane osobowe",
+  "forgotPassword": "Nie pamiętasz hasła?",
+  "forgotPasswordTitle": "Nie pamiętasz hasła?",
+  "forgotPasswordDescription": "Podaj adres e-mail, aby poprosić o link do zresetowania hasła.",
+  "sendResetLink": "Wyślij link",
+  "resetRequested": "Jeśli ten adres należy do konta z hasłem, wkrótce otrzymasz link. Sprawdź skrzynkę odbiorczą i spam. Kolejny link możesz zamówić po minucie.",
+  "resetGoogleHint": "Jeśli konto zostało utworzone tylko przez Google, nadal loguj się przez Google.",
+  "resetPasswordTitle": "Zresetuj hasło",
+  "resetPasswordDescription": "Wybierz nowe hasło do konta Event Flow.",
+  "newPassword": "Nowe hasło",
+  "confirmPassword": "Potwierdź nowe hasło",
+  "passwordMismatch": "Hasła nie są zgodne.",
+  "invalidResetLink": "Ten link jest nieprawidłowy, wygasł lub został już użyty. Otwórz ponownie link z e-maila lub poproś o nowy.",
+  "resetSuccess": "Hasło zostało zresetowane, a dotychczasowe sesje zakończone. Zaloguj się przy użyciu nowego hasła.",
+  "resetThrottled": "Zbyt wiele prób. Poczekaj minutę i spróbuj ponownie."
 }

@@ -7,12 +7,14 @@ import {
   getSessionFromCtx,
 } from "better-auth/api";
 import { NextRequest } from "next/server";
+import { z } from "zod";
 import { defaultLocale, localeCookie, resolveLocale } from "@/lib/i18n/locale";
+import { sendPasswordResetEmail } from "@/lib/password-reset";
 import {
   consumeVerificationToken,
   sendLatestVerificationEmail,
 } from "./email-verification";
-import { getServerEnv } from "./env";
+import { getServerEnv, getTrustedAppOrigins } from "./env";
 import { prisma } from "./prisma";
 import { safeReturnPath } from "./safe-return-path";
 
@@ -68,6 +70,19 @@ export const auth = betterAuth({
     },
   },
   databaseHooks: {
+    account: {
+      create: {
+        async before(_account, ctx) {
+          // Recovery must never turn an OAuth-only identity into a password login.
+          if (ctx?.path === "/reset-password") {
+            throw new APIError("BAD_REQUEST", {
+              code: "INVALID_TOKEN",
+              message: "Invalid token",
+            });
+          }
+        },
+      },
+    },
     user: {
       update: {
         async before(data, ctx) {
@@ -86,14 +101,117 @@ export const auth = betterAuth({
   },
   // Prisma defaults generate UUIDv7 for all auth records.
   advanced: { database: { generateId: false } },
+  verification: {
+    storeIdentifier: {
+      default: "plain",
+      overrides: { "reset-password:": "hashed" },
+    },
+  },
   rateLimit: {
     enabled: true,
     customRules: {
       "/send-verification-email": { window: 60, max: 1 },
+      "/request-password-reset": { window: 60, max: 1 },
+      "/reset-password": { window: 60, max: 5 },
     },
   },
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
+      if (
+        ctx.request &&
+        ["/request-password-reset", "/reset-password"].includes(ctx.path) &&
+        !getTrustedAppOrigins().includes(
+          ctx.request.headers.get("origin") ?? "",
+        )
+      ) {
+        throw new APIError("FORBIDDEN", {
+          code: "INVALID_ORIGIN",
+          message: "Invalid origin",
+        });
+      }
+
+      if (ctx.path === "/request-password-reset") {
+        const input = z
+          .strictObject({
+            email: z.email(),
+            redirectTo: z.literal("/reset-password").optional(),
+          })
+          .safeParse(ctx.body);
+
+        if (
+          !input.success ||
+          (ctx.request && new URL(ctx.request.url).search !== "")
+        ) {
+          throw new APIError("BAD_REQUEST", {
+            code: "INVALID_REQUEST",
+            message: "Invalid recovery request",
+          });
+        }
+
+        // Keep the native neutral response for absent and OAuth-only accounts.
+        const credential = await prisma.account.findFirst({
+          where: {
+            providerId: "credential",
+            NOT: [{ password: null }, { password: "" }],
+            user: { email: input.data.email.toLowerCase() },
+          },
+          select: { id: true },
+        });
+
+        if (!credential) {
+          return ctx.json({
+            status: true,
+            message:
+              "If this email exists in our system, check your email for the reset link",
+          });
+        }
+
+        // Delivery never uses a caller-supplied redirect or Host header.
+        return {
+          context: { body: { ...input.data, redirectTo: "/reset-password" } },
+        };
+      }
+
+      if (
+        ctx.path.startsWith("/reset-password/") ||
+        (ctx.path === "/reset-password" && ctx.query?.token)
+      ) {
+        // Tokens are accepted only in POST bodies, never paths or queries.
+        throw new APIError("BAD_REQUEST", {
+          code: "INVALID_TOKEN",
+          message: "Invalid token",
+        });
+      }
+
+      if (ctx.path === "/reset-password") {
+        const token = ctx.body?.token;
+
+        if (typeof token !== "string" || !/^[A-Za-z0-9]{24}$/.test(token)) {
+          throw new APIError("BAD_REQUEST", {
+            code: "INVALID_TOKEN",
+            message: "Invalid token",
+          });
+        }
+
+        const verification =
+          await ctx.context.internalAdapter.findVerificationValue(
+            `reset-password:${token}`,
+          );
+        const credential = verification
+          ? await ctx.context.internalAdapter.findCredentialAccount(
+              verification.value,
+            )
+          : null;
+
+        if (!credential?.password) {
+          throw new APIError("BAD_REQUEST", {
+            code: "INVALID_TOKEN",
+            message: "Invalid token",
+          });
+        }
+        // Native resetPassword validates expiry and atomically consumes the token.
+      }
+
       if (ctx.path === "/link-social" || ctx.path === "/unlink-account") {
         const session = await getSessionFromCtx(ctx, {
           disableCookieCache: true,
@@ -198,6 +316,11 @@ export const auth = betterAuth({
     requireEmailVerification: true,
     minPasswordLength: 10,
     maxPasswordLength: 128,
+    resetPasswordTokenExpiresIn: 1800,
+    revokeSessionsOnPasswordReset: true,
+    async sendResetPassword(data, request) {
+      await sendPasswordResetEmail(data, await authEmailLocale(request));
+    },
   },
   emailVerification: {
     sendOnSignUp: true,
@@ -205,28 +328,7 @@ export const auth = betterAuth({
     expiresIn: 3600,
     autoSignInAfterVerification: true,
     async sendVerificationEmail({ user, url, token }, request) {
-      let locale = defaultLocale;
-
-      if (request) {
-        const session = await auth.api.getSession({
-          headers: request.headers,
-          query: { disableCookieCache: true, disableRefresh: true },
-        });
-        const account = session
-          ? await prisma.user.findUnique({
-              where: { id: session.user.id },
-              select: { uiLocale: true },
-            })
-          : null;
-        const cookie = new NextRequest(request.url, {
-          headers: request.headers,
-        }).cookies.get(localeCookie)?.value;
-        locale = resolveLocale(
-          account?.uiLocale,
-          cookie,
-          request.headers.get("accept-language"),
-        );
-      }
+      const locale = await authEmailLocale(request);
 
       await sendLatestVerificationEmail(user, url, token, locale);
     },
@@ -237,3 +339,30 @@ export const auth = betterAuth({
     cookieCache: { enabled: false },
   },
 });
+
+async function authEmailLocale(request?: Request) {
+  let locale = defaultLocale;
+
+  if (request) {
+    const session = await auth.api.getSession({
+      headers: request.headers,
+      query: { disableCookieCache: true, disableRefresh: true },
+    });
+    const account = session
+      ? await prisma.user.findUnique({
+          where: { id: session.user.id },
+          select: { uiLocale: true },
+        })
+      : null;
+    const cookie = new NextRequest(request.url, {
+      headers: request.headers,
+    }).cookies.get(localeCookie)?.value;
+    locale = resolveLocale(
+      account?.uiLocale,
+      cookie,
+      request.headers.get("accept-language"),
+    );
+  }
+
+  return locale;
+}
