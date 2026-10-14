@@ -26,5 +26,9 @@
   "viewTicket": "View ticket",
   "schedule": "{start} – {end} ({timezone})",
   "manageApplication": "Manage application",
-  "anonymousApplication": "Your application has been received and is awaiting review. Keep this private link safe: anyone holding it can view this application and withdraw it, including the whole party after approval."
+  "anonymousApplication": "Your application has been received and is awaiting review. Keep this private link safe: anyone holding it can view this application and withdraw it, including the whole party after approval.",
+  "resetSubject": "Reset your password — Event Flow",
+  "resetTitle": "Reset password",
+  "resetIntro": "We received a request to reset your Event Flow password. If you did not request this, ignore this email; your password will stay unchanged.",
+  "resetExpiry": "This single-use link expires in {minutes} minutes. After resetting, sign in again with your new password."
 }

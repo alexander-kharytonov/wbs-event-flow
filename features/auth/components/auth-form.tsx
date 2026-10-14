@@ -314,6 +314,11 @@ export function AuthForm({
               required
               fullWidth
             />
+            {!registering && (
+              <Link href="/forgot-password" sx={{ alignSelf: "flex-end" }}>
+                {t("forgotPassword")}
+              </Link>
+            )}
             {feedback.message && (
               <Alert severity="error">{feedback.message}</Alert>
             )}
@@ -336,9 +341,7 @@ export function AuthForm({
                   : t("signIn")}
             </Button>
             {registering && (
-              <Typography variant="body2" color="text.secondary">
-                {t("verificationRequired")}
-              </Typography>
+              <Alert severity="info">{t("verificationRequired")}</Alert>
             )}
           </Stack>
           {googleEnabled && <Divider>{t("orGoogle")}</Divider>}

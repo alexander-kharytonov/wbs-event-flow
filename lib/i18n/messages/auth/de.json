@@ -79,5 +79,19 @@
   "editProfile": "Profil bearbeiten",
   "participation": "Deine Teilnahme",
   "participationDescription": "Sieh dir deine Anmeldungen an, prüfe ihren Status und finde Informationen zu deinen Events.",
-  "personalDetails": "Persönliche Angaben"
+  "personalDetails": "Persönliche Angaben",
+  "forgotPassword": "Passwort vergessen?",
+  "forgotPasswordTitle": "Passwort vergessen?",
+  "forgotPasswordDescription": "Gib deine E-Mail-Adresse ein, um einen Link zum Zurücksetzen anzufordern.",
+  "sendResetLink": "Link anfordern",
+  "resetRequested": "Wenn diese Adresse zu einem Konto mit Passwort gehört, erhältst du in Kürze einen Link. Prüfe deinen Posteingang und Spamordner. Nach einer Minute kannst du einen weiteren Link anfordern.",
+  "resetGoogleHint": "Wenn du dich nur mit Google registriert hast, melde dich weiterhin mit Google an.",
+  "resetPasswordTitle": "Passwort zurücksetzen",
+  "resetPasswordDescription": "Wähle ein neues Passwort für dein Event Flow-Konto.",
+  "newPassword": "Neues Passwort",
+  "confirmPassword": "Neues Passwort bestätigen",
+  "passwordMismatch": "Die Passwörter stimmen nicht überein.",
+  "invalidResetLink": "Dieser Link ist ungültig, abgelaufen oder bereits verwendet. Öffne den Link aus der E-Mail erneut oder fordere einen neuen an.",
+  "resetSuccess": "Dein Passwort wurde zurückgesetzt und bestehende Sitzungen wurden abgemeldet. Melde dich mit deinem neuen Passwort an.",
+  "resetThrottled": "Zu viele Versuche. Warte eine Minute und versuche es erneut."
 }

@@ -179,6 +179,21 @@ server session lookups bypass cookie caching. `/account` supports name editing;
 email is read-only. Organizer activation is a separate **Become an organizer**
 action. Auth or onboarding GET requests do not create OrganizerProfile.
 
+Password recovery starts at `/forgot-password` from the Sign In link. Mailpit
+receives a localized message with `/reset-password#<token>`. The link expires after
+30 minutes and is single-use. The token is removed from browser history on opening;
+reopen the email after a reload. Reset preserves the 10–128 character policy,
+revokes existing sessions and requires explicit sign-in. Google-only accounts do
+not receive reset links or gain password credentials. Sender is
+`Event Flow <notifications@eventflow.today>` for both SMTP and Resend.
+
+Recovery returns a neutral response before sending mail; check the fixed, sanitized
+server delivery-failure message if mail is missing. It does not use Event Outbox
+or automatic retry. Native limits are one recovery email request and five reset
+submissions per minute per client-IP bucket; memory limits reset on process restart.
+The deployment must forward trustworthy client IPs. No production reset request,
+provider delivery, or production session mutation is part of local verification.
+
 ### Google OAuth
 
 Google is optional. Set both `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` for a
