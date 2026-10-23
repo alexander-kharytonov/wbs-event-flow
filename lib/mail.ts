@@ -15,6 +15,7 @@ const transport = nodemailer.createTransport({
 
 export async function sendMail(
   message: {
+    from?: string;
     to: string;
     subject: string;
     text: string;

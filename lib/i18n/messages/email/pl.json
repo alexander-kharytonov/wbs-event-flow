@@ -26,5 +26,9 @@
   "viewTicket": "Zobacz bilet",
   "schedule": "{start} – {end} ({timezone})",
   "manageApplication": "Zarządzaj zgłoszeniem",
-  "anonymousApplication": "Otrzymaliśmy Twoje zgłoszenie i oczekuje ono na rozpatrzenie. Zachowaj ten prywatny link w tajemnicy: każda osoba, która go posiada, może przeglądać i wycofać zgłoszenie, w tym całą grupę po zatwierdzeniu."
+  "anonymousApplication": "Otrzymaliśmy Twoje zgłoszenie i oczekuje ono na rozpatrzenie. Zachowaj ten prywatny link w tajemnicy: każda osoba, która go posiada, może przeglądać i wycofać zgłoszenie, w tym całą grupę po zatwierdzeniu.",
+  "resetSubject": "Zresetuj hasło — Event Flow",
+  "resetTitle": "Zresetuj hasło",
+  "resetIntro": "Otrzymaliśmy prośbę o zresetowanie hasła do Event Flow. Jeśli to nie Ty, zignoruj tę wiadomość. Twoje hasło pozostanie bez zmian.",
+  "resetExpiry": "Ten jednorazowy link wygasa po {minutes} minutach. Po zresetowaniu zaloguj się nowym hasłem."
 }

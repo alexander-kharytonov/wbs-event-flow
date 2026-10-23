@@ -26,5 +26,9 @@
   "viewTicket": "Ticket ansehen",
   "schedule": "{start} – {end} ({timezone})",
   "manageApplication": "Bewerbung verwalten",
-  "anonymousApplication": "Deine Bewerbung ist eingegangen und wird geprüft. Bewahre diesen privaten Link sicher auf: Jeder mit diesem Link kann die Bewerbung ansehen und zurückziehen, nach der Zusage einschließlich der gesamten Gruppe."
+  "anonymousApplication": "Deine Bewerbung ist eingegangen und wird geprüft. Bewahre diesen privaten Link sicher auf: Jeder mit diesem Link kann die Bewerbung ansehen und zurückziehen, nach der Zusage einschließlich der gesamten Gruppe.",
+  "resetSubject": "Passwort zurücksetzen — Event Flow",
+  "resetTitle": "Passwort zurücksetzen",
+  "resetIntro": "Wir haben eine Anfrage zum Zurücksetzen deines Event Flow-Passworts erhalten. Wenn sie nicht von dir stammt, ignoriere diese E-Mail. Dein Passwort bleibt unverändert.",
+  "resetExpiry": "Dieser einmal verwendbare Link läuft nach {minutes} Minuten ab. Melde dich danach mit deinem neuen Passwort an."
 }

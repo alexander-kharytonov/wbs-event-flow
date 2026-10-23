@@ -23,7 +23,13 @@ export function mailCooldownMs() {
 }
 
 export async function sendResendMail(
-  message: { to: string; subject: string; text: string; html: string },
+  message: {
+    from?: string;
+    to: string;
+    subject: string;
+    text: string;
+    html: string;
+  },
   timeoutMs: number,
   deliveryId?: string,
 ) {
