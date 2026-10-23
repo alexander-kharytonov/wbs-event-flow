@@ -1,0 +1,8 @@
+{
+  "i18n-ally.localesPaths": [
+    "lib/i18n",
+    "lib/i18n/messages",
+    "app/api/preferences/locale",
+    "lib/i18n/messages/locale"
+  ]
+}
